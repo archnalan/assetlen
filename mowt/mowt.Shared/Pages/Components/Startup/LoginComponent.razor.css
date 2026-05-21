@@ -1,0 +1,208 @@
+/* ===== Login Page Layout ===== */
+.login-page {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ===== Brand Panel (Left) ===== */
+.login-brand-panel {
+    width: 55%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a365d 0%, #2c5282 50%, #3182ce 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.login-brand-panel::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+}
+
+.brand-content {
+    position: relative;
+    z-index: 1;
+    max-width: 440px;
+    padding: 2rem;
+    text-align: center;
+}
+
+.brand-logo {
+    margin-bottom: 2rem;
+}
+
+.brand-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 1rem;
+    letter-spacing: -0.02em;
+}
+
+.brand-description {
+    font-size: 1.05rem;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.7;
+    margin: 0 0 2rem;
+}
+
+.brand-features {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    text-align: left;
+    margin-bottom: 2rem;
+}
+
+.brand-feature {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+}
+
+.brand-illustration {
+    opacity: 0.6;
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+/* ===== Form Panel (Right) ===== */
+.login-form-panel {
+    width: 45%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+.form-container {
+    width: 100%;
+    max-width: 380px;
+}
+
+.form-header {
+    margin-bottom: 2rem;
+}
+
+.form-header h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+}
+
+.form-header p {
+    font-size: 0.95rem;
+    color: var(--neutral-foreground-hint);
+    margin: 0;
+}
+
+.startup-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(229, 62, 62, 0.08);
+    border: 1px solid rgba(229, 62, 62, 0.2);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 0.88rem;
+    color: #e53e3e;
+}
+
+/* Auth Divider */
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5rem 0;
+    gap: 1rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--neutral-stroke-rest);
+}
+
+.auth-divider span {
+    font-size: 0.82rem;
+    color: var(--neutral-foreground-hint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+    .login-page {
+        flex-direction: column;
+    }
+
+    .login-brand-panel {
+        width: 100%;
+        height: auto;
+        padding: 3rem 2rem;
+    }
+
+    .brand-illustration {
+        display: none;
+    }
+
+    .brand-features {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .login-form-panel {
+        width: 100%;
+        height: auto;
+        flex: 1;
+        padding: 2rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .login-brand-panel {
+        padding: 2rem 1.25rem;
+    }
+
+    .brand-title {
+        font-size: 1.5rem;
+    }
+
+    .brand-description {
+        font-size: 0.92rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .brand-features {
+        flex-direction: column;
+        margin-bottom: 0;
+    }
+
+    .login-form-panel {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .form-header h2 {
+        font-size: 1.35rem;
+    }
+}

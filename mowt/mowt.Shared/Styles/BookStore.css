@@ -1,0 +1,425 @@
+/* BookStore.css - Shared styles for e-book components */
+
+:root {
+    --book-card-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --book-hover-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    --book-border-radius: 12px;
+    --reading-max-width: 800px;
+    --reading-font-family: Georgia, 'Times New Roman', serif;
+}
+
+/* Global Book Store Styles */
+.book-store-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Card Styles */
+.book-card {
+    transition: var(--book-card-transition);
+    border-radius: var(--book-border-radius);
+    overflow: hidden;
+}
+
+.book-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--book-hover-shadow);
+}
+
+.book-card-content {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Book Cover Styles */
+.book-cover {
+    position: relative;
+    width: 100%;
+    padding-bottom: 150%; /* 2:3 aspect ratio */
+    overflow: hidden;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--neutral-layer-3) 0%, var(--neutral-layer-4) 100%);
+}
+
+.book-cover img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.book-cover-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Typography for Reading */
+.reading-typography {
+    font-family: var(--reading-font-family);
+    line-height: 1.8;
+    text-align: justify;
+}
+
+.reading-typography h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    line-height: 1.2;
+}
+
+.reading-typography h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    line-height: 1.3;
+}
+
+.reading-typography h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.reading-typography h4 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.reading-typography p {
+    margin-bottom: 1.5rem;
+}
+
+.reading-typography blockquote {
+    border-left: 4px solid var(--accent-fill-rest);
+    padding-left: 1.5rem;
+    margin: 2rem 0;
+    font-style: italic;
+    color: var(--neutral-foreground-hint);
+}
+
+.reading-typography img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 2rem auto;
+    display: block;
+}
+
+.reading-typography ul,
+.reading-typography ol {
+    margin-bottom: 1.5rem;
+    padding-left: 2rem;
+}
+
+.reading-typography li {
+    margin-bottom: 0.5rem;
+}
+
+.reading-typography a {
+    color: var(--accent-foreground-rest);
+    text-decoration: underline;
+}
+
+.reading-typography a:hover {
+    text-decoration: none;
+}
+
+.reading-typography code {
+    background: var(--neutral-layer-3);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.reading-typography pre {
+    background: var(--neutral-layer-3);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+}
+
+/* Reader Controls */
+.reader-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    background: var(--neutral-layer-2);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+/* TOC Styles */
+.toc-item {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+}
+
+.toc-item:hover {
+    background: var(--neutral-layer-3);
+}
+
+.toc-item-active {
+    background: var(--accent-fill-rest);
+    color: white;
+}
+
+.toc-item-level-1 {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.toc-item-level-2 {
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding-left: 2rem;
+}
+
+.toc-item-level-3 {
+    font-weight: 400;
+    font-size: 0.9rem;
+    padding-left: 3rem;
+}
+
+/* Progress Indicator */
+.reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--neutral-layer-3);
+    z-index: 1000;
+}
+
+.reading-progress-bar {
+    height: 100%;
+    background: var(--accent-fill-rest);
+    transition: width 0.3s ease;
+}
+
+/* Bookmark Badge */
+.bookmark-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--accent-fill-rest);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Subscription Badge */
+.subscription-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, var(--accent-fill-rest) 0%, var(--accent-fill-hover) 100%);
+    color: white;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+/* Rating Stars */
+.rating-stars {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.rating-star {
+    color: #FFA500;
+    font-size: 1.25rem;
+}
+
+.rating-star-empty {
+    color: var(--neutral-stroke-rest);
+}
+
+/* Skeleton Loading */
+.skeleton-card {
+    background: var(--neutral-layer-2);
+    border-radius: var(--book-border-radius);
+    padding: 1.5rem;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* Responsive Grid */
+.books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+@media (max-width: 768px) {
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+
+    .book-store-container {
+        padding: 1rem;
+    }
+
+    .reading-typography h1 {
+        font-size: 2rem;
+    }
+
+    .reading-typography h2 {
+        font-size: 1.5rem;
+    }
+
+    .reading-typography h3 {
+        font-size: 1.25rem;
+    }
+}
+
+/* Dark Theme Overrides */
+[data-theme="dark"] {
+    --reading-font-family: Georgia, 'Times New Roman', serif;
+}
+
+[data-theme="dark"] .reading-typography {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .book-card {
+    background: var(--neutral-layer-2);
+    border: 1px solid var(--neutral-stroke-rest);
+}
+
+/* Print Styles */
+@media print {
+    .reader-header,
+    .reader-footer,
+    .toc-sidebar,
+    .reader-controls {
+        display: none !important;
+    }
+
+    .reading-area {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .reading-typography {
+        font-size: 12pt;
+        line-height: 1.6;
+    }
+}
+
+/* Highlight Styles */
+.user-highlight {
+    padding: 2px 0;
+    border-radius: 2px;
+}
+
+.highlight-yellow {
+    background-color: rgba(255, 255, 0, 0.3);
+}
+
+.highlight-green {
+    background-color: rgba(0, 255, 0, 0.3);
+}
+
+.highlight-blue {
+    background-color: rgba(0, 128, 255, 0.3);
+}
+
+.highlight-pink {
+    background-color: rgba(255, 0, 255, 0.3);
+}
+
+/* Accessibility */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus styles */
+.book-card:focus-visible,
+.toc-item:focus-visible {
+    outline: 2px solid var(--accent-fill-rest);
+    outline-offset: 2px;
+}
+
+/* Loading spinner overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+/* Success/Error Messages */
+.toast-success {
+    background: var(--success-fill-rest);
+    color: white;
+}
+
+.toast-error {
+    background: var(--error-fill-rest);
+    color: white;
+}
+
+.toast-warning {
+    background: var(--warning-fill-rest);
+    color: white;
+}
+
+/* Premium Features Badge */
+.premium-feature {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: #000;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}

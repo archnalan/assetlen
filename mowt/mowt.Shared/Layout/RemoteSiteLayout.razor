@@ -1,0 +1,102 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Nav
+
+<div class="rs-app">
+    <!-- Top Nav Bar -->
+    <header class="rs-topbar">
+        <div class="rs-topbar-inner">
+            <a href="/portfolio" class="rs-brand">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4M5 21V10.87M19 21V10.87"/>
+                </svg>
+                <span class="rs-brand-text">Remote Site</span>
+            </a>
+
+            <nav class="rs-desktop-nav">
+                <a href="/portfolio" class="rs-nav-link @(IsActive("/portfolio") ? "active" : "")">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    Portfolio
+                </a>
+                <a href="/pm" class="rs-nav-link @(IsActive("/pm") ? "active" : "")">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                    Manager
+                </a>
+            </nav>
+
+            <div class="rs-topbar-actions">
+                <AuthorizeView>
+                    <Authorized>
+                        <button class="rs-avatar-btn" @onclick="ToggleProfileMenu">
+                            <span class="rs-avatar-initials">@GetInitials()</span>
+                        </button>
+                        @if (showProfileMenu)
+                        {
+                            <div class="rs-profile-dropdown">
+                                <a href="/user-profile" class="rs-dropdown-item">Profile</a>
+                                <button class="rs-dropdown-item" @onclick="Logout">Sign Out</button>
+                            </div>
+                        }
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/login" class="rs-btn-signin">Sign In</a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="rs-main">
+        @Body
+    </main>
+
+    <!-- Mobile Bottom Nav -->
+    <nav class="rs-bottomnav">
+        <a href="/portfolio" class="rs-bottomnav-item @(IsActive("/portfolio") ? "active" : "")">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span>Portfolio</span>
+        </a>
+        <a href="/project/create" class="rs-bottomnav-item rs-bottomnav-add">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </a>
+        <a href="/pm" class="rs-bottomnav-item @(IsActive("/pm") ? "active" : "")">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            <span>Manager</span>
+        </a>
+    </nav>
+</div>
+
+<FluentDialogProvider />
+<FluentToastProvider />
+
+@code {
+    private bool showProfileMenu = false;
+
+    private bool IsActive(string path)
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        return uri.AbsolutePath.StartsWith(path, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetInitials()
+    {
+        try
+        {
+            var user = _sd?.CurrentUser;
+            if (user == null) return "?";
+            var first = user.FirstName?.Length > 0 ? user.FirstName[0].ToString() : "";
+            var last = user.LastName?.Length > 0 ? user.LastName[0].ToString() : "";
+            return $"{first}{last}".ToUpper();
+        }
+        catch { return "?"; }
+    }
+
+    private void ToggleProfileMenu() => showProfileMenu = !showProfileMenu;
+
+    private async Task Logout()
+    {
+        showProfileMenu = false;
+        Nav.NavigateTo("/login", true);
+    }
+}

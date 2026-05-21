@@ -1,0 +1,47 @@
+@page "/"
+@inject IFormFactor FormFactor
+
+<PageTitle>ASSETLEN</PageTitle>
+
+<div class="al-home">
+    <div class="al-home__brand">ASSETLEN</div>
+    <p class="al-home__tagline">Real estate project management.</p>
+    <p class="al-home__meta al-muted al-num">
+        Running on <em>@factor</em> · <em>@platform</em>
+    </p>
+</div>
+
+<style>
+    .al-home {
+        display: flex;
+        flex-direction: column;
+        gap: var(--al-space-3);
+        padding: var(--al-space-7) var(--al-space-5);
+        max-width: 48rem;
+        margin: 0 auto;
+    }
+
+    .al-home__brand {
+        font-family: var(--al-font-display);
+        font-size: var(--al-font-size-2xl);
+        font-weight: var(--al-weight-semibold);
+        letter-spacing: -0.02em;
+        color: var(--al-text);
+    }
+
+    .al-home__tagline {
+        font-size: var(--al-font-size-md);
+        color: var(--al-text-muted);
+        margin: 0;
+    }
+
+    .al-home__meta {
+        font-size: var(--al-font-size-sm);
+        margin: 0;
+    }
+</style>
+
+@code {
+    private string factor => FormFactor.GetFormFactor();
+    private string platform => FormFactor.GetPlatform();
+}

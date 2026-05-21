@@ -1,0 +1,234 @@
+﻿@inject ILogger<SearchListMini> _logger
+
+<div style="position: relative; width:100%">
+    <div style="width:100%; position: sticky; top: 0; background: var(--neutral-fill-layer-rest); z-index: 100; ">
+
+        <SearchInput SearchNowMethod="RefreshGridOnSearch" placeHolder="Search for Product..." />
+
+        <FluentDivider Style="margin-bottom:1rem"></FluentDivider>
+    </div>
+    @if (isSearching)
+    {
+        <div style="display:table; position:absolute; background: var(--neutral-fill-layer-rest); table-layout: fixed; width: 100%; height: 30vh; overflow-y: hidden; min-width:fit-content; overflow-y: scroll">
+
+
+            <FluentDataGrid @ref="@myGrid"
+                            ResizableColumns="true"
+                            Id="orderGrid"
+                            Loading="isLoading"
+                            GenerateHeader="GenerateHeaderOption.None"
+                            ShowHover="true"
+                            Virtualize="true"
+                            ItemSize="40"
+                            Style="height: 30vh; overflow-y: auto; position: absolute;z-index: 300; background: var(--neutral-fill-layer-rest); "
+                            ItemsProvider="productDataProvider"
+                            TGridItem="ProductsDto">
+
+                <SelectColumn TGridItem="ProductsDto"
+                              SelectMode="DataGridSelectMode.Single"
+                              SelectFromEntireRow="true"
+                              Property="@(e => e.Selected)"
+                              OnSelect="@(OnSelectItem)" />
+                <PropertyColumn Property="@(c => c!.Id)" Sortable="true" />
+                <PropertyColumn Property="@(c => c!.ProductName)" Width="20%" Sortable="true" />
+                <PropertyColumn Property="@(c => c!.InStock)" Sortable="true" />
+
+                <PropertyColumn Property="@(c => c!.CostInclusive)" Sortable="true" />
+                <PropertyColumn Property="@(c => c!.ReOrderQty)" Sortable="true" />
+            </FluentDataGrid>
+        </div>
+    }
+</div>
+
+
+@code {
+
+    public List<ProductsDto> Data { get; set; } = new();
+    string? comboboxValue = "";
+    private bool isLoading = true;
+    private FluentDataGrid<ProductsDto> myGrid;
+    private string keywords = string.Empty;
+    [Parameter]
+    public bool isSearching { get; set; } = false;
+    private IDialogReference? _dialog;
+    GridItemsProvider<ProductsDto> productDataProvider = default!;
+
+    [Parameter]
+    public EventCallback<ProductsDto> SelectedItem { get; set; }
+
+    private ProductsDto _product = new()
+    {
+
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        productDataProvider = async req =>
+        {
+            isLoading = true;
+            PaginationDetails<ProductsDto> response = null;
+            if (string.IsNullOrEmpty(keywords))
+            {
+
+                response = await FetchProducts(req.StartIndex, req.Count ?? 0, req.SortByColumn?.Title, req.SortByAscending, req.CancellationToken);
+            }
+            else
+            {
+                response = await SearchProducts(keywords, req.StartIndex, req.Count ?? 0, req.SortByColumn?.Title, req.SortByAscending, req.CancellationToken);
+
+            }
+            isLoading = false;
+            if (response is not null)
+            {
+
+                if (response?.Data?.Count() > 0)
+                {
+                    Data = response.Data;
+                }
+                return GridItemsProviderResult.From(
+                items: response!.Data,
+                totalItemCount: (int)response!.TotalSize);
+            }
+
+            return new GridItemsProviderResult<ProductsDto>();
+        };
+        await base.OnInitializedAsync();
+    }
+
+    private async Task OnSelectItem((ProductsDto Item, bool Selected) e)
+    {
+        await SelectedItem.InvokeAsync(e.Item);
+        isSearching = false;
+        await Task.CompletedTask;
+    }
+
+    public async Task RefreshGridOnSearch(string newKeywords)
+    {
+        keywords = newKeywords;
+        await myGrid.RefreshDataAsync();
+    }
+
+    private async Task DeleteProduct()
+    {
+        var selectedProduct = Data!.FirstOrDefault(x => x.Selected);
+        if (selectedProduct is null)
+        {
+            //select first Product
+            ToastService.ShowError("First Select the Product to delete.");
+
+            return;
+        }
+        //confirm delete
+        var confirm = new DialogMessageDto()
+            {
+                DialogMessage = $"You are about to Delete Product with id: {selectedProduct.Id}: \"{selectedProduct.ProductName}\". Please confirm.",
+                DialogTitle = "Delete Product?"
+            };
+        var dialog = await DialogService.ShowDialogAsync<WarningConfirmationRight>(confirm, new DialogParameters<DialogMessageDto>()
+            {
+                Content = confirm,
+                Alignment = HorizontalAlignment.Right,
+                Title = $"Product",
+                DialogType = DialogType.Panel,
+                ShowDismiss = true,
+                PreventDismissOnOverlayClick = true,
+            });
+
+        var confirmDelete = await dialog.Result;
+        if (confirmDelete.Cancelled)
+        {
+            // DemoLogger.WriteLine($"Panel cancelled");
+            return;
+        }
+
+        if (confirmDelete.Data is not null)
+        {
+
+            var result = await _productsApi.DeleteProducts(selectedProduct?.Id!);
+
+            if (result.IsSuccessStatusCode)
+            {
+                //re render the fluent data grid
+                await myGrid!.RefreshDataAsync();
+                //delete success
+                ToastService.ShowSuccess("Delete Successful");
+                return;
+            }
+            ToastService.ShowError("Failed to Delete Product");
+            //errors in deletion popup
+        }
+
+
+    }
+
+    private async Task HandlePanel(DialogResult result)
+    {
+        if (result.Cancelled)
+        {
+            // DemoLogger.WriteLine($"Panel cancelled");
+            return;
+        }
+
+        if (result.Data is not null)
+        {
+            var orderData = result.Data as ProductsDto;
+            Debug.WriteLine($"Panel closed and result is {JsonSerializer.Serialize(orderData)})");
+            ToastService.ShowSuccess("Task completed successfully");
+
+
+            await myGrid.RefreshDataAsync();
+
+            _product = new();
+            StateHasChanged();
+            return;
+        }
+    }
+
+    private async Task<PaginationDetails<ProductsDto>> FetchProducts(int offSet = 0, int limit = 12, string? sortByColumn = null, bool sortAscending = false, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _productsApi.GetProductsFromDB(offSet, limit, sortByColumn, sortAscending, cancellationToken);
+
+            if (result.IsSuccessStatusCode)
+            {
+                return result.Content!;
+            }
+            else
+            {
+                string errorMessage = _apiResponseHandler.GetApiErrorMessage(result);
+                ToastService.ShowError(errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Exception while calling api {Error}",ex);
+        }
+        return new PaginationDetails<ProductsDto>();
+    }
+
+    private async Task<PaginationDetails<ProductsDto>> SearchProducts(string keywords, int offSet = 0, int limit = 12, string? sortByColumn = null, bool sortAscending = false, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _productsApi.SearchProducts(keywords, "", "", "",false,1, offSet, limit, sortByColumn, sortAscending, cancellationToken);
+
+            if (result.IsSuccessStatusCode)
+            {
+                return result.Content!;
+            }
+            else
+            {
+                string errorMessage = _apiResponseHandler.GetApiErrorMessage(result);
+                ToastService.ShowError(errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Exception while calling api {Error}",ex);           
+        }
+
+        return new PaginationDetails<ProductsDto>();
+    }
+
+}

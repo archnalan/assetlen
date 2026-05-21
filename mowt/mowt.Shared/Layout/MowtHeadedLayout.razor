@@ -1,0 +1,226 @@
+﻿@inherits LayoutComponentBase
+
+@inject GlobalContext _globalSession
+@inject NavigationManager _nav
+@* @attribute [Authorize(Roles =$"{UserRoles.AdminModuleLogin}")]*@
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+@inject IFormFactor _formFactor
+@inject CustomAuthStateProvider _custAuth;
+
+<FluentLayout>
+    <FluentDesignTheme @bind-Mode="@Mode" @bind-OfficeColor="@Color" StorageName="mowt-theme" />
+    <div class="mowt-container">
+        <!--header-->
+        <div class="mowt-header">
+            <div class="d-flex flex-column align-items-center pt-3 text-white" style="background-color:var(--mowt-primary-bg)">
+                <div class="p-2 mb-2" style="background:white; border-radius:50%">
+                    <img src="_content/mowt.Shared/Coat_of_arms_of_Uganda.png"
+                         alt="Coat of arms of Uganda"
+                         style="width:2.5rem;height:2.5rem;" />
+                </div>
+                <p class="m-0 fs-6">The Republic of Uganda</p>
+                <p class="m-0 fs-5">Ministry of Works and Transport - DocuHub</p>
+            </div>
+            <div class="w-100" style="height:8px; background:var(--ug-flag-black)" />
+            <div style="height:8px; background:var(--ug-flag-yellow)" />
+            <div style="height:8px; background:var(--ug-flag-red)" />            
+        </div>
+
+        <!-- Navbar - always visible, not sticky on /read pages -->
+        <nav class="navbar navbar-expand-lg shadow-sm @(shouldHideNavbar ? "" : "sticky-top")" style="background:var(--neutral-layer-2); border-bottom:1px solid var(--neutral-stroke-rest);">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/"><FluentIcon Value="@(new Icons.Regular.Size24.Home())" /></a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse justify-content-between" id="navbarNavDropdown">
+                    <div class="w-100 d-flex justify-content-md-center">
+                        <ul class="nav-links flex-column flex-md-row">
+                            <li><NavLink class="nav-link-item" href="/" Match="NavLinkMatch.All" @onclick="CollapseNavbar">Home</NavLink></li>
+                            <li><NavLink class="nav-link-item" href="/documents" @onclick="CollapseNavbar">Library</NavLink></li>
+                           @*<li><NavLink class="nav-link-item" href="/policies">Policies</NavLink></li>
+                            <li><NavLink class="nav-link-item" href="/projects">Projects</NavLink></li> *@
+                            <li><NavLink class="nav-link-item" href="/about" @onclick="CollapseNavbar">About</NavLink></li>
+                            @if (showUser)
+                            {
+                                <li><NavLink class="nav-link-item" href="/my-documents" @onclick="CollapseNavbar">My Books</NavLink></li>
+                            }
+                        </ul>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-end justify-md-start"
+                        style="display:flex; height:3rem; padding-inline-end: 0.75rem;z-index: 1000; align-items:center; gap:0.5rem;">
+                        @if (showUser)
+                        {
+                            <ProfileMenu CompanyName="@CompanyName"
+                                         ImageLink="@ImageLink"
+                                         HandleLogout="@HandleLogout"
+                                         ProfileEmail="@ProfileEmail"
+                                         ProfileFullName="@ProfileFullName" />
+                        }
+                        else
+                        {
+                            <button @onclick="ToggleTheme"
+                                    style="width:2.5rem; height:2.5rem; border-radius:50%; border:1px solid var(--neutral-stroke-rest); background:var(--neutral-layer-1); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s ease;"
+                                    title="@(Mode == DesignThemeModes.Dark ? "Switch to light mode" : "Switch to dark mode")">
+                                @if (Mode == DesignThemeModes.Dark)
+                                {
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.WeatherSunny())" />
+                                }
+                                else
+                                {
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.WeatherMoon())" />
+                                }
+                            </button>
+                            <a href="/login" class="signin-btn">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.Person())" />
+                                <span>Sign In</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!--body-->
+        <div class="mowt-body">
+            @Body
+        </div>
+
+        <!--Footer-->
+        <div class="w-100 p-2 d-flex justify-content-center text-white small" style="background-color:var(--mowt-primary-bg)">
+            Copyright ©@(DateTime.Now.Year) Ministry of Works & Transport E-services. All Rights Reserved
+        </div>
+    </div>
+</FluentLayout>
+
+<FluentDialogProvider />
+<FluentToastProvider MaxToastCount="10" />
+<RouteTracker />
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private bool showUser = false;
+    private bool splashScreen = false;
+    private string? ImageLink;
+    private string? ProfileFullName;
+    private string? ProfileEmail;
+    private string? CompanyName = "MoWT";
+    private IDialogReference? _dialog;
+    private bool shouldHideNavbar = false;
+
+    private OfficeColor? Color = OfficeColor.Word;
+    private IDisposable? _locationChangingRegistration;
+    private DesignThemeModes Mode = DesignThemeModes.Dark;
+
+    private void ToggleTheme()
+    {
+        Mode = Mode == DesignThemeModes.Dark ? DesignThemeModes.Light : DesignThemeModes.Dark;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to location changes
+        _nav.LocationChanged += OnLocationChanged;
+        
+        // Check initial URL
+        CheckCurrentUrl();
+
+        var token = await _storageService.GetItemAsync<LoginResponseDto>(StorageKeys.SessionState);
+        var relativeUri = _nav.ToBaseRelativePath(_nav.Uri);
+
+        // Handle token authentication
+        if (token is not null)
+        {
+            await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(token);
+        }
+
+        var authState = await ((CustomAuthStateProvider)_authStateProvider).GetAuthenticationStateAsync();
+        if (authState?.User?.Identity?.IsAuthenticated ?? false)
+        {
+            var userObj = await _custAuth.GetAuthenticatedUser(token);
+            _sd.SetUser(userObj);
+            var user = _sd.CurrentUser;
+            if (user != null)
+            {
+                showUser = true;
+                ProfileFullName = user.FullName ?? $"{user.FirstName ?? ""} " + $"{user.LastName ?? ""}";
+                ProfileEmail = user.Email;
+            }
+            if (!string.IsNullOrEmpty(relativeUri)) _nav.NavigateTo(relativeUri, false);
+
+        }
+        else
+        {
+            _nav.NavigateTo("/");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeTooltips");
+            await JSRuntime.InvokeVoidAsync("initNavbarCollapse");
+            _locationChangingRegistration = _nav.RegisterLocationChangingHandler(HandleLocationChanging);
+        }
+    }
+
+    private async Task CollapseNavbar()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("collapseNavbar");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit disconnected, ignore
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        CheckCurrentUrl();
+        StateHasChanged();
+    }
+
+    private void CheckCurrentUrl()
+    {
+        var relativeUri = _nav.ToBaseRelativePath(_nav.Uri).ToLower();
+        shouldHideNavbar = relativeUri.EndsWith("read");
+
+        // shouldHideNavbar = relativeUri.EndsWith("/read") ||
+        //                relativeUri.EndsWith("/read/") ||
+        //                relativeUri.Contains("/read?");
+
+    }
+
+    private async Task HandleLogout()
+    {
+        _sd.RemoveUser();
+        await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+        _nav.NavigateTo("/login");
+    }
+
+    public async ValueTask HandleLocationChanging(LocationChangingContext context)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("disposeTooltips");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit disconnected, ignore
+        }
+    }
+
+    public void Dispose()
+    {
+        _nav.LocationChanged -= OnLocationChanged;
+        _locationChangingRegistration?.Dispose();
+    }
+}

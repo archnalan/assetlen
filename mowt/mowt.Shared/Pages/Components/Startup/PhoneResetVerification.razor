@@ -1,0 +1,113 @@
+@using mowt.Shared.Models.Models
+@inject IAuthorizationApi _auth
+@inject ILogger<PhoneResetVerification> _logger
+
+<div class="form-header">
+    <h2>Verify Your Phone</h2>
+    <p>Enter the 6-digit code sent to @PhoneNumber</p>
+</div>
+
+<div class="form-fields" style="margin-top: 1.5rem;">
+    <div class="field-group">
+        <label>Verification Code</label>
+        <FluentTextField @bind-Value="otp" Placeholder="000000" Style="width:100%;" Maxlength="6"
+                         Disabled="@isLoading" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-message" style="color: var(--error-color, #e53e3e); font-size: 14px; margin-top: 0.5rem;">
+            @errorMessage
+        </div>
+    }
+
+    <FluentButton Appearance="Appearance.Accent" Style="width: 100%; min-height: 2.5rem; margin-top: 1rem;"
+                  OnClick="HandleVerify"                  Loading="@isLoading">
+        Verify Code
+    </FluentButton>
+
+    <FluentButton Appearance="Appearance.Outline" Style="width: 100%; min-height: 2.5rem; margin-top: 0.75rem;"
+                  OnClick="OnBackToForgot"                  Disabled="@isLoading">
+        <FluentIcon Value="@(new Icons.Regular.Size16.ArrowLeft())" Style="margin-right: 0.5rem;" />
+        Back
+    </FluentButton>
+</div>
+
+@code {
+    [Parameter] public string PhoneNumber { get; set; } = "";
+    [Parameter] public EventCallback OnBackToForgot { get; set; }
+    [Parameter] public EventCallback<string> OnVerified { get; set; }
+
+    private string otp = "";
+    private string errorMessage = "";
+    private bool isLoading = false;
+
+    private async Task HandleVerify()
+    {
+        try
+        {
+            errorMessage = "";
+
+            if (string.IsNullOrWhiteSpace(otp))
+            {
+                errorMessage = "Please enter the verification code";
+                return;
+            }
+
+            if (otp.Length != 6)
+            {
+                errorMessage = "Code must be 6 digits";
+                return;
+            }
+
+            isLoading = true;
+            StateHasChanged();
+
+            var result = await _auth.VerifyPasswordResetOtp(PhoneNumber, otp);
+
+            if (result.IsSuccessStatusCode)
+            {
+                // The API returns the reset token
+                var resetToken = result.Content;
+                if (!string.IsNullOrEmpty(resetToken))
+                {
+                    await OnVerified.InvokeAsync(resetToken);
+                }
+                else
+                {
+                    errorMessage = "Failed to verify code";
+                }
+            }
+            else
+            {
+                var error = result.Error?.Content;
+                if (!string.IsNullOrEmpty(error))
+                {
+                    try
+                    {
+                        var errorObj = Newtonsoft.Json.JsonConvert.DeserializeObject<Newtonsoft.Json.Linq.JToken>(error);
+                        errorMessage = errorObj?["message"]?.ToString() ?? "Invalid verification code";
+                    }
+                    catch
+                    {
+                        errorMessage = "Invalid verification code";
+                    }
+                }
+                else
+                {
+                    errorMessage = "Invalid verification code";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying code");
+            errorMessage = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,159 @@
+@inject NavigationManager _nav
+@inject ILogger<ForbiddenRedirect> _logger
+
+<div class="forbidden-redirect-overlay">
+    <div class="forbidden-redirect-card">
+        <div class="forbidden-redirect-icon">
+            <FluentIcon Value="@(new Icons.Regular.Size48.LockClosed())" Color="Color.Warning" />
+        </div>
+        <h2 class="forbidden-redirect-title">Access Denied</h2>
+        <p class="forbidden-redirect-message">@Message</p>
+        <p class="forbidden-redirect-countdown">Redirecting in @_countdown second@(_countdown == 1 ? "" : "s")&hellip;
+        </p>
+        <div class="forbidden-redirect-progress-track">
+            <div class="forbidden-redirect-progress-bar" style="width:@_progressPct%;"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .forbidden-redirect-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(4px);
+        animation: forbiddenFadeIn 0.3s ease;
+    }
+
+    @@keyframes forbiddenFadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .forbidden-redirect-card {
+        background: var(--neutral-layer-2, #fff);
+        border: 1px solid var(--neutral-stroke-rest, #ddd);
+        border-radius: 1rem;
+        padding: 2.5rem 3rem;
+        max-width: 420px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+        animation: forbiddenSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @@keyframes forbiddenSlideUp {
+        from {
+            transform: translateY(40px) scale(0.95);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+    }
+
+    .forbidden-redirect-icon {
+        margin-bottom: 1rem;
+    }
+
+    .forbidden-redirect-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--neutral-foreground-rest);
+        margin: 0 0 0.5rem;
+    }
+
+    .forbidden-redirect-message {
+        font-size: 0.92rem;
+        color: var(--neutral-foreground-hint, #888);
+        margin: 0 0 1.25rem;
+    }
+
+    .forbidden-redirect-countdown {
+        font-size: 0.85rem;
+        color: var(--neutral-foreground-hint, #aaa);
+        margin: 0 0 1rem;
+    }
+
+    .forbidden-redirect-progress-track {
+        height: 4px;
+        border-radius: 2px;
+        background: var(--neutral-fill-rest, #e5e5e5);
+        overflow: hidden;
+    }
+
+    .forbidden-redirect-progress-bar {
+        height: 100%;
+        background: var(--accent-fill-rest);
+        border-radius: 2px;
+        transition: width 1s linear;
+    }
+</style>
+
+@code {
+    /// <summary>The message shown to the user. Defaults to a generic access-denied message.</summary>
+    [Parameter]
+    public string Message { get; set; } = "You don't have permission to access this page.";
+
+    /// <summary>Where to redirect after the countdown. Defaults to "/".</summary>
+    [Parameter]
+    public string RedirectTo { get; set; } = "/";
+
+    /// <summary>Countdown seconds before navigating. Defaults to 3.</summary>
+    [Parameter]
+    public int Delay { get; set; } = 3;
+
+    private int _countdown;
+    private double _progressPct = 100;
+    private System.Timers.Timer? _timer;
+
+    protected override void OnParametersSet()
+    {
+        _countdown = Delay;
+        _progressPct = 100;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender) return;
+        _countdown = Delay;
+        _progressPct = 100;
+
+        _timer = new System.Timers.Timer(1000);
+        _timer.Elapsed += async (_, _) =>
+        {
+            _countdown--;
+            _progressPct = Math.Max(0, (_countdown / (double)Delay) * 100);
+
+            if (_countdown <= 0)
+            {
+                _timer?.Stop();
+                _timer?.Dispose();
+                _timer = null;
+                await InvokeAsync(() => _nav.NavigateTo(RedirectTo));
+            }
+            else
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        };
+        _timer.Start();
+    }
+
+    public void Dispose()
+    {
+        _timer?.Stop();
+        _timer?.Dispose();
+    }
+}

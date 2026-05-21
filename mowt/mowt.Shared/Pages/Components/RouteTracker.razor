@@ -1,0 +1,35 @@
+﻿@inject NavigationManager Navigation
+@inject IAppLifecycleHandler AppLifecycleHandler
+@inject IStorageService _storageService;
+@inject NavigatorService NavigatorService
+@code {
+
+    protected override void OnInitialized()
+    {
+        NavigatorService.NavigationManager = _nav;
+
+        _storageService.OnTokenRemoved += OnAuthStateChanged;
+
+        // Set the initial route
+        AppLifecycleHandler.CurrentRoute = Navigation.Uri;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        // Update the route in AppLifecycleHandler
+        AppLifecycleHandler.CurrentRoute = Navigation.Uri;
+    }
+
+    private async void OnAuthStateChanged()
+    {      
+        Navigation.NavigateTo("/login");
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe from location changes and authentication state changes when disposed
+        Navigation.LocationChanged -= OnLocationChanged;
+        _storageService.OnTokenRemoved-= OnAuthStateChanged;
+    }
+}

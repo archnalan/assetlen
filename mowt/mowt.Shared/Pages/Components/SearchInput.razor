@@ -1,0 +1,148 @@
+﻿@using System.Timers;
+
+<FluentSearch @ref=searchTest
+@bind-Value="SearchValue"
+@bind-Value:after="HandleClear"
+@oninput="@(e => SearchValue = e.Value?.ToString())"
+Style="@SearchStyle"
+Class="@SearchClass"
+Placeholder="@placeHolder" 
+Label="@Label"
+AutoComplete="off" Autofocus="Autofocus"/>
+<br />
+
+@code {
+    private Timer? timer = null;
+    private FluentSearch? searchTest;
+    private string selectedValueAfter = string.Empty;
+    [Parameter]
+    public string SelectedValueAfter
+    {
+        get => selectedValueAfter;
+        set
+        {
+            if (!string.IsNullOrEmpty(value) && value != selectedValueAfter)
+            {
+                selectedValueAfter = value;
+                SearchValue = value;
+            }
+        }
+    }
+
+    [Parameter]
+
+    public EventCallback<string?> SearchNowMethod { get; set; }
+
+    [Parameter]
+
+    public string placeHolder { get; set; } = "Search for item...";
+
+    [Parameter]
+    public bool Autofocus { get; set; } = false;
+
+    [Parameter]
+    public string? SearchStyle { get; set; } = "width:100%";
+
+    [Parameter]
+    public string? SearchClass { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+
+    public string? searchValue = string.Empty;
+
+    public void ResetSearchBox()
+    {
+        SearchValue = "";
+        StateHasChanged();
+    }
+
+    public string? SearchValue
+    {
+
+        get => searchValue;
+
+        set
+        {
+            searchValue = value;
+            
+            //if (value == selectedValueAfter) return;
+
+            DisposeTimer();
+
+            timer = new Timer(400);
+
+            timer.Elapsed += TimerElapsed_TickAsync;
+
+            timer.Enabled = true;
+
+            timer.Start();
+
+        }
+
+    }
+
+    private async void TimerElapsed_TickAsync(object? sender, EventArgs e)
+    {
+        DisposeTimer();
+        await InvokeAsync(OnSearch);
+    }
+
+    private void DisposeTimer()
+    {
+
+        if (timer != null)
+        {
+
+            timer.Enabled = false;
+
+            timer.Elapsed -= TimerElapsed_TickAsync;
+
+            timer.Dispose();
+
+            timer = null;
+
+        }
+
+    }
+
+    private async Task OnSearch()
+    {
+        if (SearchNowMethod.HasDelegate)
+        {
+            await SearchNowMethod.InvokeAsync(searchValue);
+        }
+    }
+
+    private void HandleClear()
+    {
+        if (!string.IsNullOrEmpty(SelectedValueAfter))
+        {
+            SearchValue = SelectedValueAfter;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SearchValue))
+            return;
+
+        SearchValue = string.Empty;
+
+    }
+
+    public async Task FocusAsync()
+    {
+        if (searchTest != null && !string.IsNullOrEmpty(searchTest?.Element.Id) )
+        {
+            await searchTest.Element.FocusAsync();
+        }
+    }
+
+    public string GetSearchValue()
+    {
+        return SearchValue ?? "";
+    }
+
+    public void ClearSearchValue() => SearchValue = string.Empty;
+
+}

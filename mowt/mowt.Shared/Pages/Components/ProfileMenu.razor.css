@@ -1,0 +1,25 @@
+.profile-links-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.profile-menu-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--neutral-foreground-rest);
+    text-decoration: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.15s ease;
+}
+
+    .profile-menu-link:hover {
+        background: var(--neutral-layer-3);
+    }

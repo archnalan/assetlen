@@ -1,0 +1,178 @@
+﻿@using System.Linq.Expressions
+@using System.Timers;
+@typeparam TItem
+
+<FluentStack Style="width:100%; position:relative;">
+    <div style="width:100%; background: var(--neutral-fill-layer-rest);">
+        <FluentAutocomplete Id="my-customized"
+                            Label="@ItemLabel"
+                            TOption="TItem"
+                            OnOptionsSearch="onOptionsSearch"
+                            optionText="optionText"
+                            Placeholder="@PlaceHolder"
+                            MaximumSelectedOptions="1"
+                            OptionStyle="min-height: 3rem;"
+                            @bind-SelectedOptions="@ItemDisplay"
+                            @bind-Value="SearchValue"
+                            Width="100%"
+                            @bind-Value:after="HandleClear"
+                            @oninput="AddItem"
+                            MaximumOptionsSearch="10">
+        </FluentAutocomplete>
+    </div>  
+
+    @if (isSearching)
+    {
+        <div style="display:table; position:absolute;margin-top:4rem; background: var(--neutral-fill-layer-rest); table-layout: fixed; width: 100%; height: 30vh; overflow-y: hidden; min-width:fit-content; overflow-y: scroll;">
+
+            <FluentDataGrid Id="orderGrid"
+                            Items="Items"
+                            TGridItem="TItem"
+                            Loading="isLoading"
+                            GenerateHeader="GenerateHeaderOption.None"
+                            ShowHover="true"
+                            Virtualize="true"
+                            ItemSize="40"
+                            Style="max-height: 30vh; overflow-y: auto; position: absolute;z-index: 500; background: var(--neutral-fill-layer-rest); ">
+
+                <SelectColumn TGridItem="TItem"
+                              SelectMode="DataGridSelectMode.Single"
+                              SelectFromEntireRow="true"
+                              OnSelect="@(OnSelectItem)" />
+
+                @foreach (var column in Columns)
+                {
+                    <PropertyColumn Property="@(column.Property)"
+                                    Format="@(column.Format)"
+                                    Sortable="@(column.Sortable)" />
+                }
+            </FluentDataGrid>
+        </div>
+    }
+
+</FluentStack>
+
+@code {
+    [Parameter]
+    public IQueryable<TItem> Items { get; set; } = Enumerable.Empty<TItem>().AsQueryable();
+
+    [Parameter]
+    public List<GridColumn<TItem>> Columns { get; set; } = new List<GridColumn<TItem>>();
+
+    [Parameter]
+    public EventCallback<string> SearchNowMethod { get; set; }
+
+    [Parameter]
+    public string ItemLabel { get; set; } = string.Empty;
+
+    [Parameter]
+    public string PlaceHolder { get; set; } = "Search for item...";
+
+    [Parameter]
+    public Func<TItem, string> optionText { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<TItem> SelectedItem { get; set; }
+
+    [Parameter]
+    public EventCallback<OptionsSearchEventArgs<TItem>> onOptionsSearch { get; set; }
+
+    [Parameter]
+    public IEnumerable<TItem> ItemDisplay { get; set; } = Array.Empty<TItem>();
+
+    [Parameter]
+    public bool isLoading { get; set; } = false;
+
+    private bool isSearching = false;
+    private Timer? timer = null;
+    FluentAutocomplete<TItem> SearchList = default!;
+    private string? searchValue = string.Empty;
+
+    private void AddItem(ChangeEventArgs e)
+    {
+        isSearching = true;
+        SearchValue = e.Value?.ToString();
+    }
+    private async Task OnSelectItem((TItem Item, bool Selected) e)
+    {
+        await SelectedItem.InvokeAsync(e.Item);
+        isSearching = false;
+        await Task.CompletedTask;
+    }
+    public void ResetSearchBox()
+    {
+        SearchValue = "";
+        StateHasChanged();
+    }
+
+    private string? SearchValue
+    {
+        get => searchValue;
+        set
+        {
+            if (value != searchValue)
+            {
+
+                searchValue = value;
+
+                DisposeTimer();
+
+                timer = new Timer(400); // debounce timer
+
+                timer.Elapsed += TimerElapsed_TickAsync;
+
+                timer.Enabled = true;
+
+                timer.Start();
+
+            }
+
+        }
+
+    }
+
+    private async void TimerElapsed_TickAsync(object? sender, EventArgs e)
+    {
+        DisposeTimer();
+        await InvokeAsync(OnSearch);
+    }
+
+    private void DisposeTimer()
+    {
+        if (timer != null)
+        {
+
+            timer.Enabled = false;
+
+            timer.Elapsed -= TimerElapsed_TickAsync;
+
+            timer.Dispose();
+
+            timer = null;
+
+        }
+    }
+
+    private async Task OnSearch()
+    {
+        if (!string.IsNullOrWhiteSpace(SearchValue))
+        {
+            await SearchNowMethod.InvokeAsync(SearchValue);
+        }
+
+        else
+        {
+            await SearchNowMethod.InvokeAsync(SearchValue);
+        }
+    }
+
+    private void HandleClear()
+    {
+        if (string.IsNullOrWhiteSpace(SearchValue))
+
+            return;
+
+        DisposeTimer();
+        SearchValue = string.Empty;
+    }
+}

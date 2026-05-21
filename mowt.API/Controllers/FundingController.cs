@@ -1,0 +1,80 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using mowt.Service.DbServices.ServiceInterfaces;
+using mowt.Shared.Models.Models;
+using mowt.Shared.Models.Models.ViewModels;
+using mowt.Shared.Models.Models.ViewModels.RemoteSiteDtos;
+using mowt.Shared.Models.statics;
+using System.ComponentModel.DataAnnotations;
+
+namespace mowt.API.Controllers;
+
+[Route("api/[controller]/[action]")]
+[ApiController]
+[Authorize(Roles = $"{UserRoles.Investor},{UserRoles.ProjectManager}",
+    AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+public class FundingController : ControllerBase
+{
+    private readonly IFundingDAL _fundingDAL;
+    private readonly ITenantProvider _tenantProvider;
+
+    public FundingController(IFundingDAL fundingDAL, ITenantProvider tenantProvider)
+    {
+        _fundingDAL = fundingDAL;
+        _tenantProvider = tenantProvider;
+    }
+
+    [HttpPost]
+    [ProducesResponseType(typeof(FundingEntryDto), 200)]
+    [Authorize(Roles = UserRoles.Investor, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> AddFundingEntry([FromBody] FundingEntryCreateDto dto)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _fundingDAL.AddFundingEntry(dto, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpPut]
+    [ProducesResponseType(typeof(FundingEntryDto), 200)]
+    [Authorize(Roles = UserRoles.ProjectManager, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> ConfirmFunding([FromBody] FundingConfirmDto dto)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _fundingDAL.ConfirmFunding(dto, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpGet]
+    [ProducesResponseType(typeof(List<FundingEntryDto>), 200)]
+    public async Task<ActionResult> GetFundingByProject([FromQuery][Required] string projectId)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _fundingDAL.GetFundingByProject(projectId, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpGet]
+    [ProducesResponseType(typeof(List<FundingEntryDto>), 200)]
+    public async Task<ActionResult> GetFundingByStage([FromQuery][Required] string stageId)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _fundingDAL.GetFundingByStage(stageId, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpGet]
+    [ProducesResponseType(typeof(List<FundingEntryDto>), 200)]
+    [Authorize(Roles = UserRoles.ProjectManager, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> GetPendingConfirmations()
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _fundingDAL.GetPendingConfirmations(userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+}

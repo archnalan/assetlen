@@ -1,0 +1,513 @@
+@page "/project/{ProjectId}"
+@using mowt.Shared.Models.Models.RemoteSite
+@using mowt.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@layout RemoteSiteLayout
+@attribute [Authorize]
+@inject NavigationManager Nav
+@inject ILogger<ProjectDetail> Logger
+
+<PageTitle>@(project?.ProjectName ?? "Project") — Remote Site</PageTitle>
+
+@if (isLoading)
+{
+    <div class="rs-page-header">
+        <div class="rs-skeleton rs-skeleton-line" style="width:200px;height:28px;"></div>
+    </div>
+    <div class="rs-skeleton rs-skeleton-card" style="height:200px;"></div>
+}
+else if (project == null)
+{
+    <div class="rs-empty">
+        <h3 class="rs-empty-title">Project not found</h3>
+        <p class="rs-empty-desc">This project may have been removed or you don't have access.</p>
+        <a href="/portfolio" class="rs-btn rs-btn-primary">Back to Portfolio</a>
+    </div>
+}
+else
+{
+    <!-- Back + Header -->
+    <div class="rs-page-header">
+        <div>
+            <a href="/portfolio" class="rs-btn rs-btn-link rs-mb-sm" style="padding:0;font-size:0.85rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Portfolio
+            </a>
+            <h1 class="rs-page-title">@project.ProjectName</h1>
+            @if (!string.IsNullOrEmpty(project.Location))
+            {
+                <p class="rs-page-subtitle" style="display:flex;align-items:center;gap:4px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    @project.Location
+                </p>
+            }
+        </div>
+        <span class="rs-risk-badge @(GetRiskClass())">
+            <span class="rs-risk-dot @(GetRiskClass())"></span>
+            @project.Status
+        </span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="rs-tabs">
+        <button class="rs-tab @(activeTab == "overview" ? "active" : "")" @onclick='() => SetTab("overview")'>Overview</button>
+        <button class="rs-tab @(activeTab == "funding" ? "active" : "")" @onclick='() => SetTab("funding")'>Funding</button>
+        <button class="rs-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Progress</button>
+        <button class="rs-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="rs-tab-content">
+        @switch (activeTab)
+        {
+            case "overview":
+                @RenderOverview();
+                break;
+            case "funding":
+                @RenderFunding();
+                break;
+            case "progress":
+                @RenderProgress();
+                break;
+            case "timeline":
+                @RenderTimeline();
+                break;
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private ProjectDto? project;
+    private ProjectAnalyticsDto? analytics;
+    private List<TimelineEntryDto>? timeline;
+    private List<FundingEntryDto>? fundingEntries;
+    private List<ProgressUpdateDto>? progressUpdates;
+    private bool isLoading = true;
+    private string activeTab = "overview";
+    private bool loadingFunding, loadingProgress, loadingTimeline;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProject();
+    }
+
+    private async Task LoadProject()
+    {
+        isLoading = true;
+        try
+        {
+            var response = await _projectsRSApi.GetProjectById(ProjectId);
+            if (response.IsSuccessStatusCode && response.Content != null)
+            {
+                project = response.Content;
+
+                // Load analytics in parallel
+                var analyticsTask = _projectsRSApi.GetProjectAnalytics(ProjectId);
+                var analyticsResp = await analyticsTask;
+                if (analyticsResp.IsSuccessStatusCode)
+                    analytics = analyticsResp.Content;
+            }
+            else
+            {
+                Logger.LogError("Failed loading project: {Error}", _apiResponseHandler.GetApiErrorMessage(response));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading project detail");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SetTab(string tab)
+    {
+        activeTab = tab;
+        switch (tab)
+        {
+            case "funding" when fundingEntries == null:
+                _ = LoadFunding();
+                break;
+            case "progress" when progressUpdates == null:
+                _ = LoadProgress();
+                break;
+            case "timeline" when timeline == null:
+                _ = LoadTimeline();
+                break;
+        }
+    }
+
+    private async Task LoadFunding()
+    {
+        loadingFunding = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await _fundingApi.GetFundingByProject(ProjectId);
+            if (resp.IsSuccessStatusCode)
+                fundingEntries = resp.Content;
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading funding"); }
+        finally { loadingFunding = false; StateHasChanged(); }
+    }
+
+    private async Task LoadProgress()
+    {
+        loadingProgress = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await _progressApi.GetProgressUpdates(ProjectId, null, 0, 20);
+            if (resp.IsSuccessStatusCode)
+                progressUpdates = resp.Content?.Data?.ToList();
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading progress"); }
+        finally { loadingProgress = false; StateHasChanged(); }
+    }
+
+    private async Task LoadTimeline()
+    {
+        loadingTimeline = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectsRSApi.GetProjectTimeline(ProjectId);
+            if (resp.IsSuccessStatusCode)
+                timeline = resp.Content;
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading timeline"); }
+        finally { loadingTimeline = false; StateHasChanged(); }
+    }
+
+    // ─── OVERVIEW TAB ───────────────────────────────────────────────
+    private RenderFragment RenderOverview() => __builder =>
+    {
+        <div class="rs-summary-row">
+            <div class="rs-stat-card">
+                <div class="rs-stat-label">Total Budget</div>
+                <div class="rs-stat-value">@FormatCurrency(project!.TotalBudget ?? 0)</div>
+            </div>
+            <div class="rs-stat-card">
+                <div class="rs-stat-label">Funded</div>
+                <div class="rs-stat-value">@(analytics?.FundingPercentage ?? 0)%</div>
+            </div>
+            <div class="rs-stat-card">
+                <div class="rs-stat-label">Progress</div>
+                <div class="rs-stat-value">@(analytics?.CompletionPercentage ?? 0)%</div>
+            </div>
+            <div class="rs-stat-card">
+                <div class="rs-stat-label">Timeline</div>
+                <div class="rs-stat-value @(analytics?.TimelineVarianceDays > 0 ? "red" : "green")">
+                    @if (analytics?.TimelineVarianceDays > 0) { <text>+@analytics.TimelineVarianceDays d</text> }
+                    else if (analytics != null) { <text>@analytics.TimelineVarianceDays d</text> }
+                    else { <text>—</text> }
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="rs-card rs-mt-md">
+            <div class="rs-card-body">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                    <span class="rs-text-sm rs-text-muted">Overall Progress</span>
+                    <span class="rs-text-sm" style="font-weight:600;">@(analytics?.CompletionPercentage ?? 0)%</span>
+                </div>
+                <div class="rs-progress-bar" style="height:10px;">
+                    <div class="rs-progress-fill @GetProgressColor(analytics?.CompletionPercentage ?? 0)"
+                         style="width:@(Math.Min(analytics?.CompletionPercentage ?? 0, 100))%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stages Breakdown -->
+        @if (project.Stages?.Any() == true)
+        {
+            <h3 class="rs-section-title rs-mt-lg">Stages</h3>
+            @foreach (var stage in project.Stages.OrderBy(s => s.DisplayOrder))
+            {
+                <div class="rs-card rs-mt-sm">
+                    <div class="rs-card-body">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="font-weight:600;">@stage.StageName</div>
+                                <div class="rs-text-xs rs-text-muted">Budget: @FormatCurrency(stage.BudgetAmount ?? 0)</div>
+                            </div>
+                            <span class="rs-stage-badge">@stage.CompletionPercentage%</span>
+                        </div>
+                        <div class="rs-progress-bar rs-mt-sm">
+                            <div class="rs-progress-fill @GetProgressColor(stage.CompletionPercentage ?? 0)"
+                                 style="width:@(Math.Min(stage.CompletionPercentage ?? 0, 100))%"></div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Key Dates -->
+        <div class="rs-card rs-mt-lg">
+            <div class="rs-card-body">
+                <h3 class="rs-card-title">Key Dates</h3>
+                <div class="rs-detail-row">
+                    <span class="rs-text-muted">Expected Start</span>
+                    <span>@(project.ExpectedStartDate?.ToString("MMM dd, yyyy") ?? "—")</span>
+                </div>
+                <div class="rs-detail-row">
+                    <span class="rs-text-muted">Expected Completion</span>
+                    <span>@(project.ExpectedCompletionDate?.ToString("MMM dd, yyyy") ?? "—")</span>
+                </div>
+                @if (project.RevisedCompletionDate.HasValue)
+                {
+                    <div class="rs-detail-row">
+                        <span class="rs-text-muted">Revised Completion</span>
+                        <span style="color:var(--rs-red);">@project.RevisedCompletionDate.Value.ToString("MMM dd, yyyy")</span>
+                    </div>
+                }
+                <div class="rs-detail-row">
+                    <span class="rs-text-muted">Project Manager</span>
+                    <span>@(project.ProjectManagerName ?? "Not assigned")</span>
+                </div>
+            </div>
+        </div>
+    };
+
+    // ─── FUNDING TAB ────────────────────────────────────────────────
+    private RenderFragment RenderFunding() => __builder =>
+    {
+        @if (loadingFunding)
+        {
+            <div class="rs-skeleton rs-skeleton-card" style="height:120px;"></div>
+            <div class="rs-skeleton rs-skeleton-card rs-mt-sm" style="height:120px;"></div>
+        }
+        else if (fundingEntries == null || !fundingEntries.Any())
+        {
+            <div class="rs-empty rs-mt-md">
+                <h3 class="rs-empty-title">No funding entries</h3>
+                <p class="rs-empty-desc">Capital deposits for this project will appear here.</p>
+                <button class="rs-btn rs-btn-primary" @onclick="ShowAddFunding">Record Deposit</button>
+            </div>
+        }
+        else
+        {
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 class="rs-section-title" style="margin:0;">Deposits</h3>
+                <button class="rs-btn rs-btn-primary rs-btn-sm" @onclick="ShowAddFunding">+ Add Deposit</button>
+            </div>
+            <div class="rs-funding-list">
+                @foreach (var entry in fundingEntries.OrderByDescending(f => f.PaymentDate))
+                {
+                    <div class="rs-funding-item">
+                        <div class="rs-funding-header">
+                            <div>
+                                <div class="rs-funding-amount">@FormatCurrency(entry.Amount)</div>
+                                <div class="rs-text-xs rs-text-muted">@(entry.PaymentDate?.ToString("MMM dd, yyyy") ?? "—")</div>
+                            </div>
+                            <span class="rs-funding-status @GetFundingStatusClass(entry.Status)">
+                                @entry.Status
+                            </span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(entry.StageName))
+                        {
+                            <div class="rs-text-xs rs-text-muted rs-mt-xs">
+                                Stage: <span style="font-weight:500;">@entry.StageName</span>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(entry.Notes))
+                        {
+                            <div class="rs-text-xs rs-mt-xs">@entry.Notes</div>
+                        }
+                        @if (entry.Status == FundingStatus.Confirmed && entry.ConfirmedByName != null)
+                        {
+                            <div class="rs-text-xs rs-text-muted rs-mt-xs">
+                                Confirmed by @entry.ConfirmedByName · @entry.ConfirmationDate?.ToString("MMM dd")
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    };
+
+    // ─── PROGRESS TAB ───────────────────────────────────────────────
+    private RenderFragment RenderProgress() => __builder =>
+    {
+        @if (loadingProgress)
+        {
+            <div class="rs-skeleton rs-skeleton-card" style="height:150px;"></div>
+            <div class="rs-skeleton rs-skeleton-card rs-mt-sm" style="height:150px;"></div>
+        }
+        else if (progressUpdates == null || !progressUpdates.Any())
+        {
+            <div class="rs-empty rs-mt-md">
+                <h3 class="rs-empty-title">No progress updates</h3>
+                <p class="rs-empty-desc">Your project manager will post updates with photos here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="rs-progress-feed">
+                @foreach (var update in progressUpdates)
+                {
+                    <div class="rs-progress-entry">
+                        <!-- Header -->
+                        <div class="rs-progress-entry-header">
+                            <div class="rs-avatar-sm">@(update.CreatedByName?[0])</div>
+                            <div>
+                                <div style="font-weight:500;">@update.CreatedByName</div>
+                                <div class="rs-text-xs rs-text-muted">
+                                    @FormatTimeAgo(update.DateTimeCreated) · @(update.StageName ?? "General")
+                                </div>
+                            </div>
+                            @if (update.HasIssues)
+                            {
+                                <span class="rs-risk-badge red" style="margin-left:auto;">
+                                    <span class="rs-risk-dot red"></span>Issue
+                                </span>
+                            }
+                        </div>
+
+                        <!-- Description -->
+                        <p class="rs-progress-description">@update.Description</p>
+
+                        <!-- Completion -->
+                        @if (update.CompletionPercentage > 0)
+                        {
+                            <div class="rs-progress-bar rs-mt-sm" style="height:6px;">
+                                <div class="rs-progress-fill @GetProgressColor(update.CompletionPercentage ?? 0)"
+                                     style="width:@(Math.Min(update.CompletionPercentage ?? 0, 100))%"></div>
+                            </div>
+                            <div class="rs-text-xs rs-text-muted rs-mt-xs">@update.CompletionPercentage% stage completion</div>
+                        }
+
+                        <!-- Images -->
+                        @if (update.Images?.Any() == true)
+                        {
+                            <div class="rs-progress-images rs-mt-sm">
+                                @foreach (var img in update.Images.OrderBy(i => i.DisplayOrder))
+                                {
+                                    <div class="rs-progress-image-thumb" @onclick="() => OpenImageModal(img.ImageUrl)">
+                                        <img src="@(img.ThumbnailUrl ?? img.ImageUrl)" alt="@(img.Caption ?? "Progress photo")" loading="lazy" />
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <!-- Approval Status -->
+                        @if (update.ApprovalStatus.HasValue)
+                        {
+                            <div class="rs-text-xs rs-mt-sm" style="color: @(update.ApprovalStatus == ApprovalStatus.Approved ? "var(--rs-green)" : "var(--rs-yellow)");">
+                                @(update.ApprovalStatus == ApprovalStatus.Approved ? "✓ Approved" : "⚠ Needs Attention")
+                            </div>
+                        }
+
+                        <!-- Comment Count -->
+                        @if (update.Comments?.Any() == true)
+                        {
+                            <div class="rs-text-xs rs-text-muted rs-mt-sm" style="cursor:pointer;">
+                                💬 @update.Comments.Count comment@(update.Comments.Count > 1 ? "s" : "")
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    };
+
+    // ─── TIMELINE TAB ───────────────────────────────────────────────
+    private RenderFragment RenderTimeline() => __builder =>
+    {
+        @if (loadingTimeline)
+        {
+            <div class="rs-skeleton rs-skeleton-card" style="height:300px;"></div>
+        }
+        else if (timeline == null || !timeline.Any())
+        {
+            <div class="rs-empty rs-mt-md">
+                <h3 class="rs-empty-title">No timeline data</h3>
+                <p class="rs-empty-desc">Project timeline will build as stages progress.</p>
+            </div>
+        }
+        else
+        {
+            <div class="rs-timeline">
+                @foreach (var entry in timeline)
+                {
+                    <div class="rs-timeline-item @(entry.IsCompleted ? "completed" : entry.IsCurrent ? "current" : "")">
+                        <div class="rs-timeline-marker"></div>
+                        <div class="rs-timeline-content">
+                            <div class="rs-timeline-title">@entry.Title</div>
+                            @if (!string.IsNullOrEmpty(entry.Description))
+                            {
+                                <div class="rs-text-sm rs-text-muted">@entry.Description</div>
+                            }
+                            <div class="rs-text-xs rs-text-muted rs-mt-xs">
+                                @entry.Date.ToString("MMM dd, yyyy")
+                                @if (!string.IsNullOrEmpty(entry.EventType))
+                                {
+                                    <span> · @entry.EventType</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    };
+
+    // ─── HELPERS ────────────────────────────────────────────────────
+    private bool showAddFunding;
+
+    private void ShowAddFunding()
+    {
+        Nav.NavigateTo($"/project/{ProjectId}/add-funding");
+    }
+
+    private void OpenImageModal(string imageUrl)
+    {
+        // TODO: Open full-screen image viewer
+    }
+
+    private string GetRiskClass()
+    {
+        if (project == null) return "";
+        return project.Status switch
+        {
+            ProjectStatus.Active => "green",
+            ProjectStatus.OnHold => "yellow",
+            ProjectStatus.Cancelled => "red",
+            ProjectStatus.Completed => "green",
+            _ => ""
+        };
+    }
+
+    private string GetFundingStatusClass(FundingStatus status) => status switch
+    {
+        FundingStatus.Confirmed => "confirmed",
+        FundingStatus.Pending => "pending",
+        FundingStatus.Rejected => "rejected",
+        _ => ""
+    };
+
+    private string FormatCurrency(decimal amount)
+    {
+        if (amount >= 1_000_000_000) return $"{amount / 1_000_000_000:N1}B";
+        if (amount >= 1_000_000) return $"{amount / 1_000_000:N1}M";
+        if (amount >= 1_000) return $"{amount / 1_000:N1}K";
+        return amount.ToString("N0");
+    }
+
+    private string FormatTimeAgo(DateTime? date)
+    {
+        if (!date.HasValue) return "—";
+        var diff = DateTime.UtcNow - date.Value;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return date.Value.ToString("MMM dd");
+    }
+
+    private string GetProgressColor(decimal pct) =>
+        pct >= 75 ? "green" : pct >= 40 ? "yellow" : "";
+}

@@ -1,0 +1,342 @@
+@page "/project/create"
+@using mowt.Shared.Models.Models.RemoteSite
+@using mowt.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@layout RemoteSiteLayout
+@attribute [Authorize(Roles = "Investor")]
+@inject NavigationManager Nav
+@inject ILogger<ProjectCreate> Logger
+
+<PageTitle>New Project — Remote Site</PageTitle>
+
+<div class="rs-page-header">
+    <div>
+        <a href="/portfolio" class="rs-btn rs-btn-link" style="padding:0;font-size:0.85rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Portfolio
+        </a>
+        <h1 class="rs-page-title rs-mt-xs">New Project</h1>
+    </div>
+</div>
+
+<!-- Wizard Steps -->
+<div class="rs-wizard-steps">
+    <div class="rs-wizard-step @(step == 1 ? "active" : step > 1 ? "completed" : "")">
+        <div class="rs-wizard-step-num">1</div>
+        <span class="rs-wizard-step-label">Details</span>
+    </div>
+    <div class="rs-wizard-divider @(step > 1 ? "active" : "")"></div>
+    <div class="rs-wizard-step @(step == 2 ? "active" : step > 2 ? "completed" : "")">
+        <div class="rs-wizard-step-num">2</div>
+        <span class="rs-wizard-step-label">Stages</span>
+    </div>
+    <div class="rs-wizard-divider @(step > 2 ? "active" : "")"></div>
+    <div class="rs-wizard-step @(step == 3 ? "active" : "")">
+        <div class="rs-wizard-step-num">3</div>
+        <span class="rs-wizard-step-label">Review</span>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="rs-alert rs-alert-error rs-mt-md">@errorMessage</div>
+}
+
+@switch (step)
+{
+    case 1:
+        @RenderStep1();
+        break;
+    case 2:
+        @RenderStep2();
+        break;
+    case 3:
+        @RenderStep3();
+        break;
+}
+
+@code {
+    private ProjectCreateDto model = new()
+    {
+        Stages = new List<StageCreateDto>(),
+        Currency = "UGX"
+    };
+
+    private int step = 1;
+    private bool isSaving;
+    private string? errorMessage;
+
+    // ─── STEP 1: PROJECT DETAILS ────────────────────────────────────
+    private RenderFragment RenderStep1() => __builder =>
+    {
+        <div class="rs-card rs-mt-md">
+            <div class="rs-card-body">
+                <div class="rs-form-group">
+                    <label class="rs-label">Project Name *</label>
+                    <input class="rs-input" @bind="model.ProjectName" placeholder="e.g. 3-Bedroom Bungalow, Kira" />
+                </div>
+
+                <div class="rs-form-group">
+                    <label class="rs-label">Location</label>
+                    <input class="rs-input" @bind="model.Location" placeholder="e.g. Kira, Wakiso District" />
+                </div>
+
+                <div class="rs-form-row">
+                    <div class="rs-form-group">
+                        <label class="rs-label">Total Budget *</label>
+                        <input class="rs-input" type="number" step="any" @bind="model.TotalBudget" placeholder="0" />
+                    </div>
+                    <div class="rs-form-group">
+                        <label class="rs-label">Currency</label>
+                        <select class="rs-input" @bind="model.Currency">
+                            <option value="UGX">UGX</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="EUR">EUR</option>
+                            <option value="KES">KES</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="rs-form-row">
+                    <div class="rs-form-group">
+                        <label class="rs-label">Expected Start</label>
+                        <input class="rs-input" type="date" @bind="model.ExpectedStartDate" />
+                    </div>
+                    <div class="rs-form-group">
+                        <label class="rs-label">Expected Completion</label>
+                        <input class="rs-input" type="date" @bind="model.ExpectedCompletionDate" />
+                    </div>
+                </div>
+
+                <div class="rs-form-group">
+                    <label class="rs-label">Description</label>
+                    <textarea class="rs-input rs-textarea" @bind="model.Description" rows="3" placeholder="Brief description of the project..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="rs-form-actions rs-mt-md">
+            <a href="/portfolio" class="rs-btn rs-btn-secondary">Cancel</a>
+            <button class="rs-btn rs-btn-primary" @onclick="GoToStep2" disabled="@(!CanProceedStep1)">
+                Next: Add Stages
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+    };
+
+    private bool CanProceedStep1 =>
+        !string.IsNullOrWhiteSpace(model.ProjectName) && model.TotalBudget > 0;
+
+    private void GoToStep2()
+    {
+        if (!CanProceedStep1) return;
+        errorMessage = null;
+
+        // If no stages yet, pre-populate with common construction stages
+        if (model.Stages.Count == 0)
+        {
+            model.Stages = new List<StageCreateDto>
+            {
+                new() { StageName = "Foundation", DisplayOrder = 1 },
+                new() { StageName = "Walling", DisplayOrder = 2 },
+                new() { StageName = "Roofing", DisplayOrder = 3 },
+                new() { StageName = "Finishing", DisplayOrder = 4 }
+            };
+        }
+        step = 2;
+    }
+
+    // ─── STEP 2: STAGES ────────────────────────────────────────────
+    private RenderFragment RenderStep2() => __builder =>
+    {
+        <div class="rs-card rs-mt-md">
+            <div class="rs-card-body">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 class="rs-card-title" style="margin:0;">Construction Stages</h3>
+                    <button class="rs-btn rs-btn-secondary rs-btn-sm" @onclick="AddStage">+ Add Stage</button>
+                </div>
+
+                <div class="rs-text-xs rs-text-muted rs-mb-md">
+                    Total allocated: <strong>@FormatCurrency(model.Stages.Sum(s => s.BudgetAmount ?? 0))</strong>
+                    of @FormatCurrency(model.TotalBudget ?? 0)
+                    @if (RemainingBudget < 0)
+                    {
+                        <span style="color:var(--rs-red);"> (over by @FormatCurrency(Math.Abs(RemainingBudget)))</span>
+                    }
+                    else if (RemainingBudget > 0)
+                    {
+                        <span> (@FormatCurrency(RemainingBudget) unallocated)</span>
+                    }
+                </div>
+
+                @for (int i = 0; i < model.Stages.Count; i++)
+                {
+                    var idx = i;
+                    var stage = model.Stages[idx];
+                    <div class="rs-stage-edit-row">
+                        <div class="rs-stage-edit-num">@(idx + 1)</div>
+                        <div class="rs-stage-edit-fields">
+                            <input class="rs-input" @bind="stage.StageName" placeholder="Stage name" />
+                            <input class="rs-input" type="number" step="any" @bind="stage.BudgetAmount" placeholder="Budget" style="max-width:140px;" />
+                        </div>
+                        <button class="rs-btn rs-btn-icon rs-btn-danger-ghost" @onclick="() => RemoveStage(idx)" title="Remove">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="rs-form-actions rs-mt-md">
+            <button class="rs-btn rs-btn-secondary" @onclick="() => step = 1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+            </button>
+            <button class="rs-btn rs-btn-primary" @onclick="GoToStep3" disabled="@(!CanProceedStep2)">
+                Review & Create
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+    };
+
+    private decimal RemainingBudget => (model.TotalBudget ?? 0) - model.Stages.Sum(s => s.BudgetAmount ?? 0);
+
+    private bool CanProceedStep2 =>
+        model.Stages.Count > 0 && model.Stages.All(s => !string.IsNullOrWhiteSpace(s.StageName));
+
+    private void AddStage()
+    {
+        model.Stages.Add(new StageCreateDto
+        {
+            StageName = "",
+            DisplayOrder = model.Stages.Count + 1
+        });
+    }
+
+    private void RemoveStage(int idx)
+    {
+        model.Stages.RemoveAt(idx);
+        for (int i = 0; i < model.Stages.Count; i++)
+            model.Stages[i].DisplayOrder = i + 1;
+    }
+
+    private void GoToStep3()
+    {
+        if (!CanProceedStep2) return;
+        errorMessage = null;
+        step = 3;
+    }
+
+    // ─── STEP 3: REVIEW & CREATE ────────────────────────────────────
+    private RenderFragment RenderStep3() => __builder =>
+    {
+        <div class="rs-card rs-mt-md">
+            <div class="rs-card-body">
+                <h3 class="rs-card-title">Review Your Project</h3>
+
+                <div class="rs-detail-row">
+                    <span class="rs-text-muted">Project Name</span>
+                    <span style="font-weight:500;">@model.ProjectName</span>
+                </div>
+                <div class="rs-detail-row">
+                    <span class="rs-text-muted">Location</span>
+                    <span>@(model.Location ?? "—")</span>
+                </div>
+                <div class="rs-detail-row">
+                    <span class="rs-text-muted">Budget</span>
+                    <span style="font-weight:600;">@model.Currency @((model.TotalBudget ?? 0).ToString("N0"))</span>
+                </div>
+                <div class="rs-detail-row">
+                    <span class="rs-text-muted">Timeline</span>
+                    <span>@(model.ExpectedStartDate?.ToString("MMM dd, yyyy") ?? "TBD") → @(model.ExpectedCompletionDate?.ToString("MMM dd, yyyy") ?? "TBD")</span>
+                </div>
+
+                <h4 class="rs-section-title rs-mt-md">Stages (@model.Stages.Count)</h4>
+                @foreach (var stage in model.Stages)
+                {
+                    <div class="rs-detail-row">
+                        <span>@stage.DisplayOrder. @stage.StageName</span>
+                        <span>@FormatCurrency(stage.BudgetAmount ?? 0)</span>
+                    </div>
+                }
+
+                @if (RemainingBudget != 0)
+                {
+                    <div class="rs-alert @(RemainingBudget > 0 ? "rs-alert-warning" : "rs-alert-error") rs-mt-md">
+                        @if (RemainingBudget > 0)
+                        {
+                            <text>@FormatCurrency(RemainingBudget) of budget is unallocated to stages.</text>
+                        }
+                        else
+                        {
+                            <text>Stages exceed budget by @FormatCurrency(Math.Abs(RemainingBudget)).</text>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="rs-card rs-mt-sm">
+            <div class="rs-card-body" style="text-align:center;">
+                <div class="rs-text-sm rs-text-muted rs-mb-sm">⚡ Your first project is free — no subscription required.</div>
+            </div>
+        </div>
+
+        <div class="rs-form-actions rs-mt-md">
+            <button class="rs-btn rs-btn-secondary" @onclick="() => step = 2" disabled="@isSaving">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+            </button>
+            <button class="rs-btn rs-btn-primary" @onclick="SubmitProject" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <span class="rs-spinner"></span>
+                    <text>Creating...</text>
+                }
+                else
+                {
+                    <text>Create Project</text>
+                }
+            </button>
+        </div>
+    };
+
+    private async Task SubmitProject()
+    {
+        if (isSaving) return;
+        isSaving = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.CreateProject(model);
+            if (response.IsSuccessStatusCode && response.Content != null)
+            {
+                Nav.NavigateTo($"/project/{response.Content.Id}");
+            }
+            else
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "Failed to create project. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating project");
+            errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatCurrency(decimal amount)
+    {
+        if (amount >= 1_000_000_000) return $"{amount / 1_000_000_000:N1}B";
+        if (amount >= 1_000_000) return $"{amount / 1_000_000:N1}M";
+        if (amount >= 1_000) return $"{amount / 1_000:N1}K";
+        return amount.ToString("N0");
+    }
+}

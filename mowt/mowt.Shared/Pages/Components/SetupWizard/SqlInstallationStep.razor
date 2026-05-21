@@ -1,0 +1,105 @@
+﻿<div class="wizard-step d-flex flex-column gap-2">
+    <h2>SQL Server Setup</h2>
+
+  
+        <FluentRadioGroup Name="sqlInstallOption"
+        ValueChanged="@((bool v )=> SqlInstalledChanged.InvokeAsync((bool)v))"
+        Value="@SqlInstalled">
+            <FluentRadio Value="true">SQL Server is already installed on this computer</FluentRadio>
+            <FluentRadio Value="false">Download and install SQL Server Express</FluentRadio>
+        </FluentRadioGroup>
+
+        <FluentCheckbox @bind-Value="@BrowseSqlExpressSetup" Disabled="(SqlInstalled)"
+        Style="margin-top: 15px;">
+            Do not download. I have the setup file for Sql Express (Check this to browse for the SQL installer locally)
+        </FluentCheckbox>
+
+        @if (BrowseSqlExpressSetup)
+        {
+            <FluentTextField Style="width:90%" Disabled="true" Placeholder="Select SQLExpress Installer" Label="Select SQLExpress Installer" @bind-Value="_selectedFilePath"
+            AutoComplete="off" />
+
+            <FluentButton IconStart="@(new Icons.Regular.Size16.ArrowUpload())" OnClick="@UploadFile"
+            Appearance="Appearance.Neutral" >
+                Select File
+            </FluentButton>
+        }
+
+
+    
+
+    @if (InstallationInProgress)
+    {
+        <div class="installation-progress" style="margin-top: 20px;">
+           <div class="d-flex gap-2"> 
+               <FluentProgress min="0" max="100" value="@InstallationProgress"></FluentProgress>
+            <FluentProgressRing></FluentProgressRing>
+            </div>
+            <br />
+            <p style="margin-top: 10px; " class="small">@InstallationStatus</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string _selectedFilePath { get; set; }
+    [Parameter]
+    public EventCallback<string> SelectedFilePathChanged  { get; set; }
+    bool _browseSqlExpressSetup = false;
+    bool BrowseSqlExpressSetup
+    {
+        get => _browseSqlExpressSetup;
+        set
+        {
+            if (value)
+            {
+                _browseSqlExpressSetup = true;
+                SelectedFilePathChanged.InvokeAsync(string.Empty); // Clear the selected file path when unchecked
+            }
+            else
+            {
+                _browseSqlExpressSetup = false;
+            }
+        }
+
+    }
+    [Parameter]
+    public bool SqlInstalled { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> SqlInstalledChanged { get; set; }
+
+    [Parameter]
+    public bool UseExistingDatabase { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> UseExistingDatabaseChanged { get; set; }
+
+    [Parameter]
+    public bool InstallationInProgress { get; set; }
+
+    [Parameter]
+    public int InstallationProgress { get; set; }
+
+    [Parameter]
+    public string InstallationStatus { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool InstallationComplete { get; set; }
+
+    private async Task UploadFile()
+    {
+        var result = await _fileSaver.PickFileFromSystem();
+        if (result != null)
+        {
+            if (!result.FileName.EndsWith(".exe") || !result.ContentType.Contains("application/")) DialogService.ShowError("Invalid file type. Only Sqlexpress.exe files are supported");
+            // if (new FileInfo(result.FullPath).Length < 100000) DialogService.ShowError("Invalid file size. Expected file is more than 100mbs");
+            else
+            {
+               await SelectedFilePathChanged.InvokeAsync( result.FullPath);
+
+            }
+        }
+    }
+}

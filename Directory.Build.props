@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <BuildBackend Condition="'$(BuildingInsideVisualStudio)' == 'true' 
+                    and '$(BuildingProject)' == 'true'">true</BuildBackend>
+  </PropertyGroup>
+</Project>

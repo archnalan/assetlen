@@ -1,0 +1,49 @@
+networks:
+    sql-server_sql-shared-network:
+        driver: bridge
+        external: true
+    caddy_caddy:
+        external: true
+services:
+    billtrickv2.api:
+        image: docker.io/seanjems/billtrickcentral:billtrickv2api
+        build:
+            context: .
+            dockerfile: BillTrickV2.API/Dockerfile
+        ports:
+            - 8012:8080
+        volumes:
+            - /user/najuna/containers/billtrickv2api/wwwroot:/app/wwwroot
+        environment:
+            - ConnectionStrings__DefaultConnection=Data Source=shared-sql-server;Initial Catalog=mowt-preprod;User ID=sa;Password=Qwe321**
+        networks:
+            - sql-server_sql-shared-network
+        restart: always
+    billtrickv2.web:
+        image: docker.io/seanjems/billtrickcentral:billtrickv2web
+        build:
+            context: .
+            dockerfile: mowt/mowt.Web/Dockerfile
+        ports:
+            - 8013:8080    
+        networks:
+            - caddy_caddy
+        restart: always  
+ 
+    billtrickv2.clients.api:
+        image: docker.io/seanjems/billtrickcentral:billtrickv2clientsapi
+        build:
+            context: .
+            dockerfile: Billtrick.LandingPage.Api/Dockerfile
+        ports:
+            - 8015:8080
+        volumes:
+            - /user/najuna/containers/billtrickv2clientsapi/wwwroot:/app/wwwroot
+        environment:
+            - ConnectionStrings__DefaultConnection=Data Source=shared-sql-server;Initial Catalog=Billtrickv2Clients-prod;User ID=sa;Password=Qwe321**
+        networks:
+            - sql-server_sql-shared-network
+            - caddy_caddy
+        restart: always
+
+

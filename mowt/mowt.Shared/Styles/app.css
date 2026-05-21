@@ -1,0 +1,470 @@
+@import '/_content/Microsoft.FluentUI.AspNetCore.Components/css/reboot.css';
+
+/* =============================================================
+   ASSETLEN — Design tokens
+   Single source of truth. Component .razor.css files must NOT
+   hard-code colors, fonts, radii, durations — always reach for
+   one of these tokens. See /CLAUDE.md for the full charter.
+   ============================================================= */
+
+:root {
+    /* Type */
+    --al-font-display: "Fraunces", "Inter Tight", "Segoe UI Variable", "Segoe UI", serif;
+    --al-font-body: "Inter", "Segoe UI Variable", "Segoe UI", "Segoe UI", sans-serif;
+    --al-font-mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+
+    --al-font-size-xs: 0.75rem;
+    --al-font-size-sm: 0.875rem;
+    --al-font-size-base: 1rem;
+    --al-font-size-md: 1.125rem;
+    --al-font-size-lg: 1.375rem;
+    --al-font-size-xl: 1.75rem;
+    --al-font-size-2xl: 2.25rem;
+
+    --al-leading-tight: 1.2;
+    --al-leading-normal: 1.5;
+    --al-leading-relaxed: 1.7;
+
+    --al-weight-regular: 400;
+    --al-weight-medium: 500;
+    --al-weight-semibold: 600;
+    --al-weight-bold: 700;
+
+    /* Spacing — 4px grid */
+    --al-space-0: 0;
+    --al-space-1: 0.25rem;
+    --al-space-2: 0.5rem;
+    --al-space-3: 0.75rem;
+    --al-space-4: 1rem;
+    --al-space-5: 1.5rem;
+    --al-space-6: 2rem;
+    --al-space-7: 3rem;
+    --al-space-8: 4rem;
+
+    /* Radii */
+    --al-radius-xs: 4px;
+    --al-radius-sm: 6px;
+    --al-radius: 10px;
+    --al-radius-lg: 16px;
+    --al-radius-pill: 999px;
+
+    /* Aspect ratios — architectural, never square */
+    --al-aspect-card: 16 / 10;
+    --al-aspect-thumb: 3 / 2;
+    --al-aspect-hero: 21 / 9;
+    --al-aspect-portrait: 4 / 5;
+
+    /* Motion — one curve, three speeds */
+    --al-ease: cubic-bezier(0.2, 0, 0, 1);
+    --al-transition-fast: 120ms var(--al-ease);
+    --al-transition: 180ms var(--al-ease);
+    --al-transition-slow: 320ms var(--al-ease);
+
+    /* Layout */
+    --al-header-height: 3.5rem;
+    --al-sidenav-width: 16rem;
+    --al-content-max: 84rem;
+}
+
+/* Light theme (default) */
+:root,
+[data-theme="light"] {
+    --al-bg: #fafaf7;
+    --al-bg-elevated: #ffffff;
+    --al-surface: #ffffff;
+    --al-surface-2: #f4f3ee;
+    --al-surface-3: #ebe9e2;
+
+    --al-text: #1a1d21;
+    --al-text-muted: #6b6f76;
+    --al-text-subtle: #9ca0a7;
+    --al-text-inverse: #fafaf7;
+
+    --al-border: rgba(26, 29, 33, 0.08);
+    --al-border-strong: rgba(26, 29, 33, 0.16);
+    --al-border-focus: rgba(194, 84, 42, 0.45);
+
+    --al-accent: #c2542a;
+    --al-accent-hover: #a8451f;
+    --al-accent-soft: #f3dcd0;
+    --al-accent-contrast: #ffffff;
+
+    --al-blueprint: #2f5d8c;
+    --al-blueprint-soft: #dde7f1;
+
+    --al-success: #4a7c3a;
+    --al-success-soft: #dfeed7;
+    --al-warning: #c69430;
+    --al-warning-soft: #f6e8c8;
+    --al-danger: #b54545;
+    --al-danger-soft: #f3d8d8;
+
+    --al-shadow-sm: 0 1px 2px rgba(26, 29, 33, 0.04);
+    --al-shadow: 0 8px 24px rgba(26, 29, 33, 0.10);
+    --al-shadow-lg: 0 24px 48px rgba(26, 29, 33, 0.16);
+
+    --al-shimmer-base: #ebe9e2;
+    --al-shimmer-highlight: rgba(255, 255, 255, 0.65);
+}
+
+/* Dark theme — first-class */
+[data-theme="dark"] {
+    --al-bg: #15171a;
+    --al-bg-elevated: #1c1f23;
+    --al-surface: #1f2227;
+    --al-surface-2: #272a30;
+    --al-surface-3: #2f333a;
+
+    --al-text: #f0eee8;
+    --al-text-muted: #a5a8af;
+    --al-text-subtle: #6e7178;
+    --al-text-inverse: #15171a;
+
+    --al-border: rgba(255, 255, 255, 0.08);
+    --al-border-strong: rgba(255, 255, 255, 0.14);
+    --al-border-focus: rgba(214, 105, 72, 0.55);
+
+    --al-accent: #d66948;
+    --al-accent-hover: #e07a5b;
+    --al-accent-soft: #3a2620;
+    --al-accent-contrast: #15171a;
+
+    --al-blueprint: #5288c0;
+    --al-blueprint-soft: #1f3550;
+
+    --al-success: #73a85e;
+    --al-success-soft: #1f3325;
+    --al-warning: #e0b34a;
+    --al-warning-soft: #3a2e16;
+    --al-danger: #d46060;
+    --al-danger-soft: #3a1f1f;
+
+    --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --al-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+    --al-shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.55);
+
+    --al-shimmer-base: #272a30;
+    --al-shimmer-highlight: rgba(255, 255, 255, 0.06);
+}
+
+/* Respect OS preference when no explicit theme is set */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --al-bg: #15171a;
+        --al-bg-elevated: #1c1f23;
+        --al-surface: #1f2227;
+        --al-surface-2: #272a30;
+        --al-surface-3: #2f333a;
+        --al-text: #f0eee8;
+        --al-text-muted: #a5a8af;
+        --al-text-subtle: #6e7178;
+        --al-text-inverse: #15171a;
+        --al-border: rgba(255, 255, 255, 0.08);
+        --al-border-strong: rgba(255, 255, 255, 0.14);
+        --al-border-focus: rgba(214, 105, 72, 0.55);
+        --al-accent: #d66948;
+        --al-accent-hover: #e07a5b;
+        --al-accent-soft: #3a2620;
+        --al-accent-contrast: #15171a;
+        --al-blueprint: #5288c0;
+        --al-blueprint-soft: #1f3550;
+        --al-success: #73a85e;
+        --al-success-soft: #1f3325;
+        --al-warning: #e0b34a;
+        --al-warning-soft: #3a2e16;
+        --al-danger: #d46060;
+        --al-danger-soft: #3a1f1f;
+        --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+        --al-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+        --al-shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.55);
+        --al-shimmer-base: #272a30;
+        --al-shimmer-highlight: rgba(255, 255, 255, 0.06);
+    }
+}
+
+/* =============================================================
+   Base / reset
+   ============================================================= */
+
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: var(--al-bg);
+    color: var(--al-text);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-base);
+    line-height: var(--al-leading-normal);
+    font-weight: var(--al-weight-regular);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+    font-family: var(--al-font-display);
+    font-weight: var(--al-weight-semibold);
+    line-height: var(--al-leading-tight);
+    letter-spacing: -0.01em;
+    margin: 0;
+}
+
+h1 { font-size: var(--al-font-size-2xl); }
+h2 { font-size: var(--al-font-size-xl); }
+h3 { font-size: var(--al-font-size-lg); }
+h4 { font-size: var(--al-font-size-md); }
+
+a {
+    color: var(--al-text);
+    text-decoration: none;
+    transition: color var(--al-transition-fast);
+}
+
+a:hover {
+    color: var(--al-accent);
+}
+
+a:focus-visible {
+    outline: 2px solid var(--al-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--al-radius-xs);
+}
+
+/* Tabular figures for any element marked numeric */
+.al-num,
+table.al-numeric td,
+.al-money {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+/* =============================================================
+   App shell layout helpers
+   ============================================================= */
+
+.app-root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.app-body {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+.body-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    background: var(--al-bg);
+}
+
+.body-display {
+    max-width: var(--al-content-max);
+    margin: 0 auto;
+    padding: var(--al-space-5) var(--al-space-5);
+}
+
+.app-footer {
+    background: var(--al-bg-elevated);
+    color: var(--al-text-muted);
+    padding: var(--al-space-3) var(--al-space-5);
+    font-size: var(--al-font-size-xs);
+    border-top: 1px solid var(--al-border);
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+}
+
+.footer-spacer { flex: 1 1 auto; }
+
+/* =============================================================
+   Utility classes — promoted from per-component duplication
+   ============================================================= */
+
+.al-card {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    overflow: hidden;
+    transition: border-color var(--al-transition), transform var(--al-transition);
+}
+
+.al-card:hover {
+    border-color: var(--al-border-strong);
+}
+
+.al-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+}
+
+.al-row {
+    display: flex;
+    flex-direction: row;
+    gap: var(--al-space-3);
+    align-items: center;
+}
+
+.al-muted { color: var(--al-text-muted); }
+.al-subtle { color: var(--al-text-subtle); }
+
+.al-divider {
+    height: 1px;
+    background: var(--al-border);
+    border: 0;
+    margin: var(--al-space-4) 0;
+}
+
+/* Ghost / shimmer placeholder for remote media loads */
+.al-shimmer {
+    background: var(--al-shimmer-base);
+    background-image: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--al-shimmer-highlight) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: al-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes al-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Aspect-ratio ghost frames (matches --al-aspect-*) */
+.al-ghost-card    { aspect-ratio: var(--al-aspect-card); border-radius: var(--al-radius); }
+.al-ghost-thumb   { aspect-ratio: var(--al-aspect-thumb); border-radius: var(--al-radius-sm); }
+.al-ghost-hero    { aspect-ratio: var(--al-aspect-hero); border-radius: var(--al-radius-lg); }
+
+/* =============================================================
+   Status badges (Flag states, Timeline states)
+   ============================================================= */
+
+.al-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    padding: var(--al-space-1) var(--al-space-2);
+    border-radius: var(--al-radius-pill);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.al-badge--success { background: var(--al-success-soft); color: var(--al-success); }
+.al-badge--warning { background: var(--al-warning-soft); color: var(--al-warning); }
+.al-badge--danger  { background: var(--al-danger-soft); color: var(--al-danger); }
+.al-badge--accent  { background: var(--al-accent-soft); color: var(--al-accent); }
+.al-badge--blueprint { background: var(--al-blueprint-soft); color: var(--al-blueprint); }
+.al-badge--neutral { background: var(--al-surface-2); color: var(--al-text-muted); }
+
+/* =============================================================
+   Blazor error UI
+   ============================================================= */
+
+#blazor-error-ui {
+    background: var(--al-warning-soft);
+    color: var(--al-text);
+    border-top: 1px solid var(--al-warning);
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: var(--al-space-3) var(--al-space-5);
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: var(--al-space-3);
+    top: var(--al-space-2);
+}
+
+.blazor-error-boundary {
+    background: var(--al-danger);
+    color: var(--al-text-inverse);
+    padding: var(--al-space-4);
+    border-radius: var(--al-radius-sm);
+}
+
+.blazor-error-boundary::before {
+    content: "An error has occurred. ";
+    font-weight: var(--al-weight-semibold);
+}
+
+/* =============================================================
+   Loading progress (Blazor WASM bootstrap)
+   ============================================================= */
+
+.loading-progress {
+    position: relative;
+    display: block;
+    width: 8rem;
+    height: 8rem;
+    margin: 20vh auto 1rem auto;
+}
+
+.loading-progress circle {
+    fill: none;
+    stroke: var(--al-surface-2);
+    stroke-width: 0.6rem;
+    transform-origin: 50% 50%;
+    transform: rotate(-90deg);
+}
+
+.loading-progress circle:last-child {
+    stroke: var(--al-accent);
+    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+    transition: stroke-dasharray 0.05s ease-in-out;
+}
+
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    font-weight: var(--al-weight-semibold);
+    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+    color: var(--al-text-muted);
+}
+
+.loading-progress-text:after {
+    content: var(--blazor-load-percentage-text, "Loading");
+}
+
+code {
+    font-family: var(--al-font-mono);
+    color: var(--al-accent);
+    background: var(--al-surface-2);
+    padding: 0.1em 0.35em;
+    border-radius: var(--al-radius-xs);
+    font-size: 0.9em;
+}
+
+/* =============================================================
+   Mobile-first responsive — components should work at 360px
+   ============================================================= */
+
+@media (max-width: 600px) {
+    .body-display {
+        padding: var(--al-space-3) var(--al-space-3);
+    }
+
+    .app-body {
+        flex-direction: column !important;
+    }
+}

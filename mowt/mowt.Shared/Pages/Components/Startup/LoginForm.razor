@@ -1,0 +1,70 @@
+﻿@using mowt.Shared.Models.Models
+@inject ILogger<LoginForm> _logger
+
+<FluentEditForm EditContext="@EditContext" OnValidSubmit="HandleFormSubmit" novalidate>
+    <FluentTextField Size="30" Placeholder="Email or username" @bind-Value="LoginDto.Email"
+                     Style="width: 100%; margin-bottom: 1rem;" AutoComplete="off">
+        <FluentIcon Value="@(new Icons.Regular.Size16.Person())" Slot="start" Color="Color.Neutral" />
+    </FluentTextField>
+
+    <FluentTextField Size="30" Placeholder="Password" @bind-Value="LoginDto.Password" Type="password"
+                     Style="width: 100%; margin-bottom: 0.5rem;"                     @onkeydown="@(e => HandleKeyDown(e, () => HandleFormSubmit()))"
+                     AutoComplete="off">
+        <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Slot="start" Color="Color.Neutral" />
+    </FluentTextField>
+
+    @if (OnForgotPassword.HasDelegate)
+    {
+        <div style="text-align: right; margin-bottom: 1rem;">
+            <a href="javascript:void(0)" @onclick="OnForgotPassword"
+                   style="font-size: 14px; color: var(--accent-fill-rest); text-decoration: none;">
+                Forgot password?
+            </a>
+        </div>
+    }
+
+    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@isLoading"
+                  IconEnd="@(new Icons.Regular.Size20.ArrowEnter())"                  Style="width: 100%; min-height: 2.5rem; font-weight: 600;"
+                  OnClick="HandleFormSubmit">
+        Sign In
+    </FluentButton>
+
+    <div style="min-height: 2rem; margin-top: 0.75rem;">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+    </div>
+</FluentEditForm>
+
+@code {
+    [Parameter] public UserLogin LoginDto { get; set; } = default!;
+    [Parameter] public EventCallback HandleLogin { get; set; }
+    [Parameter] public EventCallback ClearErrors { get; set; }
+    [Parameter] public EditContext EditContext { get; set; } = default!;
+    [Parameter] public bool isLoading { get; set; }
+    [Parameter] public EventCallback OnForgotPassword { get; set; }
+
+    private bool _isFirstSubmit = true;
+
+    private async Task HandleFormSubmit()
+    {
+        if (_isFirstSubmit)
+        {
+            _isFirstSubmit = false;
+            return;
+        }
+        await ClearErrors.InvokeAsync();
+        if (isLoading) return;
+        isLoading = true;
+        await HandleLogin.InvokeAsync();
+        isLoading = false;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e, Func<Task> submitAction)
+    {
+        if (e.Key == "Enter")
+        {
+            await Task.Delay(100);
+            await submitAction.Invoke();
+        }
+    }
+}

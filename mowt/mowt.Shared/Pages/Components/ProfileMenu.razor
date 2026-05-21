@@ -1,0 +1,161 @@
+﻿@using mowt.Shared.Models.UpdateManger
+@inject ILogger<ProfileMenu> logger
+@inject NavigationManager _navMenu
+
+<FluentDesignTheme @bind-Mode="@Mode" @bind-OfficeColor="@Color" StorageName="mowt-theme" />
+<FluentProfileMenu 
+        Image="@ImageLink"
+        HeaderLabel="@CompanyName" 
+        Initials="@ProfileInitials" 
+        PopoverStyle="@(_locationChanged ? "display:none" : "min-width: 320px;")" 
+        HeaderButton="Sign out"
+        OnHeaderButtonClick="HandleLogout">
+    <ChildContent>
+        <div style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0;">
+            @if (string.IsNullOrEmpty(ImageLink))
+            {
+                <div style="width:2.75rem; height:2.75rem; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--accent-fill-rest); color:var(--neutral-foreground-on-accent); font-weight:700; font-size:1rem;">
+                    @ProfileInitials
+                </div>
+            }
+            else
+            {
+                <img style="width:2.75rem; height:2.75rem; border-radius:50%; object-fit:cover; border:2px solid var(--neutral-stroke-rest);" src="@ImageLink" alt="Profile" />
+            }
+            <div style="flex:1; min-width:0;">
+                <FluentLabel Typo="@Typography.Body" Style="font-weight:700; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@ProfileFullName</FluentLabel>
+                <FluentLabel Typo="@Typography.Body" Style="font-size:0.8rem; color:var(--neutral-foreground-hint); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@ProfileEmail</FluentLabel>
+            </div>
+        </div>
+    </ChildContent>
+    <FooterTemplate>
+        <FluentDesignTheme @bind-Mode="@Mode" @bind-officeColor="Color" StorageName="" />
+        <div style="display:flex; flex-direction:column; gap:0.15rem; padding:0.25rem 0;">
+            <!-- Navigation Links -->
+            <div class="profile-links-section">
+                <button class="profile-menu-link" @onclick="@(() => NavigateTo("/user-profile"))">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Person())" />
+                    <span>View Profile</span>
+                </button>
+                <button class="profile-menu-link" @onclick="@(() => NavigateTo("/documents/favorites"))">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Heart())" />
+                    <span>Favorites</span>
+                </button>
+                @if (IsInAdminArea)
+                {
+                    <button class="profile-menu-link" @onclick="@(() => NavigateTo("/"))">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.Library())" />
+                        <span>Library</span>
+                    </button>
+                }
+                else if ( _sd.CurrentUser?.RolesDto?.AdminModuleLogin ?? false)
+                {
+                    <button class="profile-menu-link" @onclick="@(() => NavigateTo("/admin/dashboard"))">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.Board())" />
+                        <span>Dashboard</span>
+                    </button>
+                }
+                <button class="profile-menu-link" @onclick="@(() => NavigateTo("/subscription"))">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Premium())" />
+                    <span>Subscription</span>
+                </button>
+            </div>          
+
+            <FluentDivider Style="margin:0.35rem 0;" />
+
+            <!-- Theme Controls -->
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:0.25rem 0.15rem;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    @if (Mode == DesignThemeModes.Light)
+                    {
+                        <FluentIcon Value="@(new Icons.Regular.Size20.WeatherSunny())" />
+                    }
+                    else
+                    {
+                        <FluentIcon Value="@(new Icons.Regular.Size20.WeatherMoon())" />
+                    }
+                    <span style="font-size:0.85rem; color:var(--neutral-foreground-rest);">Theme</span>
+                </div>
+                <FluentSwitch @bind-Value="ModeChange" Style="margin:0;">
+                    <span slot="checked-message">Light</span>
+                    <span slot="unchecked-message">Dark</span>
+                </FluentSwitch>
+            </div>
+
+            <!-- Color Accents -->
+            <div style="display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0.15rem;">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Color())" />
+                <span style="font-size:0.85rem; color:var(--neutral-foreground-rest);">Accent</span>
+                <div style="display:flex; gap:0.35rem; margin-left:auto;">
+                    @foreach (var color in new OfficeColor?[] { OfficeColor.Word, OfficeColor.Excel, OfficeColor.Access })
+                    {
+                        <button style="width:24px; height:24px; border-radius:50%; border:2px solid @(Color == color ? "var(--accent-fill-rest)" : "transparent"); background:@GetColorDescription(color); cursor:pointer; transition:border-color 0.2s ease; padding:0;"
+                            @onclick="() => Color = color"
+                            title="@GetAccentLabel(color)">
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </FooterTemplate>
+</FluentProfileMenu>
+
+@code {
+    [Parameter]
+    public string? ImageLink { get; set; }
+    [Parameter]
+    public string? ProfileFullName { get; set; }
+    [Parameter]
+    public string? ProfileEmail { get; set; }
+    [Parameter]
+    public string? CompanyName { get; set; } = "MoWT";
+    [Parameter]
+    public EventCallback HandleLogout { get; set; }
+    private bool _locationChanged = false;
+
+    private string ProfileInitials => string.IsNullOrWhiteSpace(ProfileFullName)
+        ? ""
+        : string.Concat(ProfileFullName.Split(" ")
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x[0].ToString().ToUpper()));
+
+    private DesignThemeModes Mode = DesignThemeModes.Dark;
+    private OfficeColor? Color = OfficeColor.Word;
+
+    private bool IsInAdminArea => _navMenu.Uri.Contains("/admin", StringComparison.OrdinalIgnoreCase);
+
+    private bool ModeChange
+    {
+        get => Mode == DesignThemeModes.Light;
+        set => Mode = value ? DesignThemeModes.Light : DesignThemeModes.Dark;
+    }
+
+    private void NavigateTo(string url)
+    {
+        //_locationChanged = true;
+        StateHasChanged();
+        _navMenu.NavigateTo(url);
+    }
+
+    private string GetAccentLabel(OfficeColor? color)
+    {
+        return color switch
+        {
+            OfficeColor.Word => "Steady",
+            OfficeColor.Excel => "Thrive",
+            OfficeColor.Access => "Blaze",
+            _ => ""
+        };
+    }
+
+    private string GetColorDescription(OfficeColor? color)
+    {
+        return color switch
+        {
+            OfficeColor.Word => "#185ABD",
+            OfficeColor.Excel => "#107C41",
+            OfficeColor.Access => "#A4373A",
+            _ => string.Empty
+        };
+    }
+}

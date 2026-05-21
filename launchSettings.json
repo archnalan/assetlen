@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Docker Compose": {
+      "commandName": "DockerCompose",
+      "commandVersion": "1.0",
+      "serviceActions": {
+        "billtrickv2.api": "StartDebugging",
+        "billtrickv2.web": "StartDebugging"
+      }
+    }
+  }
+}

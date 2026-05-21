@@ -1,0 +1,74 @@
+﻿@using Radzen
+@using Radzen.Blazor
+
+<div style="@styleContainer">
+    <RadzenLabel Text="@Title" Component="DropDownVirtualizationLoadData" Style="@StyleLabel" />
+    <RadzenDropDown @bind-value="@value"
+    Data=@items
+    Count="@count"
+    Placeholder="@placeHolder"
+    LoadData=@LoadData
+    AllowVirtualization="true"
+    Change="@OnSelectedItemChanged"                    
+    AllowClear="true" Name="DropDownVirtualizationLoadData"
+    AllowFiltering="true" TextProperty="@nameof(ComboBoxDto.ValueText)"
+    ValueProperty="@nameof(ComboBoxDto.IdString)" Style="@styleInput" Disabled="Disabled" />
+</div>
+
+@code {
+    IEnumerable<ComboBoxDto> items = Enumerable.Empty<ComboBoxDto>();
+    private int count = 9;
+    private bool isLoading = true;
+    public string value = "";
+
+    [Parameter]
+    public Func<string, int, int, string, bool, CancellationToken, Task<PaginationDetails<ComboBoxDto>>> LoadItems { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+    private string StyleLabel => $"{(Disabled ? "opacity:50%" : "")}; {styleLabel}";
+
+    [Parameter]public string styleContainer { get; set; } = "";
+    [Parameter]public string styleLabel { get; set; } = "";
+    [Parameter] public string styleInput { get; set; } = "";
+    [Parameter] public string placeHolder { get; set; } = "";
+    [Parameter]public bool Disabled { get; set; } = false;
+
+    [Parameter] 
+    public EventCallback<ComboBoxDto> ItemChanged { get; set; }
+
+    private async Task OnSelectedItemChanged()
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            var item = items.FirstOrDefault(x => x.IdString == value);
+            await ItemChanged.InvokeAsync(item);
+        }
+        else{
+            await ItemChanged.InvokeAsync(null);
+        }
+    }
+    async Task LoadData(LoadDataArgs args)
+    {
+        await Task.Yield();
+
+        var offset = args.Skip.HasValue ? args.Skip.Value : 0;
+        var keywords = args.Filter ?? "";
+
+        var limit = args.Top.HasValue ? args.Top.Value : 10;
+
+        isLoading = true;
+        var response = await LoadItems(keywords, offset, limit,"",false, CancellationToken.None);
+        items = response.Data;
+        isLoading = false;
+        count = (int)response.TotalSize;
+
+    }
+    public void ClearValue() => value = "";    
+    
+    public async Task RefreshSearch()
+    {
+        value = "";
+        await OnSelectedItemChanged();
+    }
+}

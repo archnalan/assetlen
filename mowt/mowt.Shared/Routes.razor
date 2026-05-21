@@ -1,0 +1,76 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inject IStorageService _storageService
+@inject NavigationManager _navigationManager
+@inject AuthenticationStateProvider _authStateProvider
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Layout.MainLayout).Assembly" >
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    @{
+                        // _navigationManager.NavigateTo("/login");
+                    }
+                    <p>Redirecting to login...</p>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(Layout.MainLayout)">
+                <p>Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@* @code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Save current URI before refresh
+        // await _storageService.SetItemAsync("previousUri", _navigationManager.Uri);
+    }
+
+    private async Task OnNavigateAsync(NavigationContext context)
+    {
+        var path = context.Path.ToLowerInvariant();
+        
+        await _storageService.SetItemAsync("previousUri", path);
+        // Clear token when navigating to /login
+        // if (path == "login")
+        // {
+        //     await _storageService.RemoveItemAsync("sessionState");
+        // }
+    }
+
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+    //     if (firstRender)
+    //     {
+    //         var token = await _storageService.GetItemAsync<LoginResponseDto>("sessionState");
+    //         var relativeUri = _navigationManager.ToBaseRelativePath(_navigationManager.Uri);
+
+    //         // Handle token authentication
+    //         if (token is not null)
+    //         {
+    //             await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(token);
+    //         }
+
+    //         // Handle root path redirection
+    //         if (string.IsNullOrEmpty(relativeUri))
+    //         {
+    //             _navigationManager.NavigateTo(token is not null ? "/dashboard" : "/login");
+    //         }
+    //         // Handle refresh scenario
+    //         // else if (token is not null)
+    //         // {
+    //         //     var previousUri = await _storageService.GetItemAsync<string>("previousUri");
+    //         //     if (!string.IsNullOrEmpty(previousUri) && previousUri != _navigationManager.Uri)
+    //         //     {
+    //         //         _navigationManager.NavigateTo(previousUri);
+    //         //     }
+    //         // }
+    //     }
+    // }
+} *@
+

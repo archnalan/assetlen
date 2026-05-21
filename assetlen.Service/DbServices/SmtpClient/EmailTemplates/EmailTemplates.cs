@@ -1,6 +1,6 @@
 ﻿using assetlen.Shared.Models.Models.ViewModels;
 
-namespace mowt.Web.Controllers.SmtpClient
+namespace assetlen.Service.DbServices.SmtpClient
 {
     public class EmailTemplates
     {

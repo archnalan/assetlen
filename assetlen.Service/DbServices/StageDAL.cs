@@ -11,10 +11,10 @@ namespace assetlen.Service.DbServices;
 
 public class StageDAL : IStageDAL
 {
-    private readonly mowtDbContext _context;
+    private readonly AssetlenDbContext _context;
     private readonly ILogger<StageDAL> _logger;
 
-    public StageDAL(mowtDbContext context, ILogger<StageDAL> logger)
+    public StageDAL(AssetlenDbContext context, ILogger<StageDAL> logger)
     {
         _context = context;
         _logger = logger;

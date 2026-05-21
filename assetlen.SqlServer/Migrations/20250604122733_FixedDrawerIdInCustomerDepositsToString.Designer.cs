@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace assetlen.Service.Migrations
 {
-    [DbContext(typeof(mowtDbContext))]
+    [DbContext(typeof(AssetlenDbContext))]
     [Migration("20250604122733_FixedDrawerIdInCustomerDepositsToString")]
     partial class FixedDrawerIdInCustomerDepositsToString
     {

@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace assetlen.Service.Migrations
 {
-    [DbContext(typeof(mowtDbContext))]
+    [DbContext(typeof(AssetlenDbContext))]
     [Migration("20250516081918_added support for SQLite2")]
     partial class addedsupportforSQLite2
     {

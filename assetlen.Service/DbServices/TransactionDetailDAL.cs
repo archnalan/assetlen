@@ -28,7 +28,7 @@ namespace assetlen.Service.DbServices
 {
     public class TransactionDetailDAL : ITransactionDetailDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
 
         private readonly ILogger<TransactionDetailDAL> _logger;
         private readonly IProductsDAL _productsDAL;
@@ -36,7 +36,7 @@ namespace assetlen.Service.DbServices
         private readonly ItaxDAL _taxDAL;
         private readonly IExcelDomainService _excelDomainService;
 
-        public TransactionDetailDAL(ILogger<TransactionDetailDAL> logger, mowtDbContext context, IProductsDAL productsDAL, IPricingCalculations pricingCalculations, ItaxDAL taxDAL, IExcelDomainService excelDomainService)
+        public TransactionDetailDAL(ILogger<TransactionDetailDAL> logger, AssetlenDbContext context, IProductsDAL productsDAL, IPricingCalculations pricingCalculations, ItaxDAL taxDAL, IExcelDomainService excelDomainService)
         {
             _logger = logger;
             _context = context;
@@ -956,7 +956,7 @@ namespace assetlen.Service.DbServices
                                     FirstName = soldByStr.Split(' ').FirstOrDefault()?.Trim() ?? random,
                                     LastName = soldByStr.Split(' ').LastOrDefault()?.Trim() ?? random,
                                     UserName = $"{soldByStr.Replace(" ", "").ToLowerInvariant().Trim()}_{random}",
-                                    Email = $"{soldByStr.Replace(" ", "").ToLowerInvariant().Trim()}_{random}@mowtdefault.com",
+                                    Email = $"{soldByStr.Replace(" ", "").ToLowerInvariant().Trim()}_{random}@assetlendefault.com",
                                 };
                                 await _context.Users.AddAsync(soldBy);
                                 await _context.SaveChangesAsync();

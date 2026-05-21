@@ -11,11 +11,11 @@ namespace assetlen.Service.DbServices
 {
     public class UserFavoritesDAL : IUserFavoritesDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<UserFavoritesDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
 
-        public UserFavoritesDAL(ILogger<UserFavoritesDAL> logger, mowtDbContext context, ITenantProvider tenantProvider)
+        public UserFavoritesDAL(ILogger<UserFavoritesDAL> logger, AssetlenDbContext context, ITenantProvider tenantProvider)
         {
             _logger = logger;
             _context = context;

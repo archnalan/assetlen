@@ -10,14 +10,14 @@ namespace assetlen.Service.DbServices;
 
 public class PMDashboardDAL : IPMDashboardDAL
 {
-    private readonly mowtDbContext _context;
+    private readonly AssetlenDbContext _context;
     private readonly IProjectHealthService _healthService;
     private readonly IFundingDAL _fundingDAL;
     private readonly IProgressDAL _progressDAL;
     private readonly ILogger<PMDashboardDAL> _logger;
 
     public PMDashboardDAL(
-        mowtDbContext context,
+        AssetlenDbContext context,
         IProjectHealthService healthService,
         IFundingDAL fundingDAL,
         IProgressDAL progressDAL,

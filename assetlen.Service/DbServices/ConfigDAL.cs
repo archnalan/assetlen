@@ -25,13 +25,13 @@ namespace assetlen.Service.DbServices
 {
     public class ConfigDAL : IConfigDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<ConfigDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
 
-        public ConfigDAL(mowtDbContext context, ILogger<ConfigDAL> logger, ITenantProvider tenantProvider, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public ConfigDAL(AssetlenDbContext context, ILogger<ConfigDAL> logger, ITenantProvider tenantProvider, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
@@ -325,7 +325,7 @@ namespace assetlen.Service.DbServices
                 }
                 // Ensure directory exists
                 if (!string.IsNullOrEmpty(backupDirectory?.Data?.StringValue ?? "") && !Directory.Exists(backupDirectory?.Data?.StringValue ?? "")) Directory.CreateDirectory(backupDirectory?.Data?.StringValue ?? "");
-                string backupPath = Path.Combine(backupDirectory?.Data?.StringValue, $"mowtBackupV2_{DateTime.Now.Ticks.ToString()}.bak");
+                string backupPath = Path.Combine(backupDirectory?.Data?.StringValue, $"AssetlenBackupV2_{DateTime.Now.Ticks.ToString()}.bak");
 
                 using (var conn = new SqlConnection(masterConnection))
                 {
@@ -373,7 +373,7 @@ namespace assetlen.Service.DbServices
                 if (fileNamesOfDbBackups.Count > 0)
                 {
                     string lastBackedUpFileName = fileNamesOfDbBackups.OrderByDescending(m => m).FirstOrDefault().ToString();
-                    string trimedDate = lastBackedUpFileName.Replace("mowtBackupV2_", "").Replace(".bak", "").Trim('/').Trim('\\'); //datestring toconvertback todatetime
+                    string trimedDate = lastBackedUpFileName.Replace("AssetlenBackupV2_", "").Replace(".bak", "").Trim('/').Trim('\\'); //datestring toconvertback todatetime
 
                     bool cleanup = long.TryParse(trimedDate, out long dateTime);
                     if (cleanup)

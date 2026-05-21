@@ -11,10 +11,10 @@ namespace assetlen.Service.DbServices;
 
 public class ProgressDAL : IProgressDAL
 {
-    private readonly mowtDbContext _context;
+    private readonly AssetlenDbContext _context;
     private readonly ILogger<ProgressDAL> _logger;
 
-    public ProgressDAL(mowtDbContext context, ILogger<ProgressDAL> logger)
+    public ProgressDAL(AssetlenDbContext context, ILogger<ProgressDAL> logger)
     {
         _context = context;
         _logger = logger;

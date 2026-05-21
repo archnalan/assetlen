@@ -24,7 +24,7 @@ namespace assetlen.Service.DbServices
 {
 	public class PaymentsDAL : IPaymentsDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<PaymentsDAL> _logger;
 		private readonly ITransactionDAL _transactionDAL;
 		private readonly ITransactionDetailDAL _transactionDetailDAL;
@@ -33,7 +33,7 @@ namespace assetlen.Service.DbServices
 		private readonly IConfigDAL _configDAL;
 
 
-		public PaymentsDAL(ILogger<PaymentsDAL> logger, mowtDbContext context, ITransactionDAL transactionDAL, IHttpContextAccessor httpContextAccessor, IShiftsDAL shiftsDAL, ITransactionDetailDAL transactionDetailDAL, IConfigDAL configDAL)
+		public PaymentsDAL(ILogger<PaymentsDAL> logger, AssetlenDbContext context, ITransactionDAL transactionDAL, IHttpContextAccessor httpContextAccessor, IShiftsDAL shiftsDAL, ITransactionDetailDAL transactionDetailDAL, IConfigDAL configDAL)
 		{
 			_logger = logger;
 			_context = context;

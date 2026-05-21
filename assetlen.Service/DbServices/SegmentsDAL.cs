@@ -23,10 +23,10 @@ namespace assetlen.Service.DbServices
 {
     public class SegmentsDAL : ISegmentsDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<SegmentsDAL> _logger;
         private readonly IExcelDomainService _excelDomainService;
-        public SegmentsDAL(ILogger<SegmentsDAL> logger, mowtDbContext context, IExcelDomainService excelDomainService)
+        public SegmentsDAL(ILogger<SegmentsDAL> logger, AssetlenDbContext context, IExcelDomainService excelDomainService)
         {
             _logger = logger;
             _context = context;

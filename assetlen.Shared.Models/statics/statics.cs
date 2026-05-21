@@ -55,7 +55,7 @@ namespace assetlen.Shared.Models.statics
 		public static string selectedTab;
         public const string sessionStateKey = "sessionState";
 
-        #region mowt App Modules
+        #region ASSETLEN App Modules
         public enum Module
 		{
 			AdminModule = 1,
@@ -90,7 +90,7 @@ namespace assetlen.Shared.Models.statics
 			PriceChange,
 			OfferDiscount,
 			ClearEntireSale,
-			mowtSuperAdmin,
+			AssetlenSuperAdmin,
 			FeedbackApproval,
 			EmployeeApproval,
 			ViewSystemlog,
@@ -411,7 +411,7 @@ namespace assetlen.Shared.Models.statics
 		//public const string PriceChange = nameof(statics.UserRoles.PriceChange);
 		//public const string OfferDiscount = nameof(statics.UserRoles.OfferDiscount);
 		//public const string ClearEntireSale = nameof(statics.UserRoles.ClearEntireSale);
-		public const string mowtSuperAdmin = nameof(statics.UserRoles.mowtSuperAdmin);
+		public const string AssetlenSuperAdmin = nameof(statics.UserRoles.AssetlenSuperAdmin);
 		public const string FeedbackApproval = nameof(statics.UserRoles.FeedbackApproval);
 		public const string EmployeeApproval = nameof(statics.UserRoles.EmployeeApproval);
 		public const string ViewSystemlog = nameof(statics.UserRoles.ViewSystemlog);

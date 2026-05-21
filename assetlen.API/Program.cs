@@ -4,7 +4,7 @@ using assetlen.Service.DbServices;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.Shared.Models.Models;
 using assetlen.Service.Domain.Interfaces;
-using mowt.Web.Controllers.SmtpClient;
+using assetlen.Service.DbServices.SmtpClient;
 using assetlen.API;
 using assetlen.API.Domain;
 using assetlen.API.Domain.Interfaces;
@@ -45,7 +45,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 var appDataPath = Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-    "mowt");
+    "assetlen");
 
 
 builder.Configuration
@@ -189,7 +189,7 @@ builder.Services.AddIdentity<AppUser, IdentityRole>
                 options.Password.RequireLowercase = false;
                 options.User.RequireUniqueEmail = true;
             })
-            .AddEntityFrameworkStores<mowtDbContext>()
+            .AddEntityFrameworkStores<AssetlenDbContext>()
             .AddDefaultTokenProviders();
 
 
@@ -294,7 +294,7 @@ builder.Services.AddHttpClient();
 
 var provider = builder.Configuration["AppMode"];
 
-//builder.Services.AddDbContext<mowtDbContext>((serviceProvider, options) =>
+//builder.Services.AddDbContext<AssetlenDbContext>((serviceProvider, options) =>
 //    options.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"],
 //        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
 //            maxRetryCount: 5,
@@ -305,12 +305,12 @@ var provider = builder.Configuration["AppMode"];
 
 //if (provider == "1")
 //{
-//    var dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "mowt");
+//    var dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "assetlen");
 //    Directory.CreateDirectory(dbPath);
 //    builder.Configuration["ConnectionStrings:SqliteConnection"] = $"Data Source={Path.Combine(dbPath, "app.db")}";
 //}
 
-builder.Services.AddDbContext<mowtDbContext>((serviceProvider, options)
+builder.Services.AddDbContext<AssetlenDbContext>((serviceProvider, options)
     => _ = provider switch
     {
         //"1" => options.UseSqlite(
@@ -360,13 +360,13 @@ builder.Services.AddDbContext<mowtDbContext>((serviceProvider, options)
         _ => throw new Exception($"Unsupported provider: {provider}. use 1 or 2")
     });
 
-//builder.Services.AddDbContext<mowtDbContext>((serviceProvider, options) =>
+//builder.Services.AddDbContext<AssetlenDbContext>((serviceProvider, options) =>
 //{
 //    options.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"]);
 //    options.AddInterceptors(serviceProvider.GetRequiredService<TenantCommandInterceptor>());
 //});
 
-//builder.Services.AddDbContextFactory<mowtDbContext>(options =>
+//builder.Services.AddDbContextFactory<AssetlenDbContext>(options =>
 //    options.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"],
 //        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
 //            maxRetryCount: 5,
@@ -523,7 +523,7 @@ else if (app.Configuration["AppMode"] == "1")
     // Write port to AppData
     var appDataDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "mowt"
+        "assetlen"
     );
 
 
@@ -544,7 +544,7 @@ else if (app.Configuration["AppMode"] == "3")
     {
         var logger = app.Services.GetRequiredService<ILogger<Program>>();
         logger.LogInformation($"Application is running on port: {port}");
-        var beacon = new Beacon("mowtServiceDiscovery", (ushort)port);
+        var beacon = new Beacon("AssetlenServiceDiscovery", (ushort)port);
         beacon.BeaconData = await (new DiscoveryService(port).CreateBroadcastMessage());
         beacon.Start();
 

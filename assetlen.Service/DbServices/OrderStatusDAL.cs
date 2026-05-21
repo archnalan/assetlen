@@ -19,10 +19,10 @@ namespace assetlen.Service.DbServices
 {
 	public class OrderStatusDAL : IOrderStatusDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<OrderStatusDAL> _logger;
 
-		public OrderStatusDAL(mowtDbContext context, ILogger<OrderStatusDAL> logger)
+		public OrderStatusDAL(AssetlenDbContext context, ILogger<OrderStatusDAL> logger)
 		{
 			_context = context;
 			_logger = logger;

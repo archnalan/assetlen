@@ -21,7 +21,7 @@ namespace assetlen.API.Middlewares
             _logger = logger;
         }
 
-        public async Task InvokeAsync(HttpContext context, mowtDbContext db)
+        public async Task InvokeAsync(HttpContext context, AssetlenDbContext db)
         {
             var headers = context.Request.Headers
                         .Where(h => !h.Key.Equals("Host", StringComparison.OrdinalIgnoreCase))

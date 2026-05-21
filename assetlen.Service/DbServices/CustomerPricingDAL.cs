@@ -20,10 +20,10 @@ namespace assetlen.Service.DbServices
 {
 	public class CustomerPricingDAL : ICustomerPricingDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<CustomerPricingDAL> _logger;
 
-		public CustomerPricingDAL(ILogger<CustomerPricingDAL> logger, mowtDbContext context)
+		public CustomerPricingDAL(ILogger<CustomerPricingDAL> logger, AssetlenDbContext context)
 		{
 			_logger = logger;
 			_context = context;

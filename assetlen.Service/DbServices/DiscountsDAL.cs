@@ -17,11 +17,11 @@ namespace assetlen.Service.DbServices
 {
     public class DiscountsDAL : IDiscountsDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<CategoryDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
 
-        public DiscountsDAL(ILogger<CategoryDAL> logger, mowtDbContext context, ITenantProvider tenantProvider)
+        public DiscountsDAL(ILogger<CategoryDAL> logger, AssetlenDbContext context, ITenantProvider tenantProvider)
         {
             _logger = logger;
             _context = context;

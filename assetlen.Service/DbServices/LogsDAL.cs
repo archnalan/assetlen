@@ -18,10 +18,10 @@ namespace assetlen.Service.DbServices
 {
 	public class LogsDAL : ILogsDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<LogsDAL> _logger;
 
-		public LogsDAL(ILogger<LogsDAL> logger, mowtDbContext context)
+		public LogsDAL(ILogger<LogsDAL> logger, AssetlenDbContext context)
 		{
 			_logger = logger;
 			_context = context;

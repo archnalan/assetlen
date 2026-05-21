@@ -16,11 +16,11 @@ namespace assetlen.Service.DbServices
 {
     public class CategoryDAL : ICategoryDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<CategoryDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
         private readonly IExcelDomainService _excelDomainService;
-        public CategoryDAL(ILogger<CategoryDAL> logger, mowtDbContext context, ITenantProvider tenantProvider, IExcelDomainService excelDomainService)
+        public CategoryDAL(ILogger<CategoryDAL> logger, AssetlenDbContext context, ITenantProvider tenantProvider, IExcelDomainService excelDomainService)
         {
             _logger = logger;
             _context = context;

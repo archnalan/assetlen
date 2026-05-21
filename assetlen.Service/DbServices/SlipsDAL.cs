@@ -17,10 +17,10 @@ namespace assetlen.Service.DbServices
 {
 	public class SlipsDAL : ISlipsDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<SlipsDAL> _logger;
 
-		public SlipsDAL(ILogger<SlipsDAL> logger, mowtDbContext context)
+		public SlipsDAL(ILogger<SlipsDAL> logger, AssetlenDbContext context)
 		{
 			_logger = logger;
 			_context = context;

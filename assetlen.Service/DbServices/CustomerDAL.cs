@@ -20,11 +20,11 @@ namespace assetlen.Service.DbServices
 {
     public class CustomerDAL : ICustomerDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<CustomerDAL> _logger;
         private readonly IExcelDomainService _excelDomainService;
 
-        public CustomerDAL(mowtDbContext context, ILogger<CustomerDAL> logger, IExcelDomainService excelDomainService)
+        public CustomerDAL(AssetlenDbContext context, ILogger<CustomerDAL> logger, IExcelDomainService excelDomainService)
         {
             _context = context;
             _logger = logger;

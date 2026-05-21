@@ -26,8 +26,8 @@ namespace assetlen.API
             {
                 var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
                 var userManager = serviceProvider.GetRequiredService<UserManager<AppUser>>();
-                var context = serviceProvider.GetRequiredService<mowtDbContext>();
-                var logger = serviceProvider.GetService<ILogger<mowtDbContext>>();
+                var context = serviceProvider.GetRequiredService<AssetlenDbContext>();
+                var logger = serviceProvider.GetService<ILogger<AssetlenDbContext>>();
                 List<string> roleNames = new List<string>(Enum.GetNames(typeof(statics.UserRoles)));
 
                 foreach (var roleName in roleNames)
@@ -92,7 +92,7 @@ namespace assetlen.API
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.AccountManagement);
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.LibraryModuleLogin);
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.CreateCommentsAndFeedback);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.mowtSuperAdmin);
+                                await userManager.AddToRoleAsync(poweruser, UserRoles.AssetlenSuperAdmin);
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.FeedbackApproval);
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.EmployeeApproval);
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.ViewSystemlog);
@@ -118,7 +118,7 @@ namespace assetlen.API
             }
         }
 
-        public static async Task SeedSegmentsSupplierCategoriesTaxAsync(mowtDbContext context, ILogger logger, InitialSeedDataDto seedData)
+        public static async Task SeedSegmentsSupplierCategoriesTaxAsync(AssetlenDbContext context, ILogger logger, InitialSeedDataDto seedData)
         {
             try
             {
@@ -238,7 +238,7 @@ namespace assetlen.API
             {
                 using var scope = app.Services.CreateScope();
                 {
-                    var database = scope.ServiceProvider.GetRequiredService<mowtDbContext>().Database;
+                    var database = scope.ServiceProvider.GetRequiredService<AssetlenDbContext>().Database;
                     var connection = database.GetConnectionString();
                     _logger.LogInformation("Starting app with Connection string {conn}", connection);
                     database.Migrate();

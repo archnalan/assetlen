@@ -22,7 +22,7 @@ using Microsoft.Extensions.Configuration;
 using assetlen.Service.DataAccess;
 using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.ViewModels;
-using mowt.Web.Controllers.SmtpClient;
+using assetlen.Service.DbServices.SmtpClient;
 using assetlen.Shared.Models.Models.ViewModels.Users;
 using Azure.Core;
 using Microsoft.AspNetCore.Components;
@@ -49,7 +49,7 @@ namespace assetlen.Service.DbServices
         private readonly SignInManager<AppUser> _signInManager;
         private readonly UserManager<AppUser> _userManager;
         private readonly IWebHostEnvironment _webHostEnvironment;
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly SmtpSenderService _emailSmtpService;
         private readonly ILogger<AuthorizationDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
@@ -61,7 +61,7 @@ namespace assetlen.Service.DbServices
 
 
 
-        public AuthorizationDAL(IConfiguration config, mowtDbContext context, SignInManager<AppUser> signInManager, UserManager<AppUser> userManager, IWebHostEnvironment webHostEnvironment, SmtpSenderService emailSmtpService, ILogger<AuthorizationDAL> logger, ITenantProvider tenantProvider, IHttpContextAccessor httpContextAccessor, RoleManager<IdentityRole> roleManager, IPasswordHasher<TenantInstance> hasher, IPandoraSmsService pandoraSmsService)
+        public AuthorizationDAL(IConfiguration config, AssetlenDbContext context, SignInManager<AppUser> signInManager, UserManager<AppUser> userManager, IWebHostEnvironment webHostEnvironment, SmtpSenderService emailSmtpService, ILogger<AuthorizationDAL> logger, ITenantProvider tenantProvider, IHttpContextAccessor httpContextAccessor, RoleManager<IdentityRole> roleManager, IPasswordHasher<TenantInstance> hasher, IPandoraSmsService pandoraSmsService)
         {
             _config = config;
             _signInManager = signInManager;
@@ -449,7 +449,7 @@ namespace assetlen.Service.DbServices
 
             if (!tenantExists)
                 return ServiceResult<LoginResponseDto>.Failure(
-                    new BadRequestException("Invalid Tenant Id. Contact https://mowt.com for support."));
+                    new BadRequestException("Invalid Tenant Id. Contact https://assetlen.com for support."));
 
             // Check if user needs to verify email or phone
             if (!user.EmailConfirmed && !string.IsNullOrEmpty(user.Email))
@@ -1854,7 +1854,7 @@ namespace assetlen.Service.DbServices
                 <div class='content'>
                     <p>Hello {userName},</p>
                     
-                    <p>We detected a new login to your mowt manuals account from a device we haven't seen before.</p>
+                    <p>We detected a new login to your ASSETLEN account from a device we haven't seen before.</p>
                     
                     <div class='info-box'>
                         <strong>Login Details:</strong><br>
@@ -1871,12 +1871,12 @@ namespace assetlen.Service.DbServices
                     <ul>
                         <li>Change your password immediately</li>
                         <li>Review your account for any unauthorized changes</li>
-                        <li>Contact our support team at support@mowt.com</li>
+                        <li>Contact our support team at support@assetlen.com</li>
                     </ul>
                     
                     <div class='footer'>
-                        <p>This is an automated security notification from mowt POS.</p>
-                        <p>For assistance, contact us at <a href='https://mowt.com'>https://mowt.com</a></p>
+                        <p>This is an automated security notification from ASSETLEN.</p>
+                        <p>For assistance, contact us at <a href='https://assetlen.com'>https://assetlen.com</a></p>
                     </div>
                 </div>
             </div>

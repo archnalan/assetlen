@@ -2,24 +2,24 @@ body {
     overflow-x: hidden;
 }
 
-.mowt-container {
+.assetlen-container {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
-.mowt-header {
+.assetlen-header {
     flex-shrink: 0;
 }
 
-.mowt-body {
+.assetlen-body {
     flex-grow: 1;
     height: 100%;
     background: var(--neutral-layer-1);
 }
 
 
-.mowt-footer {
+.assetlen-footer {
     flex-shrink: 0;
     margin-top: auto;
 }

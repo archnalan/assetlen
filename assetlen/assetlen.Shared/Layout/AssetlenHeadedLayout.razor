@@ -9,11 +9,11 @@
 @inject CustomAuthStateProvider _custAuth;
 
 <FluentLayout>
-    <FluentDesignTheme @bind-Mode="@Mode" @bind-OfficeColor="@Color" StorageName="mowt-theme" />
-    <div class="mowt-container">
+    <FluentDesignTheme @bind-Mode="@Mode" @bind-OfficeColor="@Color" StorageName="assetlen-theme" />
+    <div class="assetlen-container">
         <!--header-->
-        <div class="mowt-header">
-            <div class="d-flex flex-column align-items-center pt-3 text-white" style="background-color:var(--mowt-primary-bg)">
+        <div class="assetlen-header">
+            <div class="d-flex flex-column align-items-center pt-3 text-white" style="background-color:var(--assetlen-primary-bg)">
                 <div class="p-2 mb-2" style="background:white; border-radius:50%">
                     <img src="_content/assetlen.Shared/Coat_of_arms_of_Uganda.png"
                          alt="Coat of arms of Uganda"
@@ -83,12 +83,12 @@
         </nav>
 
         <!--body-->
-        <div class="mowt-body">
+        <div class="assetlen-body">
             @Body
         </div>
 
         <!--Footer-->
-        <div class="w-100 p-2 d-flex justify-content-center text-white small" style="background-color:var(--mowt-primary-bg)">
+        <div class="w-100 p-2 d-flex justify-content-center text-white small" style="background-color:var(--assetlen-primary-bg)">
             Copyright ©@(DateTime.Now.Year) Ministry of Works & Transport E-services. All Rights Reserved
         </div>
     </div>
@@ -109,7 +109,7 @@
     private string? ImageLink;
     private string? ProfileFullName;
     private string? ProfileEmail;
-    private string? CompanyName = "MoWT";
+    private string? CompanyName = "ASSETLEN";
     private IDialogReference? _dialog;
     private bool shouldHideNavbar = false;
 

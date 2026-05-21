@@ -11,7 +11,7 @@ using assetlen.Service.DataAccess;
 
 namespace assetlen.Service.Migrations
 {
-    [DbContext(typeof(mowtDbContext))]
+    [DbContext(typeof(AssetlenDbContext))]
     [Migration("20260215130844_removed TenantId constraint from all tables")]
     partial class removedTenantIdconstraintfromalltables
     {

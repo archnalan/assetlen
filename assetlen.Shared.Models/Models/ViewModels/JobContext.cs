@@ -24,7 +24,7 @@ namespace assetlen.Shared.Models.Models.ViewModels
                 RequestPath = request.Path,
                 RequestBody = body is not null ? System.Text.Json.JsonSerializer.Serialize(body) : null,
                 Headers = request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString()),
-                OnlineApiUrl = "https://api.mowt.com" // Configurable
+                OnlineApiUrl = "https://api.assetlen.com" // Configurable
             };
         }
     }

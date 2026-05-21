@@ -15,11 +15,11 @@ namespace assetlen.Service.DbServices.ServiceInterfaces
 {
     public class ExpenseTypeDAL : IExpenseTypeDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
 
         private readonly ILogger<ExpenseDAL> _logger;
 
-        public ExpenseTypeDAL(mowtDbContext context, ILogger<ExpenseDAL> logger)
+        public ExpenseTypeDAL(AssetlenDbContext context, ILogger<ExpenseDAL> logger)
         {
             _context = context;
             _logger = logger;

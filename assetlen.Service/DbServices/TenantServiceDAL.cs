@@ -12,10 +12,10 @@ namespace assetlen.Service.DbServices
 {
     public class TenantServiceDAL : ITenantServiceDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<TenantServiceDAL> _logger;
 
-        public TenantServiceDAL(mowtDbContext context, ILogger<TenantServiceDAL> logger)
+        public TenantServiceDAL(AssetlenDbContext context, ILogger<TenantServiceDAL> logger)
         {
             _context = context;
             _logger = logger;

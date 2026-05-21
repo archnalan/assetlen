@@ -11,7 +11,7 @@ using assetlen.Service.DataAccess;
 
 namespace assetlen.SqlServer.assetlen.Service.Migrations
 {
-    [DbContext(typeof(mowtDbContext))]
+    [DbContext(typeof(AssetlenDbContext))]
     [Migration("20260127185505_ProductDescription")]
     partial class ProductDescription
     {

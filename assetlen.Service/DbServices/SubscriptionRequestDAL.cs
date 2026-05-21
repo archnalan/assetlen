@@ -11,10 +11,10 @@ namespace assetlen.Service.DbServices
 {
     public class SubscriptionRequestDAL : ISubscriptionRequestDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<SubscriptionRequestDAL> _logger;
 
-        public SubscriptionRequestDAL(mowtDbContext context, ILogger<SubscriptionRequestDAL> logger)
+        public SubscriptionRequestDAL(AssetlenDbContext context, ILogger<SubscriptionRequestDAL> logger)
         {
             _context = context;
             _logger = logger;

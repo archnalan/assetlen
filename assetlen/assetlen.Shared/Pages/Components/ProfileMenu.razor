@@ -2,7 +2,7 @@
 @inject ILogger<ProfileMenu> logger
 @inject NavigationManager _navMenu
 
-<FluentDesignTheme @bind-Mode="@Mode" @bind-OfficeColor="@Color" StorageName="mowt-theme" />
+<FluentDesignTheme @bind-Mode="@Mode" @bind-OfficeColor="@Color" StorageName="assetlen-theme" />
 <FluentProfileMenu 
         Image="@ImageLink"
         HeaderLabel="@CompanyName" 
@@ -108,7 +108,7 @@
     [Parameter]
     public string? ProfileEmail { get; set; }
     [Parameter]
-    public string? CompanyName { get; set; } = "MoWT";
+    public string? CompanyName { get; set; } = "ASSETLEN";
     [Parameter]
     public EventCallback HandleLogout { get; set; }
     private bool _locationChanged = false;

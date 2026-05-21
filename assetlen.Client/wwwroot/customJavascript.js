@@ -1277,7 +1277,7 @@ window.googleAuth = {
 };
 
 // Check if chips container overflows (~3 lines threshold)
-window.mowtCheckChipsOverflow = (element) => {
+window.assetlenCheckChipsOverflow = (element) => {
     if (!element) return 0;
     return element.scrollHeight;
 };

@@ -12,12 +12,12 @@ namespace assetlen.Service.DbServices
 {
     public class ProductDetailFeedbackDAL : IProductDetailFeedbackDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<ProductDetailFeedbackDAL> _logger;
         private readonly IFeedbackNotificationService _notificationService;
 
         public ProductDetailFeedbackDAL(
-            mowtDbContext context,
+            AssetlenDbContext context,
             ILogger<ProductDetailFeedbackDAL> logger,
             IFeedbackNotificationService notificationService)
         {

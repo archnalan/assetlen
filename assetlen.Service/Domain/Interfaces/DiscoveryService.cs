@@ -16,7 +16,7 @@ namespace assetlen.Service.Domain.Interfaces
     {
 
         private readonly CancellationTokenSource _cts = new();
-        private readonly string _serviceName = "mowtServiceDiscovery";
+        private readonly string _serviceName = "AssetlenServiceDiscovery";
         private readonly int _servicePort;
 
         public DiscoveryService(int servicePort)

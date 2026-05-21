@@ -146,7 +146,7 @@ assetlen/assetlen.Shared/
 
 **Promotion rule:** A component lives in its owning module until **two** modules need it. Then it moves up to `Components/`. Don't pre-promote.
 
-(Solution rename `mowt.*` → `assetlen.*` happens after Phase 1 stabilizes, to minimize churn during heavy build-out.)
+(Solution renamed `mowt.*` → `assetlen.*` in Phase 0.5; the WASM client is now `assetlen.Client`. DbContext renamed `mowtDbContext` → `AssetlenDbContext` in Phase 0.6.)
 
 ---
 

@@ -18,10 +18,10 @@ namespace assetlen.Service.DbServices
 {
 	public class CashItemsDAL : ICashItemsDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<CashItemsDAL> _logger;
 
-		public CashItemsDAL(mowtDbContext context, ILogger<CashItemsDAL> logger)
+		public CashItemsDAL(AssetlenDbContext context, ILogger<CashItemsDAL> logger)
 		{
 			_context = context;
 

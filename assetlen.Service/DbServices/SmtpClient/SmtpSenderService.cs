@@ -1,6 +1,6 @@
 ﻿using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.ViewModels;
-using mowt.Web.Controllers.SmtpClient;
+using assetlen.Service.DbServices.SmtpClient;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System.Text;
 
-namespace mowt.Web.Controllers.SmtpClient
+namespace assetlen.Service.DbServices.SmtpClient
 {
 
     public class SmtpSenderService
@@ -141,9 +141,9 @@ namespace mowt.Web.Controllers.SmtpClient
 
         private string GenerateVerificationEmailHtml(string firstName, string code, int expiryMinutes, string companyName, string websiteLink)
         {
-            var company = companyName ?? "MoWT Digital Library";
+            var company = companyName ?? "ASSETLEN";
             var name = firstName ?? "there";
-            var website = websiteLink ?? "https://mowt.com";
+            var website = websiteLink ?? "https://assetlen.com";
 
             return $@"<!DOCTYPE html>
 <html>
@@ -207,9 +207,9 @@ namespace mowt.Web.Controllers.SmtpClient
 
         private string GeneratePasswordResetEmailHtml(string firstName, string code, int expiryMinutes, string companyName, string websiteLink)
         {
-            var company = companyName ?? "MoWT Digital Library";
+            var company = companyName ?? "ASSETLEN";
             var name = firstName ?? "there";
-            var website = websiteLink ?? "https://mowt.com";
+            var website = websiteLink ?? "https://assetlen.com";
 
             // Detect if code is a link
             bool isLink = code.StartsWith("http://") || code.StartsWith("https://");
@@ -285,9 +285,9 @@ namespace mowt.Web.Controllers.SmtpClient
 
         private string GeneratePasswordChangedEmailHtml(string firstName, string companyName, string websiteLink)
         {
-            var company = companyName ?? "MoWT Digital Library";
+            var company = companyName ?? "ASSETLEN";
             var name = firstName ?? "there";
-            var website = websiteLink ?? "https://mowt.com";
+            var website = websiteLink ?? "https://assetlen.com";
 
             return $@"<!DOCTYPE html>
 <html>
@@ -407,12 +407,12 @@ namespace mowt.Web.Controllers.SmtpClient
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             //CHANGE THIS TO PRODUCTION LINK
-            var callbackUrl = $"{requestorUri ?? "https://app.mowt.com"}/resetpassword/{code}/{"isLocal"}";
+            var callbackUrl = $"{requestorUri ?? "https://app.assetlen.com"}/resetpassword/{code}/{"isLocal"}";
 
             var emailDto = CreateEmailDto();
             emailDto.Subject = "Reset Your Password";
             emailDto.ToEmail = appuser.Email;
-            var company = emailDto.CompanyName ?? "MoWT POS";
+            var company = emailDto.CompanyName ?? "ASSETLEN";
 
             emailDto.Body = $@"<!DOCTYPE html>
 <html>
@@ -437,7 +437,7 @@ namespace mowt.Web.Controllers.SmtpClient
         </div>
         <div class='content'>
             <h2>Password Reset Request</h2>
-            <p>You have requested to reset your password for your MoWT POS account.</p>
+            <p>You have requested to reset your password for your ASSETLEN account.</p>
             <p>Click the button below to reset your password:</p>
             <div style='text-align: center;'>
                 <a href='{callbackUrl}' class='btn'>Reset Password</a>
@@ -451,7 +451,7 @@ namespace mowt.Web.Controllers.SmtpClient
             </p>
         </div>
         <div class='footer'>
-            <p class='footer-text'>Thank you for being part of MoWT POS.</p>
+            <p class='footer-text'>Thank you for being part of ASSETLEN.</p>
             <p class='footer-text'>© 2026 {company}. All rights reserved.</p>
         </div>
     </div>

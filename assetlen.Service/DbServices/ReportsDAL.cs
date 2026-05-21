@@ -13,10 +13,10 @@ namespace assetlen.Service.DbServices
 {
     public class ReportsDAL : IReportsDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<ReportsDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
-        public ReportsDAL(ILogger<ReportsDAL> logger, mowtDbContext context, ITenantProvider tenantProvider)
+        public ReportsDAL(ILogger<ReportsDAL> logger, AssetlenDbContext context, ITenantProvider tenantProvider)
         {
             _logger = logger;
             _context = context;
@@ -1555,7 +1555,7 @@ namespace assetlen.Service.DbServices
             try
             {
                 if (string.IsNullOrEmpty(fullFilePath)) return ServiceResult<bool>.Failure(new BadRequestException("File path can not be null"));
-                if (!fullFilePath.EndsWith(".bak") || !fullFilePath.ToLower().Contains("mowt")) return ServiceResult<bool>.Failure(new BadRequestException("Invalid file Path"));
+                if (!fullFilePath.EndsWith(".bak") || !fullFilePath.ToLower().Contains("assetlen")) return ServiceResult<bool>.Failure(new BadRequestException("Invalid file Path"));
 
                 string sql = @" USE master; 
                                 EXEC xp_cmdshell 'del """ + fullFilePath + @""" '";

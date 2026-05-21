@@ -20,10 +20,10 @@ namespace assetlen.Service.DbServices
 {
 	public class taxDAL : ItaxDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<taxDAL> _logger;
 
-		public taxDAL(mowtDbContext billDbContext, ILogger<taxDAL> logger)
+		public taxDAL(AssetlenDbContext billDbContext, ILogger<taxDAL> logger)
 		{
 			_context = billDbContext;
 			_logger = logger;

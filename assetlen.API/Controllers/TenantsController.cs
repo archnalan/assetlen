@@ -12,7 +12,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[Action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.mowtSuperAdmin}",
+    [Authorize(Roles = $"{UserRoles.AssetlenSuperAdmin}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class TenantController : ControllerBase
     {

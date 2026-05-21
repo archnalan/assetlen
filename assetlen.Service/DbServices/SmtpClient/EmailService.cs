@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using MimeKit;
 
-namespace mowt.Web.Controllers.SmtpClient
+namespace assetlen.Service.DbServices.SmtpClient
 {
     public class EmailService : IEmailService
     {

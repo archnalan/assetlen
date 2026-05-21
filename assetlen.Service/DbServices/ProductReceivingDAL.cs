@@ -20,11 +20,11 @@ namespace assetlen.Service.DbServices
 {
 	public class ProductReceivingDAL : IProductReceivingDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<CustomerDAL> _logger;
 		private readonly IProductsDAL _productsDAL;
 
-		public ProductReceivingDAL(ILogger<CustomerDAL> logger, mowtDbContext context, IProductsDAL productsDAL)
+		public ProductReceivingDAL(ILogger<CustomerDAL> logger, AssetlenDbContext context, IProductsDAL productsDAL)
 		{
 			_logger = logger;
 			_context = context;

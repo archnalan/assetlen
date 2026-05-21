@@ -16,12 +16,12 @@ namespace assetlen.Service.DbServices
 {
     public class BankDAL : IBankDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<BankDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
         private readonly IExcelDomainService _excelDomainService;
 
-        public BankDAL(ILogger<BankDAL> logger, mowtDbContext context, ITenantProvider tenantProvider, IExcelDomainService excelDomainService)
+        public BankDAL(ILogger<BankDAL> logger, AssetlenDbContext context, ITenantProvider tenantProvider, IExcelDomainService excelDomainService)
         {
             _logger = logger;
             _context = context;

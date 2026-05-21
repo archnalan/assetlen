@@ -1,7 +1,7 @@
 ﻿using assetlen.Shared.Models.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
-namespace mowt.Web.Controllers.SmtpClient
+namespace assetlen.Service.DbServices.SmtpClient
 {
     public interface IEmailService
     {

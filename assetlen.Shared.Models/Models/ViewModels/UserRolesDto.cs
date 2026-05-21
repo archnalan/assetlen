@@ -28,6 +28,6 @@ namespace assetlen.Shared.Models.Models.ViewModels
         public bool CreateCommentsAndFeedback { get; set; } = true;
 
         // System
-        public bool mowtSuperAdmin { get; set; }
+        public bool AssetlenSuperAdmin { get; set; }
     }
 }

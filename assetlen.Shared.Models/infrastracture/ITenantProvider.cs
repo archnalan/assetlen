@@ -71,7 +71,7 @@ namespace assetlen.Shared.Models.Models
         public bool IsSuperAdmin()
         {
             var identity = _httpContextAccessor.HttpContext?.User;
-            return identity?.IsInRole("mowtSuperAdmin") ?? false;
+            return identity?.IsInRole("AssetlenSuperAdmin") ?? false;
         }
         public UserClaimsDto GetCurrentUser()
         {

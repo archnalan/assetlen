@@ -10,10 +10,10 @@ namespace assetlen.Service.DbServices;
 
 public class FundingDAL : IFundingDAL
 {
-    private readonly mowtDbContext _context;
+    private readonly AssetlenDbContext _context;
     private readonly ILogger<FundingDAL> _logger;
 
-    public FundingDAL(mowtDbContext context, ILogger<FundingDAL> logger)
+    public FundingDAL(AssetlenDbContext context, ILogger<FundingDAL> logger)
     {
         _context = context;
         _logger = logger;

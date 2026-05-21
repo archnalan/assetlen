@@ -11,7 +11,7 @@ using assetlen.Service.DataAccess;
 
 namespace assetlen.Service.Migrations
 {
-    [DbContext(typeof(mowtDbContext))]
+    [DbContext(typeof(AssetlenDbContext))]
     [Migration("20260301094409_UserFovoriteDocuments")]
     partial class UserFovoriteDocuments
     {

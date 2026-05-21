@@ -13,13 +13,13 @@ namespace assetlen.Service.DbServices;
 
 public class ProjectDAL : IProjectDAL
 {
-    private readonly mowtDbContext _context;
+    private readonly AssetlenDbContext _context;
     private readonly IProjectHealthService _healthService;
     private readonly ILogger<ProjectDAL> _logger;
     private readonly ITenantProvider _tenantProvider;
 
     public ProjectDAL(
-        mowtDbContext context,
+        AssetlenDbContext context,
         IProjectHealthService healthService,
         ILogger<ProjectDAL> logger,
         ITenantProvider tenantProvider)

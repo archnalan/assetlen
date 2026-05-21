@@ -24,12 +24,12 @@ namespace assetlen.Service.DbServices
 {
     public class GenerateBarcodeDAL : IGenerateBarcodeDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<GenerateBarcodeDAL> _logger;
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
         private readonly IConfigDAL _configDAL;
 
-        public GenerateBarcodeDAL(ILogger<GenerateBarcodeDAL> logger, mowtDbContext context, IConfigDAL configDAL)
+        public GenerateBarcodeDAL(ILogger<GenerateBarcodeDAL> logger, AssetlenDbContext context, IConfigDAL configDAL)
         {
             _logger = logger;
             _context = context;
@@ -78,7 +78,7 @@ namespace assetlen.Service.DbServices
                 }
                 else
                 {
-                    ServiceResult<string>.Failure(new BadRequestException("There was error in Generating the barcode. Your system has generated more  than the 10M bar codes possible for the EAN13 Barcode system. contact mowt Support if you still need more Barcodes"));
+                    ServiceResult<string>.Failure(new BadRequestException("There was error in Generating the barcode. Your system has generated more  than the 10M bar codes possible for the EAN13 Barcode system. contact ASSETLEN Support if you still need more Barcodes"));
 
                 }
             }

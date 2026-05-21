@@ -22,7 +22,7 @@ using Microsoft.Extensions.Configuration;
 using assetlen.Service.DataAccess;
 using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.ViewModels;
-using mowt.Web.Controllers.SmtpClient;
+using assetlen.Service.DbServices.SmtpClient;
 using assetlen.Shared.Models.Models.ViewModels.Users;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.Service.DbServices;

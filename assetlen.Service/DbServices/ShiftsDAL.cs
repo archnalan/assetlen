@@ -21,11 +21,11 @@ namespace assetlen.Service.DbServices
 {
     public class ShiftsDAL : IShiftsDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ITransactionDAL _transaction;
         private readonly ILogger<ShiftsDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
-        public ShiftsDAL(ILogger<ShiftsDAL> logger, mowtDbContext context, ITransactionDAL transaction, ITenantProvider tenantProvider)
+        public ShiftsDAL(ILogger<ShiftsDAL> logger, AssetlenDbContext context, ITransactionDAL transaction, ITenantProvider tenantProvider)
         {
             _logger = logger;
             _context = context;

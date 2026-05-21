@@ -18,7 +18,7 @@ var currentPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
 var baseAddressApi = new Uri("https://localhost:7264");
 //var baseAddressApi = new Uri("http://localhost:5140");
-//var baseAddressApi = new Uri("https://api.mowt.com");
+//var baseAddressApi = new Uri("https://api.assetlen.com");
 
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -29,7 +29,7 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 
 builder.Services.AddCascadingAuthenticationState();
-// Add device-specific services used by the mowtX.Shared project
+// Add device-specific services used by the assetlen.Shared project
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 builder.Services.AddFluentUIComponents();
 builder.Services.AddAuthorizationCore();

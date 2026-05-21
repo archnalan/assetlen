@@ -11,11 +11,11 @@ namespace assetlen.Service.DbServices
 {
     public class UserDocumentsDAL : IUserDocumentsDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<UserDocumentsDAL> _logger;
         private readonly ITenantProvider _tenantProvider;
 
-        public UserDocumentsDAL(ILogger<UserDocumentsDAL> logger, mowtDbContext context, ITenantProvider tenantProvider)
+        public UserDocumentsDAL(ILogger<UserDocumentsDAL> logger, AssetlenDbContext context, ITenantProvider tenantProvider)
         {
             _logger = logger;
             _context = context;

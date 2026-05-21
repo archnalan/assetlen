@@ -28,7 +28,7 @@ namespace assetlen.Service.DbServices
 {
     public class ProductsDAL : IProductsDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly IPricingCalculations _pricingCalc;
         private readonly ItaxDAL _taxDAL;
         private readonly ILogger<ProductsDAL> _logger;
@@ -38,7 +38,7 @@ namespace assetlen.Service.DbServices
         private readonly IHttpContextAccessor _contextAccessor;
         private readonly ITenantProvider _tenantProvider;
 
-        public ProductsDAL(ILogger<ProductsDAL> logger, mowtDbContext context, IProductRelationshipsDAL relationshipsDAL, PricingCalculations pricingCalc, IHttpContextAccessor contextAccessor, FileUploadManager fileUpload, ItaxDAL taxDal, IExcelDomainService excelDomainService, ITenantProvider tenantProvider)
+        public ProductsDAL(ILogger<ProductsDAL> logger, AssetlenDbContext context, IProductRelationshipsDAL relationshipsDAL, PricingCalculations pricingCalc, IHttpContextAccessor contextAccessor, FileUploadManager fileUpload, ItaxDAL taxDal, IExcelDomainService excelDomainService, ITenantProvider tenantProvider)
         {
             _logger = logger;
             _context = context;

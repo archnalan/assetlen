@@ -32,10 +32,10 @@ namespace assetlen.Service.DbServices
 {
 	public class TransactionDAL : ITransactionDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<TransactionDAL> _logger;
 		private IExcelDomainService _excelDomainService;
-		public TransactionDAL(ILogger<TransactionDAL> logger, mowtDbContext context, IExcelDomainService excelDomainService)
+		public TransactionDAL(ILogger<TransactionDAL> logger, AssetlenDbContext context, IExcelDomainService excelDomainService)
 		{
 			_logger = logger;
 			_context = context;

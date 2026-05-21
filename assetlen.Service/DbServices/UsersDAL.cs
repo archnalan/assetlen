@@ -19,10 +19,10 @@ namespace assetlen.Service.DbServices
 {
     public class UsersDAL : IUsersDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<ProductsDAL> _logger;
         private readonly IConfiguration _config;
-        public UsersDAL(mowtDbContext context, ILogger<ProductsDAL> logger, IConfiguration config)
+        public UsersDAL(AssetlenDbContext context, ILogger<ProductsDAL> logger, IConfiguration config)
         {
             _context = context;
             _logger = logger;

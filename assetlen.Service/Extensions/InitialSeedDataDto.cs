@@ -178,7 +178,7 @@ namespace assetlen.Shared.Models.Models.ViewModels
                 new() { ConfigId = (int)Configurations.ShowTotalExpectedAmountWhenCashingOut, StringValue = "False", TenantId = tenantId },
                 new() { ConfigId = (int)Configurations.CompleteAndPayOrdersFromOrdersModule, StringValue = "False", TenantId = tenantId },
                 new() { ConfigId = (int)Configurations.EnableHandPointSimulator, StringValue = "False", TenantId = tenantId },
-                new() { ConfigId = (int)Configurations.BackUpDatabaseDirectory, StringValue = @"C:\mowt backups", TenantId = tenantId },
+                new() { ConfigId = (int)Configurations.BackUpDatabaseDirectory, StringValue = @"C:\assetlen backups", TenantId = tenantId },
                 new() { ConfigId = (int)Configurations.AutoBackupDatabase, StringValue = "True", TenantId = tenantId },
                 new() { ConfigId = (int)Configurations.NumberOfDatabaseFilesToKeep, StringValue = "10", TenantId = tenantId },
                 new() { ConfigId = (int)Configurations.LastdbBackupDateTime, StringValue = "08/09/2024 10:07:53", TenantId = tenantId },

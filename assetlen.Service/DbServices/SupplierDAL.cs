@@ -23,11 +23,11 @@ namespace assetlen.Service.DbServices
 {
     public class SupplierDAL : ISupplierDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<SupplierDAL> _logger;
         private readonly IExcelDomainService _excelDomainService;
 
-        public SupplierDAL(ILogger<SupplierDAL> logger, mowtDbContext context, IExcelDomainService excelDomainService)
+        public SupplierDAL(ILogger<SupplierDAL> logger, AssetlenDbContext context, IExcelDomainService excelDomainService)
         {
             _logger = logger;
             _context = context;

@@ -19,13 +19,13 @@ public static class Converters
             v => decimal.Parse(v, CultureInfo.InvariantCulture));
 }
 
-public partial class mowtDbContext : IdentityDbContext<AppUser>
+public partial class AssetlenDbContext : IdentityDbContext<AppUser>
 {
     private readonly ITenantProvider _tenantProvider;
     private readonly string _tenantId;
     private readonly bool _isSuperAdmin;
 
-    public mowtDbContext(DbContextOptions<mowtDbContext> options, ITenantProvider tenantProvider)
+    public AssetlenDbContext(DbContextOptions<AssetlenDbContext> options, ITenantProvider tenantProvider)
         : base(options)
     {
         _tenantProvider = tenantProvider;

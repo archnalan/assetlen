@@ -9,7 +9,7 @@ using Velopack;
 
 namespace assetlen.Shared.Models.UpdateManger
 {
-    public static class mowtUpdateManager
+    public static class AssetlenUpdateManager
     {
 
         public static UpdateManager mgr = null;
@@ -21,7 +21,7 @@ namespace assetlen.Shared.Models.UpdateManger
         {
             try
             {
-                mgr = new UpdateManager(@"https://clientsapi.mowt.com/api/Download/updates");
+                mgr = new UpdateManager(@"https://clientsapi.assetlen.com/api/Download/updates");
 
 
 

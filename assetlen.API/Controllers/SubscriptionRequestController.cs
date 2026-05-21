@@ -26,7 +26,7 @@ namespace assetlen.API.Controllers
         private string? GetUserEmail() => User.FindFirstValue(ClaimTypes.Email);
 
         private bool IsAdmin() =>
-            User.IsInRole(UserRoles.mowtSuperAdmin) ||
+            User.IsInRole(UserRoles.AssetlenSuperAdmin) ||
             User.IsInRole(UserRoles.AdminModuleLogin) ||
             User.IsInRole(UserRoles.SetUserAccount);
 
@@ -61,7 +61,7 @@ namespace assetlen.API.Controllers
         // ─────────────────────────────────────────────────────
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(SubscriptionRequestDto), 200)]
         public async Task<ActionResult> GetById(
             [FromQuery][Required] string id,
@@ -75,7 +75,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(List<SubscriptionRequestDto>), 200)]
         public async Task<ActionResult> GetAll(
             [FromBody] SubscriptionRequestQueryDto query,
@@ -89,7 +89,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(SubscriptionRequestStatsDto), 200)]
         public async Task<ActionResult> GetStats(CancellationToken cancellationToken = default)
         {
@@ -105,7 +105,7 @@ namespace assetlen.API.Controllers
         // ─────────────────────────────────────────────────────
 
         [HttpPut]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(SubscriptionRequestDto), 200)]
         public async Task<ActionResult> IssueQuote(
             [FromBody] SubscriptionRequestQuoteDto dto,
@@ -119,7 +119,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpPut]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(SubscriptionRequestDto), 200)]
         public async Task<ActionResult> ConfirmPayment(
             [FromBody] SubscriptionRequestPaymentDto dto,
@@ -133,7 +133,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpPut]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(SubscriptionRequestDto), 200)]
         public async Task<ActionResult> UpdateStatus(
             [FromBody] SubscriptionRequestStatusUpdateDto dto,
@@ -151,7 +151,7 @@ namespace assetlen.API.Controllers
         // ─────────────────────────────────────────────────────
 
         [HttpPost]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(SubscriptionSeatDto), 200)]
         public async Task<ActionResult> AddSeat(
             [FromBody] SubscriptionSeatCreateDto dto,
@@ -165,7 +165,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(List<SubscriptionSeatDto>), 200)]
         public async Task<ActionResult> AddSeatsBulk(
             [FromBody] SubscriptionSeatBulkCreateDto dto,
@@ -179,7 +179,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpDelete]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(bool), 200)]
         public async Task<ActionResult> RemoveSeat(
             [FromQuery][Required] string seatId,
@@ -193,7 +193,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.mowtSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(List<SubscriptionSeatDto>), 200)]
         public async Task<ActionResult> GetSeats(
             [FromQuery][Required] string requestId,

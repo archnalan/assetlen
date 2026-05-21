@@ -16,10 +16,10 @@ namespace assetlen.Service.DbServices
 {
     public class PrinterPreferencesDAL : IPrinterPreferencesDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<PrinterPreferencesDAL> _logger;
 
-        public PrinterPreferencesDAL(mowtDbContext context, ILogger<PrinterPreferencesDAL> logger)
+        public PrinterPreferencesDAL(AssetlenDbContext context, ILogger<PrinterPreferencesDAL> logger)
         {
             _context = context;
             _logger = logger;

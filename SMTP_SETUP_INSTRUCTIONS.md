@@ -20,7 +20,7 @@ Brevo offers an excellent free tier for development and small-scale production:
 3. Fill in your details:
    - Email address
    - Password
-   - Company name (you can use "MoWT" or your organization name)
+   - Company name (you can use "ASSETLEN" or your organization name)
 4. Verify your email address by clicking the link sent to your inbox
 
 ### Step 2: Get Your SMTP Credentials
@@ -44,12 +44,12 @@ Update your `appsettings.json` file with your Brevo credentials:
   "Host": "smtp-relay.brevo.com",
   "Port": 587,
   "SenderEmail": "noreply@yourdomain.com",
-  "SenderName": "MoWT Digital Library",
+  "SenderName": "ASSETLEN",
   "Username": "your-brevo-email@example.com",
   "Password": "your-brevo-smtp-key-here",
   "ReplyToEmail": "support@yourdomain.com",
   "CompanyName": "Ministry of Works & Transport",
-  "WebsiteLink": "https://mowt.com"
+  "WebsiteLink": "https://assetlen.com"
 }
 ```
 
@@ -68,7 +68,7 @@ Before you can send emails, you must verify your sender email address:
 1. In Brevo dashboard, go to **Senders, Domains & Dedicated IPs** → **Senders**
 2. Click **Add a sender**
 3. Enter your email (e.g., `noreply@yourdomain.com`)
-4. Enter sender name (e.g., "MoWT Digital Library")
+4. Enter sender name (e.g., "ASSETLEN")
 5. Click **Add**
 6. Check your inbox for verification email from Brevo
 7. Click the verification link

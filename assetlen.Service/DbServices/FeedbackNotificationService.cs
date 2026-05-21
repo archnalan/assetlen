@@ -5,7 +5,7 @@ using assetlen.Service.DataAccess;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.Models.statics;
-using mowt.Web.Controllers.SmtpClient;
+using assetlen.Service.DbServices.SmtpClient;
 using Hangfire;
 
 namespace assetlen.Service.DbServices

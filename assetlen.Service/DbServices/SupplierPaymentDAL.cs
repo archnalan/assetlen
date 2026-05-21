@@ -18,10 +18,10 @@ namespace assetlen.Service.DbServices
 {
     public class SupplierPaymentDAL : ISupplierPaymentDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly ILogger<SupplierPaymentDAL> _logger;
 
-        public SupplierPaymentDAL(ILogger<SupplierPaymentDAL> logger, mowtDbContext context)
+        public SupplierPaymentDAL(ILogger<SupplierPaymentDAL> logger, AssetlenDbContext context)
         {
             _logger = logger;
             _context = context;

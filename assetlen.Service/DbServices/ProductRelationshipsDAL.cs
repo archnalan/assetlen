@@ -17,10 +17,10 @@ namespace assetlen.Service.DbServices
 {
 	public class ProductRelationshipsDAL : IProductRelationshipsDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<ProductRelationshipsDAL> _logger;
 
-		public ProductRelationshipsDAL(ILogger<ProductRelationshipsDAL> logger, mowtDbContext context)
+		public ProductRelationshipsDAL(ILogger<ProductRelationshipsDAL> logger, AssetlenDbContext context)
 		{
 			_logger = logger;
 			_context = context;

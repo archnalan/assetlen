@@ -33,7 +33,7 @@ namespace assetlen.Service.DbServices
 {
     public class SyncDAL : ISyncDAL
     {
-        private readonly mowtDbContext _context;
+        private readonly AssetlenDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<SyncDAL> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
@@ -51,7 +51,7 @@ namespace assetlen.Service.DbServices
             "https://httpbin.org/status/200",
             "https://example.com"
         };
-        public SyncDAL(mowtDbContext context, ILogger<SyncDAL> logger, IHttpClientFactory httpClientFactory, IConfigDAL userSettings, IBackgroundJobClient backgroundJobClient, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IOnlineIdentityVerifier onlineIdentityVerifier, IAuthorizationDAL authorizationDAL)
+        public SyncDAL(AssetlenDbContext context, ILogger<SyncDAL> logger, IHttpClientFactory httpClientFactory, IConfigDAL userSettings, IBackgroundJobClient backgroundJobClient, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IOnlineIdentityVerifier onlineIdentityVerifier, IAuthorizationDAL authorizationDAL)
         {
             _context = context;
             _logger = logger;

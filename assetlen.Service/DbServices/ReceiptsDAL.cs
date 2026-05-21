@@ -20,11 +20,11 @@ namespace assetlen.Service.DbServices
 {
 	public class ReceiptsDAL : IReceiptsDAL
 	{
-		private readonly mowtDbContext _context;
+		private readonly AssetlenDbContext _context;
 		private readonly ILogger<ReceiptsDAL> _logger;
 		private readonly ITenantProvider _tenantProvider;
 
-		public ReceiptsDAL(ILogger<ReceiptsDAL> logger, mowtDbContext context, ITenantProvider tenantProvider)
+		public ReceiptsDAL(ILogger<ReceiptsDAL> logger, AssetlenDbContext context, ITenantProvider tenantProvider)
 		{
 			_logger = logger;
 			_context = context;

@@ -108,7 +108,7 @@ Carousel auto-slide: **5000ms** dwell, **400ms** cross-fade. Pause on hover and 
 ### 4.1 CSS
 
 - Component styles live in a co-located `Foo.razor.css`. No global selectors there.
-- Shared tokens, resets, utilities, and keyframes live in [mowt/mowt.Shared/Styles/app.css](mowt/mowt.Shared/Styles/app.css). When you find duplication across two `.razor.css` files, promote it to `app.css`.
+- Shared tokens, resets, utilities, and keyframes live in [assetlen/assetlen.Shared/Styles/app.css](assetlen/assetlen.Shared/Styles/app.css). When you find duplication across two `.razor.css` files, promote it to `app.css`.
 - Class naming: kebab-case, component-prefixed. `al-card`, `al-card__title`, `al-card--featured`. The `al-` prefix is mandatory for shared utilities; per-component classes use the component name (e.g. `project-card`, `project-card__cover`).
 - Never write a literal color, font-family, radius, or duration. Use a token.
 
@@ -122,7 +122,7 @@ Carousel auto-slide: **5000ms** dwell, **400ms** cross-fade. Pause on hover and 
 ### 4.3 Folder structure — module-based vertical slices
 
 ```
-mowt/mowt.Shared/
+assetlen/assetlen.Shared/
   Modules/                          ← see Modules/README.md for the module map
     Identity/                       tenants, users, roles, invites, auth
     Projects/                       Project, SubProject, dashboard, detail shell
@@ -204,28 +204,28 @@ Each phase ends when the feature is usable on mobile + desktop, has loading/empt
 
 The following POS subtrees were removed (147 .razor files). Don't re-introduce them, don't grep for them as references.
 
-- `mowt/mowt.Shared/Pages/BillingModule/` ✓
-- `mowt/mowt.Shared/Pages/OrdersModule/` ✓
-- `mowt/mowt.Shared/Pages/DiscoveryModule/` ✓
-- `mowt/mowt.Shared/Pages/Admin/Products/` (entire subtree) ✓
-- `mowt/mowt.Shared/Pages/Admin/Customers/` ✓
-- `mowt/mowt.Shared/Pages/Admin/Suppliers/` ✓
-- `mowt/mowt.Shared/Pages/Admin/ReceiveProducts(GRN)/` ✓
-- `mowt/mowt.Shared/Pages/Admin/CustomerBasedPricing/` ✓
-- `mowt/mowt.Shared/Pages/Admin/Transactions/` ✓
-- `mowt/mowt.Shared/Pages/Admin/Settings/` (entire subtree — POS-only) ✓
-- `mowt/mowt.Shared/Components/Feedback/` (POS product feedback) ✓
+- `assetlen/assetlen.Shared/Pages/BillingModule/` ✓
+- `assetlen/assetlen.Shared/Pages/OrdersModule/` ✓
+- `assetlen/assetlen.Shared/Pages/DiscoveryModule/` ✓
+- `assetlen/assetlen.Shared/Pages/Admin/Products/` (entire subtree) ✓
+- `assetlen/assetlen.Shared/Pages/Admin/Customers/` ✓
+- `assetlen/assetlen.Shared/Pages/Admin/Suppliers/` ✓
+- `assetlen/assetlen.Shared/Pages/Admin/ReceiveProducts(GRN)/` ✓
+- `assetlen/assetlen.Shared/Pages/Admin/CustomerBasedPricing/` ✓
+- `assetlen/assetlen.Shared/Pages/Admin/Transactions/` ✓
+- `assetlen/assetlen.Shared/Pages/Admin/Settings/` (entire subtree — POS-only) ✓
+- `assetlen/assetlen.Shared/Components/Feedback/` (POS product feedback) ✓
 - Loose POS/boilerplate: `Chat.razor`, `Notification.razor`, `Counter.razor`, `Weather.razor`, `Button.razor` ✓
-- `mowt.client.wasm/Pages/Counter.razor`, `Weather.razor` ✓
+- `assetlen.Client/Pages/Counter.razor`, `Weather.razor` ✓
 
 **Still to triage (don't delete yet — may reference deleted types):**
 
-- `mowt.Shared.Models/` — DTOs may include POS types (`ProductDto`, `CustomerDto`, `SaleDto`, etc.). Audit + delete in Phase 1 when domain models for ASSETLEN are introduced.
-- `mowt.Service/` — services for the POS domain. Same.
-- `mowt.API/Controllers/` — POS endpoints. Same.
-- `mowt.Sqlite/` + `mowt.SqlServer/` — EF DbContext + migrations likely have POS entities. Will need fresh migration set in Phase 1.
-- `mowt/mowt.Shared/Pages/Components/` — has some keepers (`RouteTracker`, `NavMenuSearch`, `SearchInput`, `SearchListMini`, `SetupWizard/`, `Startup/`). Will refactor into `Components/` + `Modules/Identity/` in Phase 1, not delete.
+- `assetlen.Shared.Models/` — DTOs may include POS types (`ProductDto`, `CustomerDto`, `SaleDto`, etc.). Audit + delete in Phase 1 when domain models for ASSETLEN are introduced.
+- `assetlen.Service/` — services for the POS domain. Same.
+- `assetlen.API/Controllers/` — POS endpoints. Same.
+- `assetlen.Sqlite/` + `assetlen.SqlServer/` — EF DbContext + migrations likely have POS entities. Will need fresh migration set in Phase 1.
+- `assetlen/assetlen.Shared/Pages/Components/` — has some keepers (`RouteTracker`, `NavMenuSearch`, `SearchInput`, `SearchListMini`, `SetupWizard/`, `Startup/`). Will refactor into `Components/` + `Modules/Identity/` in Phase 1, not delete.
 
-**Preserved:** project structure, FluentUI dependency, `CustomAuthStateProvider`, `RouteTracker`, `NavMenuSearch`, `Layout/MainLayout.razor` (will be re-skinned in Phase 1), Sqlite/SqlServer EF providers, `mowt.Shared/Pages/Error.razor`.
+**Preserved:** project structure, FluentUI dependency, `CustomAuthStateProvider`, `RouteTracker`, `NavMenuSearch`, `Layout/MainLayout.razor` (will be re-skinned in Phase 1), Sqlite/SqlServer EF providers, `assetlen.Shared/Pages/Error.razor`.
 
-**Module scaffolding created** under `mowt/mowt.Shared/Modules/` — see [mowt/mowt.Shared/Modules/README.md](mowt/mowt.Shared/Modules/README.md) for the full module map.
+**Module scaffolding created** under `assetlen/assetlen.Shared/Modules/` — see [assetlen/assetlen.Shared/Modules/README.md](assetlen/assetlen.Shared/Modules/README.md) for the full module map.

@@ -164,8 +164,8 @@ If you prefer other options:
 2. **Use User Secrets for development:**
 
    ```bash
-   dotnet user-secrets init --project mowt.API
-   dotnet user-secrets set "SmtpSettings:Password" "your-smtp-key" --project mowt.API
+   dotnet user-secrets init --project assetlen.API
+   dotnet user-secrets set "SmtpSettings:Password" "your-smtp-key" --project assetlen.API
    ```
 
 3. **Use Azure App Configuration or Key Vault in production**
@@ -190,7 +190,7 @@ This ensures fast user experience even if email sending is slow.
 
 - **Brevo Documentation:** [https://help.brevo.com](https://help.brevo.com)
 - **Brevo Support:** Available via dashboard chat
-- For application issues: Check logs in `mowt.API` project
+- For application issues: Check logs in `assetlen.API` project
 
 ---
 

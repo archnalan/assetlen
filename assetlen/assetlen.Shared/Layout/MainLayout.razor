@@ -1,0 +1,252 @@
+﻿@using assetlen.Shared.Models.statics
+@using assetlen.Shared.Pages.Components.Startup
+@using Microsoft.AspNetCore.Hosting;
+@using System.Security.Claims
+@using System.ComponentModel
+
+
+
+@inherits LayoutComponentBase
+@inject GlobalContext _globalSession
+@* @attribute [Authorize(Roles =$"{UserRoles.AdminModuleLogin}")]*@
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+@inject IFormFactor _formFactor
+@inject CustomAuthStateProvider _custAuth;
+
+<div class="app-root">
+
+    @if (_isForbidden)
+    {
+        <ForbiddenRedirect Message="You don't have permission to access the admin area." RedirectTo="/" />
+    }
+
+    @if (IsShowContent)
+    {
+        <div class="app-layout">
+            <FluentHeader class="d-flex justify-content-between" Style="z-index:100">
+                <FluentStack Orientation="Orientation.Horizontal" Class="align-items-center"
+                             HorizontalAlignment="HorizontalAlignment.Start" VerticalAlignment="@VerticalAlignment.Center"
+                             Style="height:3rem; padding-inline-start: 0.75rem;">
+                    <span>MoWT <span class="d-none d-sm-inline">Document manager</span> - Admin</span>
+                </FluentStack>
+
+                <FluentStack class="align-items-center gap-3">
+                    <FluentIcon Value="@(new Icons.Regular.Size24.Home())"
+                                OnClick="@(() => _nav.NavigateTo("admin/dashboard"))"
+                                Style="width: 30px;fill: var(--fill-color);" />
+                    <NavMenuSearch></NavMenuSearch>
+                </FluentStack>
+
+                <FluentStack Orientation="Microsoft.FluentUI.AspNetCore.Components.Orientation.Horizontal"
+                             HorizontalAlignment="@HorizontalAlignment.End" VerticalAlignment="@VerticalAlignment.Center"
+                             Style="height:3rem; padding-inline-end: 0.75rem;z-index: 1000">
+                    <ProfileMenu CompanyName="@CompanyName"
+                                 ImageLink="@ImageLink"
+                                 HandleLogout="@HandleLogout"
+                                 ProfileEmail="@ProfileEmail"
+                                 ProfileFullName="@ProfileFullName" />
+                </FluentStack>
+            </FluentHeader>
+
+            <div class="app-body">
+                <NavMenu @ref="navMenuRef" />
+
+                <FluentBodyContent Class="body-content">
+                    <div class="body-display">
+                        @Body
+                    </div>
+                </FluentBodyContent>
+            </div>
+
+            <footer class="app-footer">
+                <a href="https://www.billtrick.com" target="_blank">Documentation and demos</a>
+                <span class="footer-spacer"></span>
+                <a href="https://learn.biltrick.com/" target="_blank">About MoWT</a>
+            </footer>
+        </div>
+
+        <FluentToastProvider MaxToastCount="7" />
+    }
+</div>
+
+<FluentDialogProvider />
+<FluentToastProvider MaxToastCount="7" />
+<RouteTracker />
+<FluentMenuProvider />
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private bool IsShowContent = false;
+    private bool _isForbidden = false;
+    private bool splashScreen = false;
+    private string? ImageLink;
+    private string? ProfileFullName;
+    private string? ProfileEmail;
+    private string? CompanyName = "MoWT";
+    private IDialogReference? _dialog;
+    private NavMenu? navMenuRef;
+
+    private void ToggleMobileMenu()
+    {
+        navMenuRef?.ToggleMobileMenu();
+    }
+
+    private DesignThemeModes Mode = DesignThemeModes.Dark;
+    private OfficeColor? Color = OfficeColor.Word;
+    private bool IsDarkMode
+    {
+        get => Mode == DesignThemeModes.Light;
+        set => Mode = value ? DesignThemeModes.Light : DesignThemeModes.Dark;
+    }
+    private string GetColorDescription(OfficeColor? color)
+    {
+        if (color == null) return string.Empty;
+
+        var type = color.GetType();
+        var memInfo = type.GetMember(color.ToString());
+        var attributes = memInfo[0].GetCustomAttributes(typeof(DescriptionAttribute), false);
+        return ((DescriptionAttribute)attributes[0]).Description;
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                var script = document.createElement('script');
+                script.src = './customJavascript.js';
+                script.async = true;
+                document.head.appendChild(script);
+            ");
+            var user = _sd.CurrentUser;
+            if (user == null)
+            {
+                if (!(_formFactor.GetFormFactor().ToLower().Contains("web")))
+                {
+                    await OpenSplashScreen();
+                }
+                _nav.NavigateTo("/");
+            }
+        }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        // await HandleLogout();
+
+        var token = await _storageService.GetItemAsync<LoginResponseDto>(StorageKeys.SessionState);
+        var relativeUri = _nav.ToBaseRelativePath(_nav.Uri);
+
+        // Handle token authentication
+        if (token is not null)
+        {
+            await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(token);
+        }
+
+        var authState = await ((CustomAuthStateProvider)_authStateProvider).GetAuthenticationStateAsync();
+        if (authState?.User?.Identity?.IsAuthenticated ?? false)
+        {
+            var userObj = await _custAuth.GetAuthenticatedUser(token);
+            _sd.SetUser(userObj);
+            await _userSession.RestoreUserRolesAsync();
+            var user = _sd.CurrentUser;
+            if (user != null)
+            {
+                if (_sd.CurrentUser?.RolesDto?.AdminModuleLogin != true)
+                {
+                    _isForbidden = true;
+                    return;
+                }
+                IsShowContent = true;
+                ProfileFullName = user.FullName ?? $"{user.FirstName ?? ""} {user.LastName ?? ""}";
+                ProfileEmail = user.Email;
+                ImageLink = user.ProfilePicUrl;
+            }
+
+            if (!string.IsNullOrEmpty(relativeUri)) _nav.NavigateTo(relativeUri, false);
+
+        }
+        else
+        {
+            // Exclude login and signup from authentication redirect
+            var excludedRoutes = new[] { "login", "signup" };
+            var currentRoute = relativeUri?.TrimStart('/').Split('?')[0].ToLowerInvariant() ?? "";
+
+            if (excludedRoutes.Contains(currentRoute))
+            {
+                if (!string.IsNullOrEmpty(relativeUri)) _nav.NavigateTo(relativeUri, false);
+            }
+            else
+            {
+                _nav.NavigateTo(string.IsNullOrEmpty(relativeUri) ? "login" : "login" + "?returnUrl=" + relativeUri, false);
+            }
+
+        }
+
+    }
+    private async Task HandleLogout()
+    {
+        _sd.RemoveUser();
+        await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
+
+    }
+
+    private async Task OpenSplashScreen()
+    {
+        DialogParameters<SplashScreenContent> parameters = new()
+        {
+            Content = new SplashScreenContent
+            {
+                DisplayTime = 3000,
+                Title = "Billtrick POS",
+                SubTitle = "Unlocking Your Sales Potential",
+                LoadingText = "Loading...",
+                Message = (MarkupString)"one <i>transaction</i> at a <strong>time</strong> <br/> <a href='https://billtrick.com' >www.billtrick.com</a>",
+                Logo = "/billtricksplashscreen.png",
+            },
+            PreventDismissOnOverlayClick = true,
+            Modal = true,
+        };
+        _dialog = await DialogService.ShowDialogAsync<SplashScreen>(parameters.Content, parameters);
+        await Task.Delay(parameters.Content.DisplayTime);
+        await _dialog.CloseAsync();
+    }
+
+
+    private async Task HandleDefaultSplashAsync(DialogResult result)
+    {
+        await Task.Run(() => Debug.WriteLine($"Default splash closed"));
+    }
+
+    // public List<T> HandleListResult<T>(Refit.IApiResponse<List<T>> result)
+    // where T : new()
+    // {
+    // if (result.IsSuccessStatusCode)
+    // {
+    // return result.Content ?? new List<T>();
+    // }
+
+    // ToastService.ShowError($"Error while making api call: {result.Error?.Message}");
+    // return new List<T>();
+    // }
+    public T HandleObjResult<T>(Refit.IApiResponse<T> result)
+    where T : new()
+    {
+        if (result.IsSuccessStatusCode)
+        {
+            return result.Content ?? new T();
+        }
+
+        ToastService.ShowError($"Error while making api call: {result.Error?.Message}");
+        return new T();
+    }
+
+
+}

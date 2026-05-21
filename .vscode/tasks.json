@@ -39,12 +39,12 @@
       "dockerBuild": {
         "tag": "mowt:dev",
         "target": "base",
-        "dockerfile": "${workspaceFolder}/mowt/mowt.Shared/Dockerfile",
+        "dockerfile": "${workspaceFolder}/assetlen/assetlen.Shared/Dockerfile",
         "context": "${workspaceFolder}",
         "pull": true
       },
       "netCore": {
-        "appProject": "${workspaceFolder}/mowt/mowt.Shared/mowt - Backup.Shared.csproj"
+        "appProject": "${workspaceFolder}/assetlen/assetlen.Shared/mowt - Backup.Shared.csproj"
       }
     },
     {
@@ -53,7 +53,7 @@
       "dependsOn": ["build"],
       "dockerBuild": {
         "tag": "mowt:latest",
-        "dockerfile": "${workspaceFolder}/mowt/mowt.Shared/Dockerfile",
+        "dockerfile": "${workspaceFolder}/assetlen/assetlen.Shared/Dockerfile",
         "context": "${workspaceFolder}",
         "platform": {
           "os": "linux",
@@ -62,7 +62,7 @@
         "pull": true
       },
       "netCore": {
-        "appProject": "${workspaceFolder}/mowt/mowt.Shared/mowt - Backup.Shared.csproj"
+        "appProject": "${workspaceFolder}/assetlen/assetlen.Shared/mowt - Backup.Shared.csproj"
       }
     },
     {
@@ -71,7 +71,7 @@
       "dependsOn": ["docker-build: debug"],
       "dockerRun": {},
       "netCore": {
-        "appProject": "${workspaceFolder}/mowt/mowt.Shared/mowt - Backup.Shared.csproj",
+        "appProject": "${workspaceFolder}/assetlen/assetlen.Shared/mowt - Backup.Shared.csproj",
         "enableDebugging": true
       }
     },
@@ -81,7 +81,7 @@
       "dependsOn": ["docker-build: release"],
       "dockerRun": {},
       "netCore": {
-        "appProject": "${workspaceFolder}/mowt/mowt.Shared/mowt - Backup.Shared.csproj"
+        "appProject": "${workspaceFolder}/assetlen/assetlen.Shared/mowt - Backup.Shared.csproj"
       }
     }
   ]

@@ -1,0 +1,229 @@
+@page "/project/{ProjectId}/progress/add"
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@layout RemoteSiteLayout
+@attribute [Authorize(Roles = "ProjectManager")]
+@inject NavigationManager Nav
+@inject ILogger<ProgressUpload> Logger
+
+<PageTitle>Upload Progress — Remote Site</PageTitle>
+
+<div class="rs-page-header">
+    <div>
+        <a href="/project/@ProjectId" class="rs-btn rs-btn-link" style="padding:0;font-size:0.85rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Project
+        </a>
+        <h1 class="rs-page-title rs-mt-xs">Upload Progress</h1>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="rs-alert rs-alert-error rs-mt-md">@errorMessage</div>
+}
+
+<div class="rs-card rs-mt-md">
+    <div class="rs-card-body">
+        <!-- Stage Selection -->
+        <div class="rs-form-group">
+            <label class="rs-label">Construction Stage *</label>
+            @if (stages == null)
+            {
+                <div class="rs-skeleton rs-skeleton-line" style="height:40px;"></div>
+            }
+            else
+            {
+                <select class="rs-input" @bind="model.StageId">
+                    <option value="">Select a stage...</option>
+                    @foreach (var stage in stages)
+                    {
+                        <option value="@stage.Id">@stage.StageName (@stage.CompletionPercentage%)</option>
+                    }
+                </select>
+            }
+        </div>
+
+        <!-- Completion Percentage -->
+        <div class="rs-form-group">
+            <label class="rs-label">Stage Completion % *</label>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <input class="rs-input" type="range" min="0" max="100" step="5" @bind="model.CompletionPercentage" @bind:event="oninput"
+                       style="flex:1;" />
+                <span style="font-weight:600;min-width:42px;text-align:right;">@model.CompletionPercentage%</span>
+            </div>
+            <div class="rs-progress-bar rs-mt-xs" style="height:6px;">
+                <div class="rs-progress-fill @GetProgressColor(model.CompletionPercentage ?? 0)"
+                     style="width:@(model.CompletionPercentage ?? 0)%"></div>
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="rs-form-group">
+            <label class="rs-label">Update Description *</label>
+            <textarea class="rs-input rs-textarea" @bind="model.Description" rows="3"
+                      placeholder="Describe the work completed, any issues or milestones..."></textarea>
+        </div>
+
+        <!-- Issue Flag -->
+        <div class="rs-form-group">
+            <label class="rs-checkbox-label">
+                <input type="checkbox" @bind="model.HasIssues" />
+                <span>Flag issues or delays</span>
+            </label>
+        </div>
+
+        <!-- Photo Upload -->
+        <div class="rs-form-group">
+            <label class="rs-label">Photos (up to 5)</label>
+            <div class="rs-photo-upload-grid">
+                @for (int i = 0; i < model.Images.Count; i++)
+                {
+                    var idx = i;
+                    var img = model.Images[idx];
+                    <div class="rs-photo-preview">
+                        @if (!string.IsNullOrEmpty(img.PreviewUrl))
+                        {
+                            <img src="@img.PreviewUrl" alt="Preview" />
+                            <button class="rs-photo-remove" @onclick="() => RemoveImage(idx)" title="Remove">×</button>
+                        }
+                    </div>
+                }
+                @if (model.Images.Count < 5)
+                {
+                    <label class="rs-photo-add">
+                        <InputFile OnChange="OnFilesSelected" accept="image/*" multiple />
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span class="rs-text-xs">Add Photo</span>
+                    </label>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="rs-form-actions rs-mt-md rs-mb-lg">
+    <a href="/project/@ProjectId" class="rs-btn rs-btn-secondary">Cancel</a>
+    <button class="rs-btn rs-btn-primary" @onclick="SubmitUpdate" disabled="@(isSaving || !CanSubmit)">
+        @if (isSaving)
+        {
+            <span class="rs-spinner"></span>
+            <text>Uploading...</text>
+        }
+        else
+        {
+            <text>Post Update</text>
+        }
+    </button>
+</div>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private ProgressUpdateCreateDto model = new()
+    {
+        Images = new List<ProgressImageUploadDto>()
+    };
+
+    private List<StageDto>? stages;
+    private bool isSaving;
+    private string? errorMessage;
+
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(model.StageId) &&
+        !string.IsNullOrWhiteSpace(model.Description) &&
+        model.CompletionPercentage >= 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        model.ProjectId = ProjectId;
+        try
+        {
+            var resp = await _stagesApi.GetStagesByProjectId(ProjectId);
+            if (resp.IsSuccessStatusCode)
+                stages = resp.Content;
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading stages"); }
+    }
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        var remaining = 5 - model.Images.Count;
+        var files = e.GetMultipleFiles(remaining);
+
+        foreach (var file in files)
+        {
+            if (model.Images.Count >= 5) break;
+
+            try
+            {
+                // Create a preview
+                var format = file.ContentType;
+                var resized = await file.RequestImageFileAsync(format, 600, 600);
+
+                using var ms = new MemoryStream();
+                await resized.OpenReadStream(5 * 1024 * 1024).CopyToAsync(ms);
+                var base64 = Convert.ToBase64String(ms.ToArray());
+                var previewUrl = $"data:{format};base64,{base64}";
+
+                model.Images.Add(new ProgressImageUploadDto
+                {
+                    FileName = file.Name,
+                    ContentType = format,
+                    Base64Image = base64,
+                    PreviewUrl = previewUrl,
+                    DisplayOrder = model.Images.Count + 1
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error processing image {FileName}", file.Name);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void RemoveImage(int idx)
+    {
+        model.Images.RemoveAt(idx);
+        for (int i = 0; i < model.Images.Count; i++)
+            model.Images[i].DisplayOrder = i + 1;
+    }
+
+    private async Task SubmitUpdate()
+    {
+        if (isSaving || !CanSubmit) return;
+        isSaving = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var resp = await _progressApi.AddProgressUpdate(model);
+            if (resp.IsSuccessStatusCode)
+            {
+                Nav.NavigateTo($"/project/{ProjectId}?tab=progress");
+            }
+            else
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Failed to submit update.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error submitting progress update");
+            errorMessage = "An unexpected error occurred.";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetProgressColor(decimal pct) =>
+        pct >= 75 ? "green" : pct >= 40 ? "yellow" : "";
+}

@@ -1,0 +1,220 @@
+﻿@using assetlen.Services
+@inject ILogger<ClientConfigurationStep> _logger
+@inject IConnectivityService _connectivityService
+
+<div class="wizard-step d-flex flex-column gap-2">
+    <h2>Server Configuration</h2>
+
+    @if (OperationMode == PostInstallWizard.OperationMode.AdditionalClient)
+    {
+        @if (isSearchingServers)
+        {
+            <FluentLabel>Searching for Billtrick Servers on the Network ...</FluentLabel>
+            <FluentLabel>Make sure this computer and the server are on the same network.!</FluentLabel>
+            <br />
+            <FluentProgress></FluentProgress>
+        }
+        else
+        {
+
+            <FluentDialog PreventScroll="true">
+                <div style="padding: 20px;">
+                    <h3>✅ Connection succeessfull</h3>
+                    <p>Successfully connected to @_serverAddress</p>
+                    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.ArrowLeft())"
+                    OnClick="@(()=>SetCurrentStep.InvokeAsync(1))">
+                        Cancel
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.Save())"
+                    OnClick="SaveAndRestartApp">
+                        Save and restart
+                    </FluentButton>
+                </div>
+            </FluentDialog>
+            <FluentTextField Label="Server Address" Disabled="true"
+            Placeholder="@ConnectionStatus" Value="@_serverAddress"></FluentTextField>
+        }
+    }
+    else
+    {
+        @if(_connectivityService.HasInternet)
+        {
+
+            <FluentDialog PreventScroll="true">
+                <div style="padding: 20px;">
+                    <h3>✅ Connection succeessfull</h3>
+                    <p>Successfully connected to Billtrick online</p>
+                    <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size20.ArrowLeft())"
+                    OnClick="@(()=>SetCurrentStep.InvokeAsync(1))">
+                        Cancel
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.Save())"
+                    OnClick="SaveAndRestartApp">
+                        Save and restart
+                    </FluentButton>
+                </div>
+            </FluentDialog>
+
+
+            <p>This computer will connect to the online BillTrick service.</p>
+        }
+        else
+        {
+            <FluentDialog PreventScroll="true">
+                <div style="padding: 20px;">
+                    <h3>❌ No Internet Connection</h3>
+                    <p>Please check your network settings and try again.</p>
+                    <FluentButton Appearance="Appearance.Accent"
+                    OnClick="@(()=>SetCurrentStep.InvokeAsync(1))">
+                        Retry
+                    </FluentButton>
+                </div>
+            </FluentDialog>
+        }
+    }
+</div>
+
+@code {
+    bool _isLoading = true;
+    string _serverAddress = default;
+    string ConnectionStatus = string.Empty;
+    bool hasInternet => _connectivityService.HasInternet;
+    bool isSearchingServers = true;
+
+
+    [Parameter]
+    public string ServerAddress { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ServerAddressChanged { get; set; }
+    [Parameter]
+    public EventCallback<int> SetCurrentStep { get; set; }
+    [Parameter]
+    public EventCallback<int> SetOperationMode { get; set; }
+    [Parameter]
+    public EventCallback FinishSetup { get; set; }
+       [Parameter]
+    public EventCallback HandleRestartApp { get; set; }
+
+    [Parameter]
+    public PostInstallWizard.OperationMode OperationMode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (OperationMode == PostInstallWizard.OperationMode.AdditionalClient)
+        {
+            await SearchForServersOnLocalNetwork();
+        }
+    }
+
+    private async Task HandleInternetCheck()
+    {
+        _isLoading = true;
+        ConnectionStatus = "Testing connection...";
+        try
+        {
+            var hasInternet = _connectivityService.HasInternet;
+            if (!hasInternet)
+            {
+                ConnectionStatus = "No internet connection detected. Please check your network settings.";
+                _logger.LogWarning("No internet connection detected.");
+                return;
+            }
+            _logger.LogInformation("Internet connection is available. Proceeding with server address configuration.");
+            // Check if the server address is set
+            ServerAddress = "https://api.billtrick.com";
+            _serverAddress = ServerAddress;
+            ConnectionStatus = "Testing connection to server...";
+
+            // If successful, update the status
+            ConnectionStatus = "Connection successful!";
+            await HandleRestartApp.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            ConnectionStatus = $"Error connecting to server: {ex.Message}";
+            _logger.LogError(ex, "Error while testing connection");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    private async Task SaveAndRestartApp()
+    {
+        await ServerAddressChanged.InvokeAsync(_serverAddress);
+        _logger.LogInformation("Server address saved: {serverAddress}", _serverAddress);
+
+        try 
+        { 
+            await FinishSetup.InvokeAsync(); 
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while invoking FinishSetup callback");
+            ConnectionStatus = "Error while finishing setup. Please try again.";
+            DialogService.ShowError($"Error occured while saving your configuration {ex.Message}");
+            return;
+        }
+        DialogService.ShowSuccess("Your configuration has been successfully saved. The app will restart for changes to take effect");
+        await Task.Delay(3000); 
+        // Restart the app with the new server address
+        await HandleRestartApp.InvokeAsync();
+    }
+   
+
+    private async Task SearchForServersOnLocalNetwork()
+    {
+
+
+        isSearchingServers = true;
+        var discoverer = new ServiceDiscoverer();
+        try
+        {
+            // Simulate searching for servers on the local network
+
+            string serviceUri = "";
+            bool timeout = false;
+            int retryCount = 0;
+
+            do
+            {
+                // Retrieve URL when needed
+                serviceUri = discoverer.GetDiscoveredApiUrl();
+                if (!string.IsNullOrEmpty(serviceUri))
+                {
+                    // If a service URI is found, use it
+                    _logger.LogInformation("Discovered service while testing local network discovery: {uridata}", serviceUri);
+                    _serverAddress = serviceUri;
+                   // port = int.TryParse(serviceUri.Split(':').Last(), out var portNumber) ? portNumber : 0;
+                    timeout = true;
+                    
+                    break;
+                }
+                else
+                {
+                    _logger.LogInformation("Service discovery failed");
+                }
+                // Wait for 1 second before checking again
+                await Task.Delay(1000);
+                retryCount++;
+                if (retryCount >= 120) // 3 minute wait
+                {
+                    timeout = true;
+                    break;
+                }
+
+            } while (!timeout);
+            ConnectionStatus = "Servers found on the local network.";
+        }
+        catch (Exception ex)
+        {
+            ConnectionStatus = $"Error searching for servers: {ex.Message}";
+        }
+        finally
+        {
+            discoverer.Dispose();
+            isSearchingServers = false;
+        }
+    }
+}

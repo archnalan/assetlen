@@ -1,0 +1,285 @@
+﻿@using Newtonsoft.Json
+@using assetlen.Shared.Models.Models
+@using assetlen.Shared.Models.Models.ViewModels.Users
+@inject ILogger<SignupForm> _logger
+
+<div class="signup-form">
+    @switch (currentStep)
+    {
+        case SignupStep.ChooseMethod:
+            <!-- Step 1: Choose signup method -->
+            <div class="signup-methods">
+                <FluentButton Appearance="Appearance.Outline"
+                              Style="width: 100%; min-height: 2.5rem; font-weight: 500; margin-bottom: 0.75rem;"
+                              @onclick="SignupWithGoogle" Disabled="isProcessing">
+                    <svg width="18" height="18" viewBox="0 0 18 18" style="margin-right: 0.5rem;">
+                        <path            d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"
+                                         fill="#4285F4" />
+                        <path            d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"
+                                         fill="#34A853" />
+                        <path            d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"
+                                         fill="#FBBC05" />
+                        <path            d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.166 6.656 3.58 9 3.58Z"
+                                         fill="#EA4335" />
+                    </svg>
+                    Continue with Google
+                </FluentButton>
+
+                <div class="method-divider">
+                    <span>or sign up with email/phone</span>
+                </div>
+
+                <FluentButton Appearance="Appearance.Outline"                              Style="width: 100%; min-height: 2.5rem; font-weight: 500;"
+                              @onclick="StartSignup">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.PersonAdd())" Style="margin-right: 0.4rem;" />
+                    Sign up with Email or Phone
+                </FluentButton>
+            </div>
+            break;
+
+        case SignupStep.SignupForm:
+            <!-- Step 2: Combined signup form -->
+            <div class="signup-form-content">
+                <FluentTextField Placeholder="First name" @bind-Value="firstName"                                 Style="width: 100%; margin-bottom: 0.75rem;">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Person())" Slot="start" Color="Color.Neutral" />
+                </FluentTextField>
+
+                <FluentTextField Placeholder="Last name" @bind-Value="lastName"                                 Style="width: 100%; margin-bottom: 0.75rem;">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Person())" Slot="start" Color="Color.Neutral" />
+                </FluentTextField>
+
+                <FluentTextField Placeholder="Email address (optional)" @bind-Value="email"
+                                 Style="width: 100%; margin-bottom: 0.75rem;"                                 TextFieldType="TextFieldType.Email">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Mail())" Slot="start" Color="Color.Neutral" />
+                </FluentTextField>
+
+                <FluentTextField Placeholder="Phone number (optional)" @bind-Value="phoneNumber"
+                                 Style="width: 100%; margin-bottom: 0.75rem;" TextFieldType="TextFieldType.Tel">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Phone())" Slot="start" Color="Color.Neutral" />
+                </FluentTextField>
+
+                <div style="color: var(--neutral-foreground-rest); font-size: 0.8rem; margin-bottom: 0.75rem; opacity: 0.8;">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Info())" Style="margin-right: 0.3rem;" />
+                    At least one (email or phone) is required
+                </div>
+
+                <FluentTextField Placeholder="Create password" @bind-Value="password" Type="password"
+                                 Style="width: 100%; margin-bottom: 0.75rem;">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Slot="start" Color="Color.Neutral" />
+                </FluentTextField>
+
+                <FluentTextField Placeholder="Confirm password" @bind-Value="confirmPassword" Type="password"
+                                 Style="width: 100%; margin-bottom: 1rem;">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Slot="start" Color="Color.Neutral" />
+                </FluentTextField>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="signup-error">@errorMessage</div>
+                }
+
+                <FluentButton Appearance="Appearance.Accent" Style="width: 100%; min-height: 2.5rem; font-weight: 600;"
+                              @onclick="SubmitSignup" Disabled="isProcessing" Loading="isProcessing">
+                    @if (!isProcessing)
+                    {
+                        <FluentIcon Value="@(new Icons.Regular.Size16.PersonAdd())" Style="margin-right: 0.5rem;" />
+                    }
+                    Create Account
+                </FluentButton>
+            </div>
+            break;
+
+        case SignupStep.Success:
+            <!-- Step 3: Account created -->
+            <div class="success-section">
+                <div class="success-icon">
+                    <FluentIcon Value="@(new Icons.Regular.Size48.CheckmarkCircle())" Color="Color.Custom"
+                                CustomColor="#38a169" />
+                </div>
+                <h3>Account created!</h3>
+                <p>Your account has been created successfully. Please verify your @(hasEmail ? "email" : "phone number") on
+                    first login.</p>
+
+                    <FluentButton Appearance="Appearance.Accent"
+                                  Style="width: 100%; min-height: 2.5rem; font-weight: 600; margin-top: 1rem;"                              @onclick="GoToLogin">
+                        Sign In Now
+                    </FluentButton>
+                </div>
+                break;
+            }
+
+            @if (currentStep == SignupStep.SignupForm)
+            {
+                <button class="back-btn" @onclick="GoBackStep">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.ArrowLeft())" />
+                    Back
+                </button>
+            }
+            else if (currentStep == SignupStep.ChooseMethod)
+            {
+                <div class="login-link">
+                    Already have an account?
+                    <button @onclick="() => OnBackToLogin.InvokeAsync()">Sign in</button>
+                </div>
+            }
+    </div>
+
+@code {
+    [Parameter] public EventCallback OnSignupComplete { get; set; }
+    [Parameter] public EventCallback OnBackToLogin { get; set; }
+    [Parameter] public EventCallback OnSignupWithGoogle { get; set; }
+
+    private enum SignupStep { ChooseMethod, SignupForm, Success }
+    private SignupStep currentStep = SignupStep.ChooseMethod;
+
+    // Form fields
+    private string firstName = "";
+    private string lastName = "";
+    private string email = "";
+    private string phoneNumber = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private string errorMessage = "";
+    private bool isProcessing = false;
+    private bool hasEmail = false;
+
+    private void StartSignup()
+    {
+        currentStep = SignupStep.SignupForm;
+        errorMessage = "";
+    }
+
+    private async Task SignupWithGoogle()
+    {
+        try
+        {
+            isProcessing = true;
+            errorMessage = "";
+            StateHasChanged();
+
+            await OnSignupWithGoogle.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during Google signup");
+            errorMessage = "Google sign-up failed. Please try another method.";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubmitSignup()
+    {
+        errorMessage = "";
+
+        // Validation
+        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+        {
+            errorMessage = "Please enter your first and last name.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            errorMessage = "Please provide either an email address or phone number.";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(email) && !email.Contains("@"))
+        {
+            errorMessage = "Please enter a valid email address.";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(phoneNumber) && phoneNumber.Length < 10)
+        {
+            errorMessage = "Please enter a valid phone number (at least 10 digits).";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 4)
+        {
+            errorMessage = "Password must be at least 4 characters.";
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        try
+        {
+            isProcessing = true;
+            StateHasChanged();
+
+            // Check if email is taken (if provided)
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var emailCheck = await _auth.EmailTaken(email);
+                if (emailCheck.IsSuccessStatusCode && emailCheck.Content)
+                {
+                    errorMessage = "This email is already registered. Please sign in instead.";
+                    return;
+                }
+            }
+
+            // Create user account
+            var registerDto = new RegisterUserDto
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Email = !string.IsNullOrWhiteSpace(email) ? email : null,
+                PhoneNumber = !string.IsNullOrWhiteSpace(phoneNumber) ? phoneNumber : null,
+                Password = password
+            };
+
+            var result = await _auth.RegisterUser(registerDto);
+
+            if (result.IsSuccessStatusCode && result.Content != null)
+            {
+                hasEmail = !string.IsNullOrWhiteSpace(email);
+                currentStep = SignupStep.Success;
+                ToastService.ShowSuccess("Account created successfully!");
+            }
+            else
+            {
+                var errorContent = result.Error?.Content;
+                var errorJson = JsonConvert.DeserializeObject<JToken>(errorContent)?["message"];
+                if (!string.IsNullOrEmpty(errorContent))
+                {
+                    errorMessage = errorJson?.ToString()??errorContent;
+                }
+                else
+                {
+                    errorMessage = "Failed to create account. Please try again.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during signup");
+            errorMessage = "Something went wrong. Please try again.";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBackStep()
+    {
+        errorMessage = "";
+        currentStep = SignupStep.ChooseMethod;
+    }
+
+    private void GoToLogin()
+    {
+        OnSignupComplete.InvokeAsync();
+    }
+}

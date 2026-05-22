@@ -78,4 +78,7 @@ public class tbl_Project : BaseEntity
 
     [InverseProperty("Project")]
     public ICollection<tbl_Flag> Flags { get; set; } = new List<tbl_Flag>();
+
+    [InverseProperty("Project")]
+    public ICollection<tbl_ProjectMember> Members { get; set; } = new List<tbl_ProjectMember>();
 }

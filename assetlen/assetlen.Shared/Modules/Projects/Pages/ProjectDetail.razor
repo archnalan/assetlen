@@ -1,62 +1,62 @@
 @page "/project/{ProjectId}"
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
-@layout RemoteSiteLayout
+@layout ProjectsLayout
 @attribute [Authorize]
 @inject NavigationManager Nav
 @inject ILogger<ProjectDetail> Logger
 
-<PageTitle>@(project?.ProjectName ?? "Project") — Remote Site</PageTitle>
+<PageTitle>@(project?.ProjectName ?? "Project") — ASSETLEN</PageTitle>
 
 @if (isLoading)
 {
-    <div class="rs-page-header">
-        <div class="rs-skeleton rs-skeleton-line" style="width:200px;height:28px;"></div>
+    <div class="project-page-header">
+        <div class="project-skeleton project-skeleton-line" style="width:200px;height:28px;"></div>
     </div>
-    <div class="rs-skeleton rs-skeleton-card" style="height:200px;"></div>
+    <div class="project-skeleton project-skeleton-card" style="height:200px;"></div>
 }
 else if (project == null)
 {
-    <div class="rs-empty">
-        <h3 class="rs-empty-title">Project not found</h3>
-        <p class="rs-empty-desc">This project may have been removed or you don't have access.</p>
-        <a href="/portfolio" class="rs-btn rs-btn-primary">Back to Portfolio</a>
+    <div class="project-empty">
+        <h3 class="project-empty-title">Project not found</h3>
+        <p class="project-empty-desc">This project may have been removed or you don't have access.</p>
+        <a href="/portfolio" class="project-btn project-btn-primary">Back to Portfolio</a>
     </div>
 }
 else
 {
     <!-- Back + Header -->
-    <div class="rs-page-header">
+    <div class="project-page-header">
         <div>
-            <a href="/portfolio" class="rs-btn rs-btn-link rs-mb-sm" style="padding:0;font-size:0.85rem;">
+            <a href="/portfolio" class="project-btn project-btn-link project-mb-sm" style="padding:0;font-size:0.85rem;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 Portfolio
             </a>
-            <h1 class="rs-page-title">@project.ProjectName</h1>
+            <h1 class="project-page-title">@project.ProjectName</h1>
             @if (!string.IsNullOrEmpty(project.Location))
             {
-                <p class="rs-page-subtitle" style="display:flex;align-items:center;gap:4px;">
+                <p class="project-page-subtitle" style="display:flex;align-items:center;gap:4px;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                     @project.Location
                 </p>
             }
         </div>
-        <span class="rs-risk-badge @(GetRiskClass())">
-            <span class="rs-risk-dot @(GetRiskClass())"></span>
+        <span class="project-risk-badge @(GetRiskClass())">
+            <span class="project-risk-dot @(GetRiskClass())"></span>
             @project.Status
         </span>
     </div>
 
     <!-- Tabs -->
-    <div class="rs-tabs">
-        <button class="rs-tab @(activeTab == "overview" ? "active" : "")" @onclick='() => SetTab("overview")'>Overview</button>
-        <button class="rs-tab @(activeTab == "funding" ? "active" : "")" @onclick='() => SetTab("funding")'>Funding</button>
-        <button class="rs-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Progress</button>
-        <button class="rs-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
+    <div class="project-tabs">
+        <button class="project-tab @(activeTab == "overview" ? "active" : "")" @onclick='() => SetTab("overview")'>Overview</button>
+        <button class="project-tab @(activeTab == "funding" ? "active" : "")" @onclick='() => SetTab("funding")'>Funding</button>
+        <button class="project-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Progress</button>
+        <button class="project-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
     </div>
 
     <!-- Tab Content -->
-    <div class="rs-tab-content">
+    <div class="project-tab-content">
         @switch (activeTab)
         {
             case "overview":
@@ -185,22 +185,22 @@ else
     // ─── OVERVIEW TAB ───────────────────────────────────────────────
     private RenderFragment RenderOverview() => __builder =>
     {
-        <div class="rs-summary-row">
-            <div class="rs-stat-card">
-                <div class="rs-stat-label">Total Budget</div>
-                <div class="rs-stat-value">@FormatCurrency(project!.TotalBudget ?? 0)</div>
+        <div class="project-summary-row">
+            <div class="project-stat-card">
+                <div class="project-stat-label">Total Budget</div>
+                <div class="project-stat-value">@FormatCurrency(project!.TotalBudget ?? 0)</div>
             </div>
-            <div class="rs-stat-card">
-                <div class="rs-stat-label">Funded</div>
-                <div class="rs-stat-value">@(analytics?.FundingPercentage ?? 0)%</div>
+            <div class="project-stat-card">
+                <div class="project-stat-label">Funded</div>
+                <div class="project-stat-value">@(analytics?.FundingPercentage ?? 0)%</div>
             </div>
-            <div class="rs-stat-card">
-                <div class="rs-stat-label">Progress</div>
-                <div class="rs-stat-value">@(analytics?.CompletionPercentage ?? 0)%</div>
+            <div class="project-stat-card">
+                <div class="project-stat-label">Progress</div>
+                <div class="project-stat-value">@(analytics?.CompletionPercentage ?? 0)%</div>
             </div>
-            <div class="rs-stat-card">
-                <div class="rs-stat-label">Timeline</div>
-                <div class="rs-stat-value @(analytics?.TimelineVarianceDays > 0 ? "red" : "green")">
+            <div class="project-stat-card">
+                <div class="project-stat-label">Timeline</div>
+                <div class="project-stat-value @(analytics?.TimelineVarianceDays > 0 ? "red" : "green")">
                     @if (analytics?.TimelineVarianceDays > 0) { <text>+@analytics.TimelineVarianceDays d</text> }
                     else if (analytics != null) { <text>@analytics.TimelineVarianceDays d</text> }
                     else { <text>—</text> }
@@ -209,14 +209,14 @@ else
         </div>
 
         <!-- Progress Bar -->
-        <div class="rs-card rs-mt-md">
-            <div class="rs-card-body">
+        <div class="project-card project-mt-md">
+            <div class="project-card-body">
                 <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-                    <span class="rs-text-sm rs-text-muted">Overall Progress</span>
-                    <span class="rs-text-sm" style="font-weight:600;">@(analytics?.CompletionPercentage ?? 0)%</span>
+                    <span class="project-text-sm project-text-muted">Overall Progress</span>
+                    <span class="project-text-sm" style="font-weight:600;">@(analytics?.CompletionPercentage ?? 0)%</span>
                 </div>
-                <div class="rs-progress-bar" style="height:10px;">
-                    <div class="rs-progress-fill @GetProgressColor(analytics?.CompletionPercentage ?? 0)"
+                <div class="project-progress-bar" style="height:10px;">
+                    <div class="project-progress-fill @GetProgressColor(analytics?.CompletionPercentage ?? 0)"
                          style="width:@(Math.Min(analytics?.CompletionPercentage ?? 0, 100))%"></div>
                 </div>
             </div>
@@ -225,20 +225,20 @@ else
         <!-- Stages Breakdown -->
         @if (project.Stages?.Any() == true)
         {
-            <h3 class="rs-section-title rs-mt-lg">Stages</h3>
+            <h3 class="project-section-title project-mt-lg">Stages</h3>
             @foreach (var stage in project.Stages.OrderBy(s => s.DisplayOrder))
             {
-                <div class="rs-card rs-mt-sm">
-                    <div class="rs-card-body">
+                <div class="project-card project-mt-sm">
+                    <div class="project-card-body">
                         <div style="display:flex;justify-content:space-between;align-items:center;">
                             <div>
                                 <div style="font-weight:600;">@stage.StageName</div>
-                                <div class="rs-text-xs rs-text-muted">Budget: @FormatCurrency(stage.BudgetAmount ?? 0)</div>
+                                <div class="project-text-xs project-text-muted">Budget: @FormatCurrency(stage.BudgetAmount ?? 0)</div>
                             </div>
-                            <span class="rs-stage-badge">@stage.CompletionPercentage%</span>
+                            <span class="project-stage-badge">@stage.CompletionPercentage%</span>
                         </div>
-                        <div class="rs-progress-bar rs-mt-sm">
-                            <div class="rs-progress-fill @GetProgressColor(stage.CompletionPercentage ?? 0)"
+                        <div class="project-progress-bar project-mt-sm">
+                            <div class="project-progress-fill @GetProgressColor(stage.CompletionPercentage ?? 0)"
                                  style="width:@(Math.Min(stage.CompletionPercentage ?? 0, 100))%"></div>
                         </div>
                     </div>
@@ -247,26 +247,26 @@ else
         }
 
         <!-- Key Dates -->
-        <div class="rs-card rs-mt-lg">
-            <div class="rs-card-body">
-                <h3 class="rs-card-title">Key Dates</h3>
-                <div class="rs-detail-row">
-                    <span class="rs-text-muted">Expected Start</span>
+        <div class="project-card project-mt-lg">
+            <div class="project-card-body">
+                <h3 class="project-card-title">Key Dates</h3>
+                <div class="project-detail-row">
+                    <span class="project-text-muted">Expected Start</span>
                     <span>@(project.ExpectedStartDate?.ToString("MMM dd, yyyy") ?? "—")</span>
                 </div>
-                <div class="rs-detail-row">
-                    <span class="rs-text-muted">Expected Completion</span>
+                <div class="project-detail-row">
+                    <span class="project-text-muted">Expected Completion</span>
                     <span>@(project.ExpectedCompletionDate?.ToString("MMM dd, yyyy") ?? "—")</span>
                 </div>
                 @if (project.RevisedCompletionDate.HasValue)
                 {
-                    <div class="rs-detail-row">
-                        <span class="rs-text-muted">Revised Completion</span>
-                        <span style="color:var(--rs-red);">@project.RevisedCompletionDate.Value.ToString("MMM dd, yyyy")</span>
+                    <div class="project-detail-row">
+                        <span class="project-text-muted">Revised Completion</span>
+                        <span style="color:var(--al-danger);">@project.RevisedCompletionDate.Value.ToString("MMM dd, yyyy")</span>
                     </div>
                 }
-                <div class="rs-detail-row">
-                    <span class="rs-text-muted">Project Manager</span>
+                <div class="project-detail-row">
+                    <span class="project-text-muted">Project Manager</span>
                     <span>@(project.ProjectManagerName ?? "Not assigned")</span>
                 </div>
             </div>
@@ -278,49 +278,49 @@ else
     {
         @if (loadingFunding)
         {
-            <div class="rs-skeleton rs-skeleton-card" style="height:120px;"></div>
-            <div class="rs-skeleton rs-skeleton-card rs-mt-sm" style="height:120px;"></div>
+            <div class="project-skeleton project-skeleton-card" style="height:120px;"></div>
+            <div class="project-skeleton project-skeleton-card project-mt-sm" style="height:120px;"></div>
         }
         else if (fundingEntries == null || !fundingEntries.Any())
         {
-            <div class="rs-empty rs-mt-md">
-                <h3 class="rs-empty-title">No funding entries</h3>
-                <p class="rs-empty-desc">Capital deposits for this project will appear here.</p>
-                <button class="rs-btn rs-btn-primary" @onclick="ShowAddFunding">Record Deposit</button>
+            <div class="project-empty project-mt-md">
+                <h3 class="project-empty-title">No funding entries</h3>
+                <p class="project-empty-desc">Capital deposits for this project will appear here.</p>
+                <button class="project-btn project-btn-primary" @onclick="ShowAddFunding">Record Deposit</button>
             </div>
         }
         else
         {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3 class="rs-section-title" style="margin:0;">Deposits</h3>
-                <button class="rs-btn rs-btn-primary rs-btn-sm" @onclick="ShowAddFunding">+ Add Deposit</button>
+                <h3 class="project-section-title" style="margin:0;">Deposits</h3>
+                <button class="project-btn project-btn-primary project-btn-sm" @onclick="ShowAddFunding">+ Add Deposit</button>
             </div>
-            <div class="rs-funding-list">
+            <div class="project-funding-list">
                 @foreach (var entry in fundingEntries.OrderByDescending(f => f.PaymentDate))
                 {
-                    <div class="rs-funding-item">
-                        <div class="rs-funding-header">
+                    <div class="project-funding-item">
+                        <div class="project-funding-header">
                             <div>
-                                <div class="rs-funding-amount">@FormatCurrency(entry.Amount)</div>
-                                <div class="rs-text-xs rs-text-muted">@(entry.PaymentDate?.ToString("MMM dd, yyyy") ?? "—")</div>
+                                <div class="project-funding-amount">@FormatCurrency(entry.Amount)</div>
+                                <div class="project-text-xs project-text-muted">@(entry.PaymentDate?.ToString("MMM dd, yyyy") ?? "—")</div>
                             </div>
-                            <span class="rs-funding-status @GetFundingStatusClass(entry.Status)">
+                            <span class="project-funding-status @GetFundingStatusClass(entry.Status)">
                                 @entry.Status
                             </span>
                         </div>
                         @if (!string.IsNullOrEmpty(entry.StageName))
                         {
-                            <div class="rs-text-xs rs-text-muted rs-mt-xs">
+                            <div class="project-text-xs project-text-muted project-mt-xs">
                                 Stage: <span style="font-weight:500;">@entry.StageName</span>
                             </div>
                         }
                         @if (!string.IsNullOrEmpty(entry.Notes))
                         {
-                            <div class="rs-text-xs rs-mt-xs">@entry.Notes</div>
+                            <div class="project-text-xs project-mt-xs">@entry.Notes</div>
                         }
                         @if (entry.Status == FundingStatus.Confirmed && entry.ConfirmedByName != null)
                         {
-                            <div class="rs-text-xs rs-text-muted rs-mt-xs">
+                            <div class="project-text-xs project-text-muted project-mt-xs">
                                 Confirmed by @entry.ConfirmedByName · @entry.ConfirmationDate?.ToString("MMM dd")
                             </div>
                         }
@@ -335,59 +335,59 @@ else
     {
         @if (loadingProgress)
         {
-            <div class="rs-skeleton rs-skeleton-card" style="height:150px;"></div>
-            <div class="rs-skeleton rs-skeleton-card rs-mt-sm" style="height:150px;"></div>
+            <div class="project-skeleton project-skeleton-card" style="height:150px;"></div>
+            <div class="project-skeleton project-skeleton-card project-mt-sm" style="height:150px;"></div>
         }
         else if (progressUpdates == null || !progressUpdates.Any())
         {
-            <div class="rs-empty rs-mt-md">
-                <h3 class="rs-empty-title">No progress updates</h3>
-                <p class="rs-empty-desc">Your project manager will post updates with photos here.</p>
+            <div class="project-empty project-mt-md">
+                <h3 class="project-empty-title">No progress updates</h3>
+                <p class="project-empty-desc">Your project manager will post updates with photos here.</p>
             </div>
         }
         else
         {
-            <div class="rs-progress-feed">
+            <div class="project-progress-feed">
                 @foreach (var update in progressUpdates)
                 {
-                    <div class="rs-progress-entry">
+                    <div class="project-progress-entry">
                         <!-- Header -->
-                        <div class="rs-progress-entry-header">
-                            <div class="rs-avatar-sm">@(update.CreatedByName?[0])</div>
+                        <div class="project-progress-entry-header">
+                            <div class="project-avatar-sm">@(update.CreatedByName?[0])</div>
                             <div>
                                 <div style="font-weight:500;">@update.CreatedByName</div>
-                                <div class="rs-text-xs rs-text-muted">
+                                <div class="project-text-xs project-text-muted">
                                     @FormatTimeAgo(update.DateTimeCreated) · @(update.StageName ?? "General")
                                 </div>
                             </div>
                             @if (update.HasIssues)
                             {
-                                <span class="rs-risk-badge red" style="margin-left:auto;">
-                                    <span class="rs-risk-dot red"></span>Issue
+                                <span class="project-risk-badge red" style="margin-left:auto;">
+                                    <span class="project-risk-dot red"></span>Issue
                                 </span>
                             }
                         </div>
 
                         <!-- Description -->
-                        <p class="rs-progress-description">@update.Description</p>
+                        <p class="project-progress-description">@update.Description</p>
 
                         <!-- Completion -->
                         @if (update.CompletionPercentage > 0)
                         {
-                            <div class="rs-progress-bar rs-mt-sm" style="height:6px;">
-                                <div class="rs-progress-fill @GetProgressColor(update.CompletionPercentage ?? 0)"
+                            <div class="project-progress-bar project-mt-sm" style="height:6px;">
+                                <div class="project-progress-fill @GetProgressColor(update.CompletionPercentage ?? 0)"
                                      style="width:@(Math.Min(update.CompletionPercentage ?? 0, 100))%"></div>
                             </div>
-                            <div class="rs-text-xs rs-text-muted rs-mt-xs">@update.CompletionPercentage% stage completion</div>
+                            <div class="project-text-xs project-text-muted project-mt-xs">@update.CompletionPercentage% stage completion</div>
                         }
 
                         <!-- Images -->
                         @if (update.Images?.Any() == true)
                         {
-                            <div class="rs-progress-images rs-mt-sm">
+                            <div class="project-progress-images project-mt-sm">
                                 @foreach (var img in update.Images.OrderBy(i => i.DisplayOrder))
                                 {
-                                    <div class="rs-progress-image-thumb" @onclick="() => OpenImageModal(img.ImageUrl)">
+                                    <div class="project-progress-image-thumb" @onclick="() => OpenImageModal(img.ImageUrl)">
                                         <img src="@(img.ThumbnailUrl ?? img.ImageUrl)" alt="@(img.Caption ?? "Progress photo")" loading="lazy" />
                                     </div>
                                 }
@@ -397,7 +397,7 @@ else
                         <!-- Approval Status -->
                         @if (update.ApprovalStatus.HasValue)
                         {
-                            <div class="rs-text-xs rs-mt-sm" style="color: @(update.ApprovalStatus == ApprovalStatus.Approved ? "var(--rs-green)" : "var(--rs-yellow)");">
+                            <div class="project-text-xs project-mt-sm" style="color: @(update.ApprovalStatus == ApprovalStatus.Approved ? "var(--al-success)" : "var(--al-warning)");">
                                 @(update.ApprovalStatus == ApprovalStatus.Approved ? "✓ Approved" : "⚠ Needs Attention")
                             </div>
                         }
@@ -405,7 +405,7 @@ else
                         <!-- Comment Count -->
                         @if (update.Comments?.Any() == true)
                         {
-                            <div class="rs-text-xs rs-text-muted rs-mt-sm" style="cursor:pointer;">
+                            <div class="project-text-xs project-text-muted project-mt-sm" style="cursor:pointer;">
                                 💬 @update.Comments.Count comment@(update.Comments.Count > 1 ? "s" : "")
                             </div>
                         }
@@ -420,29 +420,29 @@ else
     {
         @if (loadingTimeline)
         {
-            <div class="rs-skeleton rs-skeleton-card" style="height:300px;"></div>
+            <div class="project-skeleton project-skeleton-card" style="height:300px;"></div>
         }
         else if (timeline == null || !timeline.Any())
         {
-            <div class="rs-empty rs-mt-md">
-                <h3 class="rs-empty-title">No timeline data</h3>
-                <p class="rs-empty-desc">Project timeline will build as stages progress.</p>
+            <div class="project-empty project-mt-md">
+                <h3 class="project-empty-title">No timeline data</h3>
+                <p class="project-empty-desc">Project timeline will build as stages progress.</p>
             </div>
         }
         else
         {
-            <div class="rs-timeline">
+            <div class="project-timeline">
                 @foreach (var entry in timeline)
                 {
-                    <div class="rs-timeline-item @(entry.IsCompleted ? "completed" : entry.IsCurrent ? "current" : "")">
-                        <div class="rs-timeline-marker"></div>
-                        <div class="rs-timeline-content">
-                            <div class="rs-timeline-title">@entry.Title</div>
+                    <div class="project-timeline-item @(entry.IsCompleted ? "completed" : entry.IsCurrent ? "current" : "")">
+                        <div class="project-timeline-marker"></div>
+                        <div class="project-timeline-content">
+                            <div class="project-timeline-title">@entry.Title</div>
                             @if (!string.IsNullOrEmpty(entry.Description))
                             {
-                                <div class="rs-text-sm rs-text-muted">@entry.Description</div>
+                                <div class="project-text-sm project-text-muted">@entry.Description</div>
                             }
-                            <div class="rs-text-xs rs-text-muted rs-mt-xs">
+                            <div class="project-text-xs project-text-muted project-mt-xs">
                                 @entry.Date.ToString("MMM dd, yyyy")
                                 @if (!string.IsNullOrEmpty(entry.EventType))
                                 {

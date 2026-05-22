@@ -89,6 +89,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_ProgressComment> tbl_ProgressComments { get; set; }
     public virtual DbSet<tbl_ProjectSubscription> tbl_ProjectSubscriptions { get; set; }
     public virtual DbSet<tbl_Flag> tbl_Flags { get; set; }
+    public virtual DbSet<tbl_ProjectMember> tbl_ProjectMembers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -296,6 +297,10 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             (_isSuperAdmin || x.TenantId == _tenantId || x.TenantId == null || x.Access == Access.Public)
             && (x.Access == null || x.Access != Access.Protected)
             && (x.IsDeleted == false || x.IsDeleted == null));
+        modelBuilder.Entity<tbl_ProjectMember>().HasQueryFilter(x =>
+            (_isSuperAdmin || x.TenantId == _tenantId || x.TenantId == null || x.Access == Access.Public)
+            && (x.Access == null || x.Access != Access.Protected)
+            && (x.IsDeleted == false || x.IsDeleted == null));
 
         // Channel-based (Client/Crew) visibility is enforced at the service
         // layer — DbContext-level filtering would need ITenantProvider to
@@ -371,6 +376,16 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.Property(e => e.MonthlyAmount).HasColumnType("decimal(18,4)");
             entity.HasOne(e => e.Project).WithMany(p => p.Subscriptions).HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Investor).WithMany().HasForeignKey(e => e.InvestorId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_ProjectMember>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_ProjectMember_ProjectId");
+            entity.HasIndex(e => e.UserId).HasDatabaseName("IX_ProjectMember_UserId");
+            entity.HasIndex(e => new { e.ProjectId, e.UserId }).HasDatabaseName("IX_ProjectMember_Project_User");
+            entity.HasOne(e => e.Project).WithMany(p => p.Members).HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.AssignedBy).WithMany().HasForeignKey(e => e.AssignedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<tbl_Flag>(entity =>

@@ -1,40 +1,40 @@
 @page "/project/{ProjectId}/progress/add"
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
-@layout RemoteSiteLayout
-@attribute [Authorize(Roles = "ProjectManager")]
+@layout ProjectsLayout
+@attribute [Authorize(Roles = $"{UserRoles.Manager},{UserRoles.Crew},{UserRoles.Contractor}")]
 @inject NavigationManager Nav
 @inject ILogger<ProgressUpload> Logger
 
-<PageTitle>Upload Progress — Remote Site</PageTitle>
+<PageTitle>Capture Entry — ASSETLEN</PageTitle>
 
-<div class="rs-page-header">
+<div class="project-page-header">
     <div>
-        <a href="/project/@ProjectId" class="rs-btn rs-btn-link" style="padding:0;font-size:0.85rem;">
+        <a href="/project/@ProjectId" class="project-btn project-btn-link" style="padding:0;font-size:0.85rem;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             Back to Project
         </a>
-        <h1 class="rs-page-title rs-mt-xs">Upload Progress</h1>
+        <h1 class="project-page-title project-mt-xs">Capture Entry</h1>
     </div>
 </div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="rs-alert rs-alert-error rs-mt-md">@errorMessage</div>
+    <div class="project-alert project-alert-error project-mt-md">@errorMessage</div>
 }
 
-<div class="rs-card rs-mt-md">
-    <div class="rs-card-body">
+<div class="project-card project-mt-md">
+    <div class="project-card-body">
         <!-- Stage Selection -->
-        <div class="rs-form-group">
-            <label class="rs-label">Construction Stage *</label>
+        <div class="project-form-group">
+            <label class="project-label">Construction Stage *</label>
             @if (stages == null)
             {
-                <div class="rs-skeleton rs-skeleton-line" style="height:40px;"></div>
+                <div class="project-skeleton project-skeleton-line" style="height:40px;"></div>
             }
             else
             {
-                <select class="rs-input" @bind="model.StageId">
+                <select class="project-input" @bind="model.StageId">
                     <option value="">Select a stage...</option>
                     @foreach (var stage in stages)
                     {
@@ -45,59 +45,59 @@
         </div>
 
         <!-- Completion Percentage -->
-        <div class="rs-form-group">
-            <label class="rs-label">Stage Completion % *</label>
+        <div class="project-form-group">
+            <label class="project-label">Stage Completion % *</label>
             <div style="display:flex;align-items:center;gap:12px;">
-                <input class="rs-input" type="range" min="0" max="100" step="5" @bind="model.CompletionPercentage" @bind:event="oninput"
+                <input class="project-input" type="range" min="0" max="100" step="5" @bind="model.CompletionPercentage" @bind:event="oninput"
                        style="flex:1;" />
                 <span style="font-weight:600;min-width:42px;text-align:right;">@model.CompletionPercentage%</span>
             </div>
-            <div class="rs-progress-bar rs-mt-xs" style="height:6px;">
-                <div class="rs-progress-fill @GetProgressColor(model.CompletionPercentage ?? 0)"
+            <div class="project-progress-bar project-mt-xs" style="height:6px;">
+                <div class="project-progress-fill @GetProgressColor(model.CompletionPercentage ?? 0)"
                      style="width:@(model.CompletionPercentage ?? 0)%"></div>
             </div>
         </div>
 
         <!-- Description -->
-        <div class="rs-form-group">
-            <label class="rs-label">Update Description *</label>
-            <textarea class="rs-input rs-textarea" @bind="model.Description" rows="3"
+        <div class="project-form-group">
+            <label class="project-label">Update Description *</label>
+            <textarea class="project-input project-textarea" @bind="model.Description" rows="3"
                       placeholder="Describe the work completed, any issues or milestones..."></textarea>
         </div>
 
         <!-- Issue Flag -->
-        <div class="rs-form-group">
-            <label class="rs-checkbox-label">
+        <div class="project-form-group">
+            <label class="project-checkbox-label">
                 <input type="checkbox" @bind="model.HasIssues" />
                 <span>Flag issues or delays</span>
             </label>
         </div>
 
         <!-- Photo Upload -->
-        <div class="rs-form-group">
-            <label class="rs-label">Photos (up to 5)</label>
-            <div class="rs-photo-upload-grid">
+        <div class="project-form-group">
+            <label class="project-label">Photos (up to 5)</label>
+            <div class="project-photo-upload-grid">
                 @for (int i = 0; i < model.Images.Count; i++)
                 {
                     var idx = i;
                     var img = model.Images[idx];
-                    <div class="rs-photo-preview">
+                    <div class="project-photo-preview">
                         @if (!string.IsNullOrEmpty(img.PreviewUrl))
                         {
                             <img src="@img.PreviewUrl" alt="Preview" />
-                            <button class="rs-photo-remove" @onclick="() => RemoveImage(idx)" title="Remove">×</button>
+                            <button class="project-photo-remove" @onclick="() => RemoveImage(idx)" title="Remove">×</button>
                         }
                     </div>
                 }
                 @if (model.Images.Count < 5)
                 {
-                    <label class="rs-photo-add">
+                    <label class="project-photo-add">
                         <InputFile OnChange="OnFilesSelected" accept="image/*" multiple />
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
                             <polyline points="21 15 16 10 5 21"/>
                         </svg>
-                        <span class="rs-text-xs">Add Photo</span>
+                        <span class="project-text-xs">Add Photo</span>
                     </label>
                 }
             </div>
@@ -105,12 +105,12 @@
     </div>
 </div>
 
-<div class="rs-form-actions rs-mt-md rs-mb-lg">
-    <a href="/project/@ProjectId" class="rs-btn rs-btn-secondary">Cancel</a>
-    <button class="rs-btn rs-btn-primary" @onclick="SubmitUpdate" disabled="@(isSaving || !CanSubmit)">
+<div class="project-form-actions project-mt-md project-mb-lg">
+    <a href="/project/@ProjectId" class="project-btn project-btn-secondary">Cancel</a>
+    <button class="project-btn project-btn-primary" @onclick="SubmitUpdate" disabled="@(isSaving || !CanSubmit)">
         @if (isSaving)
         {
-            <span class="rs-spinner"></span>
+            <span class="project-spinner"></span>
             <text>Uploading...</text>
         }
         else

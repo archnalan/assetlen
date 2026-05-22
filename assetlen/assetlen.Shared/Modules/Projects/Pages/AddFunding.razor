@@ -1,41 +1,41 @@
 @page "/project/{ProjectId}/add-funding"
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
-@layout RemoteSiteLayout
-@attribute [Authorize(Roles = "Investor")]
+@layout ProjectsLayout
+@attribute [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}")]
 @inject NavigationManager Nav
 @inject ILogger<AddFunding> Logger
 
-<PageTitle>Record Deposit — Remote Site</PageTitle>
+<PageTitle>Record Deposit — ASSETLEN</PageTitle>
 
-<div class="rs-page-header">
+<div class="project-page-header">
     <div>
-        <a href="/project/@ProjectId" class="rs-btn rs-btn-link" style="padding:0;font-size:0.85rem;">
+        <a href="/project/@ProjectId" class="project-btn project-btn-link" style="padding:0;font-size:0.85rem;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             Back to Project
         </a>
-        <h1 class="rs-page-title rs-mt-xs">Record Deposit</h1>
-        <p class="rs-page-subtitle">Track a capital payment to your project</p>
+        <h1 class="project-page-title project-mt-xs">Record Deposit</h1>
+        <p class="project-page-subtitle">Track a capital payment to your project</p>
     </div>
 </div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="rs-alert rs-alert-error rs-mt-md">@errorMessage</div>
+    <div class="project-alert project-alert-error project-mt-md">@errorMessage</div>
 }
 
-<div class="rs-card rs-mt-md">
-    <div class="rs-card-body">
+<div class="project-card project-mt-md">
+    <div class="project-card-body">
         <!-- Stage Selection -->
-        <div class="rs-form-group">
-            <label class="rs-label">Allocate to Stage *</label>
+        <div class="project-form-group">
+            <label class="project-label">Allocate to Stage *</label>
             @if (stages == null)
             {
-                <div class="rs-skeleton rs-skeleton-line" style="height:40px;"></div>
+                <div class="project-skeleton project-skeleton-line" style="height:40px;"></div>
             }
             else
             {
-                <select class="rs-input" @bind="model.StageId">
+                <select class="project-input" @bind="model.StageId">
                     <option value="">Select a stage...</option>
                     @foreach (var stage in stages)
                     {
@@ -46,40 +46,40 @@
         </div>
 
         <!-- Amount -->
-        <div class="rs-form-group">
-            <label class="rs-label">Amount *</label>
-            <input class="rs-input" type="number" step="any" @bind="model.Amount" placeholder="0" />
+        <div class="project-form-group">
+            <label class="project-label">Amount *</label>
+            <input class="project-input" type="number" step="any" @bind="model.Amount" placeholder="0" />
         </div>
 
         <!-- Payment Date -->
-        <div class="rs-form-group">
-            <label class="rs-label">Payment Date *</label>
-            <input class="rs-input" type="date" @bind="model.PaymentDate" />
+        <div class="project-form-group">
+            <label class="project-label">Payment Date *</label>
+            <input class="project-input" type="date" @bind="model.PaymentDate" />
         </div>
 
         <!-- Notes -->
-        <div class="rs-form-group">
-            <label class="rs-label">Notes</label>
-            <textarea class="rs-input rs-textarea" @bind="model.Notes" rows="2"
+        <div class="project-form-group">
+            <label class="project-label">Notes</label>
+            <textarea class="project-input project-textarea" @bind="model.Notes" rows="2"
                       placeholder="e.g. Bank transfer ref #12345, Mobile Money, etc."></textarea>
         </div>
     </div>
 </div>
 
-<div class="rs-card rs-mt-sm">
-    <div class="rs-card-body" style="text-align:center;">
-        <div class="rs-text-xs rs-text-muted">
+<div class="project-card project-mt-sm">
+    <div class="project-card-body" style="text-align:center;">
+        <div class="project-text-xs project-text-muted">
             Your project manager will need to confirm this deposit once materials are received.
         </div>
     </div>
 </div>
 
-<div class="rs-form-actions rs-mt-md rs-mb-lg">
-    <a href="/project/@ProjectId" class="rs-btn rs-btn-secondary">Cancel</a>
-    <button class="rs-btn rs-btn-primary" @onclick="SubmitFunding" disabled="@(isSaving || !CanSubmit)">
+<div class="project-form-actions project-mt-md project-mb-lg">
+    <a href="/project/@ProjectId" class="project-btn project-btn-secondary">Cancel</a>
+    <button class="project-btn project-btn-primary" @onclick="SubmitFunding" disabled="@(isSaving || !CanSubmit)">
         @if (isSaving)
         {
-            <span class="rs-spinner"></span>
+            <span class="project-spinner"></span>
             <text>Recording...</text>
         }
         else

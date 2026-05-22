@@ -1,44 +1,44 @@
 @page "/project/create"
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
-@layout RemoteSiteLayout
-@attribute [Authorize(Roles = "Investor")]
+@layout ProjectsLayout
+@attribute [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}")]
 @inject NavigationManager Nav
 @inject ILogger<ProjectCreate> Logger
 
-<PageTitle>New Project — Remote Site</PageTitle>
+<PageTitle>New Project — ASSETLEN</PageTitle>
 
-<div class="rs-page-header">
+<div class="project-page-header">
     <div>
-        <a href="/portfolio" class="rs-btn rs-btn-link" style="padding:0;font-size:0.85rem;">
+        <a href="/portfolio" class="project-btn project-btn-link" style="padding:0;font-size:0.85rem;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
             Portfolio
         </a>
-        <h1 class="rs-page-title rs-mt-xs">New Project</h1>
+        <h1 class="project-page-title project-mt-xs">New Project</h1>
     </div>
 </div>
 
 <!-- Wizard Steps -->
-<div class="rs-wizard-steps">
-    <div class="rs-wizard-step @(step == 1 ? "active" : step > 1 ? "completed" : "")">
-        <div class="rs-wizard-step-num">1</div>
-        <span class="rs-wizard-step-label">Details</span>
+<div class="project-wizard-steps">
+    <div class="project-wizard-step @(step == 1 ? "active" : step > 1 ? "completed" : "")">
+        <div class="project-wizard-step-num">1</div>
+        <span class="project-wizard-step-label">Details</span>
     </div>
-    <div class="rs-wizard-divider @(step > 1 ? "active" : "")"></div>
-    <div class="rs-wizard-step @(step == 2 ? "active" : step > 2 ? "completed" : "")">
-        <div class="rs-wizard-step-num">2</div>
-        <span class="rs-wizard-step-label">Stages</span>
+    <div class="project-wizard-divider @(step > 1 ? "active" : "")"></div>
+    <div class="project-wizard-step @(step == 2 ? "active" : step > 2 ? "completed" : "")">
+        <div class="project-wizard-step-num">2</div>
+        <span class="project-wizard-step-label">Stages</span>
     </div>
-    <div class="rs-wizard-divider @(step > 2 ? "active" : "")"></div>
-    <div class="rs-wizard-step @(step == 3 ? "active" : "")">
-        <div class="rs-wizard-step-num">3</div>
-        <span class="rs-wizard-step-label">Review</span>
+    <div class="project-wizard-divider @(step > 2 ? "active" : "")"></div>
+    <div class="project-wizard-step @(step == 3 ? "active" : "")">
+        <div class="project-wizard-step-num">3</div>
+        <span class="project-wizard-step-label">Review</span>
     </div>
 </div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="rs-alert rs-alert-error rs-mt-md">@errorMessage</div>
+    <div class="project-alert project-alert-error project-mt-md">@errorMessage</div>
 }
 
 @switch (step)
@@ -68,26 +68,26 @@
     // ─── STEP 1: PROJECT DETAILS ────────────────────────────────────
     private RenderFragment RenderStep1() => __builder =>
     {
-        <div class="rs-card rs-mt-md">
-            <div class="rs-card-body">
-                <div class="rs-form-group">
-                    <label class="rs-label">Project Name *</label>
-                    <input class="rs-input" @bind="model.ProjectName" placeholder="e.g. 3-Bedroom Bungalow, Kira" />
+        <div class="project-card project-mt-md">
+            <div class="project-card-body">
+                <div class="project-form-group">
+                    <label class="project-label">Project Name *</label>
+                    <input class="project-input" @bind="model.ProjectName" placeholder="e.g. 3-Bedroom Bungalow, Kira" />
                 </div>
 
-                <div class="rs-form-group">
-                    <label class="rs-label">Location</label>
-                    <input class="rs-input" @bind="model.Location" placeholder="e.g. Kira, Wakiso District" />
+                <div class="project-form-group">
+                    <label class="project-label">Location</label>
+                    <input class="project-input" @bind="model.Location" placeholder="e.g. Kira, Wakiso District" />
                 </div>
 
-                <div class="rs-form-row">
-                    <div class="rs-form-group">
-                        <label class="rs-label">Total Budget *</label>
-                        <input class="rs-input" type="number" step="any" @bind="model.TotalBudget" placeholder="0" />
+                <div class="project-form-row">
+                    <div class="project-form-group">
+                        <label class="project-label">Total Budget *</label>
+                        <input class="project-input" type="number" step="any" @bind="model.TotalBudget" placeholder="0" />
                     </div>
-                    <div class="rs-form-group">
-                        <label class="rs-label">Currency</label>
-                        <select class="rs-input" @bind="model.Currency">
+                    <div class="project-form-group">
+                        <label class="project-label">Currency</label>
+                        <select class="project-input" @bind="model.Currency">
                             <option value="UGX">UGX</option>
                             <option value="USD">USD</option>
                             <option value="GBP">GBP</option>
@@ -97,27 +97,27 @@
                     </div>
                 </div>
 
-                <div class="rs-form-row">
-                    <div class="rs-form-group">
-                        <label class="rs-label">Expected Start</label>
-                        <input class="rs-input" type="date" @bind="model.ExpectedStartDate" />
+                <div class="project-form-row">
+                    <div class="project-form-group">
+                        <label class="project-label">Expected Start</label>
+                        <input class="project-input" type="date" @bind="model.ExpectedStartDate" />
                     </div>
-                    <div class="rs-form-group">
-                        <label class="rs-label">Expected Completion</label>
-                        <input class="rs-input" type="date" @bind="model.ExpectedCompletionDate" />
+                    <div class="project-form-group">
+                        <label class="project-label">Expected Completion</label>
+                        <input class="project-input" type="date" @bind="model.ExpectedCompletionDate" />
                     </div>
                 </div>
 
-                <div class="rs-form-group">
-                    <label class="rs-label">Description</label>
-                    <textarea class="rs-input rs-textarea" @bind="model.Description" rows="3" placeholder="Brief description of the project..."></textarea>
+                <div class="project-form-group">
+                    <label class="project-label">Description</label>
+                    <textarea class="project-input project-textarea" @bind="model.Description" rows="3" placeholder="Brief description of the project..."></textarea>
                 </div>
             </div>
         </div>
 
-        <div class="rs-form-actions rs-mt-md">
-            <a href="/portfolio" class="rs-btn rs-btn-secondary">Cancel</a>
-            <button class="rs-btn rs-btn-primary" @onclick="GoToStep2" disabled="@(!CanProceedStep1)">
+        <div class="project-form-actions project-mt-md">
+            <a href="/portfolio" class="project-btn project-btn-secondary">Cancel</a>
+            <button class="project-btn project-btn-primary" @onclick="GoToStep2" disabled="@(!CanProceedStep1)">
                 Next: Add Stages
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
@@ -149,19 +149,19 @@
     // ─── STEP 2: STAGES ────────────────────────────────────────────
     private RenderFragment RenderStep2() => __builder =>
     {
-        <div class="rs-card rs-mt-md">
-            <div class="rs-card-body">
+        <div class="project-card project-mt-md">
+            <div class="project-card-body">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h3 class="rs-card-title" style="margin:0;">Construction Stages</h3>
-                    <button class="rs-btn rs-btn-secondary rs-btn-sm" @onclick="AddStage">+ Add Stage</button>
+                    <h3 class="project-card-title" style="margin:0;">Construction Stages</h3>
+                    <button class="project-btn project-btn-secondary project-btn-sm" @onclick="AddStage">+ Add Stage</button>
                 </div>
 
-                <div class="rs-text-xs rs-text-muted rs-mb-md">
+                <div class="project-text-xs project-text-muted project-mb-md">
                     Total allocated: <strong>@FormatCurrency(model.Stages.Sum(s => s.BudgetAmount ?? 0))</strong>
                     of @FormatCurrency(model.TotalBudget ?? 0)
                     @if (RemainingBudget < 0)
                     {
-                        <span style="color:var(--rs-red);"> (over by @FormatCurrency(Math.Abs(RemainingBudget)))</span>
+                        <span style="color:var(--al-danger);"> (over by @FormatCurrency(Math.Abs(RemainingBudget)))</span>
                     }
                     else if (RemainingBudget > 0)
                     {
@@ -173,13 +173,13 @@
                 {
                     var idx = i;
                     var stage = model.Stages[idx];
-                    <div class="rs-stage-edit-row">
-                        <div class="rs-stage-edit-num">@(idx + 1)</div>
-                        <div class="rs-stage-edit-fields">
-                            <input class="rs-input" @bind="stage.StageName" placeholder="Stage name" />
-                            <input class="rs-input" type="number" step="any" @bind="stage.BudgetAmount" placeholder="Budget" style="max-width:140px;" />
+                    <div class="project-stage-edit-row">
+                        <div class="project-stage-edit-num">@(idx + 1)</div>
+                        <div class="project-stage-edit-fields">
+                            <input class="project-input" @bind="stage.StageName" placeholder="Stage name" />
+                            <input class="project-input" type="number" step="any" @bind="stage.BudgetAmount" placeholder="Budget" style="max-width:140px;" />
                         </div>
-                        <button class="rs-btn rs-btn-icon rs-btn-danger-ghost" @onclick="() => RemoveStage(idx)" title="Remove">
+                        <button class="project-btn project-btn-icon project-btn-danger-ghost" @onclick="() => RemoveStage(idx)" title="Remove">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
@@ -187,12 +187,12 @@
             </div>
         </div>
 
-        <div class="rs-form-actions rs-mt-md">
-            <button class="rs-btn rs-btn-secondary" @onclick="() => step = 1">
+        <div class="project-form-actions project-mt-md">
+            <button class="project-btn project-btn-secondary" @onclick="() => step = 1">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 Back
             </button>
-            <button class="rs-btn rs-btn-primary" @onclick="GoToStep3" disabled="@(!CanProceedStep2)">
+            <button class="project-btn project-btn-primary" @onclick="GoToStep3" disabled="@(!CanProceedStep2)">
                 Review & Create
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
@@ -230,31 +230,31 @@
     // ─── STEP 3: REVIEW & CREATE ────────────────────────────────────
     private RenderFragment RenderStep3() => __builder =>
     {
-        <div class="rs-card rs-mt-md">
-            <div class="rs-card-body">
-                <h3 class="rs-card-title">Review Your Project</h3>
+        <div class="project-card project-mt-md">
+            <div class="project-card-body">
+                <h3 class="project-card-title">Review Your Project</h3>
 
-                <div class="rs-detail-row">
-                    <span class="rs-text-muted">Project Name</span>
+                <div class="project-detail-row">
+                    <span class="project-text-muted">Project Name</span>
                     <span style="font-weight:500;">@model.ProjectName</span>
                 </div>
-                <div class="rs-detail-row">
-                    <span class="rs-text-muted">Location</span>
+                <div class="project-detail-row">
+                    <span class="project-text-muted">Location</span>
                     <span>@(model.Location ?? "—")</span>
                 </div>
-                <div class="rs-detail-row">
-                    <span class="rs-text-muted">Budget</span>
+                <div class="project-detail-row">
+                    <span class="project-text-muted">Budget</span>
                     <span style="font-weight:600;">@model.Currency @((model.TotalBudget ?? 0).ToString("N0"))</span>
                 </div>
-                <div class="rs-detail-row">
-                    <span class="rs-text-muted">Timeline</span>
+                <div class="project-detail-row">
+                    <span class="project-text-muted">Timeline</span>
                     <span>@(model.ExpectedStartDate?.ToString("MMM dd, yyyy") ?? "TBD") → @(model.ExpectedCompletionDate?.ToString("MMM dd, yyyy") ?? "TBD")</span>
                 </div>
 
-                <h4 class="rs-section-title rs-mt-md">Stages (@model.Stages.Count)</h4>
+                <h4 class="project-section-title project-mt-md">Stages (@model.Stages.Count)</h4>
                 @foreach (var stage in model.Stages)
                 {
-                    <div class="rs-detail-row">
+                    <div class="project-detail-row">
                         <span>@stage.DisplayOrder. @stage.StageName</span>
                         <span>@FormatCurrency(stage.BudgetAmount ?? 0)</span>
                     </div>
@@ -262,7 +262,7 @@
 
                 @if (RemainingBudget != 0)
                 {
-                    <div class="rs-alert @(RemainingBudget > 0 ? "rs-alert-warning" : "rs-alert-error") rs-mt-md">
+                    <div class="project-alert @(RemainingBudget > 0 ? "project-alert-warning" : "project-alert-error") project-mt-md">
                         @if (RemainingBudget > 0)
                         {
                             <text>@FormatCurrency(RemainingBudget) of budget is unallocated to stages.</text>
@@ -276,21 +276,21 @@
             </div>
         </div>
 
-        <div class="rs-card rs-mt-sm">
-            <div class="rs-card-body" style="text-align:center;">
-                <div class="rs-text-sm rs-text-muted rs-mb-sm">⚡ Your first project is free — no subscription required.</div>
+        <div class="project-card project-mt-sm">
+            <div class="project-card-body" style="text-align:center;">
+                <div class="project-text-sm project-text-muted project-mb-sm">⚡ Your first project is free — no subscription required.</div>
             </div>
         </div>
 
-        <div class="rs-form-actions rs-mt-md">
-            <button class="rs-btn rs-btn-secondary" @onclick="() => step = 2" disabled="@isSaving">
+        <div class="project-form-actions project-mt-md">
+            <button class="project-btn project-btn-secondary" @onclick="() => step = 2" disabled="@isSaving">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
                 Back
             </button>
-            <button class="rs-btn rs-btn-primary" @onclick="SubmitProject" disabled="@isSaving">
+            <button class="project-btn project-btn-primary" @onclick="SubmitProject" disabled="@isSaving">
                 @if (isSaving)
                 {
-                    <span class="rs-spinner"></span>
+                    <span class="project-spinner"></span>
                     <text>Creating...</text>
                 }
                 else

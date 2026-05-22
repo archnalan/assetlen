@@ -260,3 +260,51 @@ textarea.project-input {
         text-align: left;
     }
 }
+
+/* ─── Issues tab ───────────────────────────────────────── */
+
+.project-issues__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--al-space-3);
+    margin-bottom: var(--al-space-3);
+}
+
+.project-issues__header .project-section-title { margin: 0; }
+
+.project-issues__filter {
+    display: flex;
+    gap: var(--al-space-1);
+    flex-wrap: wrap;
+}
+
+.project-issues__filter-chip {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--al-border);
+    color: var(--al-text-muted);
+    padding: 4px var(--al-space-3);
+    border-radius: var(--al-radius-pill);
+    font: inherit;
+    font-size: var(--al-font-size-xs);
+    cursor: pointer;
+    transition: color var(--al-transition-fast), border-color var(--al-transition-fast),
+                background var(--al-transition-fast);
+}
+
+.project-issues__filter-chip:hover { color: var(--al-text); border-color: var(--al-border-strong); }
+
+.project-issues__filter-chip.is-active {
+    color: var(--al-accent);
+    border-color: var(--al-accent);
+    background: var(--al-accent-soft);
+}
+
+.project-issues__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    margin-top: var(--al-space-3);
+}

@@ -176,6 +176,7 @@ builder.Services.AddScoped<IStageDAL, StageDAL>();
 builder.Services.AddScoped<IFundingDAL, FundingDAL>();
 builder.Services.AddScoped<IProgressDAL, ProgressDAL>();
 builder.Services.AddScoped<IPMDashboardDAL, PMDashboardDAL>();
+builder.Services.AddScoped<IFlagDAL, FlagDAL>();
 builder.Services.AddScoped<IProjectHealthService, ProjectHealthService>();
 
 builder.Services.AddSignalR();

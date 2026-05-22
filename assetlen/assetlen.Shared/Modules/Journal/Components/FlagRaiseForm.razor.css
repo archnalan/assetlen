@@ -1,0 +1,22 @@
+.flag-raise__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+}
+
+.flag-raise__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-1);
+}
+
+.flag-raise__actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--al-space-3);
+    margin-top: var(--al-space-1);
+}

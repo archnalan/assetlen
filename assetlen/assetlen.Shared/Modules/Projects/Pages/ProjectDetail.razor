@@ -53,6 +53,7 @@ else
         <button class="project-tab @(activeTab == "team" ? "active" : "")" @onclick='() => SetTab("team")'>Team</button>
         <button class="project-tab @(activeTab == "funding" ? "active" : "")" @onclick='() => SetTab("funding")'>Funding</button>
         <button class="project-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Site Journal</button>
+        <button class="project-tab @(activeTab == "issues" ? "active" : "")" @onclick='() => SetTab("issues")'>Issues</button>
         <button class="project-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
     </div>
 
@@ -72,6 +73,9 @@ else
             case "progress":
                 @RenderProgress();
                 break;
+            case "issues":
+                @RenderIssues();
+                break;
             case "timeline":
                 @RenderTimeline();
                 break;
@@ -88,9 +92,11 @@ else
     private List<FundingEntryDto>? fundingEntries;
     private List<ProgressUpdateDto>? progressUpdates;
     private List<ProjectMemberDto>? members;
+    private List<FlagDto>? flags;
+    private FlagStatus? flagStatusFilter = FlagStatus.Open;
     private bool isLoading = true;
     private string activeTab = "overview";
-    private bool loadingFunding, loadingProgress, loadingTimeline, loadingMembers;
+    private bool loadingFunding, loadingProgress, loadingTimeline, loadingMembers, loadingFlags;
 
     protected override async Task OnInitializedAsync()
     {
@@ -142,6 +148,9 @@ else
             case "progress" when progressUpdates == null:
                 _ = LoadProgress();
                 break;
+            case "issues" when flags == null:
+                _ = LoadFlags();
+                break;
             case "timeline" when timeline == null:
                 _ = LoadTimeline();
                 break;
@@ -188,6 +197,19 @@ else
         }
         catch (Exception ex) { Logger.LogError(ex, "Error loading progress"); }
         finally { loadingProgress = false; StateHasChanged(); }
+    }
+
+    private async Task LoadFlags()
+    {
+        loadingFlags = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await _flagsApi.GetFlagsByProject(ProjectId, flagStatusFilter);
+            if (resp.IsSuccessStatusCode) flags = resp.Content;
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading flags"); }
+        finally { loadingFlags = false; StateHasChanged(); }
     }
 
     private async Task LoadTimeline()
@@ -603,6 +625,54 @@ else
         }
     };
 
+    // ─── ISSUES TAB ─────────────────────────────────────────────────
+    private RenderFragment RenderIssues() => __builder =>
+    {
+        <div class="project-issues__header">
+            <h3 class="project-section-title">Issues</h3>
+            <div class="project-issues__filter">
+                @foreach (var (label, value) in new (string, FlagStatus?)[]
+                    {
+                        ("Open", FlagStatus.Open),
+                        ("In progress", FlagStatus.InProgress),
+                        ("Resolved", FlagStatus.Resolved),
+                        ("All", null)
+                    })
+                {
+                    var v = value;
+                    <button type="button"
+                            class="project-issues__filter-chip @(flagStatusFilter == v ? "is-active" : "")"
+                            @onclick="() => ChangeFlagFilter(v)">
+                        @label
+                    </button>
+                }
+            </div>
+        </div>
+
+        <FlagRaiseForm ProjectId="ProjectId" OnRaised="HandleFlagRaised" />
+
+        @if (loadingFlags)
+        {
+            <div class="project-skeleton project-skeleton-card project-mt-md" style="height:90px;"></div>
+            <div class="project-skeleton project-skeleton-card project-mt-sm" style="height:90px;"></div>
+        }
+        else if (flags is null || flags.Count == 0)
+        {
+            <p class="project-text-sm project-text-muted project-mt-md">
+                No issues @(flagStatusFilter is null ? "" : $"({flagStatusFilter.ToString()!.ToLowerInvariant()})") on this project. Use the form above to raise one.
+            </p>
+        }
+        else
+        {
+            <div class="project-issues__list">
+                @foreach (var flag in flags)
+                {
+                    <FlagCard Flag="flag" OnChanged="HandleFlagChanged" />
+                }
+            </div>
+        }
+    };
+
     // ─── TIMELINE TAB ───────────────────────────────────────────────
     private RenderFragment RenderTimeline() => __builder =>
     {
@@ -797,6 +867,35 @@ else
         {
             savingSubProject = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task ChangeFlagFilter(FlagStatus? status)
+    {
+        flagStatusFilter = status;
+        flags = null;
+        await LoadFlags();
+    }
+
+    private void HandleFlagRaised(FlagDto flag)
+    {
+        if (flagStatusFilter is null || flagStatusFilter == flag.Status)
+        {
+            flags ??= new();
+            flags.Insert(0, flag);
+        }
+    }
+
+    private void HandleFlagChanged(FlagDto flag)
+    {
+        if (flags is null) return;
+        var i = flags.FindIndex(f => f.Id == flag.Id);
+        if (i >= 0)
+        {
+            if (flagStatusFilter is not null && flag.Status != flagStatusFilter)
+                flags.RemoveAt(i);
+            else
+                flags[i] = flag;
         }
     }
 

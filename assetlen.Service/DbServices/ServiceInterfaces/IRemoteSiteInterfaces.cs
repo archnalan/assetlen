@@ -81,3 +81,14 @@ public interface IProjectMemberDAL
     Task<ServiceResult<List<ProjectMemberDto>>> GetMembersByProject(string projectId, string actingUserId);
     Task<ServiceResult<bool>> DeactivateMember(string memberId, string actingUserId);
 }
+
+public interface IFlagDAL
+{
+    Task<ServiceResult<FlagDto>> AddFlag(FlagCreateDto dto, string actingUserId);
+    Task<ServiceResult<FlagDto>> GetFlag(string flagId, string actingUserId);
+    Task<ServiceResult<List<FlagDto>>> GetFlagsByProject(string projectId, FlagStatus? status, string actingUserId);
+    Task<ServiceResult<List<FlagDto>>> GetFlagsByEntry(string progressUpdateId, string actingUserId);
+    Task<ServiceResult<FlagDto>> UpdateFlag(FlagUpdateDto dto, string actingUserId);
+    Task<ServiceResult<FlagDto>> ResolveFlag(string flagId, string actingUserId);
+    Task<ServiceResult<FlagDto>> NudgeFlag(string flagId, string actingUserId);
+}

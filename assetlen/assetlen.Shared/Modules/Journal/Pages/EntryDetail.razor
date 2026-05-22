@@ -100,6 +100,33 @@ else
             <EntryPhotoPanel Images="entry.Images" />
         }
 
+        <section class="entry-detail__flags">
+            <header class="entry-detail__flags-header">
+                <h3 class="project-section-title">Issues</h3>
+                <FlagRaiseForm ProjectId="ProjectId" ProgressUpdateId="EntryId"
+                               StageId="entry.StageId"
+                               OnRaised="HandleFlagRaised" />
+            </header>
+
+            @if (entryFlags is null)
+            {
+                <div class="project-skeleton project-skeleton-card" style="height:80px;"></div>
+            }
+            else if (entryFlags.Count == 0)
+            {
+                <p class="project-text-sm project-text-muted">No issues raised against this entry.</p>
+            }
+            else
+            {
+                <div class="entry-detail__flags-list">
+                    @foreach (var f in entryFlags)
+                    {
+                        <FlagCard Flag="f" OnChanged="HandleFlagChanged" />
+                    }
+                </div>
+            }
+        </section>
+
         <section class="entry-detail__comments">
             <h3 class="project-section-title">
                 Conversation
@@ -157,6 +184,7 @@ else
     [Parameter] public string EntryId { get; set; } = "";
 
     private ProgressUpdateDto? entry;
+    private List<FlagDto>? entryFlags;
     private bool isLoading = true;
     private bool savingPromote;
     private bool savingComment;
@@ -168,6 +196,35 @@ else
     {
         await LoadEntry();
         await LoadProjectName();
+        await LoadFlags();
+    }
+
+    private async Task LoadFlags()
+    {
+        try
+        {
+            var resp = await _flagsApi.GetFlagsByEntry(EntryId);
+            if (resp.IsSuccessStatusCode) entryFlags = resp.Content;
+            else entryFlags = new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading entry flags");
+            entryFlags = new();
+        }
+    }
+
+    private void HandleFlagRaised(FlagDto flag)
+    {
+        entryFlags ??= new();
+        entryFlags.Insert(0, flag);
+    }
+
+    private void HandleFlagChanged(FlagDto flag)
+    {
+        if (entryFlags is null) return;
+        var i = entryFlags.FindIndex(f => f.Id == flag.Id);
+        if (i >= 0) entryFlags[i] = flag;
     }
 
     private async Task LoadEntry()

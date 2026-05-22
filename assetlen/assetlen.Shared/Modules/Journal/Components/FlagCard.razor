@@ -1,0 +1,153 @@
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@inject ILogger<FlagCard> Logger
+
+<article class="flag-card flag-card--@SeverityClass flag-card--status-@StatusClass">
+    <header class="flag-card__header">
+        <span class="flag-card__severity-dot" aria-label="Severity"></span>
+        <h4 class="flag-card__title">@Flag.Title</h4>
+        <span class="flag-card__status">@Flag.Status</span>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(Flag.Description))
+    {
+        <p class="flag-card__desc">@Flag.Description</p>
+    }
+
+    <div class="flag-card__meta">
+        <span class="al-num">@DaysOpenLabel</span>
+        <span>·</span>
+        <span>by @(Flag.CreatedByName ?? "—")</span>
+        @if (!string.IsNullOrEmpty(Flag.AssignedToName))
+        {
+            <span>·</span>
+            <span>assigned to @Flag.AssignedToName</span>
+        }
+        @if (Flag.ProgressUpdateId is not null)
+        {
+            <span>·</span>
+            <a class="flag-card__anchor" href="@($"/project/{Flag.ProjectId}/entry/{Flag.ProgressUpdateId}")">linked entry →</a>
+        }
+    </div>
+
+    @if (Flag.Status != FlagStatus.Resolved && Flag.Status != FlagStatus.Archived)
+    {
+        <div class="flag-card__nudge">
+            @if (Flag.LastNudgeAt.HasValue)
+            {
+                <span class="project-text-xs project-text-muted">
+                    Last nudged @FormatTimeAgo(Flag.LastNudgeAt.Value)
+                </span>
+            }
+            else
+            {
+                <span class="project-text-xs project-text-muted">Not nudged yet</span>
+            }
+        </div>
+    }
+    else if (Flag.Status == FlagStatus.Resolved)
+    {
+        <div class="flag-card__nudge">
+            <span class="project-text-xs" style="color:var(--al-success);">
+                ✓ Resolved
+                @if (Flag.ResolvedDate.HasValue) { <text> @FormatTimeAgo(Flag.ResolvedDate.Value)</text> }
+                @if (!string.IsNullOrEmpty(Flag.ResolvedByName)) { <text> by @Flag.ResolvedByName</text> }
+            </span>
+        </div>
+    }
+
+    <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew}")" Context="auth">
+        @if (Flag.Status == FlagStatus.Open || Flag.Status == FlagStatus.InProgress)
+        {
+            <div class="flag-card__actions">
+                <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="ngAuth">
+                    <button class="project-btn project-btn-link"
+                            @onclick="Nudge" disabled="@busy">
+                        @(busy && busyAction == "nudge" ? "Nudging…" : "Nudge")
+                    </button>
+                </AuthorizeView>
+                @if (Flag.Status == FlagStatus.Open)
+                {
+                    <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="ipAuth">
+                        <button class="project-btn project-btn-link"
+                                @onclick="MarkInProgress" disabled="@busy">
+                            @(busy && busyAction == "inprogress" ? "Saving…" : "Mark in progress")
+                        </button>
+                    </AuthorizeView>
+                }
+                <button class="project-btn project-btn-primary project-btn-sm"
+                        @onclick="Resolve" disabled="@busy">
+                    @(busy && busyAction == "resolve" ? "Resolving…" : "Resolve")
+                </button>
+            </div>
+        }
+    </AuthorizeView>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public FlagDto Flag { get; set; } = default!;
+    [Parameter] public EventCallback<FlagDto> OnChanged { get; set; }
+
+    private bool busy;
+    private string? busyAction;
+
+    private string SeverityClass => Flag.Severity switch
+    {
+        FlagSeverity.Critical => "critical",
+        FlagSeverity.High => "high",
+        FlagSeverity.Medium => "medium",
+        _ => "low"
+    };
+
+    private string StatusClass => Flag.Status switch
+    {
+        FlagStatus.Open => "open",
+        FlagStatus.InProgress => "inprogress",
+        FlagStatus.Resolved => "resolved",
+        _ => "archived"
+    };
+
+    private string DaysOpenLabel
+    {
+        get
+        {
+            var anchor = Flag.DateTimeCreated ?? DateTime.UtcNow;
+            var days = (int)(DateTime.UtcNow - anchor).TotalDays;
+            return days <= 0 ? "today" : days == 1 ? "1d open" : $"{days}d open";
+        }
+    }
+
+    private async Task Nudge() => await Run("nudge", () => _flagsApi.NudgeFlag(Flag.Id!));
+    private async Task Resolve() => await Run("resolve", () => _flagsApi.ResolveFlag(Flag.Id!));
+    private async Task MarkInProgress() => await Run("inprogress", () =>
+        _flagsApi.UpdateFlag(new FlagUpdateDto { Id = Flag.Id, Status = FlagStatus.InProgress }));
+
+    private async Task Run(string action, Func<Task<Refit.IApiResponse<FlagDto>>> call)
+    {
+        busy = true;
+        busyAction = action;
+        StateHasChanged();
+        try
+        {
+            var resp = await call();
+            if (resp.IsSuccessStatusCode && resp.Content is not null && OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync(resp.Content);
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error on flag {Action}", action); }
+        finally
+        {
+            busy = false;
+            busyAction = null;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatTimeAgo(DateTime date)
+    {
+        var diff = DateTime.UtcNow - date;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return date.ToString("MMM dd");
+    }
+}

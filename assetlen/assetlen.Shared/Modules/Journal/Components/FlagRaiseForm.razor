@@ -1,0 +1,114 @@
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@inject ILogger<FlagRaiseForm> Logger
+
+<div class="flag-raise">
+    @if (!showForm)
+    {
+        <button class="project-btn project-btn-primary project-btn-sm"
+                @onclick="() => showForm = true">
+            + Raise issue
+        </button>
+    }
+    else
+    {
+        <div class="flag-raise__form">
+            <input class="project-input"
+                   placeholder="Title (e.g. 'Wrong tile pattern in master bath')"
+                   maxlength="200"
+                   @bind="title" @bind:event="oninput" />
+
+            <textarea class="project-input" rows="3"
+                      placeholder="What's the issue? Add detail so it's actionable."
+                      maxlength="2000"
+                      @bind="description" @bind:event="oninput"></textarea>
+
+            <div class="flag-raise__row">
+                <label class="project-text-xs project-text-muted">Severity</label>
+                <select class="project-input" @bind="severity">
+                    @foreach (var s in Enum.GetValues<FlagSeverity>())
+                    {
+                        <option value="@s">@s</option>
+                    }
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="project-form-error">@error</div>
+            }
+
+            <div class="flag-raise__actions">
+                <button class="project-btn project-btn-link" @onclick="Cancel" disabled="@saving">Cancel</button>
+                <button class="project-btn project-btn-primary"
+                        @onclick="Save"
+                        disabled="@(saving || string.IsNullOrWhiteSpace(title))">
+                    @(saving ? "Raising…" : "Raise issue")
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public string? ProgressUpdateId { get; set; }
+    [Parameter] public string? StageId { get; set; }
+    [Parameter] public EventCallback<FlagDto> OnRaised { get; set; }
+
+    private bool showForm;
+    private bool saving;
+    private string title = string.Empty;
+    private string description = string.Empty;
+    private FlagSeverity severity = FlagSeverity.Medium;
+    private string? error;
+
+    private void Cancel()
+    {
+        showForm = false;
+        title = string.Empty;
+        description = string.Empty;
+        severity = FlagSeverity.Medium;
+        error = null;
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(title)) return;
+        saving = true;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var dto = new FlagCreateDto
+            {
+                ProjectId = ProjectId,
+                ProgressUpdateId = ProgressUpdateId,
+                StageId = StageId,
+                Title = title.Trim(),
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Severity = severity
+            };
+            var resp = await _flagsApi.AddFlag(dto);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                if (OnRaised.HasDelegate) await OnRaised.InvokeAsync(resp.Content);
+                Cancel();
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not raise issue.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error raising flag");
+            error = "Could not raise issue.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+}

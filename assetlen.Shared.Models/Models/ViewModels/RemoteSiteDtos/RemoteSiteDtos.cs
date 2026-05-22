@@ -304,6 +304,91 @@ public class ProgressApprovalDto
     public ApprovalStatus Status { get; set; }
 }
 
+// ─── Flag DTOs ───────────────────────────────────────────────
+
+public class FlagDto : BaseDto
+{
+    public string? ProjectId { get; set; }
+    public string? StageId { get; set; }
+    public string? ProgressUpdateId { get; set; }
+    public string? ProgressImageId { get; set; }
+
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+
+    public FlagStatus Status { get; set; } = FlagStatus.Open;
+    public FlagSeverity Severity { get; set; } = FlagSeverity.Medium;
+    public Channel Channel { get; set; } = Channel.Crew;
+
+    public string? CreatedById { get; set; }
+    public string? AssignedToId { get; set; }
+    public string? ResolvedById { get; set; }
+
+    public DateTime? DueDate { get; set; }
+    public DateTime? ResolvedDate { get; set; }
+    public DateTime? LastNudgeAt { get; set; }
+    public bool IsNudgeArchived { get; set; }
+
+    // Populated
+    public string? ProjectName { get; set; }
+    public string? StageName { get; set; }
+    public string? CreatedByName { get; set; }
+    public string? AssignedToName { get; set; }
+    public string? ResolvedByName { get; set; }
+}
+
+public class FlagCreateDto
+{
+    [Required]
+    [MaxLength(40)]
+    public string? ProjectId { get; set; }
+
+    [MaxLength(40)]
+    public string? StageId { get; set; }
+
+    [MaxLength(40)]
+    public string? ProgressUpdateId { get; set; }
+
+    [MaxLength(40)]
+    public string? ProgressImageId { get; set; }
+
+    [Required]
+    [MaxLength(200)]
+    public string? Title { get; set; }
+
+    [MaxLength(2000)]
+    public string? Description { get; set; }
+
+    public FlagSeverity Severity { get; set; } = FlagSeverity.Medium;
+    public Channel Channel { get; set; } = Channel.Crew;
+
+    [MaxLength(450)]
+    public string? AssignedToId { get; set; }
+
+    public DateTime? DueDate { get; set; }
+}
+
+public class FlagUpdateDto
+{
+    [Required]
+    [MaxLength(40)]
+    public string? Id { get; set; }
+
+    [MaxLength(200)]
+    public string? Title { get; set; }
+
+    [MaxLength(2000)]
+    public string? Description { get; set; }
+
+    public FlagStatus? Status { get; set; }
+    public FlagSeverity? Severity { get; set; }
+
+    [MaxLength(450)]
+    public string? AssignedToId { get; set; }
+
+    public DateTime? DueDate { get; set; }
+}
+
 // ─── Subscription DTOs ───────────────────────────────────────
 
 public class ProjectSubscriptionDto : BaseDto

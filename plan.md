@@ -30,7 +30,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.4 | Project detail Breadcrumbs + sub-project create (one-level limit) | Done | `4238f75` |
 | 1.5 | Member-add flow (`tbl_ProjectMember` UI: list/add/deactivate) | Done | `11e167d` |
 | 1.5.1 | ProjectCreate aesthetic refresh + cover upload | Planned | — |
-| 2.1a | Site Journal — Channel toggle on capture + entry feed pill | Done | _pending_ |
+| 2.1a | Site Journal — Channel toggle on capture + entry feed pill | Done | `1f23372` |
 | 2.1b | Site Journal — feed-side cards polish + photo lightbox | Planned | — |
 | 2.1c | Site Journal — dedicated `/entry/{id}` detail route | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |

@@ -155,18 +155,26 @@ public class ProjectDAL : IProjectDAL
     {
         try
         {
-            // Check free project eligibility
-            var existingCount = await _context.tbl_Projects_RS
-                .CountAsync(p => p.InvestorId == investorId);
-
-            var isFirstFree = existingCount == 0;
-
-            // If not first project, check subscription is viable (simplified for MVP)
-            if (!isFirstFree)
+            // One-level nesting: a Sub-project's parent must itself be a root project.
+            if (!string.IsNullOrEmpty(dto.ParentProjectId))
             {
-                // In production, validate Stripe subscription here
-                // For MVP, allow creation but flag subscription needed
+                var parent = await _context.tbl_Projects_RS
+                    .Where(p => p.Id == dto.ParentProjectId)
+                    .Select(p => new { p.Id, p.ParentProjectId })
+                    .FirstOrDefaultAsync();
+                if (parent is null)
+                    return ServiceResult<ProjectDto>.Failure(new NotFoundException("Parent project not found."));
+                if (!string.IsNullOrEmpty(parent.ParentProjectId))
+                    return ServiceResult<ProjectDto>.Failure(new BadRequestException(
+                        "Sub-projects cannot be nested. The selected parent is already a Sub-project."));
             }
+
+            // Sub-projects don't get a separate free-quota slot — they share their parent's subscription.
+            var isSubProject = !string.IsNullOrEmpty(dto.ParentProjectId);
+            var existingCount = isSubProject ? 1 : await _context.tbl_Projects_RS
+                .CountAsync(p => p.InvestorId == investorId && p.ParentProjectId == null);
+
+            var isFirstFree = !isSubProject && existingCount == 0;
 
             var project = new tbl_Project
             {
@@ -178,9 +186,10 @@ public class ProjectDAL : IProjectDAL
                 ExpectedCompletionDate = dto.ExpectedCompletionDate,
                 InvestorId = investorId,
                 ProjectManagerId = dto.ProjectManagerId,
+                ParentProjectId = dto.ParentProjectId,
                 Currency = dto.Currency,
                 IsFirstFreeProject = isFirstFree,
-                IsSubscriptionActive = isFirstFree, // Free project auto-active
+                IsSubscriptionActive = isFirstFree || isSubProject,
                 Status = ProjectStatus.Active
             };
 
@@ -209,8 +218,8 @@ public class ProjectDAL : IProjectDAL
                 await _context.SaveChangesAsync();
             }
 
-            // Create free subscription record
-            if (isFirstFree)
+            // Sub-projects inherit the parent's subscription; no separate record.
+            if (isFirstFree && !isSubProject)
             {
                 _context.tbl_ProjectSubscriptions.Add(new tbl_ProjectSubscription
                 {
@@ -241,6 +250,8 @@ public class ProjectDAL : IProjectDAL
             var project = await _context.tbl_Projects_RS
                 .Include(p => p.Investor)
                 .Include(p => p.ProjectManager)
+                .Include(p => p.ParentProject)
+                .Include(p => p.SubProjects)
                 .Include(p => p.Stages.OrderBy(s => s.DisplayOrder))
                     .ThenInclude(s => s.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
                 .Include(p => p.FundingEntries)
@@ -250,8 +261,12 @@ public class ProjectDAL : IProjectDAL
             if (project == null)
                 return ServiceResult<ProjectDto>.Failure(new NotFoundException("Project not found"));
 
-            // Authorization: investor or assigned PM
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            // Authorization: investor or assigned PM. Sub-projects inherit
+            // the parent's auth — match against either.
+            var ownerId = project.ParentProject?.InvestorId ?? project.InvestorId;
+            var pmId = project.ParentProject?.ProjectManagerId ?? project.ProjectManagerId;
+            if (ownerId != userId && pmId != userId &&
+                project.InvestorId != userId && project.ProjectManagerId != userId)
                 return ServiceResult<ProjectDto>.Failure(new ForbiddenException("Access denied"));
 
             var totalFunded = project.FundingEntries
@@ -321,7 +336,25 @@ public class ProjectDAL : IProjectDAL
                 RiskLevel = _healthService.CalculateRiskLevel(fundedPct, completedPct,
                     project.RevisedCompletionDate ?? project.ExpectedCompletionDate, null),
                 Stages = stageDtos,
-                DateTimeCreated = project.DateTimeCreated
+                DateTimeCreated = project.DateTimeCreated,
+                ParentProjectId = project.ParentProjectId,
+                ParentProjectName = project.ParentProject?.ProjectName,
+                SubProjects = project.SubProjects
+                    .Where(sp => sp.IsDeleted != true)
+                    .OrderBy(sp => sp.ProjectName)
+                    .Select(sp => new ProjectCardDto
+                    {
+                        Id = sp.Id,
+                        ProjectName = sp.ProjectName ?? "",
+                        Location = sp.Location,
+                        LatestImageUrl = sp.CoverImageUrl,
+                        Status = sp.Status,
+                        Currency = sp.Currency,
+                        TotalBudget = sp.TotalBudget ?? 0,
+                        ParentProjectId = sp.ParentProjectId,
+                        RiskLevel = RiskLevel.Green
+                    })
+                    .ToList()
             };
 
             return ServiceResult<ProjectDto>.Success(dto);

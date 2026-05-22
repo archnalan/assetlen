@@ -1,0 +1,116 @@
+/* ProjectDetail — scoped via Blazor CSS isolation.
+   Module-wide tokens come from --al-* in Styles/app.css. */
+
+.project-input {
+    width: 100%;
+    padding: var(--al-space-2) var(--al-space-3);
+    font: inherit;
+    color: var(--al-text);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    transition: border-color var(--al-transition-fast), box-shadow var(--al-transition-fast);
+}
+
+.project-input:focus {
+    outline: none;
+    border-color: var(--al-accent);
+    box-shadow: 0 0 0 3px var(--al-accent-soft);
+}
+
+.project-input + .project-input,
+.project-input + textarea.project-input {
+    margin-top: var(--al-space-2);
+}
+
+textarea.project-input {
+    resize: vertical;
+    min-height: 60px;
+    font-family: var(--al-font-body);
+}
+
+.project-form-error {
+    margin-top: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-3);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-danger);
+    background: var(--al-danger-soft);
+    border-radius: var(--al-radius-sm);
+}
+
+.project-btn-link {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: var(--al-text-muted);
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+}
+
+.project-btn-link:hover { color: var(--al-text); }
+
+/* ─── Sub-projects panel ────────────────────────────────── */
+
+.project-subprojects {
+    padding: var(--al-space-4);
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+}
+
+.project-subprojects__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    margin-bottom: var(--al-space-3);
+}
+
+.project-subprojects__header .project-section-title { margin: 0; }
+
+.project-subprojects__add-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3);
+    margin-bottom: var(--al-space-3);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+}
+
+.project-subprojects__add-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--al-space-3);
+    margin-top: var(--al-space-1);
+}
+
+.project-subprojects__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--al-space-3);
+}
+
+.project-subprojects__card {
+    display: block;
+    padding: var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    color: var(--al-text);
+    text-decoration: none;
+    transition: border-color var(--al-transition-fast), box-shadow var(--al-transition-fast);
+}
+
+.project-subprojects__card:hover {
+    border-color: var(--al-border-strong);
+    box-shadow: var(--al-shadow-sm);
+}
+
+.project-subprojects__card-name {
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+    margin-bottom: var(--al-space-1);
+}

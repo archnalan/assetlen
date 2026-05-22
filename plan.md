@@ -26,8 +26,9 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.1 | Domain alignment: sub-projects, Flags, Channel, role × module matrix | Done | `182d5af` |
 | 1.1.1 | Harmonize roles — 6 generic roles, list-based `UserRolesDto` | Done | `b77f547` |
 | 1.2 | `tbl_ProjectMember`, module relocation, CSS retokening | Done | `2be565a` |
-| 1.3 | Dashboard polish: ProjectCard carousel, shimmer, Breadcrumbs, sub-project rendering | Done | _pending_ |
-| 1.4 | Project detail shell + create-project flow refresh | Planned | — |
+| 1.3 | Dashboard polish: ProjectCard carousel, shimmer, Breadcrumbs, sub-project rendering | Done | `8201805` |
+| 1.4 | Project detail Breadcrumbs + sub-project create (one-level limit) | Done | _pending_ |
+| 1.5 | ProjectCreate aesthetic refresh + Member-add flow (`tbl_ProjectMember` UI) | Planned | — |
 | 2.1 | Site Journal — Entry capture, list, detail | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |
 | 2.3 | Streams — SignalR chat tied to media, dual channels | Planned | — |
@@ -59,12 +60,21 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 
 ---
 
-## Phase 1.4 — Project detail shell + create-project (planned)
+## Phase 1.4 — Breadcrumbs + sub-project create (done)
 
-- Reskin `ProjectDetail.razor` against the token system; remove POS-era table chrome.
-- Sub-project create flow (one-level limit enforced at service).
-- `ProjectCreate.razor` validation + cover upload pipeline.
-- Member-add flow using `tbl_ProjectMember` + `ProjectMemberSpecialization`.
+**What landed:**
+- `ProjectDto` + `ProjectCreateDto` carry `ParentProjectId` (Create) and `ParentProjectName` + `SubProjects` (Detail).
+- `ProjectDAL.CreateProject` enforces the **one-level nesting limit** — rejects a sub-project whose parent is itself a sub-project. Sub-projects share their parent's subscription (no new free-quota slot).
+- `ProjectDAL.GetProjectById` now `Include`s `ParentProject` + `SubProjects`, and authorization extends to the parent's owner/PM so sub-projects inherit access.
+- `ProjectDetail.razor`: Breadcrumbs (`Portfolio / <Parent>? / <Project>`) at the top, replacing the legacy back link. Sub-projects panel in Overview tab with inline "Add Sub-project" form (only on top-level projects). UI label "Project Manager" → "Manager".
+- New co-located `ProjectDetail.razor.css` for sub-projects panel + form input styles, using only `--al-*` tokens. Sets the per-page CSS-isolation precedent.
+- No schema change — `ParentProjectId` column already shipped in `InitialAssetlen`.
+
+## Phase 1.5 — Member + Create flow refresh (planned)
+
+- `ProjectCreate.razor` aesthetic refresh (currently functional but pre-token).
+- Cover upload pipeline (re-use ProgressImage upload path).
+- Member-add flow on `ProjectDetail`: pick a User, set `ProjectMemberSpecialization`, write `tbl_ProjectMember`.
 
 ## Phase 2 — Site Journal + Streams (planned)
 

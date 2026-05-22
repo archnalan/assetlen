@@ -1,6 +1,7 @@
 @page "/project/{ProjectId}"
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@using static assetlen.Shared.Components.Navigation.Breadcrumbs
 @layout ProjectsLayout
 @attribute [Authorize]
 @inject NavigationManager Nav
@@ -25,13 +26,12 @@ else if (project == null)
 }
 else
 {
-    <!-- Back + Header -->
+    <!-- Breadcrumbs (name-based) -->
+    <Breadcrumbs Items="BuildBreadcrumbs()" />
+
+    <!-- Header -->
     <div class="project-page-header">
         <div>
-            <a href="/portfolio" class="project-btn project-btn-link project-mb-sm" style="padding:0;font-size:0.85rem;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-                Portfolio
-            </a>
             <h1 class="project-page-title">@project.ProjectName</h1>
             @if (!string.IsNullOrEmpty(project.Location))
             {
@@ -266,11 +266,76 @@ else
                     </div>
                 }
                 <div class="project-detail-row">
-                    <span class="project-text-muted">Project Manager</span>
+                    <span class="project-text-muted">Manager</span>
                     <span>@(project.ProjectManagerName ?? "Not assigned")</span>
                 </div>
             </div>
         </div>
+
+        @* Sub-projects panel — only shown on top-level projects (one-level nesting limit) *@
+        @if (string.IsNullOrEmpty(project.ParentProjectId))
+        {
+            <div class="project-subprojects project-mt-lg">
+                <div class="project-subprojects__header">
+                    <h3 class="project-section-title">Sub-projects</h3>
+                    @if (!showAddSubProject)
+                    {
+                        <button class="project-btn project-btn-primary project-btn-sm"
+                                @onclick="() => showAddSubProject = true">
+                            + Add Sub-project
+                        </button>
+                    }
+                </div>
+
+                @if (showAddSubProject)
+                {
+                    <div class="project-subprojects__add-form">
+                        <input class="project-input" placeholder="Sub-project name (e.g. Guest Wing)"
+                               @bind="newSubProjectName" @bind:event="oninput" />
+                        <input class="project-input" placeholder="Location (optional)"
+                               @bind="newSubProjectLocation" @bind:event="oninput" />
+                        <textarea class="project-input" rows="2" placeholder="Brief description (optional)"
+                                  @bind="newSubProjectDesc" @bind:event="oninput"></textarea>
+                        @if (!string.IsNullOrEmpty(subProjectError))
+                        {
+                            <div class="project-form-error">@subProjectError</div>
+                        }
+                        <div class="project-subprojects__add-actions">
+                            <button class="project-btn project-btn-link" @onclick="CancelAddSubProject" disabled="@savingSubProject">
+                                Cancel
+                            </button>
+                            <button class="project-btn project-btn-primary" @onclick="SaveSubProject"
+                                    disabled="@(savingSubProject || string.IsNullOrWhiteSpace(newSubProjectName))">
+                                @(savingSubProject ? "Saving…" : "Save Sub-project")
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                @if (project.SubProjects.Count == 0 && !showAddSubProject)
+                {
+                    <p class="project-text-sm project-text-muted">No sub-projects yet. Use the button above to break this project into wings or phases.</p>
+                }
+                else if (project.SubProjects.Count > 0)
+                {
+                    <div class="project-subprojects__grid">
+                        @foreach (var sub in project.SubProjects)
+                        {
+                            <a class="project-subprojects__card" href="@($"/project/{sub.Id}")">
+                                <div class="project-subprojects__card-name">@sub.ProjectName</div>
+                                @if (!string.IsNullOrEmpty(sub.Location))
+                                {
+                                    <div class="project-text-xs project-text-muted">@sub.Location</div>
+                                }
+                                <div class="project-text-xs project-text-muted project-mt-xs">
+                                    @sub.Status
+                                </div>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        }
     };
 
     // ─── FUNDING TAB ────────────────────────────────────────────────
@@ -459,9 +524,72 @@ else
     // ─── HELPERS ────────────────────────────────────────────────────
     private bool showAddFunding;
 
-    private void ShowAddFunding()
+    private void ShowAddFunding() => Nav.NavigateTo($"/project/{ProjectId}/add-funding");
+
+    // Sub-project create state
+    private bool showAddSubProject;
+    private bool savingSubProject;
+    private string newSubProjectName = string.Empty;
+    private string newSubProjectLocation = string.Empty;
+    private string newSubProjectDesc = string.Empty;
+    private string? subProjectError;
+
+    private IEnumerable<BreadcrumbItem> BuildBreadcrumbs()
     {
-        Nav.NavigateTo($"/project/{ProjectId}/add-funding");
+        yield return new BreadcrumbItem("Portfolio", "/portfolio");
+        if (!string.IsNullOrEmpty(project?.ParentProjectId) && !string.IsNullOrEmpty(project.ParentProjectName))
+        {
+            yield return new BreadcrumbItem(project.ParentProjectName, $"/project/{project.ParentProjectId}");
+        }
+        yield return new BreadcrumbItem(project?.ProjectName ?? "Project");
+    }
+
+    private void CancelAddSubProject()
+    {
+        showAddSubProject = false;
+        newSubProjectName = string.Empty;
+        newSubProjectLocation = string.Empty;
+        newSubProjectDesc = string.Empty;
+        subProjectError = null;
+    }
+
+    private async Task SaveSubProject()
+    {
+        if (string.IsNullOrWhiteSpace(newSubProjectName)) return;
+        savingSubProject = true;
+        subProjectError = null;
+        StateHasChanged();
+        try
+        {
+            var dto = new ProjectCreateDto
+            {
+                ProjectName = newSubProjectName.Trim(),
+                Location = string.IsNullOrWhiteSpace(newSubProjectLocation) ? null : newSubProjectLocation.Trim(),
+                Description = string.IsNullOrWhiteSpace(newSubProjectDesc) ? null : newSubProjectDesc.Trim(),
+                ParentProjectId = ProjectId,
+                Currency = project?.Currency ?? "UGX"
+            };
+            var resp = await _projectsRSApi.CreateProject(dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                CancelAddSubProject();
+                await LoadProject();  // reload to show new sub-project in panel
+            }
+            else
+            {
+                subProjectError = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not create sub-project.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating sub-project");
+            subProjectError = "Could not create sub-project.";
+        }
+        finally
+        {
+            savingSubProject = false;
+            StateHasChanged();
+        }
     }
 
     private void OpenImageModal(string imageUrl)

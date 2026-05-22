@@ -39,7 +39,12 @@ public class ProjectDto : BaseDto
     public string? CurrentStageName { get; set; }
     public RiskLevel RiskLevel { get; set; }
 
+    // Sub-project nesting
+    public string? ParentProjectId { get; set; }
+    public string? ParentProjectName { get; set; }
+
     public List<StageDto> Stages { get; set; } = new();
+    public List<ProjectCardDto> SubProjects { get; set; } = new();
 }
 
 public class ProjectCreateDto
@@ -59,6 +64,10 @@ public class ProjectCreateDto
     public DateTime? ExpectedCompletionDate { get; set; }
     public string? ProjectManagerId { get; set; }
     public string Currency { get; set; } = "UGX";
+
+    // Set when creating a Sub-project. The service enforces a one-level limit:
+    // the parent referenced here must itself have ParentProjectId == null.
+    public string? ParentProjectId { get; set; }
 
     public List<StageCreateDto> Stages { get; set; } = new();
 }

@@ -225,6 +225,10 @@ builder.Services
     .AddRefitClient<IProgressApi>()
     .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
     .AddHttpMessageHandler<AuthHeaderHandler>();
+builder.Services
+    .AddRefitClient<IProjectMembersApi>()
+    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
+    .AddHttpMessageHandler<AuthHeaderHandler>();
 
 builder.Services.AddSingleton<GlobalContext>();
 builder.Services.AddScoped<ICustomFileSaver, FileSaverWeb>();

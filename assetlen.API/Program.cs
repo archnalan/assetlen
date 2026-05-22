@@ -171,6 +171,7 @@ builder.Services.AddScoped<IFeedbackNotificationService, FeedbackNotificationSer
 
 // ── Remote Site services ──
 builder.Services.AddScoped<IProjectDAL, ProjectDAL>();
+builder.Services.AddScoped<IProjectMemberDAL, ProjectMemberDAL>();
 builder.Services.AddScoped<IStageDAL, StageDAL>();
 builder.Services.AddScoped<IFundingDAL, FundingDAL>();
 builder.Services.AddScoped<IProgressDAL, ProgressDAL>();

@@ -72,3 +72,10 @@ public interface IPMDashboardDAL
 {
     Task<ServiceResult<PMDashboardDto>> GetPMDashboard(string managerId);
 }
+
+public interface IProjectMemberDAL
+{
+    Task<ServiceResult<ProjectMemberDto>> AddMember(ProjectMemberCreateDto dto, string actingUserId);
+    Task<ServiceResult<List<ProjectMemberDto>>> GetMembersByProject(string projectId, string actingUserId);
+    Task<ServiceResult<bool>> DeactivateMember(string memberId, string actingUserId);
+}

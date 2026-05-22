@@ -50,8 +50,9 @@ else
     <!-- Tabs -->
     <div class="project-tabs">
         <button class="project-tab @(activeTab == "overview" ? "active" : "")" @onclick='() => SetTab("overview")'>Overview</button>
+        <button class="project-tab @(activeTab == "team" ? "active" : "")" @onclick='() => SetTab("team")'>Team</button>
         <button class="project-tab @(activeTab == "funding" ? "active" : "")" @onclick='() => SetTab("funding")'>Funding</button>
-        <button class="project-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Progress</button>
+        <button class="project-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Site Journal</button>
         <button class="project-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
     </div>
 
@@ -61,6 +62,9 @@ else
         {
             case "overview":
                 @RenderOverview();
+                break;
+            case "team":
+                @RenderTeam();
                 break;
             case "funding":
                 @RenderFunding();
@@ -83,9 +87,10 @@ else
     private List<TimelineEntryDto>? timeline;
     private List<FundingEntryDto>? fundingEntries;
     private List<ProgressUpdateDto>? progressUpdates;
+    private List<ProjectMemberDto>? members;
     private bool isLoading = true;
     private string activeTab = "overview";
-    private bool loadingFunding, loadingProgress, loadingTimeline;
+    private bool loadingFunding, loadingProgress, loadingTimeline, loadingMembers;
 
     protected override async Task OnInitializedAsync()
     {
@@ -128,6 +133,9 @@ else
         activeTab = tab;
         switch (tab)
         {
+            case "team" when members == null:
+                _ = LoadMembers();
+                break;
             case "funding" when fundingEntries == null:
                 _ = LoadFunding();
                 break;
@@ -138,6 +146,20 @@ else
                 _ = LoadTimeline();
                 break;
         }
+    }
+
+    private async Task LoadMembers()
+    {
+        loadingMembers = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectMembersApi.GetMembersByProject(ProjectId);
+            if (resp.IsSuccessStatusCode)
+                members = resp.Content;
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading members"); }
+        finally { loadingMembers = false; StateHasChanged(); }
     }
 
     private async Task LoadFunding()
@@ -335,6 +357,107 @@ else
                     </div>
                 }
             </div>
+        }
+    };
+
+    // ─── TEAM TAB ───────────────────────────────────────────────────
+    private RenderFragment RenderTeam() => __builder =>
+    {
+        <div class="project-team__header">
+            <h3 class="project-section-title">Team</h3>
+            @if (!showAddMember)
+            {
+                <button class="project-btn project-btn-primary project-btn-sm"
+                        @onclick="() => showAddMember = true">
+                    + Add Member
+                </button>
+            }
+        </div>
+
+        @if (showAddMember)
+        {
+            <div class="project-team__add-form">
+                <input class="project-input" type="email"
+                       placeholder="Member email (must exist in this tenant)"
+                       @bind="newMemberEmail" @bind:event="oninput" />
+                <select class="project-input" @bind="newMemberSpecialization">
+                    @foreach (var spec in Enum.GetValues<ProjectMemberSpecialization>())
+                    {
+                        <option value="@spec">@spec</option>
+                    }
+                </select>
+                <input class="project-input"
+                       placeholder="Title (optional — e.g. 'Day-shift photographer')"
+                       @bind="newMemberTitle" @bind:event="oninput" />
+                @if (!string.IsNullOrEmpty(memberError))
+                {
+                    <div class="project-form-error">@memberError</div>
+                }
+                <div class="project-team__add-actions">
+                    <button class="project-btn project-btn-link"
+                            @onclick="CancelAddMember" disabled="@savingMember">
+                        Cancel
+                    </button>
+                    <button class="project-btn project-btn-primary"
+                            @onclick="SaveMember"
+                            disabled="@(savingMember || string.IsNullOrWhiteSpace(newMemberEmail))">
+                        @(savingMember ? "Adding…" : "Add to project")
+                    </button>
+                </div>
+            </div>
+        }
+
+        @if (loadingMembers)
+        {
+            <div class="project-skeleton project-skeleton-card" style="height:60px;"></div>
+            <div class="project-skeleton project-skeleton-card project-mt-sm" style="height:60px;"></div>
+        }
+        else if (members is null || members.Count == 0)
+        {
+            <p class="project-text-sm project-text-muted">No members yet. Add one above.</p>
+        }
+        else
+        {
+            <ul class="project-team__list">
+                @foreach (var m in members)
+                {
+                    <li class="project-team__row @(m.IsActive ? "" : "is-inactive")">
+                        <div class="project-team__avatar">
+                            @if (!string.IsNullOrEmpty(m.UserProfilePicUrl))
+                            {
+                                <img src="@m.UserProfilePicUrl" alt="@m.UserFullName" />
+                            }
+                            else
+                            {
+                                <span>@(GetInitials(m.UserFullName))</span>
+                            }
+                        </div>
+                        <div class="project-team__identity">
+                            <div class="project-team__name">@(m.UserFullName ?? m.UserEmail)</div>
+                            <div class="project-text-xs project-text-muted">@m.UserEmail</div>
+                        </div>
+                        <div class="project-team__role">
+                            <span class="project-team__spec">@m.Specialization</span>
+                            @if (!string.IsNullOrEmpty(m.Title))
+                            {
+                                <div class="project-text-xs project-text-muted">@m.Title</div>
+                            }
+                        </div>
+                        @if (m.IsActive)
+                        {
+                            <button class="project-btn project-btn-link project-team__remove"
+                                    @onclick="() => DeactivateMember(m.Id)"
+                                    disabled="@(deactivatingId == m.Id)">
+                                @(deactivatingId == m.Id ? "Removing…" : "Remove")
+                            </button>
+                        }
+                        else
+                        {
+                            <span class="project-text-xs project-text-muted">Removed @(m.LeftAt?.ToString("MMM dd") ?? "")</span>
+                        }
+                    </li>
+                }
+            </ul>
         }
     };
 
@@ -551,6 +674,91 @@ else
         newSubProjectLocation = string.Empty;
         newSubProjectDesc = string.Empty;
         subProjectError = null;
+    }
+
+    // Member-add state
+    private bool showAddMember;
+    private bool savingMember;
+    private string newMemberEmail = string.Empty;
+    private string newMemberTitle = string.Empty;
+    private ProjectMemberSpecialization newMemberSpecialization = ProjectMemberSpecialization.Other;
+    private string? memberError;
+    private string? deactivatingId;
+
+    private static string GetInitials(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName)) return "?";
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0][..1].ToUpper();
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+
+    private void CancelAddMember()
+    {
+        showAddMember = false;
+        newMemberEmail = string.Empty;
+        newMemberTitle = string.Empty;
+        newMemberSpecialization = ProjectMemberSpecialization.Other;
+        memberError = null;
+    }
+
+    private async Task SaveMember()
+    {
+        if (string.IsNullOrWhiteSpace(newMemberEmail)) return;
+        savingMember = true;
+        memberError = null;
+        StateHasChanged();
+        try
+        {
+            var dto = new ProjectMemberCreateDto
+            {
+                ProjectId = ProjectId,
+                UserEmail = newMemberEmail.Trim(),
+                Specialization = newMemberSpecialization,
+                Title = string.IsNullOrWhiteSpace(newMemberTitle) ? null : newMemberTitle.Trim()
+            };
+            var resp = await _projectMembersApi.AddMember(dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                CancelAddMember();
+                await LoadMembers();
+            }
+            else
+            {
+                memberError = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not add member.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error adding project member");
+            memberError = "Could not add member.";
+        }
+        finally
+        {
+            savingMember = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeactivateMember(string memberId)
+    {
+        deactivatingId = memberId;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectMembersApi.DeactivateMember(memberId);
+            if (resp.IsSuccessStatusCode) await LoadMembers();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deactivating member {MemberId}", memberId);
+        }
+        finally
+        {
+            deactivatingId = null;
+            StateHasChanged();
+        }
     }
 
     private async Task SaveSubProject()

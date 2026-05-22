@@ -72,6 +72,42 @@ public class ProjectCreateDto
     public List<StageCreateDto> Stages { get; set; } = new();
 }
 
+// ─── Project Member DTOs ─────────────────────────────────────
+
+public class ProjectMemberDto : BaseDto
+{
+    public string? ProjectId { get; set; }
+    public string? UserId { get; set; }
+    public ProjectMemberSpecialization Specialization { get; set; }
+    public string? Title { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime? JoinedAt { get; set; }
+    public DateTime? LeftAt { get; set; }
+
+    // Populated by service
+    public string? UserFullName { get; set; }
+    public string? UserEmail { get; set; }
+    public string? UserProfilePicUrl { get; set; }
+    public string? AssignedByName { get; set; }
+}
+
+public class ProjectMemberCreateDto
+{
+    [Required]
+    public string? ProjectId { get; set; }
+
+    /// <summary>Either UserId OR UserEmail must be supplied.</summary>
+    public string? UserId { get; set; }
+
+    [EmailAddress]
+    public string? UserEmail { get; set; }
+
+    public ProjectMemberSpecialization Specialization { get; set; } = ProjectMemberSpecialization.Other;
+
+    [MaxLength(120)]
+    public string? Title { get; set; }
+}
+
 // ─── Stage DTOs ──────────────────────────────────────────────
 
 public class StageDto : BaseDto

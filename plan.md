@@ -28,7 +28,8 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.2 | `tbl_ProjectMember`, module relocation, CSS retokening | Done | `2be565a` |
 | 1.3 | Dashboard polish: ProjectCard carousel, shimmer, Breadcrumbs, sub-project rendering | Done | `8201805` |
 | 1.4 | Project detail Breadcrumbs + sub-project create (one-level limit) | Done | `4238f75` |
-| 1.5 | ProjectCreate aesthetic refresh + Member-add flow (`tbl_ProjectMember` UI) | Planned | — |
+| 1.5 | Member-add flow (`tbl_ProjectMember` UI: list/add/deactivate) | Done | _pending_ |
+| 1.5.1 | ProjectCreate aesthetic refresh + cover upload | Planned | — |
 | 2.1 | Site Journal — Entry capture, list, detail | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |
 | 2.3 | Streams — SignalR chat tied to media, dual channels | Planned | — |
@@ -70,11 +71,27 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 - New co-located `ProjectDetail.razor.css` for sub-projects panel + form input styles, using only `--al-*` tokens. Sets the per-page CSS-isolation precedent.
 - No schema change — `ParentProjectId` column already shipped in `InitialAssetlen`.
 
-## Phase 1.5 — Member + Create flow refresh (planned)
+## Phase 1.5 — Member-add flow (done)
 
-- `ProjectCreate.razor` aesthetic refresh (currently functional but pre-token).
-- Cover upload pipeline (re-use ProgressImage upload path).
-- Member-add flow on `ProjectDetail`: pick a User, set `ProjectMemberSpecialization`, write `tbl_ProjectMember`.
+**What landed:**
+- `ProjectMemberDto` + `ProjectMemberCreateDto` (email-or-userId, specialization, optional title).
+- `IProjectMemberDAL` + `ProjectMemberDAL` with `AddMember` / `GetMembersByProject` / `DeactivateMember`. Auth scoped to project owner or PM (parent's if sub-project). Duplicate-membership re-activates instead of erroring.
+- `ProjectMembersController` — POST/GET/DELETE, Contractor+Manager required for mutations.
+- `IProjectMembersApi` Refit interface + WASM DI registration.
+- `_Imports.razor` injects `_projectMembersApi`.
+- `ProjectDetail.razor`: new **Team** tab; "+ Add Member" form (email + specialization dropdown + optional title); active/inactive member rows with remove action; first-letter fallback avatars.
+- Scoped CSS additions in `ProjectDetail.razor.css` — `.project-team__*` using `--al-*` tokens; mobile reflow at 540px.
+- No schema change — `tbl_ProjectMember` shipped in Phase 1.2's `AddProjectMembers` migration.
+
+**Carried forward:**
+- Live user-search autocomplete (currently uses raw email entry).
+- Per-row Specialization edit without re-add.
+- Showing member list inline on Overview tab (currently only in Team tab).
+
+## Phase 1.5.1 — ProjectCreate refresh + cover upload (planned)
+
+- `ProjectCreate.razor` aesthetic refresh.
+- Cover upload pipeline (re-use ProgressImage path).
 
 ## Phase 2 — Site Journal + Streams (planned)
 

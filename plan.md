@@ -31,7 +31,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.5 | Member-add flow (`tbl_ProjectMember` UI: list/add/deactivate) | Done | `11e167d` |
 | 1.5.1 | ProjectCreate aesthetic refresh + cover upload | Planned | — |
 | 2.1a | Site Journal — Channel toggle on capture + entry feed pill | Done | `1f23372` |
-| 2.1b | Site Journal — feed-side cards polish + photo lightbox | Planned | — |
+| 2.1b | Site Journal — feed-side cards polish + photo lightbox | Done | `fcec0b8` |
 | 2.1c | Site Journal — dedicated `/entry/{id}` detail route | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |
 | 2.3 | Streams — SignalR chat tied to media, dual channels | Planned | — |
@@ -102,10 +102,24 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 - `ProgressUpload.razor`: two-card segmented "Visibility" picker — Crew (default, fail-closed) vs Client (curated). Co-located `ProgressUpload.razor.css` for the toggle, using `--al-*` tokens.
 - `ProjectDetail.razor` Site Journal feed: each entry now shows a Channel pill (lowercase color-coded). Issue badge stays alongside in a small meta stack.
 
-**Carried forward (2.1b/2.1c):**
+**Carried forward (2.1c):**
 - Approval flow that lets Manager promote a Crew-channel entry to Client (currently Channel is locked at create-time).
-- Feed-side card polish (photo carousel inside entries, hover affordances).
 - Dedicated `/entry/{id}` route.
+
+## Phase 2.1b — Journal cards polish + photo lightbox (done)
+
+**What landed:**
+- `Components/Media/PhotoLightbox.razor` (+ CSS) — cross-module primitive. Fullscreen overlay, backdrop blur, Esc/arrow-key navigation via `window.assetlen.lightbox` JS interop, body-scroll lock while open, caption + counter, mobile-safe layout.
+- `Modules/Projects/Components/EntryPhotoPanel.razor` (+ CSS) — hero photo + horizontal thumbnail strip. Click hero opens lightbox at the active index; click a thumb swaps the hero. Hero uses `--al-aspect-card`; active thumb gets an accent ring.
+- `ProjectDetail.razor` Site Journal feed now renders `<EntryPhotoPanel>` instead of the flat grid. `OpenImageModal` TODO removed.
+- Subtle entry hover affordance in `projects.css` (`.project-progress-entry:hover` → `--al-border-strong`).
+- Dead-strip: legacy duplicate `.project-progress-images` + `.project-progress-entry-author/avatar/meta/body/desc` CSS blocks removed (~75 lines).
+- JS helper added in `assetlen.Client/wwwroot/scripts.js` (the loaded file) + mirrored in shared `scripts.js`.
+- `_Imports.razor`: added `assetlen.Shared.Components.Media` usings.
+
+**Carried forward:**
+- Touch swipe gestures inside the lightbox (currently keyboard + click-only).
+- Promote `EntryPhotoPanel` to `Components/Media/` once a second module (Streams? Lookbook?) needs the hero+strip pattern.
 
 ## Phase 2 — Site Journal + Streams (in progress)
 

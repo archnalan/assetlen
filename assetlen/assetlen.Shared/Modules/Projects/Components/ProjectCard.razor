@@ -1,0 +1,165 @@
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@implements IDisposable
+@inject NavigationManager Nav
+
+<article class="project-card @(Project.SubProjects.Count > 0 ? "project-card--has-children" : "")"
+         @onclick="@(() => Nav.NavigateTo($"/project/{Project.Id}"))"
+         @onmouseenter="() => paused = true"
+         @onmouseleave="() => paused = false">
+
+    <div class="project-card__cover">
+        @if (RecentImages.Count > 0)
+        {
+            @for (var i = 0; i < RecentImages.Count; i++)
+            {
+                var idx = i;
+                <img class="project-card__cover-img @(idx == activeSlide ? "is-active" : "")"
+                     src="@RecentImages[idx]"
+                     alt="@Project.ProjectName"
+                     loading="@(idx == 0 ? "eager" : "lazy")" />
+            }
+
+            @if (RecentImages.Count > 1)
+            {
+                <div class="project-card__dots" @onclick:stopPropagation="true">
+                    @for (var i = 0; i < RecentImages.Count; i++)
+                    {
+                        var idx = i;
+                        <button type="button"
+                                class="project-card__dot @(idx == activeSlide ? "is-active" : "")"
+                                aria-label="@($"Slide {idx + 1}")"
+                                @onclick="() => GoTo(idx)"></button>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="project-card__cover-empty al-shimmer"></div>
+            <svg class="project-card__cover-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4M5 21V10.87M19 21V10.87"/>
+            </svg>
+        }
+
+        @if (Project.SubProjectCount > 0)
+        {
+            <span class="project-card__nest-badge" aria-label="Sub-projects">
+                @Project.SubProjectCount sub-project@(Project.SubProjectCount == 1 ? "" : "s")
+            </span>
+        }
+    </div>
+
+    <div class="project-card__body">
+        <header class="project-card__header">
+            <h3 class="project-card__title">@Project.ProjectName</h3>
+            <span class="al-badge @RiskBadgeClass">
+                <span class="project-card__risk-dot"></span>@Project.TimelineStatus
+            </span>
+        </header>
+
+        @if (!string.IsNullOrEmpty(Project.Location))
+        {
+            <div class="project-card__location al-subtle">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                @Project.Location
+            </div>
+        }
+
+        <div class="project-card__metrics al-num">
+            <div class="project-card__metric">
+                <span class="project-card__metric-label">Funded</span>
+                <span class="project-card__metric-value">@Project.FundedPercentage%</span>
+            </div>
+            <div class="project-card__metric">
+                <span class="project-card__metric-label">Completed</span>
+                <span class="project-card__metric-value">@Project.CompletedPercentage%</span>
+            </div>
+        </div>
+
+        <div class="project-card__progress">
+            <div class="project-card__progress-fill"
+                 style="width: @(Math.Min(Project.CompletedPercentage, 100))%;"></div>
+        </div>
+
+        <footer class="project-card__footer">
+            <span class="al-badge al-badge--neutral">@Project.CurrentStageName</span>
+            <span class="al-subtle project-card__last-update">
+                @(Project.LastUpdateDate.HasValue ? FormatTimeAgo(Project.LastUpdateDate.Value) : "No updates")
+            </span>
+        </footer>
+    </div>
+
+    @if (Project.SubProjects.Count > 0)
+    {
+        <ul class="project-card__children" @onclick:stopPropagation="true">
+            @foreach (var sub in Project.SubProjects)
+            {
+                <li class="project-card__child" @onclick="@(() => Nav.NavigateTo($"/project/{sub.Id}"))">
+                    <span class="project-card__child-name">@sub.ProjectName</span>
+                    <span class="al-subtle al-num">@sub.CompletedPercentage%</span>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (!Project.IsSubscriptionActive && Project.Status == ProjectStatus.Active)
+    {
+        <div class="project-card__upgrade">Upgrade to continue managing this project.</div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public ProjectCardDto Project { get; set; } = default!;
+
+    private List<string> RecentImages =>
+        Project.RecentImageUrls.Count > 0
+            ? Project.RecentImageUrls
+            : (string.IsNullOrEmpty(Project.LatestImageUrl) ? new List<string>() : new() { Project.LatestImageUrl! });
+
+    private int activeSlide;
+    private System.Threading.Timer? slideTimer;
+    private bool paused;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && RecentImages.Count > 1)
+        {
+            slideTimer = new System.Threading.Timer(_ => Tick(), null, 5000, 5000);
+        }
+    }
+
+    private void Tick()
+    {
+        if (paused || RecentImages.Count <= 1) return;
+        activeSlide = (activeSlide + 1) % RecentImages.Count;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void GoTo(int idx)
+    {
+        activeSlide = idx;
+        StateHasChanged();
+    }
+
+    private string RiskBadgeClass => Project.RiskLevel switch
+    {
+        RiskLevel.Green => "al-badge--success",
+        RiskLevel.Yellow => "al-badge--warning",
+        RiskLevel.Red => "al-badge--danger",
+        _ => "al-badge--neutral"
+    };
+
+    private static string FormatTimeAgo(DateTime date)
+    {
+        var diff = DateTime.UtcNow - date;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return date.ToString("MMM dd");
+    }
+
+    public void Dispose() => slideTimer?.Dispose();
+}

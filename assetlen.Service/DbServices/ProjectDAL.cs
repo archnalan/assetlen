@@ -39,8 +39,8 @@ public class ProjectDAL : IProjectDAL
             var projects = await _context.tbl_Projects_RS
                 .Include(p => p.Stages)
                 .Include(p => p.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
-                .Include(p => p.ProgressUpdates.OrderByDescending(u => u.DateTimeCreated).Take(1))
-                    .ThenInclude(u => u.Images.OrderByDescending(i => i.DisplayOrder).Take(1))
+                .Include(p => p.ProgressUpdates.OrderByDescending(u => u.DateTimeCreated).Take(3))
+                    .ThenInclude(u => u.Images.OrderByDescending(i => i.DisplayOrder).Take(3))
                 .Where(p => p.InvestorId == investorId)
                 .OrderByDescending(p => p.DateTimeCreated)
                 .AsNoTracking()
@@ -50,6 +50,18 @@ public class ProjectDAL : IProjectDAL
 
             foreach (var project in projects)
             {
+                var recentImages = project.ProgressUpdates
+                    .SelectMany(u => u.Images)
+                    .Select(i => i.ThumbnailUrl ?? i.ImageUrl)
+                    .Where(u => !string.IsNullOrEmpty(u))
+                    .Cast<string>()
+                    .Distinct()
+                    .Take(5)
+                    .ToList();
+
+                if (!string.IsNullOrEmpty(project.CoverImageUrl))
+                    recentImages.Insert(0, project.CoverImageUrl);
+
                 var totalFunded = project.FundingEntries.Sum(f => f.Amount);
                 var fundedPct = _healthService.CalculateFundingPercentage(project.TotalBudget, totalFunded);
 
@@ -88,16 +100,33 @@ public class ProjectDAL : IProjectDAL
                     CompletedPercentage = completedPct,
                     TimelineStatus = timelineStatus,
                     LastUpdateDate = lastUpdate?.DateTimeCreated,
-                    LatestImageUrl = lastUpdate?.Images.FirstOrDefault()?.ThumbnailUrl
-                                    ?? lastUpdate?.Images.FirstOrDefault()?.ImageUrl,
+                    LatestImageUrl = recentImages.FirstOrDefault(),
+                    RecentImageUrls = recentImages,
                     CurrentStageName = currentStage?.StageName ?? "Not Started",
                     RiskLevel = riskLevel,
                     IsSubscriptionActive = project.IsSubscriptionActive,
                     Status = project.Status,
                     Currency = project.Currency,
                     TotalBudget = project.TotalBudget ?? 0,
-                    TotalFunded = totalFunded
+                    TotalFunded = totalFunded,
+                    ParentProjectId = project.ParentProjectId
                 });
+            }
+
+            // Nest sub-projects under their parent (one level only)
+            var byId = cards.ToDictionary(c => c.Id);
+            var topLevel = new List<ProjectCardDto>();
+            foreach (var card in cards)
+            {
+                if (card.ParentProjectId != null && byId.TryGetValue(card.ParentProjectId, out var parent))
+                {
+                    parent.SubProjects.Add(card);
+                    parent.SubProjectCount = parent.SubProjects.Count;
+                }
+                else
+                {
+                    topLevel.Add(card);
+                }
             }
 
             var summary = new PortfolioSummaryDto
@@ -108,7 +137,7 @@ public class ProjectDAL : IProjectDAL
                 TotalPortfolioCompletion = cards.Count > 0
                     ? Math.Round(cards.Average(c => c.CompletedPercentage), 1)
                     : 0,
-                Projects = cards
+                Projects = topLevel
             };
 
             return ServiceResult<PortfolioSummaryDto>.Success(summary);

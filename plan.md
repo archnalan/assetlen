@@ -26,7 +26,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.1 | Domain alignment: sub-projects, Flags, Channel, role × module matrix | Done | `182d5af` |
 | 1.1.1 | Harmonize roles — 6 generic roles, list-based `UserRolesDto` | Done | `b77f547` |
 | 1.2 | `tbl_ProjectMember`, module relocation, CSS retokening | Done | `2be565a` |
-| 1.3 | Dashboard polish: ProjectCard carousel, shimmer, Breadcrumbs, sub-project rendering | In progress | — |
+| 1.3 | Dashboard polish: ProjectCard carousel, shimmer, Breadcrumbs, sub-project rendering | Done | _pending_ |
 | 1.4 | Project detail shell + create-project flow refresh | Planned | — |
 | 2.1 | Site Journal — Entry capture, list, detail | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |
@@ -42,22 +42,20 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 
 ---
 
-## Phase 1.3 — Dashboard polish (active)
+## Phase 1.3 — Dashboard polish (done)
 
-**Goal:** Make the Projects dashboard feel like ASSETLEN — architectural calm, media-first, name-based navigation.
+**What landed:**
+- `Modules/Projects/Components/ProjectCard.razor` (+ co-located CSS) with 5s/400ms auto-sliding cover carousel, dot indicators, pause-on-hover, nest badge, and inline sub-project list.
+- `Components/Navigation/Breadcrumbs.razor` (+ CSS) — name-based, `BreadcrumbItem(Name, Href?)` record.
+- `ProjectCardDto` extended with `RecentImageUrls`, `ParentProjectId`, `SubProjectCount`, `SubProjects`.
+- `ProjectDAL.GetPortfolioDashboard` now pulls the 3 most-recent progress updates + their top 3 images, prepends the project's own `CoverImageUrl`, dedupes, caps at 5. Top-level projects nest their sub-projects.
+- Dashboard refactored: shimmer skeletons use `.al-shimmer` + `.al-ghost-card`; card rendering delegated to `<ProjectCard>`.
+- `_Imports.razor`: added `Modules.Projects.Components` + `Components.Navigation` usings.
 
-**Scope:**
-- `ProjectCard` component (in `Modules/Projects/Components/`) with auto-sliding cover carousel: 5000ms dwell, 400ms cross-fade, pause on hover + visibility loss.
-- Ghost-shimmer placeholder utility wired into the card while covers load. Promote `.al-shimmer` keyframe to `app.css` if not already there.
-- `Breadcrumbs.razor` in `Components/Navigation/` — name-based, no IDs in URL labels. Pattern: `Riverstone Heights / Guest Wing / Site Journal / 2026-05-21`.
-- Render sub-projects on parent cards (visible one-level nesting). Sub-project count badge + "open" affordance.
-- Verify aspect ratios use `--al-aspect-card` (16/10).
-
-**Exit criteria:**
-- Dashboard renders cleanly at 360 / 768 / 1280.
-- Loading, empty, error states present on every fetch.
-- No hard-coded colors / radii / durations in any new `.razor.css`.
-- Build green, single commit, this file updated.
+**Known follow-ups (Phase 1.4 candidates):**
+- Breadcrumbs not yet wired into `ProjectsLayout` / `ProjectDetail`; do this once routing IDs are mappable to names.
+- `MediaCarousel` may need promotion to `Components/Media/` when Journal also needs it.
+- Sub-project creation flow still pending (Phase 1.4).
 
 ---
 

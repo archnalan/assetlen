@@ -10,23 +10,22 @@
 
 @if (isLoading)
 {
-    <!-- Skeleton Loaders -->
     <div class="project-page-header">
         <div>
-            <div class="project-skeleton project-skeleton-line" style="width:200px;height:28px;"></div>
-            <div class="project-skeleton project-skeleton-line short" style="margin-top:8px;"></div>
+            <div class="al-shimmer" style="width:200px;height:28px;border-radius:var(--al-radius-sm);"></div>
+            <div class="al-shimmer" style="width:140px;height:14px;border-radius:var(--al-radius-xs);margin-top:8px;"></div>
         </div>
     </div>
     <div class="project-summary-row">
         @for (int i = 0; i < 4; i++)
         {
-            <div class="project-skeleton project-skeleton-stat"></div>
+            <div class="al-shimmer" style="height:88px;border-radius:var(--al-radius);"></div>
         }
     </div>
     <div class="project-projects-grid">
         @for (int i = 0; i < 3; i++)
         {
-            <div class="project-skeleton project-skeleton-card"></div>
+            <div class="al-shimmer al-ghost-card"></div>
         }
     </div>
 }
@@ -93,81 +92,7 @@ else
         <div class="project-projects-grid">
             @foreach (var project in portfolio.Projects)
             {
-                <div class="project-project-card" @onclick="() => NavigateToProject(project.Id)">
-                    <!-- Card Image -->
-                    <div class="project-project-card-image">
-                        @if (!string.IsNullOrEmpty(project.LatestImageUrl))
-                        {
-                            <img src="@project.LatestImageUrl" alt="@project.ProjectName" loading="lazy" />
-                        }
-                        else
-                        {
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
-                                <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4M5 21V10.87M19 21V10.87"/>
-                            </svg>
-                        }
-                    </div>
-
-                    <div class="project-project-card-body">
-                        <!-- Title & Risk -->
-                        <div class="project-project-card-header">
-                            <h3 class="project-project-card-title">@project.ProjectName</h3>
-                            <span class="project-risk-badge @project.RiskLevel.ToString().ToLower()">
-                                <span class="project-risk-dot @project.RiskLevel.ToString().ToLower()"></span>
-                                @project.TimelineStatus
-                            </span>
-                        </div>
-
-                        <!-- Location -->
-                        @if (!string.IsNullOrEmpty(project.Location))
-                        {
-                            <div class="project-project-card-location">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                                @project.Location
-                            </div>
-                        }
-
-                        <!-- Metrics -->
-                        <div class="project-project-card-metrics">
-                            <div class="project-metric">
-                                <span class="project-metric-label">Funded</span>
-                                <span class="project-metric-value">@project.FundedPercentage%</span>
-                            </div>
-                            <div class="project-metric">
-                                <span class="project-metric-label">Completed</span>
-                                <span class="project-metric-value">@project.CompletedPercentage%</span>
-                            </div>
-                        </div>
-
-                        <!-- Progress Bar -->
-                        <div class="project-progress-bar">
-                            <div class="project-progress-fill @GetProgressColor(project.CompletedPercentage)"
-                                 style="width: @(Math.Min(project.CompletedPercentage, 100))%"></div>
-                        </div>
-
-                        <!-- Footer -->
-                        <div class="project-project-card-footer project-mt-sm">
-                            <span class="project-stage-badge">@project.CurrentStageName</span>
-                            <span class="project-text-xs project-text-muted">
-                                @if (project.LastUpdateDate.HasValue)
-                                {
-                                    @FormatTimeAgo(project.LastUpdateDate.Value)
-                                }
-                                else
-                                {
-                                    <text>No updates</text>
-                                }
-                            </span>
-                        </div>
-                    </div>
-
-                    @if (!project.IsSubscriptionActive && project.Status == ProjectStatus.Active)
-                    {
-                        <div style="background:var(--al-warning-soft);padding:8px 16px;font-size:0.75rem;color:var(--al-warning);text-align:center;font-weight:500;">
-                            Upgrade to continue managing this project.
-                        </div>
-                    }
-                </div>
+                <ProjectCard Project="project" />
             }
         </div>
     }
@@ -210,11 +135,6 @@ else
         }
     }
 
-    private void NavigateToProject(string projectId)
-    {
-        Nav.NavigateTo($"/project/{projectId}");
-    }
-
     private string FormatCurrency(decimal amount)
     {
         if (amount >= 1_000_000_000) return $"{amount / 1_000_000_000:N1}B";
@@ -222,16 +142,4 @@ else
         if (amount >= 1_000) return $"{amount / 1_000:N1}K";
         return amount.ToString("N0");
     }
-
-    private string FormatTimeAgo(DateTime date)
-    {
-        var diff = DateTime.UtcNow - date;
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
-        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
-        return date.ToString("MMM dd");
-    }
-
-    private string GetProgressColor(decimal pct) =>
-        pct >= 75 ? "green" : pct >= 40 ? "yellow" : "";
 }

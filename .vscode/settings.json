@@ -1,0 +1,10 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "git add": true,
+        "git commit": true,
+        "/^cd \"d:/PROGRAMMER/\\.NET/Projects 26/assetlen\" && git add -A && git commit -m \"\\$\\(cat <<'EOF'\nfeat\\(phase 1\\.3\\): ProjectCard carousel \\+ Breadcrumbs \\+ sub-project nesting\n\n- ProjectCard\\.razor \\(Modules/Projects/Components\\) with 5s/400ms\n  auto-sliding cover carousel, dot indicators, pause on hover,\n  nest badge, inline sub-project list\n- Breadcrumbs\\.razor \\(Components/Navigation\\) — name-based,\n  BreadcrumbItem\\(Name, Href\\?\\) record\n- ProjectCardDto \\+ ProjectDAL: RecentImageUrls \\(5 max\\),\n  ParentProjectId, SubProjectCount, SubProjects\\. Top-level\n  projects nest their children one level deep\n- PortfolioDashboard: shimmer skeletons \\(\\.al-shimmer / \\.al-ghost-card\\),\n  card markup delegated to <ProjectCard>\n- plan\\.md: Phase 1\\.3 marked done, follow-ups recorded\nEOF\n\\)\" ; git rev-parse --short HEAD$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

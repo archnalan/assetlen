@@ -288,6 +288,7 @@ public class ProjectCardDto
     public string TimelineStatus { get; set; } = "On Track";
     public DateTime? LastUpdateDate { get; set; }
     public string? LatestImageUrl { get; set; }
+    public List<string> RecentImageUrls { get; set; } = new();
     public string? CurrentStageName { get; set; }
     public RiskLevel RiskLevel { get; set; }
     public bool IsSubscriptionActive { get; set; }
@@ -295,6 +296,10 @@ public class ProjectCardDto
     public string Currency { get; set; } = "UGX";
     public decimal TotalBudget { get; set; }
     public decimal TotalFunded { get; set; }
+
+    public string? ParentProjectId { get; set; }
+    public int SubProjectCount { get; set; }
+    public List<ProjectCardDto> SubProjects { get; set; } = new();
 }
 
 // ─── PM Dashboard DTOs ───────────────────────────────────────

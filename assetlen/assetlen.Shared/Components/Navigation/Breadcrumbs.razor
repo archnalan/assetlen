@@ -1,0 +1,36 @@
+@* Name-based breadcrumb trail. Each item carries a display Name and optional Href.
+   Example: Riverstone Heights / Guest Wing / Site Journal / 2026-05-21 *@
+
+<nav class="al-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="al-breadcrumbs__list">
+        @if (Items is not null)
+        {
+            var arr = Items.ToList();
+            for (var i = 0; i < arr.Count; i++)
+            {
+                var item = arr[i];
+                var isLast = i == arr.Count - 1;
+                <li class="al-breadcrumbs__item">
+                    @if (!isLast && !string.IsNullOrEmpty(item.Href))
+                    {
+                        <a class="al-breadcrumbs__link" href="@item.Href">@item.Name</a>
+                    }
+                    else
+                    {
+                        <span class="al-breadcrumbs__current" aria-current="@(isLast ? "page" : null)">@item.Name</span>
+                    }
+                    @if (!isLast)
+                    {
+                        <span class="al-breadcrumbs__sep" aria-hidden="true">/</span>
+                    }
+                </li>
+            }
+        }
+    </ol>
+</nav>
+
+@code {
+    public record BreadcrumbItem(string Name, string? Href = null);
+
+    [Parameter, EditorRequired] public IEnumerable<BreadcrumbItem> Items { get; set; } = Array.Empty<BreadcrumbItem>();
+}

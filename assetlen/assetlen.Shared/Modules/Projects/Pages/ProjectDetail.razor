@@ -689,28 +689,7 @@ else
         }
         else
         {
-            <div class="project-timeline">
-                @foreach (var entry in timeline)
-                {
-                    <div class="project-timeline-item @(entry.IsCompleted ? "completed" : entry.IsCurrent ? "current" : "")">
-                        <div class="project-timeline-marker"></div>
-                        <div class="project-timeline-content">
-                            <div class="project-timeline-title">@entry.Title</div>
-                            @if (!string.IsNullOrEmpty(entry.Description))
-                            {
-                                <div class="project-text-sm project-text-muted">@entry.Description</div>
-                            }
-                            <div class="project-text-xs project-text-muted project-mt-xs">
-                                @entry.Date.ToString("MMM dd, yyyy")
-                                @if (!string.IsNullOrEmpty(entry.EventType))
-                                {
-                                    <span> · @entry.EventType</span>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
+            <TimelineChart Entries="timeline" />
         }
     };
 

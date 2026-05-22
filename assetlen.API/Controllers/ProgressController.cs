@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.Shared.Models.Models;
+using assetlen.Shared.Models.Models.RemoteSite;
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos;
 using assetlen.Shared.Models.statics;
@@ -12,7 +13,7 @@ namespace assetlen.API.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-[Authorize(Roles = $"{UserRoles.Client},{UserRoles.Crew}",
+[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew},{UserRoles.Client},{UserRoles.Guest}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class ProgressController : ControllerBase
 {
@@ -32,6 +33,8 @@ public class ProgressController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(typeof(ProgressUpdateDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> AddProgressUpdate([FromBody] ProgressUpdateCreateDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -40,13 +43,38 @@ public class ProgressController : ControllerBase
         return Ok(result.Data);
     }
 
+    [HttpGet]
+    [ProducesResponseType(typeof(ProgressUpdateDto), 200)]
+    public async Task<ActionResult> GetProgressUpdate([FromQuery][Required] string updateId)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _progressDAL.GetProgressUpdate(updateId, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
     [HttpPut]
     [ProducesResponseType(typeof(ProgressUpdateDto), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Client}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> SetApprovalStatus([FromBody] ProgressApprovalDto dto)
     {
         var userId = _tenantProvider.GetUserId();
         var result = await _progressDAL.SetApprovalStatus(dto, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpPut]
+    [ProducesResponseType(typeof(ProgressUpdateDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> SetChannel(
+        [FromQuery][Required] string updateId,
+        [FromQuery][Required] Channel channel)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _progressDAL.SetChannel(updateId, channel, userId);
         if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
         return Ok(result.Data);
     }
@@ -80,7 +108,8 @@ public class ProgressController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(PMDashboardDto), 200)]
-    [Authorize(Roles = UserRoles.Crew, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> GetPMDashboard()
     {
         var userId = _tenantProvider.GetUserId();

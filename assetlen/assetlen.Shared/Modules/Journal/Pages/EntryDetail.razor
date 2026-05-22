@@ -1,0 +1,268 @@
+@page "/project/{ProjectId}/entry/{EntryId}"
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@using static assetlen.Shared.Components.Navigation.Breadcrumbs
+@layout ProjectsLayout
+@attribute [Authorize]
+@inject NavigationManager Nav
+@inject ILogger<EntryDetail> Logger
+
+<PageTitle>@(entry?.StageName ?? "Entry") — ASSETLEN</PageTitle>
+
+@if (isLoading)
+{
+    <div class="project-skeleton project-skeleton-line" style="width:240px;height:24px;"></div>
+    <div class="project-skeleton project-skeleton-card project-mt-md" style="height:320px;"></div>
+}
+else if (entry is null)
+{
+    <div class="project-empty">
+        <h3 class="project-empty-title">Entry not found</h3>
+        <p class="project-empty-desc">This Site Journal entry may have been removed or you don't have access.</p>
+        <a class="project-btn project-btn-primary" href="@($"/project/{ProjectId}")">Back to project</a>
+    </div>
+}
+else
+{
+    <Breadcrumbs Items="BuildBreadcrumbs()" />
+
+    <article class="entry-detail">
+        <header class="entry-detail__header">
+            <div class="entry-detail__author">
+                <div class="project-avatar-sm">@(entry.CreatedByName?[0])</div>
+                <div>
+                    <div class="entry-detail__author-name">@entry.CreatedByName</div>
+                    <div class="project-text-xs project-text-muted">
+                        @FormatTimeAgo(entry.DateTimeCreated) · @(entry.StageName ?? "General")
+                    </div>
+                </div>
+            </div>
+            <div class="entry-detail__meta">
+                <span class="entry-channel-pill entry-channel-pill--@(entry.Channel.ToString().ToLowerInvariant())">
+                    @entry.Channel
+                </span>
+                @if (entry.ApprovalStatus.HasValue)
+                {
+                    <span class="entry-detail__approval entry-detail__approval--@(entry.ApprovalStatus.Value.ToString().ToLowerInvariant())">
+                        @entry.ApprovalStatus
+                    </span>
+                }
+            </div>
+        </header>
+
+        <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="auth">
+            @if (entry.Channel == Channel.Crew)
+            {
+                <div class="entry-detail__promote">
+                    <div>
+                        <strong>Crew-only entry.</strong>
+                        <div class="project-text-xs project-text-muted">Publish to the Client channel to make it visible in the curated view.</div>
+                    </div>
+                    <button class="project-btn project-btn-primary project-btn-sm"
+                            @onclick="PromoteToClient" disabled="@savingPromote">
+                        @(savingPromote ? "Publishing…" : "Publish to Client")
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="entry-detail__promote entry-detail__promote--published">
+                    <div>
+                        <strong>Published to Client channel.</strong>
+                        <div class="project-text-xs project-text-muted">Visible in the curated Client view.</div>
+                    </div>
+                    <button class="project-btn project-btn-link"
+                            @onclick="DemoteToCrew" disabled="@savingPromote">
+                        @(savingPromote ? "Reverting…" : "Revert to Crew")
+                    </button>
+                </div>
+            }
+        </AuthorizeView>
+
+        @if (!string.IsNullOrWhiteSpace(entry.Description))
+        {
+            <p class="entry-detail__desc">@entry.Description</p>
+        }
+
+        @if (entry.CompletionPercentage > 0)
+        {
+            <div class="entry-detail__completion">
+                <div class="project-progress-bar" style="height:8px;">
+                    <div class="project-progress-fill @GetProgressColor(entry.CompletionPercentage ?? 0)"
+                         style="width:@(Math.Min(entry.CompletionPercentage ?? 0, 100))%"></div>
+                </div>
+                <div class="project-text-xs project-text-muted project-mt-xs">@entry.CompletionPercentage% stage completion</div>
+            </div>
+        }
+
+        @if (entry.Images?.Any() == true)
+        {
+            <EntryPhotoPanel Images="entry.Images" />
+        }
+
+        <section class="entry-detail__comments">
+            <h3 class="project-section-title">
+                Conversation
+                @if (entry.Comments.Count > 0)
+                {
+                    <span class="project-text-sm project-text-muted">· @entry.Comments.Count</span>
+                }
+            </h3>
+
+            @if (entry.Comments.Count == 0)
+            {
+                <p class="project-text-sm project-text-muted">No comments yet. Start the thread below.</p>
+            }
+            else
+            {
+                <ul class="entry-detail__comment-list">
+                    @foreach (var c in entry.Comments)
+                    {
+                        <li class="entry-detail__comment">
+                            <div class="project-avatar-sm">@(c.AuthorName?[0])</div>
+                            <div class="entry-detail__comment-body">
+                                <div class="entry-detail__comment-meta">
+                                    <span class="entry-detail__comment-author">@c.AuthorName</span>
+                                    <span class="project-text-xs project-text-muted">@FormatTimeAgo(c.DateTimeCreated)</span>
+                                </div>
+                                <p class="entry-detail__comment-text">@c.CommentText</p>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <div class="entry-detail__compose">
+                <textarea class="project-input" rows="3"
+                          placeholder="Add a comment…"
+                          @bind="newComment" @bind:event="oninput"></textarea>
+                @if (!string.IsNullOrEmpty(commentError))
+                {
+                    <div class="project-form-error">@commentError</div>
+                }
+                <div class="entry-detail__compose-actions">
+                    <button class="project-btn project-btn-primary project-btn-sm"
+                            @onclick="PostComment"
+                            disabled="@(savingComment || string.IsNullOrWhiteSpace(newComment))">
+                        @(savingComment ? "Posting…" : "Post comment")
+                    </button>
+                </div>
+            </div>
+        </section>
+    </article>
+}
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+    [Parameter] public string EntryId { get; set; } = "";
+
+    private ProgressUpdateDto? entry;
+    private bool isLoading = true;
+    private bool savingPromote;
+    private bool savingComment;
+    private string newComment = string.Empty;
+    private string? commentError;
+    private string? projectName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEntry();
+        await LoadProjectName();
+    }
+
+    private async Task LoadEntry()
+    {
+        isLoading = true;
+        try
+        {
+            var resp = await _progressApi.GetProgressUpdate(EntryId);
+            if (resp.IsSuccessStatusCode) entry = resp.Content;
+            else Logger.LogError("Failed loading entry: {Err}", _apiResponseHandler.GetApiErrorMessage(resp));
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading entry"); }
+        finally { isLoading = false; }
+    }
+
+    private async Task LoadProjectName()
+    {
+        try
+        {
+            var resp = await _projectsRSApi.GetProjectById(ProjectId);
+            if (resp.IsSuccessStatusCode) projectName = resp.Content?.ProjectName;
+        }
+        catch { /* breadcrumb falls back to "Project" */ }
+    }
+
+    private IEnumerable<BreadcrumbItem> BuildBreadcrumbs()
+    {
+        yield return new BreadcrumbItem("Portfolio", "/portfolio");
+        yield return new BreadcrumbItem(projectName ?? "Project", $"/project/{ProjectId}");
+        yield return new BreadcrumbItem("Site Journal", $"/project/{ProjectId}");
+        yield return new BreadcrumbItem(entry?.DateTimeCreated?.ToString("MMM dd") ?? "Entry");
+    }
+
+    private Task PromoteToClient() => UpdateChannel(Channel.Client);
+    private Task DemoteToCrew() => UpdateChannel(Channel.Crew);
+
+    private async Task UpdateChannel(Channel target)
+    {
+        if (entry is null || savingPromote) return;
+        savingPromote = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await _progressApi.SetChannel(entry.Id!, target);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                entry = resp.Content;
+            }
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error changing channel"); }
+        finally { savingPromote = false; StateHasChanged(); }
+    }
+
+    private async Task PostComment()
+    {
+        if (entry is null || string.IsNullOrWhiteSpace(newComment)) return;
+        savingComment = true;
+        commentError = null;
+        StateHasChanged();
+        try
+        {
+            var dto = new ProgressCommentCreateDto
+            {
+                ProgressUpdateId = entry.Id,
+                CommentText = newComment.Trim()
+            };
+            var resp = await _progressApi.AddComment(dto);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                entry.Comments.Add(resp.Content);
+                newComment = string.Empty;
+            }
+            else
+            {
+                commentError = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not post comment.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error posting comment");
+            commentError = "Could not post comment.";
+        }
+        finally { savingComment = false; StateHasChanged(); }
+    }
+
+    private static string GetProgressColor(decimal pct) =>
+        pct >= 75 ? "green" : pct >= 40 ? "yellow" : "";
+
+    private static string FormatTimeAgo(DateTime? date)
+    {
+        if (!date.HasValue) return "—";
+        var diff = DateTime.UtcNow - date.Value;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return date.Value.ToString("MMM dd");
+    }
+}

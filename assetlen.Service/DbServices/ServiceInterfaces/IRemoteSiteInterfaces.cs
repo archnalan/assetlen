@@ -52,7 +52,9 @@ public interface IFundingDAL
 public interface IProgressDAL
 {
     Task<ServiceResult<ProgressUpdateDto>> AddProgressUpdate(ProgressUpdateCreateDto dto, string userId);
+    Task<ServiceResult<ProgressUpdateDto>> GetProgressUpdate(string updateId, string userId);
     Task<ServiceResult<ProgressUpdateDto>> SetApprovalStatus(ProgressApprovalDto dto, string investorId);
+    Task<ServiceResult<ProgressUpdateDto>> SetChannel(string updateId, Channel channel, string userId);
     Task<ServiceResult<PaginationDetails<ProgressUpdateDto>>> GetProgressUpdates(
         string projectId, string? stageId, int offset, int limit, string userId, CancellationToken ct);
     Task<ServiceResult<ProgressCommentDto>> AddComment(ProgressCommentCreateDto dto, string userId);

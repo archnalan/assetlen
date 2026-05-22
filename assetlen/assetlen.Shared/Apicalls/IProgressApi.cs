@@ -1,11 +1,7 @@
-﻿using assetlen.Shared.Models.Models.ViewModels;
+﻿using assetlen.Shared.Models.Models.RemoteSite;
+using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos;
 using Refit;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace assetlen.Shared.Apicalls
 {
@@ -14,8 +10,14 @@ namespace assetlen.Shared.Apicalls
         [Post("/api/Progress/AddProgressUpdate")]
         Task<IApiResponse<ProgressUpdateDto>> AddProgressUpdate([Body] ProgressUpdateCreateDto dto);
 
+        [Get("/api/Progress/GetProgressUpdate")]
+        Task<IApiResponse<ProgressUpdateDto>> GetProgressUpdate([Query] string updateId);
+
         [Put("/api/Progress/SetApprovalStatus")]
         Task<IApiResponse<ProgressUpdateDto>> SetApprovalStatus([Body] ProgressApprovalDto dto);
+
+        [Put("/api/Progress/SetChannel")]
+        Task<IApiResponse<ProgressUpdateDto>> SetChannel([Query] string updateId, [Query] Channel channel);
 
         [Get("/api/Progress/GetProgressUpdates")]
         Task<IApiResponse<PaginationDetails<ProgressUpdateDto>>> GetProgressUpdates(

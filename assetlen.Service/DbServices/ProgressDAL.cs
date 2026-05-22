@@ -101,6 +101,66 @@ public class ProgressDAL : IProgressDAL
         }
     }
 
+    public async Task<ServiceResult<ProgressUpdateDto>> GetProgressUpdate(string updateId, string userId)
+    {
+        try
+        {
+            var update = await _context.tbl_ProgressUpdates
+                .Include(u => u.Project)
+                    .ThenInclude(p => p!.ParentProject)
+                .Include(u => u.CreatedBy)
+                .Include(u => u.Stage)
+                .Include(u => u.Images.OrderBy(i => i.DisplayOrder))
+                .Include(u => u.Comments.Where(c => c.ParentCommentId == null).OrderBy(c => c.DateTimeCreated))
+                    .ThenInclude(c => c.Author)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == updateId);
+
+            if (update == null)
+                return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
+
+            if (!IsProjectStakeholder(update.Project, userId))
+                return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
+
+            return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting progress update {UpdateId}", updateId);
+            return ServiceResult<ProgressUpdateDto>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
+    public async Task<ServiceResult<ProgressUpdateDto>> SetChannel(string updateId, Channel channel, string userId)
+    {
+        try
+        {
+            var update = await _context.tbl_ProgressUpdates
+                .Include(u => u.Project)
+                    .ThenInclude(p => p!.ParentProject)
+                .FirstOrDefaultAsync(u => u.Id == updateId);
+
+            if (update == null)
+                return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
+
+            var ownerId = update.Project?.ParentProject?.InvestorId ?? update.Project?.InvestorId;
+            var pmId = update.Project?.ParentProject?.ProjectManagerId ?? update.Project?.ProjectManagerId;
+            if (ownerId != userId && pmId != userId &&
+                update.Project?.InvestorId != userId && update.Project?.ProjectManagerId != userId)
+                return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Only the project owner or manager can change visibility"));
+
+            update.Channel = channel;
+            await _context.SaveChangesAsync();
+
+            return await GetProgressUpdateById(update.Id, userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting channel for {UpdateId}", updateId);
+            return ServiceResult<ProgressUpdateDto>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
     public async Task<ServiceResult<ProgressUpdateDto>> SetApprovalStatus(ProgressApprovalDto dto, string investorId)
     {
         try
@@ -281,6 +341,19 @@ public class ProgressDAL : IProgressDAL
     }
 
     // ─── Private helpers ──────────────────────────────────────
+
+    /// <summary>
+    /// True when the user can read this project's content. Sub-projects
+    /// inherit the parent's stakeholder set.
+    /// </summary>
+    private static bool IsProjectStakeholder(tbl_Project? project, string userId)
+    {
+        if (project is null) return false;
+        var ownerId = project.ParentProject?.InvestorId ?? project.InvestorId;
+        var pmId = project.ParentProject?.ProjectManagerId ?? project.ProjectManagerId;
+        return ownerId == userId || pmId == userId
+            || project.InvestorId == userId || project.ProjectManagerId == userId;
+    }
 
     private async Task<ServiceResult<ProgressUpdateDto>> GetProgressUpdateById(string updateId, string userId)
     {

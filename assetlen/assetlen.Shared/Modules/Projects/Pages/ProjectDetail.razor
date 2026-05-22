@@ -539,7 +539,6 @@ else
                 @foreach (var update in progressUpdates)
                 {
                     <div class="project-progress-entry">
-                        <!-- Header -->
                         <div class="project-progress-entry-header">
                             <div class="project-avatar-sm">@(update.CreatedByName?[0])</div>
                             <div>
@@ -561,10 +560,8 @@ else
                             </div>
                         </div>
 
-                        <!-- Description -->
                         <p class="project-progress-description">@update.Description</p>
 
-                        <!-- Completion -->
                         @if (update.CompletionPercentage > 0)
                         {
                             <div class="project-progress-bar project-mt-sm" style="height:6px;">
@@ -579,7 +576,6 @@ else
                             <EntryPhotoPanel Images="update.Images" />
                         }
 
-                        <!-- Approval Status -->
                         @if (update.ApprovalStatus.HasValue)
                         {
                             <div class="project-text-xs project-mt-sm" style="color: @(update.ApprovalStatus == ApprovalStatus.Approved ? "var(--al-success)" : "var(--al-warning)");">
@@ -587,13 +583,20 @@ else
                             </div>
                         }
 
-                        <!-- Comment Count -->
-                        @if (update.Comments?.Any() == true)
-                        {
-                            <div class="project-text-xs project-text-muted project-mt-sm" style="cursor:pointer;">
-                                💬 @update.Comments.Count comment@(update.Comments.Count > 1 ? "s" : "")
-                            </div>
-                        }
+                        <div class="project-progress-entry-footer">
+                            <a class="project-progress-entry-link"
+                               href="@($"/project/{ProjectId}/entry/{update.Id}")">
+                                @if (update.Comments?.Any() == true)
+                                {
+                                    <span>💬 @update.Comments.Count comment@(update.Comments.Count > 1 ? "s" : "")</span>
+                                }
+                                else
+                                {
+                                    <span>Open entry</span>
+                                }
+                                <span aria-hidden="true">→</span>
+                            </a>
+                        </div>
                     </div>
                 }
             </div>

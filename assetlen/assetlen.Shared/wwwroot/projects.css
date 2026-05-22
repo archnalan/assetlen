@@ -1197,6 +1197,28 @@ textarea.project-form-input {
     border-color: var(--al-border-strong);
 }
 
+.project-progress-entry-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--al-space-3);
+    padding-top: var(--al-space-2);
+    border-top: 1px solid var(--al-border);
+}
+
+.project-progress-entry-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    text-decoration: none;
+    transition: color var(--al-transition-fast);
+}
+
+.project-progress-entry-link:hover {
+    color: var(--al-accent);
+}
+
 .project-progress-entry-header {
     display: flex;
     align-items: center;

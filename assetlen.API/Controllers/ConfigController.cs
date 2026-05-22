@@ -15,7 +15,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.AdminModuleLogin}",
+    [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class ConfigController : ControllerBase
     {
@@ -52,7 +52,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ConfigurationDto), 200)]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetSettingFromDBbasedOnID([FromQuery] int id)
         {

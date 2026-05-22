@@ -12,7 +12,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.AdminModuleLogin}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = $"{UserRoles.Contractor}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class BanksController : ControllerBase
     {
         private readonly IBankDAL _bankDAL;
@@ -22,7 +22,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [ProducesResponseType(typeof(PaginationDetails<BankDto>), 200)]
         public async Task<ActionResult> GetBanksFromDB([FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
         {
@@ -37,7 +37,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [ProducesResponseType(typeof(PaginationDetails<ComboBoxDto>), 200)]
         public async Task<ActionResult> SearchBanksFromComboBoxes([FromQuery] string? keywords, [FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
         {
@@ -54,7 +54,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(BankDto), 200)]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetBankById([FromQuery] string id)
         {
             var result = await _bankDAL.GetBankById(id);
@@ -67,7 +67,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(BankDto), 200)]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetBankByName([FromQuery] string name)
         {
             var result = await _bankDAL.GetBankByName(name);
@@ -80,7 +80,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(string), 200)]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetBankIDBasedOnBankName([FromQuery] string bankName)
         {
             var result = await _bankDAL.GetBankIDBasedOnBankName(bankName);

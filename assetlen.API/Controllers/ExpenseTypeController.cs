@@ -11,7 +11,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+    [Authorize(Roles = $"{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class ExpenseTypeController : ControllerBase
     {

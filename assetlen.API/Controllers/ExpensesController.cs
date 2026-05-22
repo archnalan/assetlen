@@ -12,7 +12,7 @@ namespace assetlen.API.Controllers
 	[Route("api/[controller]/[action]")]
 	[ApiController]
 	// REMOVED: UserRoles.RecordExpenses was removed; access now restricted to AdminModuleLogin only.
-	[Authorize(Roles = $"{UserRoles.AdminModuleLogin}",
+	[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class ExpensesController : ControllerBase
 	{

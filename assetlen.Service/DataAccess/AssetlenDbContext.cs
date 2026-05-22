@@ -80,7 +80,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public DbSet<tbl_SubscriptionRequest> tbl_SubscriptionRequests { get; set; }
     public DbSet<tbl_SubscriptionSeat> tbl_SubscriptionSeats { get; set; }
 
-    // ─── Remote Site (Construction Investment) ─────────────────
+    // ─── Projects + Site Journal (ASSETLEN core) ───────────────
     public virtual DbSet<tbl_Project> tbl_Projects_RS { get; set; }
     public virtual DbSet<tbl_Stage> tbl_Stages { get; set; }
     public virtual DbSet<tbl_FundingEntry> tbl_FundingEntries { get; set; }
@@ -88,10 +88,15 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_ProgressImage> tbl_ProgressImages { get; set; }
     public virtual DbSet<tbl_ProgressComment> tbl_ProgressComments { get; set; }
     public virtual DbSet<tbl_ProjectSubscription> tbl_ProjectSubscriptions { get; set; }
+    public virtual DbSet<tbl_Flag> tbl_Flags { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Existing configurations (query filters, relationships, indexes, entity configurations) remain unchanged
+        // Register Identity defaults first — .NET 10 added IdentityPasskeyData
+        // and similar passkey/WebAuthn types that need their key config from
+        // the base. Custom configurations below may override individual bits.
+        base.OnModelCreating(modelBuilder);
+
         // ─── Multi-tenant + Access query filters ──────────────────────
         // Pattern: (SuperAdmin OR same tenant OR null tenant OR Public access)
         //          AND (access is null or not Protected)
@@ -287,17 +292,29 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             (_isSuperAdmin || x.TenantId == _tenantId || x.TenantId == null || x.Access == Access.Public)
             && (x.Access == null || x.Access != Access.Protected)
             && (x.IsDeleted == false || x.IsDeleted == null));
+        modelBuilder.Entity<tbl_Flag>().HasQueryFilter(x =>
+            (_isSuperAdmin || x.TenantId == _tenantId || x.TenantId == null || x.Access == Access.Public)
+            && (x.Access == null || x.Access != Access.Protected)
+            && (x.IsDeleted == false || x.IsDeleted == null));
 
-        // ─── Remote Site relationships ─────────────────────────────
+        // Channel-based (Client/Crew) visibility is enforced at the service
+        // layer — DbContext-level filtering would need ITenantProvider to
+        // expose role information. Added in Phase 2 when Streams ship.
+
+        // ─── Projects + Site Journal relationships ─────────────────
         modelBuilder.Entity<tbl_Project>(entity =>
         {
             entity.ToTable("tbl_Projects_RS");
             entity.HasIndex(e => e.InvestorId).HasDatabaseName("IX_Project_InvestorId");
             entity.HasIndex(e => e.ProjectManagerId).HasDatabaseName("IX_Project_ProjectManagerId");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_Project_Status");
+            entity.HasIndex(e => e.ParentProjectId).HasDatabaseName("IX_Project_ParentProjectId");
             entity.Property(e => e.TotalBudget).HasColumnType("decimal(18,4)");
             entity.HasOne(e => e.Investor).WithMany().HasForeignKey(e => e.InvestorId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.ProjectManager).WithMany().HasForeignKey(e => e.ProjectManagerId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            // Self-ref for one-level Sub-project nesting. NoAction on delete —
+            // the service layer detaches Sub-projects before deleting a parent.
+            entity.HasOne(e => e.ParentProject).WithMany(p => p.SubProjects).HasForeignKey(e => e.ParentProjectId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<tbl_Stage>(entity =>
@@ -354,6 +371,23 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.Property(e => e.MonthlyAmount).HasColumnType("decimal(18,4)");
             entity.HasOne(e => e.Project).WithMany(p => p.Subscriptions).HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Investor).WithMany().HasForeignKey(e => e.InvestorId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_Flag>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_Flag_ProjectId");
+            entity.HasIndex(e => e.StageId).HasDatabaseName("IX_Flag_StageId");
+            entity.HasIndex(e => e.ProgressUpdateId).HasDatabaseName("IX_Flag_ProgressUpdateId");
+            entity.HasIndex(e => e.ProgressImageId).HasDatabaseName("IX_Flag_ProgressImageId");
+            entity.HasIndex(e => e.Status).HasDatabaseName("IX_Flag_Status");
+            entity.HasIndex(e => e.AssignedToId).HasDatabaseName("IX_Flag_AssignedToId");
+            entity.HasOne(e => e.Project).WithMany(p => p.Flags).HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ProgressUpdate).WithMany(u => u.Flags).HasForeignKey(e => e.ProgressUpdateId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ProgressImage).WithMany(i => i.Flags).HasForeignKey(e => e.ProgressImageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.CreatedBy).WithMany().HasForeignKey(e => e.CreatedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.AssignedTo).WithMany().HasForeignKey(e => e.AssignedToId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ResolvedBy).WithMany().HasForeignKey(e => e.ResolvedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         // EmployeeApproval relationship

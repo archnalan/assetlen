@@ -35,7 +35,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = UserRoles.SetUserAccount,
+    [Authorize(Roles = UserRoles.Contractor,
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class AuthorizationController : ControllerBase
     {
@@ -82,7 +82,7 @@ namespace assetlen.API.Controllers
             var userIdOrig = _tenantProvider.GetUserId();
             if(string.IsNullOrEmpty(userIdOrig))
                 return StatusCode(401, new { Message = "Un Authorized" });
-            var isAccountManager = User?.IsInRole(UserRoles.SetUserAccount);
+            var isAccountManager = User?.IsInRole(UserRoles.Contractor);
             if ((!isAccountManager??false) && !(userId.Equals(userIdOrig, StringComparison.OrdinalIgnoreCase)))
                 return StatusCode(403, new { Message = "Invalid Userid provided" });
 

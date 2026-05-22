@@ -13,7 +13,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	[Authorize(Roles = $"{UserRoles.ProductConfig}",
+	[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class SegmentsController : ControllerBase
 	{
@@ -66,7 +66,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(int), 200)]
-		[Authorize(Roles = $"{UserRoles.ProductConfig}, {UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor}, {UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetSegmentIDBasedOnSegmentName(string segmentName)
 		{
@@ -80,7 +80,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(SegmentsDto), 200)]
-		[Authorize(Roles = $"{UserRoles.ProductConfig}, {UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor}, {UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetSegmentsBasedOnSegmentId(string segmentId)
 		{
@@ -94,7 +94,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(PaginationDetails<SegmentsDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.ProductConfig}, {UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor}, {UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetSegmentsFromDB([FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = false, [FromQuery] CancellationToken cancellationToken = default)
 		{

@@ -8,7 +8,7 @@ using assetlen.Service.DataAccess;
 
 #nullable disable
 
-namespace assetlen.Service.Migrations
+namespace assetlen.SqlServer.Migrations
 {
     [DbContext(typeof(AssetlenDbContext))]
     partial class AssetlenDbContextModelSnapshot : ModelSnapshot
@@ -18,7 +18,7 @@ namespace assetlen.Service.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .UseCollation("SQL_Latin1_General_CP1_CI_AS")
-                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("ProductVersion", "10.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -29,17 +29,25 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("NormalizedName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Roles");
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("RoleNameIndex")
+                        .HasFilter("[NormalizedName] IS NOT NULL");
+
+                    b.ToTable("AspNetRoles", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -57,11 +65,14 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RoleId")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("RoleClaims");
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AspNetRoleClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
@@ -79,11 +90,14 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("UserClaims");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
@@ -98,11 +112,14 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
-                    b.ToTable("UserLogins");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserLogins", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
@@ -115,7 +132,9 @@ namespace assetlen.Service.Migrations
 
                     b.HasKey("UserId", "RoleId");
 
-                    b.ToTable("UserRoles");
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AspNetUserRoles", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
@@ -134,7 +153,7 @@ namespace assetlen.Service.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("UserTokens");
+                    b.ToTable("AspNetUserTokens", (string)null);
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Bank", b =>
@@ -810,6 +829,123 @@ namespace assetlen.Service.Migrations
                     b.HasIndex("LastModifiedBy");
 
                     b.ToTable("tbl_FeedbackApprovals");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Flag", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AssignedToId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsNudgeArchived")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("LastNudgeAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProgressImageId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProgressUpdateId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ResolvedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ResolvedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StageId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedToId")
+                        .HasDatabaseName("IX_Flag_AssignedToId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("ProgressImageId")
+                        .HasDatabaseName("IX_Flag_ProgressImageId");
+
+                    b.HasIndex("ProgressUpdateId")
+                        .HasDatabaseName("IX_Flag_ProgressUpdateId");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("IX_Flag_ProjectId");
+
+                    b.HasIndex("ResolvedById");
+
+                    b.HasIndex("StageId")
+                        .HasDatabaseName("IX_Flag_StageId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_Flag_Status");
+
+                    b.ToTable("tbl_Flags");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_FundingEntry", b =>
@@ -1925,6 +2061,9 @@ namespace assetlen.Service.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<int>("Channel")
+                        .HasColumnType("int");
+
                     b.Property<string>("CommentText")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -1993,6 +2132,9 @@ namespace assetlen.Service.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<int?>("Channel")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("DateTimeCreated")
                         .HasColumnType("datetime2");
 
@@ -2050,6 +2192,9 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("int");
 
                     b.Property<int?>("ApprovalStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Channel")
                         .HasColumnType("int");
 
                     b.Property<decimal?>("CompletionPercentage")
@@ -2166,6 +2311,10 @@ namespace assetlen.Service.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<string>("ParentProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.Property<string>("ProjectManagerId")
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
@@ -2198,6 +2347,9 @@ namespace assetlen.Service.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("ParentProjectId")
+                        .HasDatabaseName("IX_Project_ParentProjectId");
 
                     b.HasIndex("ProjectManagerId")
                         .HasDatabaseName("IX_Project_ProjectManagerId");
@@ -3742,6 +3894,7 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Contacts")
@@ -3757,7 +3910,8 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
@@ -3789,10 +3943,12 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("NormalizedEmail")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("NormalizedUserName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
@@ -3816,7 +3972,8 @@ namespace assetlen.Service.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("UserName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
 
@@ -3828,7 +3985,15 @@ namespace assetlen.Service.Migrations
 
                     b.HasIndex("LastModifiedBy");
 
-                    b.ToTable("Users");
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex")
+                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.ToTable("AspNetUsers", (string)null);
                 });
 
             modelBuilder.Entity("assetlen.Shared.Models.Models.VerificationCode", b =>
@@ -3963,6 +4128,57 @@ namespace assetlen.Service.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
+                {
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
+                {
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+                {
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Configuration", b =>
                 {
                     b.HasOne("assetlen.Service.DataAccess.tbl_Tenant", "Tenant")
@@ -4025,6 +4241,58 @@ namespace assetlen.Service.Migrations
                         .IsRequired();
 
                     b.Navigation("Feedback");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Flag", b =>
+                {
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "AssignedTo")
+                        .WithMany()
+                        .HasForeignKey("AssignedToId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_ProgressImage", "ProgressImage")
+                        .WithMany("Flags")
+                        .HasForeignKey("ProgressImageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_ProgressUpdate", "ProgressUpdate")
+                        .WithMany("Flags")
+                        .HasForeignKey("ProgressUpdateId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
+                        .WithMany("Flags")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "ResolvedBy")
+                        .WithMany()
+                        .HasForeignKey("ResolvedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Stage", "Stage")
+                        .WithMany()
+                        .HasForeignKey("StageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("AssignedTo");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("ProgressImage");
+
+                    b.Navigation("ProgressUpdate");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("ResolvedBy");
+
+                    b.Navigation("Stage");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_FundingEntry", b =>
@@ -4199,12 +4467,19 @@ namespace assetlen.Service.Migrations
                         .HasForeignKey("InvestorId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Project", "ParentProject")
+                        .WithMany("SubProjects")
+                        .HasForeignKey("ParentProjectId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("assetlen.Shared.Models.Models.AppUser", "ProjectManager")
                         .WithMany()
                         .HasForeignKey("ProjectManagerId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Investor");
+
+                    b.Navigation("ParentProject");
 
                     b.Navigation("ProjectManager");
                 });
@@ -4371,22 +4646,30 @@ namespace assetlen.Service.Migrations
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ProgressImage", b =>
                 {
                     b.Navigation("Comments");
+
+                    b.Navigation("Flags");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ProgressUpdate", b =>
                 {
                     b.Navigation("Comments");
 
+                    b.Navigation("Flags");
+
                     b.Navigation("Images");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Project", b =>
                 {
+                    b.Navigation("Flags");
+
                     b.Navigation("FundingEntries");
 
                     b.Navigation("ProgressUpdates");
 
                     b.Navigation("Stages");
+
+                    b.Navigation("SubProjects");
 
                     b.Navigation("Subscriptions");
                 });

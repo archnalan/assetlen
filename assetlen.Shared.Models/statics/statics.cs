@@ -66,38 +66,25 @@ namespace assetlen.Shared.Models.statics
 		#endregion
 
 		#region List of System Roles
-
+		// Module-level capabilities for each role are defined in RolePermissions.
 		public enum UserRoles
 		{
-			AdminModuleLogin = 1,
-			Modifysettings,
-			SetUserAccount,
-			SetManageShifts,
-			setDatabaseBackup,
-			SetModifyReceiptDesign,
-			SetSystemConfig,
-			ProductConfig,
-			GenerateReports,
-			CustomerManagement,
-			SupplierMgt,
-			AccountManagement,
-			LibraryModuleLogin,
-			RefundItem,
-			ModifyCustomers,
-			CreateOrders,
-			CreateQuotations,
-			RecordExpenses,
-			PriceChange,
-			OfferDiscount,
-			ClearEntireSale,
-			AssetlenSuperAdmin,
-			FeedbackApproval,
-			EmployeeApproval,
+			// Platform
+			AssetlenSuperAdmin = 1,
 			ViewSystemlog,
-			CreateCommentsAndFeedback,
-			// Remote Site roles
-			Investor,
-			ProjectManager
+			// Tenant
+			Contractor,
+			// Project leadership
+			ProjectLead,
+			// Crew
+			Foreman,
+			Inspector,
+			Cameraman,
+			Crew,
+			// External
+			Subcontractor,
+			Client,
+			ClientObserver
 		}
 		#endregion
 
@@ -389,38 +376,27 @@ namespace assetlen.Shared.Models.statics
 	}
 	public static class UserRoles
 	{
-
-
-		public const string AdminModuleLogin = nameof(statics.UserRoles.AdminModuleLogin);
-		public const string Modifysettings = nameof(statics.UserRoles.Modifysettings);
-		public const string SetUserAccount = nameof(statics.UserRoles.SetUserAccount);
-		//public const string SetManageShifts = nameof(statics.UserRoles.SetManageShifts);
-		//public const string setDatabaseBackup = nameof(statics.UserRoles.setDatabaseBackup);
-		public const string SetModifyReceiptDesign = nameof(statics.UserRoles.SetModifyReceiptDesign);
-		public const string SetSystemConfig = nameof(statics.UserRoles.SetSystemConfig);
-		public const string ProductConfig = nameof(statics.UserRoles.ProductConfig);
-		public const string GenerateReports = nameof(statics.UserRoles.GenerateReports);
-		//public const string CustomerManagement = nameof(statics.UserRoles.CustomerManagement);
-		public const string SupplierMgt = nameof(statics.UserRoles.SupplierMgt);
-		public const string AccountManagement = nameof(statics.UserRoles.AccountManagement);
-		public const string LibraryModuleLogin = nameof(statics.UserRoles.LibraryModuleLogin);
-		//public const string RefundItem = nameof(statics.UserRoles.RefundItem);
-		//public const string ModifyCustomers = nameof(statics.UserRoles.ModifyCustomers);
-		//public const string CreateOrders = nameof(statics.UserRoles.CreateOrders);
-		//public const string RecordExpenses = nameof(statics.UserRoles.RecordExpenses);
-		//public const string PriceChange = nameof(statics.UserRoles.PriceChange);
-		//public const string OfferDiscount = nameof(statics.UserRoles.OfferDiscount);
-		//public const string ClearEntireSale = nameof(statics.UserRoles.ClearEntireSale);
+		// Platform
 		public const string AssetlenSuperAdmin = nameof(statics.UserRoles.AssetlenSuperAdmin);
-		public const string FeedbackApproval = nameof(statics.UserRoles.FeedbackApproval);
-		public const string EmployeeApproval = nameof(statics.UserRoles.EmployeeApproval);
 		public const string ViewSystemlog = nameof(statics.UserRoles.ViewSystemlog);
-        public const string CreateCommentsAndFeedback = nameof(statics.UserRoles.CreateCommentsAndFeedback);
-		// Remote Site roles
-		public const string Investor = nameof(statics.UserRoles.Investor);
-		public const string ProjectManager = nameof(statics.UserRoles.ProjectManager);
 
-    }
+		// Tenant administration
+		public const string Contractor = nameof(statics.UserRoles.Contractor);
+
+		// Project leadership
+		public const string ProjectLead = nameof(statics.UserRoles.ProjectLead);
+
+		// Crew specializations
+		public const string Foreman = nameof(statics.UserRoles.Foreman);
+		public const string Inspector = nameof(statics.UserRoles.Inspector);
+		public const string Cameraman = nameof(statics.UserRoles.Cameraman);
+		public const string Crew = nameof(statics.UserRoles.Crew);
+
+		// External
+		public const string Subcontractor = nameof(statics.UserRoles.Subcontractor);
+		public const string Client = nameof(statics.UserRoles.Client);
+		public const string ClientObserver = nameof(statics.UserRoles.ClientObserver);
+	}
 
 	public enum PrintItemType
 	{

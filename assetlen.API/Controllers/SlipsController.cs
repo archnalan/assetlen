@@ -11,7 +11,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	[Authorize(Roles = $"{UserRoles.GenerateReports}",
+	[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class SlipsController : ControllerBase
 	{

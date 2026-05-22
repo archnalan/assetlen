@@ -17,7 +17,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.ProductConfig}",
+    [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class ProductsController : ControllerBase
     {
@@ -94,7 +94,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<ProductWithQtyDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.ProductConfig},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetSubProductContentByParentID([FromQuery][Required] string parentProductId)
         {
@@ -108,7 +108,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ProductsDto), 200)]
-        [Authorize(Roles = $"{UserRoles.ProductConfig},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetProductsBasedOnProdCode([FromQuery][Required] string productCode)
         {
@@ -160,7 +160,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<ProductsDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.ProductConfig},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetProductsFromDB([FromQuery] int? offSet = 0, [FromQuery] int? limit = 12, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = false, [FromQuery] CancellationToken cancellationToken = default)
         {
@@ -177,7 +177,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<ProductsDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.ProductConfig},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetTrendingProducts([FromQuery] int? trendingCount)
         {
@@ -210,7 +210,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<ComboBoxDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.ProductConfig},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SearchProductsForComboBoxes([FromQuery] string? keywords, [FromQuery] string? categoryId, [FromQuery] string? segmentId, [FromQuery] string? supplierID, [FromQuery] bool? hasSubProduct = false, [FromQuery] decimal? inStock = 1, [FromQuery] int? offSet = 0, [FromQuery] int? limit = 12, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = false, [FromQuery] CancellationToken cancellationToken = default)
         {
@@ -231,7 +231,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<ProductsDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.ProductConfig},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SearchTOP15Products([FromQuery] string? keywords, [FromQuery] string? categoryId, [FromQuery] string? segmentId, [FromQuery] string? supplierID)
         {
@@ -429,7 +429,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<ProductsDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.LibraryModuleLogin},{UserRoles.ProductConfig}",
+        [Authorize(Roles = $"{UserRoles.Crew},{UserRoles.Contractor}",
             AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetMyCreatedBooks(
             [FromQuery] int? offSet = 0,

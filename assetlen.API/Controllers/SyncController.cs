@@ -13,7 +13,7 @@ using System;
 namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
-    [Authorize(Roles = $"{UserRoles.AdminModuleLogin}",
+    [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [ApiController]
     public class SyncController : ControllerBase

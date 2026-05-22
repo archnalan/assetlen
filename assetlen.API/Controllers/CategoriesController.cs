@@ -18,7 +18,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.AdminModuleLogin}",
+    [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class CategoriesController : ControllerBase
     {
@@ -29,7 +29,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [ProducesResponseType(typeof(PaginationDetails<CategoryDto>), 200)]
         public async Task<ActionResult> GetCategoriesFromDB([FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
@@ -47,7 +47,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [ProducesResponseType(typeof(PaginationDetails<ComboBoxDto>), 200)]
         public async Task<ActionResult> SearchCategoriesFromComboBoxes([FromQuery] string? keywords, [FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
@@ -78,7 +78,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<CategoryDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetCategoryIDBasedCategoryName(string name)
         {

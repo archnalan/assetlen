@@ -14,7 +14,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	[Authorize(Roles = $"{UserRoles.SupplierMgt}",
+	[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class SuppliersController : ControllerBase
 	{
@@ -51,7 +51,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(List<SupplierDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.SupplierMgt},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetSUpplierFromDB([FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
 		{
@@ -68,7 +68,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(PaginationDetails<ComboBoxDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.SupplierMgt},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> SearchSupplierFromDbForComboBoxes([FromQuery] string? keywords, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
 		{
@@ -86,7 +86,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(int), 200)]
-		[Authorize(Roles = $"{UserRoles.SupplierMgt},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetSupplierIDFromDBbasedOnSuplierName(string supplierName)
 		{
@@ -101,7 +101,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(SupplierDto), 200)]
-		[Authorize(Roles = $"{UserRoles.SupplierMgt},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetSuppliersFromDbBasedOnSupplierID(string supplierId)
 		{
@@ -116,7 +116,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(PaginationDetails<SupplierDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.SupplierMgt},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> SearchSupplierUsingKeywords([FromQuery] string? keywords, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
 		{

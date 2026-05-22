@@ -1,4 +1,5 @@
 using assetlen.Shared.Models.Models;
+using assetlen.Shared.Models.Models.RemoteSite;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -20,6 +21,12 @@ public class tbl_ProgressComment : BaseEntity
 
     [MaxLength(40)]
     public string? ParentCommentId { get; set; }
+
+    /// <summary>
+    /// Visibility channel for this Stream message. Default Crew — server-side
+    /// query filters strip Crew comments before they reach a Client user.
+    /// </summary>
+    public Channel Channel { get; set; } = Channel.Crew;
 
     // Navigation
     [ForeignKey("ProgressUpdateId")]

@@ -11,7 +11,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+    [Authorize(Roles = $"{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class DiscountsController : ControllerBase
     {
@@ -22,7 +22,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [ProducesResponseType(typeof(PaginationDetails<DiscountDto>), 200)]
         public async Task<ActionResult> GetDiscountsFromDB([FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
@@ -39,7 +39,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [ProducesResponseType(typeof(PaginationDetails<ComboBoxDto>), 200)]
         public async Task<ActionResult> GetDiscountsFromComboBoxes([FromQuery] string? keywords, [FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
@@ -56,7 +56,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         [ProducesResponseType(typeof(PaginationDetails<ComboBoxDto>), 200)]
         public async Task<ActionResult> SearchDiscountsFromComboBoxes([FromQuery] string? keywords, [FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] CancellationToken cancellation = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true, [FromQuery] bool? isActive = true)
@@ -75,7 +75,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<DiscountDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetDiscountById([FromQuery] string id)
         {
@@ -89,7 +89,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<DiscountDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetDiscountByValue(decimal? value)
         {

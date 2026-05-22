@@ -81,24 +81,14 @@ namespace assetlen.API
                             if (createPowerUser.Succeeded)
                             {
 
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.AdminModuleLogin);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.Modifysettings);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.SetUserAccount);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.SetModifyReceiptDesign);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.SetSystemConfig);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.ProductConfig);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.GenerateReports);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.SupplierMgt);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.AccountManagement);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.LibraryModuleLogin);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.CreateCommentsAndFeedback);
+                                // ASSETLEN seed: the bootstrap power user is the
+                                // Tenant's Contractor + platform-level SuperAdmin
+                                // (the first user in a fresh install also operates
+                                // the platform). Subsequent tenants only get
+                                // Contractor when registered through signup.
+                                await userManager.AddToRoleAsync(poweruser, UserRoles.Contractor);
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.AssetlenSuperAdmin);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.FeedbackApproval);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.EmployeeApproval);
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.ViewSystemlog);
-                                // Remote Site roles
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.Investor);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.ProjectManager);
 
 
 

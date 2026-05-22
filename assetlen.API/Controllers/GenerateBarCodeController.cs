@@ -12,7 +12,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	//[Authorize(Roles = $"{UserRoles.ProductConfig}",
+	//[Authorize(Roles = $"{UserRoles.Contractor}",
 	//    AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class GenerateBarCodeController : ControllerBase
 	{

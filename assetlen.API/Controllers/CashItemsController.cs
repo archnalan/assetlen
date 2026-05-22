@@ -13,7 +13,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	[Authorize(Roles = $"{UserRoles.AdminModuleLogin}",
+	[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class CashItemsController : ControllerBase
 	{
@@ -26,7 +26,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(List<CashItemsDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetCashItemsFromDB()
 		{
@@ -40,7 +40,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(CashItemsDto), 200)]
-		[Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetCashItemBasedOnID([FromQuery] string id)
 		{

@@ -14,7 +14,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}, {UserRoles.LibraryModuleLogin}",
+	[Authorize(Roles = $"{UserRoles.Crew}, {UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class TransactionDetailsController : ControllerBase
 	{

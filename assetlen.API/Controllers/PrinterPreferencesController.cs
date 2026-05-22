@@ -11,7 +11,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.LibraryModuleLogin},{UserRoles.AdminModuleLogin}",
+    [Authorize(Roles = $"{UserRoles.Crew},{UserRoles.Contractor}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class PrinterPreferencesController : ControllerBase
     {

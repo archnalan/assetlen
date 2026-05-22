@@ -11,7 +11,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	[Authorize(Roles = $"{UserRoles.ProductConfig}",
+	[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class CustomerPricingController : ControllerBase
 	{
@@ -48,7 +48,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(PricingsDto), 200)]
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}, {UserRoles.ProductConfig}",
+		[Authorize(Roles = $"{UserRoles.Crew}, {UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetCustomerPricingByPricingId([FromQuery] string id)
 		{
@@ -119,7 +119,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(List<PricingsDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}, {UserRoles.ProductConfig}",
+		[Authorize(Roles = $"{UserRoles.Crew}, {UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetCustomerPricingByCustomerId([FromQuery] string customerId)
 		{
@@ -131,7 +131,7 @@ namespace assetlen.API.Controllers
 			return Ok(result.Data);
 		}
 
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}, {UserRoles.ProductConfig}",
+		[Authorize(Roles = $"{UserRoles.Crew}, {UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		[HttpGet]
 		[ProducesResponseType(typeof(List<PricingsDto>), 200)]
@@ -147,7 +147,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(PaginationDetails<PricingsDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		// REMOVED: UserRoles.PriceChange was removed from this method's allowed roles.
 		public async Task<ActionResult> SearchCustomerBasedPricingInDb([FromQuery] string keywords, [FromQuery] int offset = 0, [FromQuery] int limit = 100, [FromQuery] string sortByColumn = "Id", [FromQuery] bool sortAscending = true, CancellationToken cancellationToken = default)
@@ -162,7 +162,7 @@ namespace assetlen.API.Controllers
 
 		[HttpPost]
 		[ProducesResponseType(typeof(PricingsDto), 200)]
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}, {UserRoles.ProductConfig}",
+		[Authorize(Roles = $"{UserRoles.Crew}, {UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> CreateUpdateCustomerPricing([FromBody] PricingsDto pricingDto)
 		{

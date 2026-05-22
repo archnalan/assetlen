@@ -10,7 +10,7 @@ namespace assetlen.API.Controllers
 {
 	[Route("api/[controller]/[action]")]
 	[ApiController]
-	//[Authorize(Roles = $"{UserRoles.SetSystemConfig}",
+	//[Authorize(Roles = $"{UserRoles.Contractor}",
 	//    AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class TaxesController : ControllerBase
 	{
@@ -37,7 +37,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(taxDto), 200)]
-		[Authorize(Roles = $"{UserRoles.SetSystemConfig},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetTaxFromDBbasedOnTaxID(string taxId)
 		{
@@ -51,7 +51,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(int), 200)]
-		[Authorize(Roles = $"{UserRoles.SetSystemConfig},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetTaxIDFromDBbasedOnTaxDescription(string taxDescription)
 		{
@@ -65,7 +65,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(List<taxDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.SetSystemConfig},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetAllTaxFromDB()
 		{
@@ -78,7 +78,7 @@ namespace assetlen.API.Controllers
 		}
 		[HttpGet]
 		[ProducesResponseType(typeof(List<taxDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.SetSystemConfig},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> SearchTaxesForComboBoxes([FromQuery] string? keywords, [FromQuery] int? offSet, [FromQuery] int? limit, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = false, [FromQuery] CancellationToken cancellationToken = default)
 		{
@@ -96,7 +96,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(bool), 200)]
-		[Authorize(Roles = $"{UserRoles.SetSystemConfig},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetTop1TaxFromSalesDBUsingTaxID(string taxId)
 		{
@@ -110,7 +110,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(bool), 200)]
-		[Authorize(Roles = $"{UserRoles.SetSystemConfig},{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetTop1TaxFromProductsDBUsingTaxID(string taxId)
 		{

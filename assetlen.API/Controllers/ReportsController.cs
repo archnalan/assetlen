@@ -13,7 +13,7 @@ namespace assetlen.API.Controllers
 	[Route("api/[controller]/[action]")]
 	[ApiController]
 	// REMOVED: UserRoles.CustomerManagement was removed; access now restricted to GenerateReports only.
-	[Authorize(Roles = $"{UserRoles.GenerateReports}",
+	[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class ReportsController : ControllerBase
 	{

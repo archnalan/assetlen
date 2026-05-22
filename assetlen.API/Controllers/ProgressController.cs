@@ -12,7 +12,7 @@ namespace assetlen.API.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-[Authorize(Roles = $"{UserRoles.Investor},{UserRoles.ProjectManager}",
+[Authorize(Roles = $"{UserRoles.Client},{UserRoles.Crew}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class ProgressController : ControllerBase
 {
@@ -42,7 +42,7 @@ public class ProgressController : ControllerBase
 
     [HttpPut]
     [ProducesResponseType(typeof(ProgressUpdateDto), 200)]
-    [Authorize(Roles = UserRoles.Investor, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> SetApprovalStatus([FromBody] ProgressApprovalDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -80,7 +80,7 @@ public class ProgressController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(PMDashboardDto), 200)]
-    [Authorize(Roles = UserRoles.ProjectManager, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Crew, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> GetPMDashboard()
     {
         var userId = _tenantProvider.GetUserId();

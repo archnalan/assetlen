@@ -11,7 +11,7 @@ namespace assetlen.API.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-[Authorize(Roles = $"{UserRoles.Investor},{UserRoles.ProjectManager}",
+[Authorize(Roles = $"{UserRoles.Client},{UserRoles.Crew}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class StagesController : ControllerBase
 {
@@ -48,7 +48,7 @@ public class StagesController : ControllerBase
 
     [HttpDelete]
     [ProducesResponseType(typeof(bool), 200)]
-    [Authorize(Roles = UserRoles.Investor, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> DeleteStage([FromQuery][Required] string stageId)
     {
         var userId = _tenantProvider.GetUserId();

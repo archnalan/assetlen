@@ -25,6 +25,12 @@ public class tbl_ProgressUpdate : BaseEntity
 
     public ApprovalStatus? ApprovalStatus { get; set; }
 
+    /// <summary>
+    /// Visibility channel. Default Crew — entries are internal until the
+    /// contractor publishes them to the Client channel. See [[Channel]].
+    /// </summary>
+    public Channel Channel { get; set; } = Channel.Crew;
+
     // Navigation
     [ForeignKey("ProjectId")]
     public tbl_Project? Project { get; set; }
@@ -40,4 +46,7 @@ public class tbl_ProgressUpdate : BaseEntity
 
     [InverseProperty("ProgressUpdate")]
     public ICollection<tbl_ProgressComment> Comments { get; set; } = new List<tbl_ProgressComment>();
+
+    [InverseProperty("ProgressUpdate")]
+    public ICollection<tbl_Flag> Flags { get; set; } = new List<tbl_Flag>();
 }

@@ -43,4 +43,35 @@ namespace assetlen.Shared.Models.Models.RemoteSite
         Yellow = 1,
         Red = 2
     }
+
+    /// <summary>
+    /// Visibility channel for collaboration items (Site Journal entries,
+    /// Stream messages, Flags). Default is Crew (fail-closed) — items are
+    /// internal to the contractor org until explicitly promoted to Client.
+    /// </summary>
+    public enum Channel
+    {
+        Crew = 0,
+        Client = 1
+    }
+
+    /// <summary>
+    /// Lifecycle of a Flag (site issue raised on a Journal entry or media item).
+    /// Open Flags receive weekly nudges until Resolved or Archived.
+    /// </summary>
+    public enum FlagStatus
+    {
+        Open = 0,
+        InProgress = 1,
+        Resolved = 2,
+        Archived = 3
+    }
+
+    public enum FlagSeverity
+    {
+        Low = 0,
+        Medium = 1,
+        High = 2,
+        Critical = 3
+    }
 }

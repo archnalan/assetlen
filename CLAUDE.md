@@ -180,11 +180,55 @@ assetlen/assetlen.Shared/
 - **Default is Crew-only** (fail-closed). A new upload is private until the contractor opts in.
 - The client app uses the same routes and components as the contractor app; visibility is filtered server-side. No separate client codebase.
 
-### 5.5 Auth
+### 5.5 Auth — roles × module-permission matrix
 
-- Reuse `CustomAuthStateProvider`. Tokens stored via the existing storage service.
-- Roles: `Contractor` (admin of their Tenant), `Crew` (internal team), `Client` (external).
-- Authorization via `[Authorize(Roles=...)]` plus per-project membership check.
+Authorization runs on two layers:
+
+**Layer 1 — ASP.NET Core `[Authorize(Roles = ...)]`** for coarse gates (routes, controllers). Roles live in [statics.cs](assetlen.Shared.Models/statics/statics.cs) → `UserRoles`.
+
+**Layer 2 — Module access matrix** for fine-grained section gating (UI + service-layer checks). Source of truth: [RolePermissions.cs](assetlen.Shared.Models/Models/Authorization/RolePermissions.cs). Call:
+```csharp
+if (!RolePermissions.HasAccess(userRoles, AppModule.Finance, ModuleAccess.Read))
+    return Forbid();
+```
+
+#### Roles
+
+| Role | Scope | Purpose |
+|---|---|---|
+| `AssetlenSuperAdmin` | Platform | Cross-tenant operator. |
+| `ViewSystemlog` | Platform | Audit read access. |
+| `Contractor` | Tenant | Tenant owner. Full read/write across the org. |
+| `ProjectLead` | Project | Runs specific projects; sees their financials. |
+| `Foreman` | Project | Site supervisor; ops only, no financials. |
+| `Inspector` | Project | Quality/safety; raises Flags. |
+| `Cameraman` | Project | Media uploader only. No finance, no flags. |
+| `Crew` | Tenant | Generic internal team member. |
+| `Subcontractor` | Project | External trade worker, scoped to assigned work. |
+| `Client` | Project | Principal client; sees curated view + financials. |
+| `ClientObserver` | Project | Read-only stakeholder; no financials. |
+
+Project-level scoping (e.g. ProjectLead seeing only their projects) is enforced at the service layer via `tbl_ProjectMember` (Phase 1.2).
+
+#### Module access matrix
+
+`A` = Admin, `W` = Write, `R` = Read, blank = None.
+
+| Role / Module | Identity | Projects | Journal | Streams | Timeline | Finance | Documents | Lookbook | Search | Integrations |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **AssetlenSuperAdmin** | A | A | A | A | A | A | A | A | A | A |
+| **ViewSystemlog** | R |   |   |   |   |   |   |   |   |   |
+| **Contractor** | A | A | A | A | A | A | A | A | A | A |
+| **ProjectLead** | R | W | A | A | W | R | W | W | R | R |
+| **Foreman** | R | R | W | W | R |   | R |   | R |   |
+| **Inspector** | R | R | W | R | R |   | R |   | R |   |
+| **Cameraman** | R | R | W | R |   |   |   |   |   |   |
+| **Crew** | R | R | W | W | R |   | R |   | R |   |
+| **Subcontractor** | R | R | W | R |   |   | R |   |   |   |
+| **Client** | R | R | R | W | R | R | R | R |   |   |
+| **ClientObserver** | R | R | R | R | R |   | R | R |   |   |
+
+The matrix is the **only** place these decisions live. Don't hard-code role checks scattered across controllers — call `HasAccess()`.
 
 ---
 

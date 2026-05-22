@@ -24,7 +24,7 @@ namespace assetlen.API.Controllers
         private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
         private string GetUserName() => User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(ClaimTypes.Email) ?? "";
         private string? GetUserEmail() => User.FindFirstValue(ClaimTypes.Email);
-        private bool IsAdmin() => User.IsInRole(UserRoles.ProductConfig) || User.IsInRole(UserRoles.AssetlenSuperAdmin) || User.IsInRole(UserRoles.FeedbackApproval);
+        private bool IsAdmin() => User.IsInRole(UserRoles.Contractor) || User.IsInRole(UserRoles.AssetlenSuperAdmin) || User.IsInRole(UserRoles.Contractor);
 
         #region Feedback CRUD
 
@@ -32,7 +32,7 @@ namespace assetlen.API.Controllers
         /// Create new feedback on a document fragment
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = $"{UserRoles.CreateCommentsAndFeedback},{UserRoles.AssetlenSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.Crew},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(ProductDetailFeedbackDto), 200)]
         public async Task<ActionResult> CreateFeedback([FromBody] ProductDetailFeedbackCreateDto dto, CancellationToken cancellationToken = default)
         {
@@ -173,7 +173,7 @@ namespace assetlen.API.Controllers
         /// Update feedback status (admin only)
         /// </summary>
         [HttpPut]
-        [Authorize(Roles = $"{UserRoles.FeedbackApproval},{UserRoles.ProductConfig},{UserRoles.AssetlenSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Contractor},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(ProductDetailFeedbackDto), 200)]
         public async Task<ActionResult> UpdateFeedbackStatus([FromBody] ProductDetailFeedbackUpdateDto dto, CancellationToken cancellationToken = default)
         {
@@ -189,7 +189,7 @@ namespace assetlen.API.Controllers
         /// Apply a suggested edit to the document (admin only)
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = $"{UserRoles.FeedbackApproval},{UserRoles.ProductConfig},{UserRoles.AssetlenSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Contractor},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(bool), 200)]
         public async Task<ActionResult> ApplySuggestedEdit([FromQuery][Required] string feedbackId, CancellationToken cancellationToken = default)
         {
@@ -209,7 +209,7 @@ namespace assetlen.API.Controllers
         /// Add a reply to feedback
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = $"{UserRoles.CreateCommentsAndFeedback},{UserRoles.FeedbackApproval},{UserRoles.AssetlenSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.Crew},{UserRoles.Contractor},{UserRoles.AssetlenSuperAdmin}")]
         [ProducesResponseType(typeof(ProductDetailFeedbackReplyDto), 200)]
         public async Task<ActionResult> CreateReply([FromBody] ProductDetailFeedbackReplyCreateDto dto, CancellationToken cancellationToken = default)
         {
@@ -265,7 +265,7 @@ namespace assetlen.API.Controllers
         /// </summary>
         [HttpPost]
         [ProducesResponseType(typeof(FeedbackApprovalDto), 200)]
-        [Authorize(Roles = $"{UserRoles.FeedbackApproval},{UserRoles.ProductConfig},{UserRoles.AssetlenSuperAdmin}")]
+        [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Contractor},{UserRoles.AssetlenSuperAdmin}")]
         public async Task<ActionResult> InitiateApproval([FromBody] FeedbackApprovalCreateDto dto, CancellationToken cancellationToken = default)
         {
             if (!IsAdmin())

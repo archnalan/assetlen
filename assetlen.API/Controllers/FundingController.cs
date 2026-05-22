@@ -12,7 +12,7 @@ namespace assetlen.API.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-[Authorize(Roles = $"{UserRoles.Investor},{UserRoles.ProjectManager}",
+[Authorize(Roles = $"{UserRoles.Client},{UserRoles.Crew}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class FundingController : ControllerBase
 {
@@ -27,7 +27,7 @@ public class FundingController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(typeof(FundingEntryDto), 200)]
-    [Authorize(Roles = UserRoles.Investor, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> AddFundingEntry([FromBody] FundingEntryCreateDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -38,7 +38,7 @@ public class FundingController : ControllerBase
 
     [HttpPut]
     [ProducesResponseType(typeof(FundingEntryDto), 200)]
-    [Authorize(Roles = UserRoles.ProjectManager, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Crew, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> ConfirmFunding([FromBody] FundingConfirmDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -69,7 +69,7 @@ public class FundingController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(List<FundingEntryDto>), 200)]
-    [Authorize(Roles = UserRoles.ProjectManager, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Crew, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> GetPendingConfirmations()
     {
         var userId = _tenantProvider.GetUserId();

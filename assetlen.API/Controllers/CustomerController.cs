@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace assetlen.API.Controllers
 {
-    [Authorize(Roles = $"{UserRoles.AdminModuleLogin},{UserRoles.LibraryModuleLogin}",
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Crew}",
        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [Route("api/[controller]/[action]")]
     [ApiController]

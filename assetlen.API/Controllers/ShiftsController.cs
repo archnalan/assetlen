@@ -14,7 +14,7 @@ namespace assetlen.API.Controllers
 	[Route("api/[controller]/[action]")]
 	[ApiController]
 	// REMOVED: UserRoles.SetManageShifts was removed; access now restricted to LibraryModuleLogin only.
-	[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+	[Authorize(Roles = $"{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 	public class ShiftsController : ControllerBase
 	{
@@ -90,7 +90,7 @@ namespace assetlen.API.Controllers
 		}
 		[HttpGet]
 		[ProducesResponseType(typeof(List<PaymentModeSummaryDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetShiftAmountCollectedPerPaymentModeUsingShiftID(string shiftId)
 		{
@@ -116,7 +116,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(List<ShiftAmountCollectedDto>), 200)]
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetShiftAmountCollectedPerShift()
 		{
@@ -131,7 +131,7 @@ namespace assetlen.API.Controllers
 
 		[HttpGet]
 		[ProducesResponseType(typeof(ShiftsDto), 200)]
-		[Authorize(Roles = $"{UserRoles.LibraryModuleLogin}",
+		[Authorize(Roles = $"{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetShiftsBasedOnID(string shiftId)
 		{

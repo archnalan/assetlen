@@ -337,8 +337,10 @@ namespace assetlen.Service.DbServices
                                 result = await _userManager.AddLoginAsync(newUser, userLoginInfo);
                                 if (result.Succeeded)
                                 {
-                                    // Add default role for self-registered users
-                                    var defaultRole = UserRoles.LibraryModuleLogin;
+                                    // Self-registered users default to Contractor —
+                                    // they're starting a new tenant org. Crew/Client
+                                    // accounts are created via invitation flows.
+                                    var defaultRole = UserRoles.Contractor;
                                     var roleExists = await _roleManager.RoleExistsAsync(defaultRole);
                                     if (roleExists)
                                     {
@@ -685,8 +687,9 @@ namespace assetlen.Service.DbServices
                     var result = await _userManager.CreateAsync(newUser, registerUserDto.Password);
                     if (result.Succeeded)
                     {
-                        // Add default roles for self-registered users
-                        var defaultRoles = new[] { UserRoles.LibraryModuleLogin, UserRoles.CreateCommentsAndFeedback };
+                        // Self-registered users default to Contractor (new tenant
+                        // org). Crew/Client accounts come from invitations.
+                        var defaultRoles = new[] { UserRoles.Contractor };
                         foreach (var defaultRole in defaultRoles)
                         {
                             var roleExists = await _roleManager.RoleExistsAsync(defaultRole);

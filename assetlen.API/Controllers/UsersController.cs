@@ -14,7 +14,7 @@ namespace assetlen.API.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    [Authorize(Roles = $"{UserRoles.SetUserAccount}",
+    [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class UsersController : ControllerBase
     {
@@ -39,7 +39,7 @@ namespace assetlen.API.Controllers
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<ComboBoxDto>), 200)]
         // REMOVED: UserRoles.RefundItem was removed from this method's allowed roles.
-        [Authorize(Roles = $"{UserRoles.AdminModuleLogin}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SearchUsersForComboBoxes([FromQuery] string? keywords, [FromQuery] int? offSet = 0, [FromQuery] int? limit = 12, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = false, [FromQuery] CancellationToken cancellationToken = default)
         {
@@ -56,7 +56,7 @@ namespace assetlen.API.Controllers
         }
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<CreateUserResponseDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.SetUserAccount}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SearchUserByKeywords([FromQuery] string? keywords, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] CancellationToken cancellationToken = default, [FromQuery] string sortByColumn = null, [FromQuery] bool sortAscending = true)
         {
@@ -73,7 +73,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<AppUserDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.SetUserAccount}")]
+        [Authorize(Roles = $"{UserRoles.Contractor}")]
         public async Task<ActionResult> GetAllEmployees([FromQuery] int? offSet = 0, [FromQuery] int? limit = 12, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = false, [FromQuery] CancellationToken cancellationToken = default)
         {
             int offset1 = offSet ?? 0;
@@ -86,7 +86,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<AppUserDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.SetUserAccount}")]
+        [Authorize(Roles = $"{UserRoles.Contractor}")]
         public async Task<ActionResult> SearchForEmployees([FromQuery] string? keywords, [FromQuery] int? offSet = 0, [FromQuery] int? limit = 12, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = false, [FromQuery] CancellationToken cancellationToken = default)
         {
             int offset1 = offSet ?? 0;
@@ -100,7 +100,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<CreateUserResponseDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.SetUserAccount}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SearchEmployeeUsers([FromQuery] string? keywords, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = true, [FromQuery] CancellationToken cancellationToken = default)
         {
@@ -115,7 +115,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<CreateUserResponseDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.SetUserAccount}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SearchGeneralUsers([FromQuery] string? keywords, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = true, [FromQuery] CancellationToken cancellationToken = default)
         {
@@ -130,7 +130,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<CreateUserResponseDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.SetUserAccount}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SearchDisabledUsers([FromQuery] string? keywords, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] string? sortByColumn = null, [FromQuery] bool sortAscending = true, [FromQuery] CancellationToken cancellationToken = default)
         {
@@ -147,7 +147,7 @@ namespace assetlen.API.Controllers
 
         [HttpPost]
         [ProducesResponseType(typeof(EmployeeApprovalStatusDto), 200)]
-        [Authorize(Roles = $"{UserRoles.EmployeeApproval}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> SubmitEmployeeApproval([FromBody] SubmitEmployeeApprovalDto dto)
         {
@@ -176,7 +176,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(EmployeeApprovalStatusDto), 200)]
-        [Authorize(Roles = $"{UserRoles.EmployeeApproval}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetEmployeeApprovalStatus([FromQuery] string targetUserId)
         {
@@ -189,7 +189,7 @@ namespace assetlen.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginationDetails<EmployeeApprovalStatusDto>), 200)]
-        [Authorize(Roles = $"{UserRoles.SetUserAccount}",
+        [Authorize(Roles = $"{UserRoles.Contractor}",
         AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult> GetPendingPromotions([FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] CancellationToken cancellationToken = default)
         {

@@ -42,12 +42,27 @@ public class tbl_Project : BaseEntity
     [MaxLength(3)]
     public string Currency { get; set; } = "UGX";
 
+    /// <summary>
+    /// Self-referential parent for one-level Sub-project nesting
+    /// (e.g. Residence → Guest Wing). Null for top-level Projects.
+    /// Enforced single-level at the service layer; DB allows the
+    /// chain but UI/services do not traverse beyond depth 1.
+    /// </summary>
+    [MaxLength(40)]
+    public string? ParentProjectId { get; set; }
+
     // Navigation
     [ForeignKey("InvestorId")]
     public AppUser? Investor { get; set; }
 
     [ForeignKey("ProjectManagerId")]
     public AppUser? ProjectManager { get; set; }
+
+    [ForeignKey("ParentProjectId")]
+    public tbl_Project? ParentProject { get; set; }
+
+    [InverseProperty("ParentProject")]
+    public ICollection<tbl_Project> SubProjects { get; set; } = new List<tbl_Project>();
 
     [InverseProperty("Project")]
     public ICollection<tbl_Stage> Stages { get; set; } = new List<tbl_Stage>();
@@ -60,4 +75,7 @@ public class tbl_Project : BaseEntity
 
     [InverseProperty("Project")]
     public ICollection<tbl_ProjectSubscription> Subscriptions { get; set; } = new List<tbl_ProjectSubscription>();
+
+    [InverseProperty("Project")]
+    public ICollection<tbl_Flag> Flags { get; set; } = new List<tbl_Flag>();
 }

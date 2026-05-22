@@ -1,0 +1,50 @@
+/* ProgressUpload — scoped via Blazor CSS isolation.
+   Channel toggle styling. Other form chrome comes from projects.css. */
+
+.entry-channel-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--al-space-2);
+    margin-top: var(--al-space-1);
+}
+
+.entry-channel-toggle__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: var(--al-space-3) var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--al-transition-fast),
+                box-shadow var(--al-transition-fast),
+                background var(--al-transition-fast);
+}
+
+.entry-channel-toggle__btn:hover {
+    border-color: var(--al-border-strong);
+}
+
+.entry-channel-toggle__btn.is-active {
+    border-color: var(--al-accent);
+    background: var(--al-accent-soft);
+    box-shadow: 0 0 0 1px var(--al-accent);
+}
+
+.entry-channel-toggle__title {
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+    font-size: var(--al-font-size-md);
+}
+
+.entry-channel-toggle__btn.is-active .entry-channel-toggle__title {
+    color: var(--al-accent);
+}
+
+.entry-channel-toggle__desc {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}

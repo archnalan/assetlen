@@ -30,7 +30,9 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.4 | Project detail Breadcrumbs + sub-project create (one-level limit) | Done | `4238f75` |
 | 1.5 | Member-add flow (`tbl_ProjectMember` UI: list/add/deactivate) | Done | `11e167d` |
 | 1.5.1 | ProjectCreate aesthetic refresh + cover upload | Planned | — |
-| 2.1 | Site Journal — Entry capture, list, detail | Planned | — |
+| 2.1a | Site Journal — Channel toggle on capture + entry feed pill | Done | _pending_ |
+| 2.1b | Site Journal — feed-side cards polish + photo lightbox | Planned | — |
+| 2.1c | Site Journal — dedicated `/entry/{id}` detail route | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |
 | 2.3 | Streams — SignalR chat tied to media, dual channels | Planned | — |
 | 2.4 | Curated Client view — `ClientVisible` gating end-to-end | Planned | — |
@@ -93,7 +95,19 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 - `ProjectCreate.razor` aesthetic refresh.
 - Cover upload pipeline (re-use ProgressImage path).
 
-## Phase 2 — Site Journal + Streams (planned)
+## Phase 2.1a — Channel-aware capture (done)
+
+**What landed:**
+- `ProgressUpdateDto` + `ProgressUpdateCreateDto` carry `Channel` (default Crew). `MapUpdateToDto` and `AddProgressUpdate` thread it through.
+- `ProgressUpload.razor`: two-card segmented "Visibility" picker — Crew (default, fail-closed) vs Client (curated). Co-located `ProgressUpload.razor.css` for the toggle, using `--al-*` tokens.
+- `ProjectDetail.razor` Site Journal feed: each entry now shows a Channel pill (lowercase color-coded). Issue badge stays alongside in a small meta stack.
+
+**Carried forward (2.1b/2.1c):**
+- Approval flow that lets Manager promote a Crew-channel entry to Client (currently Channel is locked at create-time).
+- Feed-side card polish (photo carousel inside entries, hover affordances).
+- Dedicated `/entry/{id}` route.
+
+## Phase 2 — Site Journal + Streams (in progress)
 
 The collaboration core. Site Journal Entries with photos/captions, Flags raised on entries, Streams (SignalR) tied to media, dual Channel enforcement (Crew default, Client opt-in).
 

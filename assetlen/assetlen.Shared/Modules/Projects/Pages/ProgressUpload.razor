@@ -65,6 +65,27 @@
                       placeholder="Describe the work completed, any issues or milestones..."></textarea>
         </div>
 
+        <!-- Channel — Crew (internal) or Client (curated public-facing) -->
+        <div class="project-form-group">
+            <label class="project-label">Visibility</label>
+            <div class="entry-channel-toggle" role="radiogroup" aria-label="Entry channel">
+                <button type="button"
+                        class="entry-channel-toggle__btn @(model.Channel == Channel.Crew ? "is-active" : "")"
+                        role="radio" aria-checked="@(model.Channel == Channel.Crew)"
+                        @onclick="() => model.Channel = Channel.Crew">
+                    <span class="entry-channel-toggle__title">Crew</span>
+                    <span class="entry-channel-toggle__desc">Internal only — your team sees it.</span>
+                </button>
+                <button type="button"
+                        class="entry-channel-toggle__btn @(model.Channel == Channel.Client ? "is-active" : "")"
+                        role="radio" aria-checked="@(model.Channel == Channel.Client)"
+                        @onclick="() => model.Channel = Channel.Client">
+                    <span class="entry-channel-toggle__title">Client</span>
+                    <span class="entry-channel-toggle__desc">Visible to the client once approved.</span>
+                </button>
+            </div>
+        </div>
+
         <!-- Issue Flag -->
         <div class="project-form-group">
             <label class="project-checkbox-label">

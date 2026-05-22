@@ -548,12 +548,17 @@ else
                                     @FormatTimeAgo(update.DateTimeCreated) · @(update.StageName ?? "General")
                                 </div>
                             </div>
-                            @if (update.HasIssues)
-                            {
-                                <span class="project-risk-badge red" style="margin-left:auto;">
-                                    <span class="project-risk-dot red"></span>Issue
+                            <div class="entry-meta-stack">
+                                <span class="entry-channel-pill entry-channel-pill--@(update.Channel.ToString().ToLowerInvariant())">
+                                    @update.Channel
                                 </span>
-                            }
+                                @if (update.HasIssues)
+                                {
+                                    <span class="project-risk-badge red">
+                                        <span class="project-risk-dot red"></span>Issue
+                                    </span>
+                                }
+                            </div>
                         </div>
 
                         <!-- Description -->

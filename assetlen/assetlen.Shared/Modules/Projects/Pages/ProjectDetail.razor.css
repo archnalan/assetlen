@@ -115,6 +115,35 @@ textarea.project-input {
     margin-bottom: var(--al-space-1);
 }
 
+/* ─── Site Journal entry meta (Channel pill + Issue badge) ─ */
+
+.entry-meta-stack {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    margin-left: auto;
+}
+
+.entry-channel-pill {
+    display: inline-block;
+    padding: 2px var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    border-radius: var(--al-radius-pill);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.entry-channel-pill--crew {
+    color: var(--al-text-muted);
+    background: var(--al-surface-2);
+}
+
+.entry-channel-pill--client {
+    color: var(--al-accent);
+    background: var(--al-accent-soft);
+}
+
 /* ─── Team panel ───────────────────────────────────────── */
 
 .project-team__header {

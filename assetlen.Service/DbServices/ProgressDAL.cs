@@ -47,6 +47,9 @@ public class ProgressDAL : IProgressDAL
                 CompletionPercentage = dto.CompletionPercentage,
                 HasIssues = dto.HasIssues,
                 CreatedById = userId,
+                Channel = dto.Channel,
+                // Client-channel entries still flow through approval before
+                // they show in the Client view, even though Channel is set.
                 ApprovalStatus = ApprovalStatus.Pending
             };
 
@@ -308,6 +311,7 @@ public class ProgressDAL : IProgressDAL
             HasIssues = u.HasIssues,
             CreatedById = u.CreatedById,
             ApprovalStatus = u.ApprovalStatus,
+            Channel = u.Channel,
             CreatedByName = u.CreatedBy != null
                 ? $"{u.CreatedBy.FirstName} {u.CreatedBy.LastName}" : null,
             StageName = u.Stage?.StageName,

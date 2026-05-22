@@ -206,6 +206,7 @@ public class ProgressUpdateDto : BaseDto
     public bool HasIssues { get; set; }
     public string? CreatedById { get; set; }
     public ApprovalStatus? ApprovalStatus { get; set; }
+    public Channel Channel { get; set; } = Channel.Crew;
 
     // Populated
     public string? CreatedByName { get; set; }
@@ -227,6 +228,12 @@ public class ProgressUpdateCreateDto
     public decimal? CompletionPercentage { get; set; }
 
     public bool HasIssues { get; set; }
+
+    /// <summary>
+    /// Crew (default, fail-closed) keeps the entry internal. Client promotes
+    /// it into the curated client-facing view.
+    /// </summary>
+    public Channel Channel { get; set; } = Channel.Crew;
 
     /// <summary>
     /// Base64-encoded images with optional captions.

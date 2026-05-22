@@ -34,7 +34,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 2.1b | Site Journal — feed-side cards polish + photo lightbox | Done | `fcec0b8` |
 | 2.1c | Site Journal — dedicated `/entry/{id}` detail route | Done | `3dbee35` |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Done | `284ad49` |
-| 2.3 | Streams — SignalR chat tied to media, dual channels | Planned | — |
+| 2.3 | Streams — SignalR chat tied to media, dual channels | Done | `4883c8f` |
 | 2.4 | Curated Client view — `ClientVisible` gating end-to-end | Done | `f0af240` |
 | 3.1 | Timeline graph (expected vs actual layers) | Planned | — |
 | 3.2 | Finance: receipts, budgets, projections, versioning | Planned | — |
@@ -159,7 +159,23 @@ Defense-in-depth on top of the controller `[Authorize(Roles=…)]` gates and the
 - Stage-level Channel filter (no `Channel` field on `tbl_Stage` yet — out of scope until Timeline work in Phase 3.1).
 - Per-image Channel override (images currently inherit parent entry's Channel).
 
-## Phase 2 — Site Journal + Streams (in progress)
+## Phase 2.3 — Streams via SignalR (done)
+
+**What landed:**
+- `assetlen.Service.Hubs.AssetlenHub` — single per-tenant hub. Three group conventions: `project-{id}` (presence), `stream-{id}` (everyone), `stream-{id}:crew` (internal users only). `JoinStream` auto-adds internal users to the crew sub-group so the Channel filter is enforced at delivery, not just at fetch.
+- `[Authorize(Roles=…)]` on the hub gates connection to the six canonical roles.
+- `ProgressDAL` takes `IHubContext<AssetlenHub>`. `AddComment` resolves the parent entry, persists, then broadcasts a `StreamCommentEvent { StreamId, Channel, ProgressCommentDto }`. The Channel inherits the parent entry's Channel — Crew traffic routes to `:crew` only; Client traffic to the open group.
+- `Program.cs` maps `/hubs/assetlen` and extends `OnMessageReceived` to read `?access_token=…` from `/hubs/*` requests (browsers can't set the Authorization header on the WS upgrade). The earlier `access_key_value_temp_refresh` query path is preserved as fallback.
+- `IStreamHubService` + `StreamHubService` (Singleton in `assetlen.Shared.Services`) — multiplexes one `HubConnection` across the page tree, exposes `StreamCommentReceived` event, auto-reconnect via `WithAutomaticReconnect`, token pulled from local storage via `IStorageService`. Registered in `assetlen.Client/Program.cs` with the API base URI.
+- `EntryDetail.razor` joins its stream on init, listens for live comments, de-dupes against own messages (REST + hub both deliver), leaves on dispose.
+
+**Carried forward:**
+- Image-rooted streams (current scope = entry-rooted only). Comments on individual images aren't broadcast yet — the existing `tbl_ProgressComment.ProgressImageId` route is REST-only.
+- Per-comment Channel override (e.g. internal note on a Client-published entry). Currently comments inherit parent entry Channel; a column + UI for per-comment channel is a future enhancement.
+- Reconnect cursor / missed-message backfill (the auto-reconnect handles connection drops but does not request the missed range; pages re-fetch full state on reconnect via REST as a safety net).
+- Presence indicator UI (`project-{id}` group exists but the dot isn't surfaced anywhere yet).
+
+## Phase 2 — Site Journal + Streams (done)
 
 The collaboration core. Site Journal Entries with photos/captions, Flags raised on entries, Streams (SignalR) tied to media, dual Channel enforcement (Crew default, Client opt-in).
 

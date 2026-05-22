@@ -35,7 +35,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 2.1c | Site Journal — dedicated `/entry/{id}` detail route | Done | `3dbee35` |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Done | `284ad49` |
 | 2.3 | Streams — SignalR chat tied to media, dual channels | Planned | — |
-| 2.4 | Curated Client view — `ClientVisible` gating end-to-end | Planned | — |
+| 2.4 | Curated Client view — `ClientVisible` gating end-to-end | Done | `f0af240` |
 | 3.1 | Timeline graph (expected vs actual layers) | Planned | — |
 | 3.2 | Finance: receipts, budgets, projections, versioning | Planned | — |
 | 4.1 | WhatsApp bridge | Planned | — |
@@ -145,6 +145,19 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 **Carried forward:**
 - Background scheduler that actually fires the weekly nudge (Phase 4 hosted-service work). Currently the UI surfaces "Last nudged X ago" + a manual Nudge button.
 - Assignee picker (only via API; UI defaults assignee to null).
+
+## Phase 2.4 — Curated Client view (done)
+
+**What landed:**
+- `ITenantProvider.IsExternal()` — true when the caller's only roles are Client/Guest. Internal roles (Contractor/Manager/Crew/SystemAdmin) always win.
+- `ProgressDAL` + `FlagDAL` now take `ITenantProvider`. Read paths (`GetProgressUpdate(s)`, `GetFlag(s)ByProject/ByEntry`) apply `Channel == Client` when caller is external. Single-entry fetch returns 404 (not 403) so existence isn't leaked.
+- `FlagDAL.AddFlag` forces `Channel = Client` when the raiser is external — they cannot create Crew-only flags.
+
+Defense-in-depth on top of the controller `[Authorize(Roles=…)]` gates and the existing 2.1c Manager "Publish to Client" toggle.
+
+**Carried forward:**
+- Stage-level Channel filter (no `Channel` field on `tbl_Stage` yet — out of scope until Timeline work in Phase 3.1).
+- Per-image Channel override (images currently inherit parent entry's Channel).
 
 ## Phase 2 — Site Journal + Streams (in progress)
 

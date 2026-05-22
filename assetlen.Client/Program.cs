@@ -234,6 +234,11 @@ builder.Services
     .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
     .AddHttpMessageHandler<AuthHeaderHandler>();
 
+builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
+    sp.GetRequiredService<IStorageService>(),
+    sp.GetRequiredService<ILogger<StreamHubService>>(),
+    baseAddressApi));
+
 builder.Services.AddSingleton<GlobalContext>();
 builder.Services.AddScoped<ICustomFileSaver, FileSaverWeb>();
 builder.Services.AddScoped<IPrintService, PrintServiceWeb>();

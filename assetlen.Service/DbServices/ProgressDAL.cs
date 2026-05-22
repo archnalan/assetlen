@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using assetlen.Service.DataAccess;
 using assetlen.Service.DbServices.ServiceInterfaces;
+using assetlen.Service.Hubs;
 using assetlen.ServiceHandler;
 using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.RemoteSite;
@@ -15,12 +17,18 @@ public class ProgressDAL : IProgressDAL
     private readonly AssetlenDbContext _context;
     private readonly ILogger<ProgressDAL> _logger;
     private readonly ITenantProvider _tenant;
+    private readonly IHubContext<AssetlenHub> _hub;
 
-    public ProgressDAL(AssetlenDbContext context, ILogger<ProgressDAL> logger, ITenantProvider tenant)
+    public ProgressDAL(
+        AssetlenDbContext context,
+        ILogger<ProgressDAL> logger,
+        ITenantProvider tenant,
+        IHubContext<AssetlenHub> hub)
     {
         _context = context;
         _logger = logger;
         _tenant = tenant;
+        _hub = hub;
     }
 
     public async Task<ServiceResult<ProgressUpdateDto>> AddProgressUpdate(ProgressUpdateCreateDto dto, string userId)
@@ -251,15 +259,17 @@ public class ProgressDAL : IProgressDAL
     {
         try
         {
-            // Validate the user has access to the project
+            // Validate the user has access to the project + resolve the
+            // parent entry so its Channel governs the broadcast.
             tbl_Project? project = null;
+            tbl_ProgressUpdate? parentEntry = null;
 
             if (!string.IsNullOrEmpty(dto.ProgressUpdateId))
             {
-                var update = await _context.tbl_ProgressUpdates
+                parentEntry = await _context.tbl_ProgressUpdates
                     .Include(u => u.Project)
                     .FirstOrDefaultAsync(u => u.Id == dto.ProgressUpdateId);
-                project = update?.Project;
+                project = parentEntry?.Project;
             }
             else if (!string.IsNullOrEmpty(dto.ProgressImageId))
             {
@@ -267,7 +277,8 @@ public class ProgressDAL : IProgressDAL
                     .Include(i => i.ProgressUpdate)
                         .ThenInclude(u => u!.Project)
                     .FirstOrDefaultAsync(i => i.Id == dto.ProgressImageId);
-                project = image?.ProgressUpdate?.Project;
+                parentEntry = image?.ProgressUpdate;
+                project = parentEntry?.Project;
             }
 
             if (project == null)
@@ -290,7 +301,7 @@ public class ProgressDAL : IProgressDAL
 
             var author = await _context.Users.FindAsync(userId);
 
-            return ServiceResult<ProgressCommentDto>.Success(new ProgressCommentDto
+            var dtoOut = new ProgressCommentDto
             {
                 Id = comment.Id,
                 ProgressUpdateId = comment.ProgressUpdateId,
@@ -301,7 +312,15 @@ public class ProgressDAL : IProgressDAL
                 AuthorName = author != null ? $"{author.FirstName} {author.LastName}" : null,
                 AuthorProfilePicUrl = author?.ProfilePicUrl,
                 DateTimeCreated = comment.DateTimeCreated
-            });
+            };
+
+            // Broadcast over the Stream. Channel inherits the parent entry's
+            // Channel — a comment on a Crew entry stays Crew, so external
+            // principals never see it via the live transport.
+            var streamChannel = parentEntry?.Channel ?? Channel.Crew;
+            await BroadcastComment(dtoOut, streamChannel);
+
+            return ServiceResult<ProgressCommentDto>.Success(dtoOut);
         }
         catch (Exception ex)
         {
@@ -350,6 +369,29 @@ public class ProgressDAL : IProgressDAL
     }
 
     // ─── Private helpers ──────────────────────────────────────
+
+    private async Task BroadcastComment(ProgressCommentDto comment, Channel channel)
+    {
+        var streamId = comment.ProgressUpdateId;
+        if (string.IsNullOrEmpty(streamId)) return;
+        try
+        {
+            var envelope = new StreamCommentEvent
+            {
+                StreamId = streamId,
+                Channel = channel,
+                Comment = comment
+            };
+            var target = channel == Channel.Crew
+                ? AssetlenHub.CrewStreamGroup(streamId)
+                : AssetlenHub.StreamGroup(streamId);
+            await _hub.Clients.Group(target).SendAsync("ReceiveStreamComment", envelope);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Hub broadcast failed for stream {StreamId}", streamId);
+        }
+    }
 
     /// <summary>
     /// True when the user can read this project's content. Sub-projects

@@ -1,4 +1,5 @@
 @page "/project/{ProjectId}/entry/{EntryId}"
+@implements IAsyncDisposable
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
 @using static assetlen.Shared.Components.Navigation.Breadcrumbs
@@ -6,6 +7,7 @@
 @attribute [Authorize]
 @inject NavigationManager Nav
 @inject ILogger<EntryDetail> Logger
+@inject IStreamHubService StreamHub
 
 <PageTitle>@(entry?.StageName ?? "Entry") — ASSETLEN</PageTitle>
 
@@ -197,6 +199,35 @@ else
         await LoadEntry();
         await LoadProjectName();
         await LoadFlags();
+        await ConnectStream();
+    }
+
+    private async Task ConnectStream()
+    {
+        try
+        {
+            StreamHub.StreamCommentReceived += OnStreamComment;
+            await StreamHub.JoinStreamAsync(EntryId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not join stream {EntryId}", EntryId);
+        }
+    }
+
+    private void OnStreamComment(StreamCommentEvent evt)
+    {
+        if (evt.StreamId != EntryId || evt.Comment is null || entry is null) return;
+        // Skip if we already have this comment (our own post arrives via REST too).
+        if (entry.Comments.Any(c => c.Id == evt.Comment.Id)) return;
+        entry.Comments.Add(evt.Comment);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        StreamHub.StreamCommentReceived -= OnStreamComment;
+        try { await StreamHub.LeaveStreamAsync(EntryId); } catch { /* ignore on teardown */ }
     }
 
     private async Task LoadFlags()

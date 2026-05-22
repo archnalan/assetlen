@@ -304,6 +304,15 @@ public class ProgressApprovalDto
     public ApprovalStatus Status { get; set; }
 }
 
+// ─── Streams broadcast envelope ──────────────────────────────
+
+public class StreamCommentEvent
+{
+    public string? StreamId { get; set; }
+    public Channel Channel { get; set; } = Channel.Crew;
+    public ProgressCommentDto? Comment { get; set; }
+}
+
 // ─── Flag DTOs ───────────────────────────────────────────────
 
 public class FlagDto : BaseDto

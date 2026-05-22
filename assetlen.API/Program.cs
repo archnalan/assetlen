@@ -219,14 +219,23 @@ builder.Services.AddAuthentication(option =>
     {
         OnMessageReceived = context =>
         {
-            if (context.Request.Query.TryGetValue("access_key_value_temp_refresh", out var token))
-                context.Token = token;
+            // Legacy refresh-token query path.
+            if (context.Request.Query.TryGetValue("access_key_value_temp_refresh", out var legacy))
+            {
+                context.Token = legacy;
+                return Task.CompletedTask;
+            }
+            // SignalR transports (WebSockets/SSE) cannot set Authorization
+            // headers from the browser, so the client passes the token via
+            // ?access_token=… on /hubs/* requests.
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
             return Task.CompletedTask;
-        }
-    };
-
-    options.Events = new JwtBearerEvents
-    {
+        },
         OnAuthenticationFailed = context =>
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
@@ -501,6 +510,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<FeedbackHub>("/hubs/feedback");
+app.MapHub<assetlen.Service.Hubs.AssetlenHub>("/hubs/assetlen");
 // Seed roles using a service scope
 using (var scope = app.Services.CreateScope())
 {

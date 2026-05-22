@@ -395,3 +395,6 @@ appsettings.*.Local.json
 
 # VS template cache (per-machine, not source)
 TemplateEngineHost/
+
+# VS Code workspace settings (user-local)
+.vscode/

@@ -1,33 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using assetlen.Shared.Models.statics;
 
-namespace assetlen.Shared.Models.Models.ViewModels
+namespace assetlen.Shared.Models.Models.ViewModels;
+
+// Transport for a user's assigned roles. Wire format = a flat list of
+// role-name strings (matches ASP.NET Identity's native storage).
+// Convenience accessors below avoid string-literal comparisons at call sites.
+public class UserRolesDto
 {
-    public class UserRolesDto
-    {
-        // Admin Module
-        public bool AdminModuleLogin { get; set; }
-        public bool Modifysettings { get; set; }
-        public bool SetUserAccount { get; set; }
-        public bool SetModifyReceiptDesign { get; set; }
-        public bool SetSystemConfig { get; set; }
-        public bool ProductConfig { get; set; }
-        public bool GenerateReports { get; set; }
-        public bool SupplierMgt { get; set; }
-        public bool AccountManagement { get; set; }
-        // Requires separate assignment (not auto-enabled with AdminModuleLogin)
-        public bool FeedbackApproval { get; set; }
-        public bool EmployeeApproval { get; set; }
-        public bool ViewSystemlog { get; set; }
+    public List<string> Roles { get; set; } = [];
 
-        // Library Module
-        public bool LibraryModuleLogin { get; set; } = true;
-        public bool CreateCommentsAndFeedback { get; set; } = true;
+    public bool SystemAdmin => Roles.Contains(UserRoles.SystemAdmin);
+    public bool Contractor => Roles.Contains(UserRoles.Contractor);
+    public bool Manager => Roles.Contains(UserRoles.Manager);
+    public bool Crew => Roles.Contains(UserRoles.Crew);
+    public bool Client => Roles.Contains(UserRoles.Client);
+    public bool Guest => Roles.Contains(UserRoles.Guest);
 
-        // System
-        public bool AssetlenSuperAdmin { get; set; }
-    }
+    public bool IsTenantAdmin => Contractor || SystemAdmin;
+    public bool CanSeeFinancials => Contractor || Manager || Client || SystemAdmin;
+    public bool IsInternal => Contractor || Manager || Crew || SystemAdmin;
+    public bool IsExternal => Client || Guest;
 }

@@ -66,25 +66,19 @@ namespace assetlen.Shared.Models.statics
 		#endregion
 
 		#region List of System Roles
-		// Module-level capabilities for each role are defined in RolePermissions.
+		// Six generic roles. Specific job titles (foreman, photographer,
+		// subcontractor, etc.) are per-project specializations stored on
+		// tbl_ProjectMember.Role (Phase 1.2), not tenant-level roles.
+		// Module access is in RolePermissions; project scoping is enforced
+		// at the service layer.
 		public enum UserRoles
 		{
-			// Platform
-			AssetlenSuperAdmin = 1,
-			ViewSystemlog,
-			// Tenant
-			Contractor,
-			// Project leadership
-			ProjectLead,
-			// Crew
-			Foreman,
-			Inspector,
-			Cameraman,
-			Crew,
-			// External
-			Subcontractor,
-			Client,
-			ClientObserver
+			SystemAdmin = 1,   // platform operator (cross-tenant)
+			Contractor,        // tenant owner
+			Manager,           // project leadership; sees finances of their projects
+			Crew,              // internal operator; no financial visibility
+			Client,            // external principal; sees curated view + finances
+			Guest              // external observer; read-only, no finances
 		}
 		#endregion
 
@@ -376,26 +370,17 @@ namespace assetlen.Shared.Models.statics
 	}
 	public static class UserRoles
 	{
-		// Platform
-		public const string AssetlenSuperAdmin = nameof(statics.UserRoles.AssetlenSuperAdmin);
-		public const string ViewSystemlog = nameof(statics.UserRoles.ViewSystemlog);
-
-		// Tenant administration
+		public const string SystemAdmin = nameof(statics.UserRoles.SystemAdmin);
 		public const string Contractor = nameof(statics.UserRoles.Contractor);
-
-		// Project leadership
-		public const string ProjectLead = nameof(statics.UserRoles.ProjectLead);
-
-		// Crew specializations
-		public const string Foreman = nameof(statics.UserRoles.Foreman);
-		public const string Inspector = nameof(statics.UserRoles.Inspector);
-		public const string Cameraman = nameof(statics.UserRoles.Cameraman);
+		public const string Manager = nameof(statics.UserRoles.Manager);
 		public const string Crew = nameof(statics.UserRoles.Crew);
-
-		// External
-		public const string Subcontractor = nameof(statics.UserRoles.Subcontractor);
 		public const string Client = nameof(statics.UserRoles.Client);
-		public const string ClientObserver = nameof(statics.UserRoles.ClientObserver);
+		public const string Guest = nameof(statics.UserRoles.Guest);
+
+		// All ASSETLEN roles in canonical order. Used by the seeder when
+		// bootstrapping AspNetRoles, and by admin UIs for role pickers.
+		public static readonly IReadOnlyList<string> All =
+			[SystemAdmin, Contractor, Manager, Crew, Client, Guest];
 	}
 
 	public enum PrintItemType

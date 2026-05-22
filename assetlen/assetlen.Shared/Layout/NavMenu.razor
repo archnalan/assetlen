@@ -296,26 +296,12 @@
 
     private bool IsNavItemVisible(NavItem item)
     {
+        // Phase-1.1 stub: NavMenu is reskinned around AppModule routes in
+        // Phase 1.2 with RolePermissions.HasAccess(module). For now, gate
+        // everything on tenant-admin visibility.
         var roles = _sd.CurrentUser?.RolesDto;
         if (roles == null) return true; // still loading
-        var href = item.Href.ToLowerInvariant();
-        if (href.StartsWith("admin/reports") || href.StartsWith("admin/inventory"))
-            return roles.GenerateReports;
-        if (href == "admin/settings/users")
-            return roles.SetUserAccount;
-        if (href == "admin/settings/canvas")
-            return roles.SetModifyReceiptDesign;
-        if (href.StartsWith("admin/settings/configurations"))
-            return roles.Modifysettings || roles.SetSystemConfig;
-        if (href == "admin/documents/suppliers")
-            return roles.SupplierMgt;
-        if (href == "admin/documents/feedback-review")
-            return roles.FeedbackApproval;
-        if (href.StartsWith("admin/documents"))
-            return roles.ProductConfig;
-        if (href == "admin/dashboard")
-            return roles.AdminModuleLogin;
-        return roles.AdminModuleLogin;
+        return roles.IsTenantAdmin;
     }
 
     private bool IsNavGroupVisible(NavGroup group)

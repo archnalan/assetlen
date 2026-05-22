@@ -159,7 +159,7 @@ assetlen/assetlen.Shared/
 - All queries scope by `TenantId` server-side via a global EF query filter. Never trust the client.
 - A User belongs to **exactly one Tenant**. Cross-tenant access doesn't exist (except system-admin ops, which are not user-facing).
 - **Clients are a role inside the Contractor's Tenant** — not their own tenant. They see only projects they're explicitly invited to, filtered further by the `ClientVisible` flag.
-- Domain models in Phase 1: `Tenant`, `User`, `TenantMembership { TenantId, UserId, Role: Contractor|Crew|Client }`, `Project { TenantId, ... }`, `ProjectMember { ProjectId, UserId, ClientVisible: bool }`.
+- Domain: `Tenant`, `User`, `Project { TenantId, ParentProjectId?, ... }` (one-level sub-project nesting via self-ref), `tbl_ProjectMember { ProjectId, UserId, Role }` (per-project specialization — Phase 1.2). Tenant-level roles in `UserRoles` enum (6 roles — see §5.5).
 
 ### 5.2 Media — hybrid storage
 
@@ -182,33 +182,31 @@ assetlen/assetlen.Shared/
 
 ### 5.5 Auth — roles × module-permission matrix
 
-Authorization runs on two layers:
+Two layers:
 
-**Layer 1 — ASP.NET Core `[Authorize(Roles = ...)]`** for coarse gates (routes, controllers). Roles live in [statics.cs](assetlen.Shared.Models/statics/statics.cs) → `UserRoles`.
+**Layer 1 — ASP.NET Core `[Authorize(Roles = ...)]`** for coarse route/controller gates. Roles in [statics.cs](assetlen.Shared.Models/statics/statics.cs) → `UserRoles`. Six generic roles only; specific job titles (foreman, photographer, subcontractor, inspector, etc.) are **per-project specializations** stored on `tbl_ProjectMember.Role` (Phase 1.2).
 
-**Layer 2 — Module access matrix** for fine-grained section gating (UI + service-layer checks). Source of truth: [RolePermissions.cs](assetlen.Shared.Models/Models/Authorization/RolePermissions.cs). Call:
+**Layer 2 — Module access matrix** for fine-grained UI + service-layer checks. Source of truth: [RolePermissions.cs](assetlen.Shared.Models/Models/Authorization/RolePermissions.cs).
+
 ```csharp
 if (!RolePermissions.HasAccess(userRoles, AppModule.Finance, ModuleAccess.Read))
     return Forbid();
 ```
 
-#### Roles
+#### Roles (6)
 
 | Role | Scope | Purpose |
 |---|---|---|
-| `AssetlenSuperAdmin` | Platform | Cross-tenant operator. |
-| `ViewSystemlog` | Platform | Audit read access. |
-| `Contractor` | Tenant | Tenant owner. Full read/write across the org. |
-| `ProjectLead` | Project | Runs specific projects; sees their financials. |
-| `Foreman` | Project | Site supervisor; ops only, no financials. |
-| `Inspector` | Project | Quality/safety; raises Flags. |
-| `Cameraman` | Project | Media uploader only. No finance, no flags. |
-| `Crew` | Tenant | Generic internal team member. |
-| `Subcontractor` | Project | External trade worker, scoped to assigned work. |
-| `Client` | Project | Principal client; sees curated view + financials. |
-| `ClientObserver` | Project | Read-only stakeholder; no financials. |
+| `SystemAdmin` | Platform | Cross-tenant operator. |
+| `Contractor` | Tenant | Tenant owner. Full read/write across the org including finance. |
+| `Manager` | Project | Runs projects; sees finance + timelines of their projects; publishes Client content. |
+| `Crew` | Project | Internal operator (authors Journal entries, raises Flags, comments). **No financial visibility.** |
+| `Client` | Project | External principal; sees curated Client-channel content + their project's finance. |
+| `Guest` | Project | Read-only stakeholder; no finance. |
 
-Project-level scoping (e.g. ProjectLead seeing only their projects) is enforced at the service layer via `tbl_ProjectMember` (Phase 1.2).
+`UserRolesDto` exposes convenience accessors: `IsTenantAdmin` (Contractor || SystemAdmin), `CanSeeFinancials` (Contractor || Manager || Client || SystemAdmin), `IsInternal` (Contractor || Manager || Crew || SystemAdmin), `IsExternal` (Client || Guest).
+
+Project-level scoping (e.g. Manager sees only their projects) is enforced at the service layer via `tbl_ProjectMember`.
 
 #### Module access matrix
 
@@ -216,17 +214,12 @@ Project-level scoping (e.g. ProjectLead seeing only their projects) is enforced 
 
 | Role / Module | Identity | Projects | Journal | Streams | Timeline | Finance | Documents | Lookbook | Search | Integrations |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **AssetlenSuperAdmin** | A | A | A | A | A | A | A | A | A | A |
-| **ViewSystemlog** | R |   |   |   |   |   |   |   |   |   |
+| **SystemAdmin** | A | A | A | A | A | A | A | A | A | A |
 | **Contractor** | A | A | A | A | A | A | A | A | A | A |
-| **ProjectLead** | R | W | A | A | W | R | W | W | R | R |
-| **Foreman** | R | R | W | W | R |   | R |   | R |   |
-| **Inspector** | R | R | W | R | R |   | R |   | R |   |
-| **Cameraman** | R | R | W | R |   |   |   |   |   |   |
+| **Manager** | R | W | A | A | W | R | W | W | R | R |
 | **Crew** | R | R | W | W | R |   | R |   | R |   |
-| **Subcontractor** | R | R | W | R |   |   | R |   |   |   |
 | **Client** | R | R | R | W | R | R | R | R |   |   |
-| **ClientObserver** | R | R | R | R | R |   | R | R |   |   |
+| **Guest** | R | R | R | R | R |   | R | R |   |   |
 
 The matrix is the **only** place these decisions live. Don't hard-code role checks scattered across controllers — call `HasAccess()`.
 

@@ -159,7 +159,7 @@
             var user = _sd.CurrentUser;
             if (user != null)
             {
-                if (_sd.CurrentUser?.RolesDto?.AdminModuleLogin != true)
+                if (_sd.CurrentUser?.RolesDto?.IsTenantAdmin != true)
                 {
                     _isForbidden = true;
                     return;

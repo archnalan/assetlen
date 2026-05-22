@@ -59,10 +59,9 @@ namespace assetlen.Shared.Services
             }
         }
 
-        /// <inheritdoc />
         public async Task<bool> RequirePermissionAsync(
             Func<UserRolesDto?, bool> check,
-            string redirectTo = "/admin/dashboard")
+            string redirectTo = "/")
         {
             await RestoreUserRolesAsync();
             var roles = _sd.CurrentUser?.RolesDto;
@@ -72,29 +71,25 @@ namespace assetlen.Shared.Services
             return false;
         }
 
-        /// <inheritdoc />
-        public async Task<bool> RequireAdminLoginAsync()
+        public async Task<bool> RequireTenantAdminAsync()
         {
             await RestoreUserRolesAsync();
             var roles = _sd.CurrentUser?.RolesDto;
-            if (roles?.AdminModuleLogin == true) return true;
+            if (roles?.IsTenantAdmin == true) return true;
 
             _nav.NavigateTo("/");
             return false;
         }
 
-        /// <inheritdoc />
-        public async Task<bool> RequireLibraryLoginAsync()
+        public async Task<bool> RequireInternalUserAsync()
         {
             var user = _sd.CurrentUser;
-            // Not authenticated at all — fine for public library pages.
             if (user is null) return true;
 
             await RestoreUserRolesAsync();
             var roles = _sd.CurrentUser?.RolesDto;
-            if (roles?.LibraryModuleLogin == true) return true;
+            if (roles?.IsInternal == true) return true;
 
-            // Authenticated but no library access — log out and send to login (no returnUrl).
             try
             {
                 _sd.RemoveUser();
@@ -102,7 +97,7 @@ namespace assetlen.Shared.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "RequireLibraryLoginAsync: error during logout");
+                _logger.LogError(ex, "RequireInternalUserAsync: error during logout");
             }
 
             _nav.NavigateTo("/login");

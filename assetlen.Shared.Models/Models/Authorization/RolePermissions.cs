@@ -2,24 +2,19 @@ using assetlen.Shared.Models.statics;
 
 namespace assetlen.Shared.Models.Models.Authorization;
 
-// Canonical role × module access matrix. Module-level only; per-project
-// scoping (e.g. ProjectLead seeing only their projects) is enforced at the
-// service layer via tbl_ProjectMember.
+// Canonical role × module matrix. Module-level only. Per-project scoping
+// (e.g. Manager seeing only their projects) is enforced at the service layer
+// via tbl_ProjectMember. Channel filtering (Crew vs Client) is enforced
+// server-side on Site Journal and Stream queries.
 public static class RolePermissions
 {
     public static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<AppModule, ModuleAccess>> Map =
         new Dictionary<string, IReadOnlyDictionary<AppModule, ModuleAccess>>
         {
-            [UserRoles.AssetlenSuperAdmin] = AllModules(ModuleAccess.Admin),
+            [UserRoles.SystemAdmin] = AllModules(ModuleAccess.Admin),
+            [UserRoles.Contractor]  = AllModules(ModuleAccess.Admin),
 
-            [UserRoles.ViewSystemlog] = new Dictionary<AppModule, ModuleAccess>
-            {
-                [AppModule.Identity] = ModuleAccess.Read
-            },
-
-            [UserRoles.Contractor] = AllModules(ModuleAccess.Admin),
-
-            [UserRoles.ProjectLead] = new Dictionary<AppModule, ModuleAccess>
+            [UserRoles.Manager] = new Dictionary<AppModule, ModuleAccess>
             {
                 [AppModule.Identity]     = ModuleAccess.Read,
                 [AppModule.Projects]     = ModuleAccess.Write,
@@ -33,36 +28,6 @@ public static class RolePermissions
                 [AppModule.Integrations] = ModuleAccess.Read
             },
 
-            [UserRoles.Foreman] = new Dictionary<AppModule, ModuleAccess>
-            {
-                [AppModule.Identity]  = ModuleAccess.Read,
-                [AppModule.Projects]  = ModuleAccess.Read,
-                [AppModule.Journal]   = ModuleAccess.Write,
-                [AppModule.Streams]   = ModuleAccess.Write,
-                [AppModule.Timeline]  = ModuleAccess.Read,
-                [AppModule.Documents] = ModuleAccess.Read,
-                [AppModule.Search]    = ModuleAccess.Read
-            },
-
-            [UserRoles.Inspector] = new Dictionary<AppModule, ModuleAccess>
-            {
-                [AppModule.Identity]  = ModuleAccess.Read,
-                [AppModule.Projects]  = ModuleAccess.Read,
-                [AppModule.Journal]   = ModuleAccess.Write,
-                [AppModule.Streams]   = ModuleAccess.Read,
-                [AppModule.Timeline]  = ModuleAccess.Read,
-                [AppModule.Documents] = ModuleAccess.Read,
-                [AppModule.Search]    = ModuleAccess.Read
-            },
-
-            [UserRoles.Cameraman] = new Dictionary<AppModule, ModuleAccess>
-            {
-                [AppModule.Identity] = ModuleAccess.Read,
-                [AppModule.Projects] = ModuleAccess.Read,
-                [AppModule.Journal]  = ModuleAccess.Write,
-                [AppModule.Streams]  = ModuleAccess.Read
-            },
-
             [UserRoles.Crew] = new Dictionary<AppModule, ModuleAccess>
             {
                 [AppModule.Identity]  = ModuleAccess.Read,
@@ -72,15 +37,6 @@ public static class RolePermissions
                 [AppModule.Timeline]  = ModuleAccess.Read,
                 [AppModule.Documents] = ModuleAccess.Read,
                 [AppModule.Search]    = ModuleAccess.Read
-            },
-
-            [UserRoles.Subcontractor] = new Dictionary<AppModule, ModuleAccess>
-            {
-                [AppModule.Identity]  = ModuleAccess.Read,
-                [AppModule.Projects]  = ModuleAccess.Read,
-                [AppModule.Journal]   = ModuleAccess.Write,
-                [AppModule.Streams]   = ModuleAccess.Read,
-                [AppModule.Documents] = ModuleAccess.Read
             },
 
             [UserRoles.Client] = new Dictionary<AppModule, ModuleAccess>
@@ -95,7 +51,7 @@ public static class RolePermissions
                 [AppModule.Lookbook]  = ModuleAccess.Read
             },
 
-            [UserRoles.ClientObserver] = new Dictionary<AppModule, ModuleAccess>
+            [UserRoles.Guest] = new Dictionary<AppModule, ModuleAccess>
             {
                 [AppModule.Identity]  = ModuleAccess.Read,
                 [AppModule.Projects]  = ModuleAccess.Read,

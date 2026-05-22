@@ -81,14 +81,10 @@ namespace assetlen.API
                             if (createPowerUser.Succeeded)
                             {
 
-                                // ASSETLEN seed: the bootstrap power user is the
-                                // Tenant's Contractor + platform-level SuperAdmin
-                                // (the first user in a fresh install also operates
-                                // the platform). Subsequent tenants only get
-                                // Contractor when registered through signup.
+                                // Bootstrap user runs the platform AND owns the
+                                // first tenant. Later tenants get Contractor only.
                                 await userManager.AddToRoleAsync(poweruser, UserRoles.Contractor);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.AssetlenSuperAdmin);
-                                await userManager.AddToRoleAsync(poweruser, UserRoles.ViewSystemlog);
+                                await userManager.AddToRoleAsync(poweruser, UserRoles.SystemAdmin);
 
 
 

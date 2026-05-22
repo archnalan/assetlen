@@ -101,7 +101,7 @@ namespace assetlen.Shared.Models.Models.ViewModels.Users
         public string? CoverPhotoUrl { get; set; }
         public string? Jobtitle { get; set; }
         public string? CardNumber { get; set; }
-        public string[] defaultRole { get; set; } = new[] { "LibraryModuleLogin", "CreateCommentsAndFeedback" };
+        public string[] defaultRole { get; set; } = new[] { "Contractor" };
 
         // Account status fields
         public bool IsDisabled { get; set; }

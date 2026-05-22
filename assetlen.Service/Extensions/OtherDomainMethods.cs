@@ -1,47 +1,26 @@
-﻿using assetlen.Shared.Models.Models.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+using assetlen.Shared.Models.Models.ViewModels;
+using assetlen.Shared.Models.statics;
 
-namespace assetlen.Service.Extensions
+namespace assetlen.Service.Extensions;
+
+public static class OtherDomainMethods
 {
-    public static class OtherDomainMethods
+    public static List<RoleStatusDto> GetRoleStatuses(this UserRolesDto userRoles)
     {
-        public static List<RoleStatusDto> GetRoleStatuses(this UserRolesDto userRoles)
+        // Each role in the canonical set surfaces as a row so admin UIs can
+        // toggle assignment regardless of whether it's currently held.
+        return UserRoles.All
+            .Select(r => new RoleStatusDto { Name = r, Status = userRoles.Roles.Contains(r) })
+            .ToList();
+    }
+
+    public static UserRolesDto GenerateUserRoles(List<string> roleNames)
+    {
+        // Filter to known ASSETLEN roles; ignore any stray legacy names.
+        var canonical = UserRoles.All.ToHashSet();
+        return new UserRolesDto
         {
-            List<RoleStatusDto> roleStatuses = new List<RoleStatusDto>();
-
-            foreach (PropertyInfo prop in typeof(UserRolesDto).GetProperties())
-            {
-                if (prop.PropertyType == typeof(bool)) // Ensure only bool properties are considered
-                {
-                    bool value = (bool)prop.GetValue(userRoles);
-                    roleStatuses.Add(new RoleStatusDto
-                    {
-                        Name = prop.Name,
-                        Status = value
-                    });
-                }
-            }
-
-            return roleStatuses;
-        }
-        public static UserRolesDto GenerateUserRoles(List<string> roleNames)
-        {
-            UserRolesDto userRoles = new UserRolesDto();
-
-            foreach (PropertyInfo prop in typeof(UserRolesDto).GetProperties())
-            {
-                if (prop.PropertyType == typeof(bool) && roleNames.Contains(prop.Name))
-                {
-                    prop.SetValue(userRoles, true);
-                }
-            }
-
-            return userRoles;
-        }
+            Roles = (roleNames ?? []).Where(canonical.Contains).ToList()
+        };
     }
 }

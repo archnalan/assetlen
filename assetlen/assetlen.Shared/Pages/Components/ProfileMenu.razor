@@ -48,7 +48,7 @@
                         <span>Library</span>
                     </button>
                 }
-                else if ( _sd.CurrentUser?.RolesDto?.AdminModuleLogin ?? false)
+                else if ( _sd.CurrentUser?.RolesDto?.IsTenantAdmin ?? false)
                 {
                     <button class="profile-menu-link" @onclick="@(() => NavigateTo("/admin/dashboard"))">
                         <FluentIcon Value="@(new Icons.Regular.Size20.Board())" />

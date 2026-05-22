@@ -26,7 +26,7 @@ namespace assetlen.Shared.Models.Models
         public string? CoverPhotoUrl { get; set; }
 
 
-        public string[] defaultRole { get; set; } = new[] { "LibraryModuleLogin", "CreateCommentsAndFeedback" };
+        public string[] defaultRole { get; set; } = new[] { "Contractor" };
         public bool IsEmployee { get; set; }
     }
 }

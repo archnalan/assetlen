@@ -99,7 +99,7 @@ namespace assetlen.Shared.Services
                 {
                     var requestPath = request.RequestUri?.PathAndQuery ?? string.Empty;
                     bool isAdminPath = requestPath.Contains("/admin", StringComparison.OrdinalIgnoreCase);
-                    bool userHasAdminLogin = _sd.CurrentUser?.RolesDto?.AdminModuleLogin == true;
+                    bool userHasAdminLogin = _sd.CurrentUser?.RolesDto?.IsTenantAdmin == true;
 
                     if (isAdminPath || userHasAdminLogin)
                         _navigationManager.NavigateTo("/admin/dashboard");

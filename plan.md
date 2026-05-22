@@ -27,7 +27,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.1.1 | Harmonize roles — 6 generic roles, list-based `UserRolesDto` | Done | `b77f547` |
 | 1.2 | `tbl_ProjectMember`, module relocation, CSS retokening | Done | `2be565a` |
 | 1.3 | Dashboard polish: ProjectCard carousel, shimmer, Breadcrumbs, sub-project rendering | Done | `8201805` |
-| 1.4 | Project detail Breadcrumbs + sub-project create (one-level limit) | Done | _pending_ |
+| 1.4 | Project detail Breadcrumbs + sub-project create (one-level limit) | Done | `4238f75` |
 | 1.5 | ProjectCreate aesthetic refresh + Member-add flow (`tbl_ProjectMember` UI) | Planned | — |
 | 2.1 | Site Journal — Entry capture, list, detail | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |

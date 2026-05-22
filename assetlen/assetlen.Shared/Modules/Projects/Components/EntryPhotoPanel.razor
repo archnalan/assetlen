@@ -1,0 +1,66 @@
+@using assetlen.Shared.Components.Media
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+
+@if (Images is { Count: > 0 })
+{
+    var ordered = Images.OrderBy(i => i.DisplayOrder).ToList();
+    var active = ordered[Math.Clamp(activeIndex, 0, ordered.Count - 1)];
+
+    <div class="entry-photos">
+        <button type="button"
+                class="entry-photos__hero"
+                @onclick="() => OpenLightbox(activeIndex)"
+                aria-label="Open photo">
+            <img class="entry-photos__hero-img"
+                 src="@(active.ImageUrl)"
+                 alt="@(active.Caption ?? "Site photo")"
+                 loading="lazy" />
+            @if (!string.IsNullOrWhiteSpace(active.Caption))
+            {
+                <span class="entry-photos__hero-caption">@active.Caption</span>
+            }
+            @if (ordered.Count > 1)
+            {
+                <span class="entry-photos__hero-counter al-num">@(activeIndex + 1) / @ordered.Count</span>
+            }
+        </button>
+
+        @if (ordered.Count > 1)
+        {
+            <div class="entry-photos__strip" role="tablist">
+                @for (var i = 0; i < ordered.Count; i++)
+                {
+                    var idx = i;
+                    <button type="button"
+                            role="tab"
+                            class="entry-photos__thumb @(idx == activeIndex ? "is-active" : "")"
+                            aria-selected="@(idx == activeIndex)"
+                            aria-label="@($"Photo {idx + 1}")"
+                            @onclick="() => activeIndex = idx">
+                        <img src="@(ordered[idx].ThumbnailUrl ?? ordered[idx].ImageUrl)"
+                             alt=""
+                             loading="lazy" />
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    <PhotoLightbox @bind-IsOpen="lightboxOpen"
+                   StartIndex="lightboxStart"
+                   Images="@(ordered.Select(i => new PhotoLightbox.LightboxImage(i.ImageUrl ?? string.Empty, i.Caption)).ToList())" />
+}
+
+@code {
+    [Parameter, EditorRequired] public List<ProgressImageDto> Images { get; set; } = new();
+
+    private int activeIndex;
+    private bool lightboxOpen;
+    private int lightboxStart;
+
+    private void OpenLightbox(int from)
+    {
+        lightboxStart = from;
+        lightboxOpen = true;
+    }
+}

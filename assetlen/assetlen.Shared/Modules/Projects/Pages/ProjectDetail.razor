@@ -574,17 +574,9 @@ else
                             <div class="project-text-xs project-text-muted project-mt-xs">@update.CompletionPercentage% stage completion</div>
                         }
 
-                        <!-- Images -->
                         @if (update.Images?.Any() == true)
                         {
-                            <div class="project-progress-images project-mt-sm">
-                                @foreach (var img in update.Images.OrderBy(i => i.DisplayOrder))
-                                {
-                                    <div class="project-progress-image-thumb" @onclick="() => OpenImageModal(img.ImageUrl)">
-                                        <img src="@(img.ThumbnailUrl ?? img.ImageUrl)" alt="@(img.Caption ?? "Progress photo")" loading="lazy" />
-                                    </div>
-                                }
-                            </div>
+                            <EntryPhotoPanel Images="update.Images" />
                         }
 
                         <!-- Approval Status -->
@@ -803,11 +795,6 @@ else
             savingSubProject = false;
             StateHasChanged();
         }
-    }
-
-    private void OpenImageModal(string imageUrl)
-    {
-        // TODO: Open full-screen image viewer
     }
 
     private string GetRiskClass()

@@ -1,0 +1,130 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (IsOpen && Images is { Count: > 0 })
+{
+    <div class="al-lightbox" role="dialog" aria-modal="true" @onclick="HandleBackdropClick">
+        <button class="al-lightbox__close" type="button" aria-label="Close" @onclick="CloseAsync">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 6l12 12M18 6l-6 12" />
+            </svg>
+        </button>
+
+        <div class="al-lightbox__stage" @onclick:stopPropagation="true">
+            <img class="al-lightbox__image"
+                 src="@Images[index].Url"
+                 alt="@(Images[index].Caption ?? "Photo")"
+                 @key="Images[index].Url" />
+
+            @if (Images.Count > 1)
+            {
+                <button class="al-lightbox__nav al-lightbox__nav--prev"
+                        type="button"
+                        aria-label="Previous photo"
+                        @onclick="Prev">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 6 9 12 15 18" />
+                    </svg>
+                </button>
+                <button class="al-lightbox__nav al-lightbox__nav--next"
+                        type="button"
+                        aria-label="Next photo"
+                        @onclick="Next">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 6 15 12 9 18" />
+                    </svg>
+                </button>
+            }
+        </div>
+
+        <footer class="al-lightbox__footer" @onclick:stopPropagation="true">
+            @if (!string.IsNullOrWhiteSpace(Images[index].Caption))
+            {
+                <p class="al-lightbox__caption">@Images[index].Caption</p>
+            }
+            @if (Images.Count > 1)
+            {
+                <span class="al-lightbox__counter al-num">@(index + 1) / @Images.Count</span>
+            }
+        </footer>
+    </div>
+}
+
+@code {
+    public record LightboxImage(string Url, string? Caption = null);
+
+    [Parameter, EditorRequired] public List<LightboxImage> Images { get; set; } = new();
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public int StartIndex { get; set; }
+
+    private int index;
+    private bool listenerAttached;
+    private DotNetObjectReference<PhotoLightbox>? selfRef;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && Images.Count > 0)
+        {
+            index = Math.Clamp(StartIndex, 0, Images.Count - 1);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && !listenerAttached)
+        {
+            selfRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("assetlen.lightbox.attach", selfRef);
+            listenerAttached = true;
+        }
+        else if (!IsOpen && listenerAttached)
+        {
+            await JS.InvokeVoidAsync("assetlen.lightbox.detach");
+            listenerAttached = false;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnKey(string key)
+    {
+        return key switch
+        {
+            "Escape" => CloseAsync(),
+            "ArrowLeft" => InvokeAsync(Prev),
+            "ArrowRight" => InvokeAsync(Next),
+            _ => Task.CompletedTask
+        };
+    }
+
+    private void Prev()
+    {
+        if (Images.Count == 0) return;
+        index = (index - 1 + Images.Count) % Images.Count;
+        StateHasChanged();
+    }
+
+    private void Next()
+    {
+        if (Images.Count == 0) return;
+        index = (index + 1) % Images.Count;
+        StateHasChanged();
+    }
+
+    private async Task HandleBackdropClick() => await CloseAsync();
+
+    private async Task CloseAsync()
+    {
+        if (IsOpenChanged.HasDelegate)
+            await IsOpenChanged.InvokeAsync(false);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (listenerAttached)
+        {
+            try { await JS.InvokeVoidAsync("assetlen.lightbox.detach"); } catch { }
+        }
+        selfRef?.Dispose();
+    }
+}

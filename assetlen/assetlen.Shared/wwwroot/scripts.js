@@ -31,3 +31,30 @@ window.setupBeforeUnloadListener = (dotNetRef) => {
     }
   });
 };
+
+window.assetlen = window.assetlen || {};
+window.assetlen.lightbox = (() => {
+  let ref = null;
+  let prevOverflow = null;
+  const onKey = (e) => {
+    if (!ref) return;
+    if (e.key === "Escape" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      ref.invokeMethodAsync("OnKey", e.key);
+    }
+  };
+  return {
+    attach(dotNetRef) {
+      ref = dotNetRef;
+      prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      document.addEventListener("keydown", onKey);
+    },
+    detach() {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow ?? "";
+      prevOverflow = null;
+      ref = null;
+    },
+  };
+})();

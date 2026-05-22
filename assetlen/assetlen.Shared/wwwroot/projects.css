@@ -659,83 +659,6 @@
     color: var(--al-text-subtle);
 }
 
-/* ─── Progress Feed ───────────────────────────────────────── */
-.project-progress-feed {
-    display: flex;
-    flex-direction: column;
-    gap: var(--al-space-4);
-}
-
-.project-progress-entry {
-    background: var(--al-bg-elevated);
-    border: 1px solid var(--al-border);
-    border-radius: var(--al-radius);
-    overflow: hidden;
-}
-
-.project-progress-entry-header {
-    padding: var(--al-space-4);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--al-space-2);
-}
-
-.project-progress-entry-author {
-    display: flex;
-    align-items: center;
-    gap: var(--al-space-2);
-}
-
-.project-progress-entry-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--al-radius-pill);
-    background: var(--al-accent-soft);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--al-accent);
-}
-
-.project-progress-entry-meta {
-    font-size: 0.75rem;
-    color: var(--al-text-subtle);
-}
-
-.project-progress-entry-body {
-    padding: 0 var(--al-space-4) var(--al-space-4);
-}
-
-.project-progress-entry-desc {
-    font-size: 0.9rem;
-    color: var(--al-text);
-    margin-bottom: var(--al-space-2);
-    line-height: 1.5;
-}
-
-.project-progress-images {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: var(--al-space-2);
-    margin-bottom: var(--al-space-2);
-}
-
-.project-progress-images img {
-    width: 100%;
-    height: 120px;
-    object-fit: cover;
-    border-radius: var(--al-radius-sm);
-    cursor: pointer;
-    transition: opacity 0.15s;
-}
-
-.project-progress-images img:hover {
-    opacity: 0.85;
-}
-
 /* ─── Comment Thread ──────────────────────────────────────── */
 .project-comments {
     padding: var(--al-space-4);
@@ -1267,6 +1190,11 @@ textarea.project-form-input {
     border: 1px solid var(--al-border);
     border-radius: var(--al-radius);
     padding: var(--al-space-4);
+    transition: border-color var(--al-transition-fast), box-shadow var(--al-transition-fast);
+}
+
+.project-progress-entry:hover {
+    border-color: var(--al-border-strong);
 }
 
 .project-progress-entry-header {
@@ -1295,27 +1223,6 @@ textarea.project-form-input {
     color: var(--al-text);
     margin: 0;
     line-height: 1.5;
-}
-
-.project-progress-images {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: var(--al-space-2);
-    max-width: 100%;
-}
-
-.project-progress-image-thumb {
-    aspect-ratio: 1;
-    border-radius: var(--al-radius-sm);
-    overflow: hidden;
-    cursor: pointer;
-    border: 1px solid var(--al-border);
-}
-
-.project-progress-image-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
 }
 
 /* ─── Photo Upload Grid ──────────────────────────────────────── */

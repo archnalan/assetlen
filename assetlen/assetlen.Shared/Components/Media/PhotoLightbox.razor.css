@@ -1,0 +1,121 @@
+.al-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(10, 11, 13, 0.92);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    animation: al-lightbox-fade var(--al-transition-slow) both;
+}
+
+@keyframes al-lightbox-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.al-lightbox__close {
+    position: absolute;
+    top: var(--al-space-4);
+    right: var(--al-space-4);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--al-radius-pill);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--al-transition-fast), border-color var(--al-transition-fast);
+}
+
+.al-lightbox__close:hover,
+.al-lightbox__close:focus-visible {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.al-lightbox__stage {
+    flex: 1 1 auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--al-space-6) var(--al-space-7);
+    min-height: 0;
+}
+
+.al-lightbox__image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--al-radius-sm);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+    animation: al-lightbox-img var(--al-transition) both;
+}
+
+@keyframes al-lightbox-img {
+    from { opacity: 0; transform: scale(0.98); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.al-lightbox__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: var(--al-radius-pill);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--al-transition-fast), border-color var(--al-transition-fast);
+}
+
+.al-lightbox__nav:hover,
+.al-lightbox__nav:focus-visible {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.32);
+}
+
+.al-lightbox__nav--prev { left: var(--al-space-4); }
+.al-lightbox__nav--next { right: var(--al-space-4); }
+
+.al-lightbox__footer {
+    flex: 0 0 auto;
+    padding: var(--al-space-3) var(--al-space-5) var(--al-space-5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-4);
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.al-lightbox__caption {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    line-height: var(--al-leading-normal);
+    flex: 1 1 auto;
+    max-width: 60ch;
+}
+
+.al-lightbox__counter {
+    font-size: var(--al-font-size-xs);
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.04em;
+}
+
+@media (max-width: 540px) {
+    .al-lightbox__stage { padding: var(--al-space-4) var(--al-space-3); }
+    .al-lightbox__nav { width: 36px; height: 36px; }
+    .al-lightbox__nav--prev { left: var(--al-space-2); }
+    .al-lightbox__nav--next { right: var(--al-space-2); }
+    .al-lightbox__footer { flex-direction: column; align-items: flex-start; }
+}

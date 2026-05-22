@@ -28,7 +28,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.2 | `tbl_ProjectMember`, module relocation, CSS retokening | Done | `2be565a` |
 | 1.3 | Dashboard polish: ProjectCard carousel, shimmer, Breadcrumbs, sub-project rendering | Done | `8201805` |
 | 1.4 | Project detail Breadcrumbs + sub-project create (one-level limit) | Done | `4238f75` |
-| 1.5 | Member-add flow (`tbl_ProjectMember` UI: list/add/deactivate) | Done | _pending_ |
+| 1.5 | Member-add flow (`tbl_ProjectMember` UI: list/add/deactivate) | Done | `11e167d` |
 | 1.5.1 | ProjectCreate aesthetic refresh + cover upload | Planned | — |
 | 2.1 | Site Journal — Entry capture, list, detail | Planned | — |
 | 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |

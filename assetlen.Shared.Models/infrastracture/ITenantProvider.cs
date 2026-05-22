@@ -1,4 +1,5 @@
 ﻿using assetlen.Shared.Models.Models.ViewModels;
+using assetlen.Shared.Models.statics;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http;
 using System.Security.Claims;
@@ -13,6 +14,14 @@ namespace assetlen.Shared.Models.Models
         string GetUserId();
         UserClaimsDto GetCurrentUser();
         bool IsSuperAdmin();
+
+        /// <summary>
+        /// True when the current user is exclusively an external principal
+        /// (Client/Guest) — i.e. holds no internal role (Contractor / Manager
+        /// / Crew / SystemAdmin). DALs use this to fail-closed on Crew-channel
+        /// content for the curated Client view.
+        /// </summary>
+        bool IsExternal();
     }
 
     public class TenantProvider : ITenantProvider
@@ -72,6 +81,19 @@ namespace assetlen.Shared.Models.Models
         {
             var identity = _httpContextAccessor.HttpContext?.User;
             return identity?.IsInRole("AssetlenSuperAdmin") ?? false;
+        }
+
+        public bool IsExternal()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user is null) return false;
+            var isInternal = user.IsInRole(UserRoles.Contractor)
+                || user.IsInRole(UserRoles.Manager)
+                || user.IsInRole(UserRoles.Crew)
+                || user.IsInRole(UserRoles.SystemAdmin);
+            if (isInternal) return false;
+            return user.IsInRole(UserRoles.Client)
+                || user.IsInRole(UserRoles.Guest);
         }
         public UserClaimsDto GetCurrentUser()
         {

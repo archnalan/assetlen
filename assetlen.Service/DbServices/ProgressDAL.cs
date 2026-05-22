@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using assetlen.Service.DataAccess;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.ServiceHandler;
+using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.RemoteSite;
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos;
@@ -13,11 +14,13 @@ public class ProgressDAL : IProgressDAL
 {
     private readonly AssetlenDbContext _context;
     private readonly ILogger<ProgressDAL> _logger;
+    private readonly ITenantProvider _tenant;
 
-    public ProgressDAL(AssetlenDbContext context, ILogger<ProgressDAL> logger)
+    public ProgressDAL(AssetlenDbContext context, ILogger<ProgressDAL> logger, ITenantProvider tenant)
     {
         _context = context;
         _logger = logger;
+        _tenant = tenant;
     }
 
     public async Task<ServiceResult<ProgressUpdateDto>> AddProgressUpdate(ProgressUpdateCreateDto dto, string userId)
@@ -122,6 +125,9 @@ public class ProgressDAL : IProgressDAL
             if (!IsProjectStakeholder(update.Project, userId))
                 return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
 
+            if (_tenant.IsExternal() && update.Channel != Channel.Client)
+                return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
+
             return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update));
         }
         catch (Exception ex)
@@ -210,6 +216,9 @@ public class ProgressDAL : IProgressDAL
 
             if (!string.IsNullOrEmpty(stageId))
                 query = query.Where(u => u.StageId == stageId);
+
+            if (_tenant.IsExternal())
+                query = query.Where(u => u.Channel == Channel.Client);
 
             var total = await query.CountAsync(ct);
 

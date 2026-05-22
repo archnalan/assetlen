@@ -32,8 +32,8 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 1.5.1 | ProjectCreate aesthetic refresh + cover upload | Planned | — |
 | 2.1a | Site Journal — Channel toggle on capture + entry feed pill | Done | `1f23372` |
 | 2.1b | Site Journal — feed-side cards polish + photo lightbox | Done | `fcec0b8` |
-| 2.1c | Site Journal — dedicated `/entry/{id}` detail route | Planned | — |
-| 2.2 | Flags — issue lifecycle + weekly nudge | Planned | — |
+| 2.1c | Site Journal — dedicated `/entry/{id}` detail route | Done | `3dbee35` |
+| 2.2 | Flags — issue lifecycle + weekly nudge | Done | `284ad49` |
 | 2.3 | Streams — SignalR chat tied to media, dual channels | Planned | — |
 | 2.4 | Curated Client view — `ClientVisible` gating end-to-end | Planned | — |
 | 3.1 | Timeline graph (expected vs actual layers) | Planned | — |
@@ -120,6 +120,31 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 **Carried forward:**
 - Touch swipe gestures inside the lightbox (currently keyboard + click-only).
 - Promote `EntryPhotoPanel` to `Components/Media/` once a second module (Streams? Lookbook?) needs the hero+strip pattern.
+
+## Phase 2.1c — /entry/{id} detail route (done)
+
+**What landed:**
+- `IProgressDAL.GetProgressUpdate` + `SetChannel` (parent-aware stakeholder check; SetChannel locked to owner/PM).
+- `ProgressController`: outer auth widened to all read-eligible roles; per-action gating; new `GET GetProgressUpdate` + `PUT SetChannel` endpoints.
+- `IProgressApi`: `GetProgressUpdate` + `SetChannel`.
+- `Modules/Journal/Pages/EntryDetail.razor` (+ CSS) at `/project/{projectId}/entry/{entryId}`. Breadcrumbs (Portfolio / Project / Site Journal / date), author meta, Channel pill + ApprovalStatus chip, `<EntryPhotoPanel>`, flat comment thread + compose box.
+- `<AuthorizeView Roles="Contractor,Manager">` exposes "Publish to Client" / "Revert to Crew" toggle. Server enforces the role.
+- `ProjectDetail` Site Journal feed entries get an "Open entry →" footer link.
+
+## Phase 2.2 — Flag lifecycle (done)
+
+**What landed:**
+- `FlagDto / FlagCreateDto / FlagUpdateDto` added; `IFlagDAL + FlagDAL` with Add / Get / GetByProject (status filter) / GetByEntry / Update / Resolve / Nudge. Parent-aware stakeholder checks; resolve sets ResolvedBy + ResolvedDate, re-open clears them.
+- `FlagsController` — POST/GET/PUT. AddFlag open to all stakeholder roles; mutations gated to Contractor/Manager (Crew may also Resolve).
+- `IFlagsApi` (Refit) + WASM DI + `_Imports` injection.
+- `Modules/Journal/Components/FlagRaiseForm.razor` (+ CSS) — reusable inline form. Used on the project Issues tab **and** on `EntryDetail` (auto-anchors to the entry).
+- `Modules/Journal/Components/FlagCard.razor` (+ CSS) — severity-coded left border, status pill, days-open counter, last-nudged indicator, role-gated action row (Nudge / Mark in progress / Resolve).
+- `ProjectDetail` "Issues" tab with status filter chips (Open / In progress / Resolved / All), raise form, FlagCard list. Optimistically inserts new flags and live-updates on action.
+- `EntryDetail` surfaces flags anchored to that entry; raising defaults the anchor.
+
+**Carried forward:**
+- Background scheduler that actually fires the weekly nudge (Phase 4 hosted-service work). Currently the UI surfaces "Last nudged X ago" + a manual Nudge button.
+- Assignee picker (only via API; UI defaults assignee to null).
 
 ## Phase 2 — Site Journal + Streams (in progress)
 

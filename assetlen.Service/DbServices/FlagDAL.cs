@@ -13,11 +13,13 @@ public class FlagDAL : IFlagDAL
 {
     private readonly AssetlenDbContext _context;
     private readonly ILogger<FlagDAL> _logger;
+    private readonly ITenantProvider _tenant;
 
-    public FlagDAL(AssetlenDbContext context, ILogger<FlagDAL> logger)
+    public FlagDAL(AssetlenDbContext context, ILogger<FlagDAL> logger, ITenantProvider tenant)
     {
         _context = context;
         _logger = logger;
+        _tenant = tenant;
     }
 
     public async Task<ServiceResult<FlagDto>> AddFlag(FlagCreateDto dto, string actingUserId)
@@ -44,7 +46,8 @@ public class FlagDAL : IFlagDAL
                 Title = dto.Title,
                 Description = dto.Description,
                 Severity = dto.Severity,
-                Channel = dto.Channel,
+                // External principals can only raise on their own (Client) channel.
+                Channel = _tenant.IsExternal() ? Channel.Client : dto.Channel,
                 Status = FlagStatus.Open,
                 CreatedById = actingUserId,
                 AssignedToId = dto.AssignedToId,
@@ -71,6 +74,8 @@ public class FlagDAL : IFlagDAL
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
             if (!IsProjectStakeholder(flag.Project, actingUserId))
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
+            if (_tenant.IsExternal() && flag.Channel != Channel.Client)
+                return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
             return ServiceResult<FlagDto>.Success(ToDto(flag));
         }
         catch (Exception ex)
@@ -102,6 +107,9 @@ public class FlagDAL : IFlagDAL
             if (status.HasValue)
                 query = query.Where(f => f.Status == status.Value);
 
+            if (_tenant.IsExternal())
+                query = query.Where(f => f.Channel == Channel.Client);
+
             var flags = await query
                 .OrderBy(f => f.Status)
                 .ThenByDescending(f => f.Severity)
@@ -131,16 +139,21 @@ public class FlagDAL : IFlagDAL
             if (!IsProjectStakeholder(update.Project, actingUserId))
                 return ServiceResult<List<FlagDto>>.Failure(new ForbiddenException("Access denied."));
 
-            var flags = await _context.tbl_Flags
+            var entryQuery = _context.tbl_Flags
                 .Include(f => f.Project)
                 .Include(f => f.Stage)
                 .Include(f => f.CreatedBy)
                 .Include(f => f.AssignedTo)
                 .Include(f => f.ResolvedBy)
                 .Where(f => f.ProgressUpdateId == progressUpdateId)
+                .AsNoTracking();
+
+            if (_tenant.IsExternal())
+                entryQuery = entryQuery.Where(f => f.Channel == Channel.Client);
+
+            var flags = await entryQuery
                 .OrderByDescending(f => f.Severity)
                 .ThenByDescending(f => f.DateTimeCreated)
-                .AsNoTracking()
                 .ToListAsync();
 
             return ServiceResult<List<FlagDto>>.Success(flags.Select(ToDto).ToList());

@@ -11,48 +11,52 @@
 
 <Breadcrumbs Items="BuildBreadcrumbs()" />
 
-<div class="project-page-header">
-    <div>
-        <h1 class="project-page-title">New Project</h1>
-        <p class="project-page-subtitle">Set up a new development on your portfolio</p>
-    </div>
-</div>
+<header class="pc-hero">
+    <h1 class="pc-hero__title">New project</h1>
+    <p class="pc-hero__sub">Set up a development on your portfolio. Define stages and budget — both are editable later.</p>
+</header>
 
-<!-- Wizard Steps -->
-<div class="project-wizard-steps">
-    <div class="project-wizard-step @(step == 1 ? "active" : step > 1 ? "completed" : "")">
-        <div class="project-wizard-step-num">1</div>
-        <span class="project-wizard-step-label">Details</span>
-    </div>
-    <div class="project-wizard-divider @(step > 1 ? "active" : "")"></div>
-    <div class="project-wizard-step @(step == 2 ? "active" : step > 2 ? "completed" : "")">
-        <div class="project-wizard-step-num">2</div>
-        <span class="project-wizard-step-label">Stages</span>
-    </div>
-    <div class="project-wizard-divider @(step > 2 ? "active" : "")"></div>
-    <div class="project-wizard-step @(step == 3 ? "active" : "")">
-        <div class="project-wizard-step-num">3</div>
-        <span class="project-wizard-step-label">Review</span>
-    </div>
-</div>
+<ol class="pc-steps" aria-label="Steps">
+    @foreach (var s in stepsMeta)
+    {
+        var idx = s.Index;
+        var state = idx == step ? "is-active" : idx < step ? "is-done" : "";
+        <li class="pc-steps__item @state">
+            <span class="pc-steps__dot" aria-hidden="true">
+                @if (idx < step)
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="5 12 10 17 19 7" />
+                    </svg>
+                }
+                else
+                {
+                    @idx
+                }
+            </span>
+            <span class="pc-steps__label">@s.Label</span>
+        </li>
+    }
+</ol>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="project-alert project-alert-error project-mt-md">@errorMessage</div>
+    <div class="pc-alert pc-alert--error" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>@errorMessage</span>
+    </div>
 }
 
-@switch (step)
-{
-    case 1:
-        @RenderStep1();
-        break;
-    case 2:
-        @RenderStep2();
-        break;
-    case 3:
-        @RenderStep3();
-        break;
-}
+<section class="pc-panel">
+    @switch (step)
+    {
+        case 1: @RenderStep1(); break;
+        case 2: @RenderStep2(); break;
+        case 3: @RenderStep3(); break;
+    }
+</section>
 
 @code {
     private ProjectCreateDto model = new()
@@ -65,69 +69,87 @@
     private bool isSaving;
     private string? errorMessage;
 
+    private record StepMeta(int Index, string Label);
+    private static readonly StepMeta[] stepsMeta =
+    {
+        new(1, "Details"),
+        new(2, "Stages"),
+        new(3, "Review")
+    };
+
     private IEnumerable<BreadcrumbItem> BuildBreadcrumbs()
     {
         yield return new BreadcrumbItem("Portfolio", "/portfolio");
         yield return new BreadcrumbItem("New project");
     }
 
-    // ─── STEP 1: PROJECT DETAILS ────────────────────────────────────
+    // ─── STEP 1: Details ────────────────────────────────────────
     private RenderFragment RenderStep1() => __builder =>
     {
-        <div class="project-card project-mt-md">
-            <div class="project-card-body">
-                <div class="project-form-group">
-                    <label class="project-label">Project Name *</label>
-                    <input class="project-input" @bind="model.ProjectName" placeholder="e.g. 3-Bedroom Bungalow, Kira" />
-                </div>
+        <div class="pc-form">
+            <div class="pc-field pc-field--lg">
+                <label class="pc-label" for="pc-name">Project name <span class="pc-req">*</span></label>
+                <input id="pc-name" class="pc-input" maxlength="200"
+                       @bind="model.ProjectName" @bind:event="oninput"
+                       placeholder="e.g. Riverstone Heights, Kira" />
+                <p class="pc-hint">The name your clients and team will see everywhere.</p>
+            </div>
 
-                <div class="project-form-group">
-                    <label class="project-label">Location</label>
-                    <input class="project-input" @bind="model.Location" placeholder="e.g. Kira, Wakiso District" />
-                </div>
+            <div class="pc-field">
+                <label class="pc-label" for="pc-location">Location</label>
+                <input id="pc-location" class="pc-input" maxlength="300"
+                       @bind="model.Location" @bind:event="oninput"
+                       placeholder="e.g. Kira, Wakiso District" />
+            </div>
 
-                <div class="project-form-row">
-                    <div class="project-form-group">
-                        <label class="project-label">Total Budget *</label>
-                        <input class="project-input" type="number" step="any" @bind="model.TotalBudget" placeholder="0" />
-                    </div>
-                    <div class="project-form-group">
-                        <label class="project-label">Currency</label>
-                        <select class="project-input" @bind="model.Currency">
-                            <option value="UGX">UGX</option>
-                            <option value="USD">USD</option>
-                            <option value="GBP">GBP</option>
-                            <option value="EUR">EUR</option>
-                            <option value="KES">KES</option>
-                        </select>
-                    </div>
+            <div class="pc-grid pc-grid--2">
+                <div class="pc-field">
+                    <label class="pc-label" for="pc-budget">Total budget <span class="pc-req">*</span></label>
+                    <input id="pc-budget" class="pc-input al-num" type="number" step="any" min="0"
+                           @bind="model.TotalBudget" placeholder="0" />
                 </div>
+                <div class="pc-field">
+                    <label class="pc-label" for="pc-currency">Currency</label>
+                    <select id="pc-currency" class="pc-input" @bind="model.Currency">
+                        <option value="UGX">UGX</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="EUR">EUR</option>
+                        <option value="KES">KES</option>
+                    </select>
+                </div>
+            </div>
 
-                <div class="project-form-row">
-                    <div class="project-form-group">
-                        <label class="project-label">Expected Start</label>
-                        <input class="project-input" type="date" @bind="model.ExpectedStartDate" />
-                    </div>
-                    <div class="project-form-group">
-                        <label class="project-label">Expected Completion</label>
-                        <input class="project-input" type="date" @bind="model.ExpectedCompletionDate" />
-                    </div>
+            <div class="pc-grid pc-grid--2">
+                <div class="pc-field">
+                    <label class="pc-label" for="pc-start">Expected start</label>
+                    <input id="pc-start" class="pc-input al-num" type="date"
+                           @bind="model.ExpectedStartDate" />
                 </div>
+                <div class="pc-field">
+                    <label class="pc-label" for="pc-end">Expected completion</label>
+                    <input id="pc-end" class="pc-input al-num" type="date"
+                           @bind="model.ExpectedCompletionDate" />
+                </div>
+            </div>
 
-                <div class="project-form-group">
-                    <label class="project-label">Description</label>
-                    <textarea class="project-input project-textarea" @bind="model.Description" rows="3" placeholder="Brief description of the project..."></textarea>
-                </div>
+            <div class="pc-field">
+                <label class="pc-label" for="pc-desc">Description</label>
+                <textarea id="pc-desc" class="pc-input pc-textarea" rows="3" maxlength="1000"
+                          @bind="model.Description" @bind:event="oninput"
+                          placeholder="What is this development? Anything the team should know up front."></textarea>
             </div>
         </div>
 
-        <div class="project-form-actions project-mt-md">
-            <a href="/portfolio" class="project-btn project-btn-secondary">Cancel</a>
-            <button class="project-btn project-btn-primary" @onclick="GoToStep2" disabled="@(!CanProceedStep1)">
-                Next: Add Stages
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        <footer class="pc-actions">
+            <a href="/portfolio" class="pc-btn pc-btn--ghost">Cancel</a>
+            <button class="pc-btn pc-btn--primary" @onclick="GoToStep2" disabled="@(!CanProceedStep1)">
+                Next — Stages
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
             </button>
-        </div>
+        </footer>
     };
 
     private bool CanProceedStep1 =>
@@ -137,75 +159,116 @@
     {
         if (!CanProceedStep1) return;
         errorMessage = null;
-
-        // If no stages yet, pre-populate with common construction stages
         if (model.Stages.Count == 0)
         {
             model.Stages = new List<StageCreateDto>
             {
                 new() { StageName = "Foundation", DisplayOrder = 1 },
-                new() { StageName = "Walling", DisplayOrder = 2 },
-                new() { StageName = "Roofing", DisplayOrder = 3 },
-                new() { StageName = "Finishing", DisplayOrder = 4 }
+                new() { StageName = "Walling",    DisplayOrder = 2 },
+                new() { StageName = "Roofing",    DisplayOrder = 3 },
+                new() { StageName = "Finishing",  DisplayOrder = 4 }
             };
         }
         step = 2;
     }
 
-    // ─── STEP 2: STAGES ────────────────────────────────────────────
+    // ─── STEP 2: Stages ─────────────────────────────────────────
     private RenderFragment RenderStep2() => __builder =>
     {
-        <div class="project-card project-mt-md">
-            <div class="project-card-body">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <h3 class="project-card-title" style="margin:0;">Construction Stages</h3>
-                    <button class="project-btn project-btn-secondary project-btn-sm" @onclick="AddStage">+ Add Stage</button>
-                </div>
+        var allocated = model.Stages.Sum(s => s.BudgetAmount ?? 0);
+        var allocPct = (model.TotalBudget ?? 0) > 0
+            ? Math.Min((double)(allocated / model.TotalBudget!.Value) * 100, 100)
+            : 0;
+        var overBy = allocated - (model.TotalBudget ?? 0);
 
-                <div class="project-text-xs project-text-muted project-mb-md">
-                    Total allocated: <strong>@FormatCurrency(model.Stages.Sum(s => s.BudgetAmount ?? 0))</strong>
-                    of @FormatCurrency(model.TotalBudget ?? 0)
-                    @if (RemainingBudget < 0)
+        <div class="pc-form">
+            <div class="pc-budget-meter">
+                <div class="pc-budget-meter__row">
+                    <span class="pc-budget-meter__label">Allocated to stages</span>
+                    <span class="pc-budget-meter__value al-num">
+                        @FormatCurrency(allocated) <span class="pc-budget-meter__total">/ @FormatCurrency(model.TotalBudget ?? 0) @model.Currency</span>
+                    </span>
+                </div>
+                <div class="pc-budget-meter__bar">
+                    <div class="pc-budget-meter__fill @(overBy > 0 ? "is-over" : "")"
+                         style="width:@(allocPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                </div>
+                <div class="pc-budget-meter__hint @(overBy > 0 ? "is-warn" : "")">
+                    @if (overBy > 0)
                     {
-                        <span style="color:var(--al-danger);"> (over by @FormatCurrency(Math.Abs(RemainingBudget)))</span>
+                        <text>Over by @FormatCurrency(overBy) @model.Currency.</text>
                     }
-                    else if (RemainingBudget > 0)
+                    else if (overBy < 0)
                     {
-                        <span> (@FormatCurrency(RemainingBudget) unallocated)</span>
+                        <text>@FormatCurrency(Math.Abs(overBy)) @model.Currency unallocated.</text>
+                    }
+                    else
+                    {
+                        <text>Fully allocated.</text>
                     }
                 </div>
-
-                @for (int i = 0; i < model.Stages.Count; i++)
-                {
-                    var idx = i;
-                    var stage = model.Stages[idx];
-                    <div class="project-stage-edit-row">
-                        <div class="project-stage-edit-num">@(idx + 1)</div>
-                        <div class="project-stage-edit-fields">
-                            <input class="project-input" @bind="stage.StageName" placeholder="Stage name" />
-                            <input class="project-input" type="number" step="any" @bind="stage.BudgetAmount" placeholder="Budget" style="max-width:140px;" />
-                        </div>
-                        <button class="project-btn project-btn-icon project-btn-danger-ghost" @onclick="() => RemoveStage(idx)" title="Remove">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                    </div>
-                }
             </div>
+
+            @if (model.Stages.Count == 0)
+            {
+                <div class="pc-empty">
+                    <p>No stages yet. Add at least one to continue.</p>
+                </div>
+            }
+            else
+            {
+                <ul class="pc-stages">
+                    @for (int i = 0; i < model.Stages.Count; i++)
+                    {
+                        var idx = i;
+                        var stage = model.Stages[idx];
+                        <li class="pc-stage">
+                            <span class="pc-stage__num al-num">@(idx + 1)</span>
+                            <div class="pc-stage__fields">
+                                <input class="pc-input pc-stage__name"
+                                       placeholder="Stage name (e.g. Foundation)"
+                                       maxlength="200"
+                                       @bind="stage.StageName" @bind:event="oninput" />
+                                <input class="pc-input pc-stage__amount al-num"
+                                       type="number" step="any" min="0"
+                                       placeholder="Budget"
+                                       @bind="stage.BudgetAmount" />
+                            </div>
+                            <button type="button" class="pc-stage__remove"
+                                    @onclick="() => RemoveStage(idx)"
+                                    aria-label="Remove stage @(idx + 1)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <button type="button" class="pc-add-stage" @onclick="AddStage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add stage
+            </button>
         </div>
 
-        <div class="project-form-actions project-mt-md">
-            <button class="project-btn project-btn-secondary" @onclick="() => step = 1">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <footer class="pc-actions">
+            <button class="pc-btn pc-btn--ghost" @onclick="() => step = 1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
                 Back
             </button>
-            <button class="project-btn project-btn-primary" @onclick="GoToStep3" disabled="@(!CanProceedStep2)">
-                Review & Create
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <button class="pc-btn pc-btn--primary" @onclick="GoToStep3" disabled="@(!CanProceedStep2)">
+                Review
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
             </button>
-        </div>
+        </footer>
     };
-
-    private decimal RemainingBudget => (model.TotalBudget ?? 0) - model.Stages.Sum(s => s.BudgetAmount ?? 0);
 
     private bool CanProceedStep2 =>
         model.Stages.Count > 0 && model.Stages.All(s => !string.IsNullOrWhiteSpace(s.StageName));
@@ -233,78 +296,97 @@
         step = 3;
     }
 
-    // ─── STEP 3: REVIEW & CREATE ────────────────────────────────────
+    // ─── STEP 3: Review ─────────────────────────────────────────
     private RenderFragment RenderStep3() => __builder =>
     {
-        <div class="project-card project-mt-md">
-            <div class="project-card-body">
-                <h3 class="project-card-title">Review Your Project</h3>
+        var remaining = (model.TotalBudget ?? 0) - model.Stages.Sum(s => s.BudgetAmount ?? 0);
 
-                <div class="project-detail-row">
-                    <span class="project-text-muted">Project Name</span>
-                    <span style="font-weight:500;">@model.ProjectName</span>
+        <div class="pc-review">
+            <dl class="pc-review__list">
+                <div class="pc-review__row">
+                    <dt>Project</dt>
+                    <dd>@model.ProjectName</dd>
                 </div>
-                <div class="project-detail-row">
-                    <span class="project-text-muted">Location</span>
-                    <span>@(model.Location ?? "—")</span>
+                @if (!string.IsNullOrEmpty(model.Location))
+                {
+                    <div class="pc-review__row">
+                        <dt>Location</dt>
+                        <dd>@model.Location</dd>
+                    </div>
+                }
+                <div class="pc-review__row">
+                    <dt>Budget</dt>
+                    <dd class="al-num"><strong>@FormatCurrency(model.TotalBudget ?? 0)</strong> @model.Currency</dd>
                 </div>
-                <div class="project-detail-row">
-                    <span class="project-text-muted">Budget</span>
-                    <span style="font-weight:600;">@model.Currency @((model.TotalBudget ?? 0).ToString("N0"))</span>
+                <div class="pc-review__row">
+                    <dt>Timeline</dt>
+                    <dd class="al-num">
+                        @(model.ExpectedStartDate?.ToString("MMM dd, yyyy") ?? "TBD")
+                        <span class="pc-review__arrow">→</span>
+                        @(model.ExpectedCompletionDate?.ToString("MMM dd, yyyy") ?? "TBD")
+                    </dd>
                 </div>
-                <div class="project-detail-row">
-                    <span class="project-text-muted">Timeline</span>
-                    <span>@(model.ExpectedStartDate?.ToString("MMM dd, yyyy") ?? "TBD") → @(model.ExpectedCompletionDate?.ToString("MMM dd, yyyy") ?? "TBD")</span>
-                </div>
+                @if (!string.IsNullOrEmpty(model.Description))
+                {
+                    <div class="pc-review__row pc-review__row--block">
+                        <dt>Description</dt>
+                        <dd>@model.Description</dd>
+                    </div>
+                }
+            </dl>
 
-                <h4 class="project-section-title project-mt-md">Stages (@model.Stages.Count)</h4>
+            <h3 class="pc-review__heading">Stages <span class="pc-review__count">@model.Stages.Count</span></h3>
+            <ol class="pc-review__stages">
                 @foreach (var stage in model.Stages)
                 {
-                    <div class="project-detail-row">
-                        <span>@stage.DisplayOrder. @stage.StageName</span>
-                        <span>@FormatCurrency(stage.BudgetAmount ?? 0)</span>
-                    </div>
+                    <li class="pc-review__stage">
+                        <span class="pc-review__stage-num al-num">@stage.DisplayOrder</span>
+                        <span class="pc-review__stage-name">@stage.StageName</span>
+                        <span class="pc-review__stage-amount al-num">@FormatCurrency(stage.BudgetAmount ?? 0)</span>
+                    </li>
                 }
+            </ol>
 
-                @if (RemainingBudget != 0)
-                {
-                    <div class="project-alert @(RemainingBudget > 0 ? "project-alert-warning" : "project-alert-error") project-mt-md">
-                        @if (RemainingBudget > 0)
-                        {
-                            <text>@FormatCurrency(RemainingBudget) of budget is unallocated to stages.</text>
-                        }
-                        else
-                        {
-                            <text>Stages exceed budget by @FormatCurrency(Math.Abs(RemainingBudget)).</text>
-                        }
-                    </div>
-                }
-            </div>
+            @if (remaining != 0)
+            {
+                <div class="pc-alert @(remaining > 0 ? "pc-alert--warn" : "pc-alert--error")">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    @if (remaining > 0)
+                    {
+                        <span>@FormatCurrency(remaining) of the budget is unallocated to stages.</span>
+                    }
+                    else
+                    {
+                        <span>Stages exceed budget by @FormatCurrency(Math.Abs(remaining)).</span>
+                    }
+                </div>
+            }
         </div>
 
-        <div class="project-card project-mt-sm">
-            <div class="project-card-body" style="text-align:center;">
-                <div class="project-text-sm project-text-muted project-mb-sm">⚡ Your first project is free — no subscription required.</div>
-            </div>
-        </div>
+        <p class="pc-note">⚡ Your first project is free — no subscription required.</p>
 
-        <div class="project-form-actions project-mt-md">
-            <button class="project-btn project-btn-secondary" @onclick="() => step = 2" disabled="@isSaving">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <footer class="pc-actions">
+            <button class="pc-btn pc-btn--ghost" @onclick="() => step = 2" disabled="@isSaving">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
                 Back
             </button>
-            <button class="project-btn project-btn-primary" @onclick="SubmitProject" disabled="@isSaving">
+            <button class="pc-btn pc-btn--primary" @onclick="SubmitProject" disabled="@isSaving">
                 @if (isSaving)
                 {
-                    <span class="project-spinner"></span>
-                    <text>Creating...</text>
+                    <span class="pc-spinner" aria-hidden="true"></span>
+                    <text>Creating…</text>
                 }
                 else
                 {
-                    <text>Create Project</text>
+                    <text>Create project</text>
                 }
             </button>
-        </div>
+        </footer>
     };
 
     private async Task SubmitProject()
@@ -323,13 +405,13 @@
             }
             else
             {
-                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "Failed to create project. Please try again.";
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not create the project. Please try again.";
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error creating project");
-            errorMessage = "An unexpected error occurred. Please try again.";
+            errorMessage = "Something went wrong on our end. Please try again.";
         }
         finally
         {
@@ -338,11 +420,12 @@
         }
     }
 
-    private string FormatCurrency(decimal amount)
+    private static string FormatCurrency(decimal amount)
     {
-        if (amount >= 1_000_000_000) return $"{amount / 1_000_000_000:N1}B";
-        if (amount >= 1_000_000) return $"{amount / 1_000_000:N1}M";
-        if (amount >= 1_000) return $"{amount / 1_000:N1}K";
-        return amount.ToString("N0");
+        var abs = Math.Abs(amount);
+        return abs >= 1_000_000_000 ? $"{amount / 1_000_000_000:N1}B"
+             : abs >= 1_000_000     ? $"{amount / 1_000_000:N1}M"
+             : abs >= 1_000          ? $"{amount / 1_000:N1}K"
+             : amount.ToString("N0");
     }
 }

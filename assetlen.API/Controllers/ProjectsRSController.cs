@@ -12,7 +12,10 @@ namespace assetlen.API.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-[Authorize(Roles = $"{UserRoles.Client},{UserRoles.Crew}",
+// Outer gate matches the Projects row in the §5.5 access matrix —
+// every signed-in ASSETLEN role can READ; write paths are narrowed
+// per-action below.
+[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew},{UserRoles.Client},{UserRoles.Guest}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class ProjectsRSController : ControllerBase
 {
@@ -29,7 +32,6 @@ public class ProjectsRSController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(PortfolioSummaryDto), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> GetPortfolioDashboard()
     {
         var userId = _tenantProvider.GetUserId();
@@ -42,7 +44,8 @@ public class ProjectsRSController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(typeof(ProjectDto), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> CreateProject([FromBody] ProjectCreateDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -63,7 +66,8 @@ public class ProjectsRSController : ControllerBase
 
     [HttpPut]
     [ProducesResponseType(typeof(ProjectDto), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> UpdateProject([FromBody] ProjectDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -74,7 +78,8 @@ public class ProjectsRSController : ControllerBase
 
     [HttpDelete]
     [ProducesResponseType(typeof(bool), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Contractor,
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> DeleteProject([FromQuery][Required] string projectId)
     {
         var userId = _tenantProvider.GetUserId();
@@ -105,7 +110,8 @@ public class ProjectsRSController : ControllerBase
 
     [HttpPut]
     [ProducesResponseType(typeof(ProjectDto), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> AssignProjectManager(
         [FromQuery][Required] string projectId,
         [FromQuery][Required] string managerId)

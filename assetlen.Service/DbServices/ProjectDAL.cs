@@ -32,16 +32,25 @@ public class ProjectDAL : IProjectDAL
 
     // ─── Portfolio Dashboard ──────────────────────────────────
 
-    public async Task<ServiceResult<PortfolioSummaryDto>> GetPortfolioDashboard(string investorId)
+    public async Task<ServiceResult<PortfolioSummaryDto>> GetPortfolioDashboard(string userId)
     {
         try
         {
+            // Stakeholder set: project owner (InvestorId), assigned PM, or an
+            // active project member. Sub-projects inherit visibility from their
+            // parent via the OR-on-ParentProject branch.
             var projects = await _context.tbl_Projects_RS
                 .Include(p => p.Stages)
                 .Include(p => p.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
                 .Include(p => p.ProgressUpdates.OrderByDescending(u => u.DateTimeCreated).Take(3))
                     .ThenInclude(u => u.Images.OrderByDescending(i => i.DisplayOrder).Take(3))
-                .Where(p => p.InvestorId == investorId)
+                .Where(p =>
+                    p.InvestorId == userId
+                    || p.ProjectManagerId == userId
+                    || (p.ParentProject != null
+                        && (p.ParentProject.InvestorId == userId || p.ParentProject.ProjectManagerId == userId))
+                    || _context.tbl_ProjectMembers.Any(m =>
+                        m.ProjectId == p.Id && m.UserId == userId && m.IsActive))
                 .OrderByDescending(p => p.DateTimeCreated)
                 .AsNoTracking()
                 .ToListAsync();
@@ -144,7 +153,7 @@ public class ProjectDAL : IProjectDAL
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting portfolio dashboard for investor {InvestorId}", investorId);
+            _logger.LogError(ex, "Error getting portfolio dashboard for user {UserId}", userId);
             return ServiceResult<PortfolioSummaryDto>.Failure(new ServerErrorException(ex.Message));
         }
     }

@@ -12,7 +12,9 @@ namespace assetlen.API.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-[Authorize(Roles = $"{UserRoles.Client},{UserRoles.Crew}",
+// Funding is on the Finance row of the §5.5 matrix: Contractor/Manager
+// /Client read. Crew + Guest have no financial visibility.
+[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class FundingController : ControllerBase
 {
@@ -27,7 +29,10 @@ public class FundingController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(typeof(FundingEntryDto), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    // Client raises a deposit (capital coming in from the investor side);
+    // Contractor/Manager record one on a client's behalf.
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> AddFundingEntry([FromBody] FundingEntryCreateDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -38,7 +43,10 @@ public class FundingController : ControllerBase
 
     [HttpPut]
     [ProducesResponseType(typeof(FundingEntryDto), 200)]
-    [Authorize(Roles = UserRoles.Crew, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    // Confirmation lives with the project owner / PM — they're the ones
+    // who acknowledge receipt of funds.
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> ConfirmFunding([FromBody] FundingConfirmDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -69,7 +77,8 @@ public class FundingController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(List<FundingEntryDto>), 200)]
-    [Authorize(Roles = UserRoles.Crew, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> GetPendingConfirmations()
     {
         var userId = _tenantProvider.GetUserId();

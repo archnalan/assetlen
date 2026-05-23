@@ -11,7 +11,9 @@ namespace assetlen.API.Controllers;
 
 [Route("api/[controller]/[action]")]
 [ApiController]
-[Authorize(Roles = $"{UserRoles.Client},{UserRoles.Crew}",
+// Stages are an inner part of the Projects surface — same access shape:
+// everyone reads, Contractor/Manager write, Contractor deletes.
+[Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew},{UserRoles.Client},{UserRoles.Guest}",
     AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class StagesController : ControllerBase
 {
@@ -26,6 +28,8 @@ public class StagesController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(typeof(StageDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> CreateStage(
         [FromQuery][Required] string projectId,
         [FromBody] StageCreateDto dto)
@@ -38,6 +42,8 @@ public class StagesController : ControllerBase
 
     [HttpPut]
     [ProducesResponseType(typeof(StageDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> UpdateStage([FromBody] StageDto dto)
     {
         var userId = _tenantProvider.GetUserId();
@@ -48,7 +54,8 @@ public class StagesController : ControllerBase
 
     [HttpDelete]
     [ProducesResponseType(typeof(bool), 200)]
-    [Authorize(Roles = UserRoles.Client, AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize(Roles = UserRoles.Contractor,
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<ActionResult> DeleteStage([FromQuery][Required] string stageId)
     {
         var userId = _tenantProvider.GetUserId();

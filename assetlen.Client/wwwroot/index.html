@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafaf7" />
     <title>ASSETLEN</title>
     <base href="/" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -28,781 +29,439 @@
     <script src="customJavascript.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Loading Page Styles */
+        /* =========================================================
+           ASSETLEN — bootstrap splash
+           Shown only until the Blazor WASM bundle takes over.
+           The tokens here MIRROR --al-* from app.css so the splash
+           is consistent before the main bundle's tokens load.
+           ========================================================= */
         :root {
-            --assetlen-primary: #1a365d;
-            --assetlen-secondary: #2c5282;
-            --ug-black: #000000;
-            --ug-yellow: #FCDC04;
-            --ug-red: #D90000;
-            --accent-gold: #d69e2e;
+            --splash-bg: #fafaf7;
+            --splash-bg-elevated: #ffffff;
+            --splash-text: #1a1d21;
+            --splash-text-muted: #6b6f76;
+            --splash-text-subtle: #9ca0a7;
+            --splash-border: rgba(26, 29, 33, 0.08);
+            --splash-border-strong: rgba(26, 29, 33, 0.14);
+            --splash-accent: #c2542a;
+            --splash-blueprint: #2f5d8c;
+            --splash-blueprint-soft: #dde7f1;
+            --splash-ease: cubic-bezier(0.2, 0, 0, 1);
+            --splash-font-display: "Fraunces", "Inter Tight", "Segoe UI Variable", "Segoe UI", serif;
+            --splash-font-body: "Inter", "Segoe UI Variable", "Segoe UI", sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --splash-bg: #15171a;
+                --splash-bg-elevated: #1c1f23;
+                --splash-text: #f0eee8;
+                --splash-text-muted: #a5a8af;
+                --splash-text-subtle: #6e7178;
+                --splash-border: rgba(255, 255, 255, 0.08);
+                --splash-border-strong: rgba(255, 255, 255, 0.14);
+                --splash-accent: #d66948;
+                --splash-blueprint: #5288c0;
+                --splash-blueprint-soft: #1f3550;
+            }
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: var(--splash-bg);
+            color: var(--splash-text);
+            font-family: var(--splash-font-body);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
         }
 
         #app {
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
 
-        /* Header */
-        .loading-header {
-            background: var(--assetlen-primary);
-            padding: 1.5rem 1rem;
-            text-align: center;
-            color: white;
-        }
-
-            .loading-header .emblem-container {
-                background: white;
-                border-radius: 50%;
-                width: 70px;
-                height: 70px;
-                margin: 0 auto 1rem;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-                animation: pulse-glow 2s ease-in-out infinite;
-            }
-
-                .loading-header .emblem-container img {
-                    width: 50px;
-                    height: 50px;
-                }
-
-            .loading-header h1 {
-                font-size: 0.9rem;
-                margin: 0;
-                font-weight: 400;
-                opacity: 0.9;
-            }
-
-            .loading-header h2 {
-                font-size: 1.1rem;
-                margin: 0.25rem 0 0;
-                font-weight: 600;
-            }
-
-        /* Flag stripes */
-        .flag-stripes {
-            display: flex;
-            flex-direction: column;
-        }
-
-            .flag-stripes .stripe {
-                height: 6px;
-                animation: stripe-shimmer 1.5s ease-in-out infinite;
-            }
-
-                .flag-stripes .stripe:nth-child(1) {
-                    background: var(--ug-black);
-                    animation-delay: 0s;
-                }
-
-                .flag-stripes .stripe:nth-child(2) {
-                    background: var(--ug-yellow);
-                    animation-delay: 0.1s;
-                }
-
-                .flag-stripes .stripe:nth-child(3) {
-                    background: var(--ug-red);
-                    animation-delay: 0.2s;
-                }
-
-        /* Main content */
-        .loading-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        /* Book animation container */
-        .book-animation {
-            position: relative;
-            width: 200px;
-            height: 160px;
-            margin-bottom: 2rem;
-        }
-
-        /* Animated book */
-        .book {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 100px;
-            height: 80px;
-            perspective: 600px;
-        }
-
-        .book-cover {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, var(--assetlen-primary) 0%, var(--assetlen-secondary) 100%);
-            border-radius: 0 8px 8px 0;
-            box-shadow: -3px 0 0 #e2e8f0, -6px 0 0 #cbd5e0, -9px 0 0 #a0aec0, 0 10px 30px rgba(0,0,0,0.2);
-            transform-origin: left center;
-            animation: book-open 2s ease-in-out infinite;
-        }
-
-        .book-spine {
-            position: absolute;
-            left: -12px;
-            width: 12px;
-            height: 100%;
-            background: linear-gradient(90deg, #1e4a7a 0%, var(--assetlen-primary) 100%);
-            border-radius: 3px 0 0 3px;
-        }
-
-        /* Flying pages */
-        .flying-pages {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-        }
-
-        .page {
-            position: absolute;
-            width: 30px;
-            height: 40px;
-            background: white;
-            border-radius: 2px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        /* Hide the splash once Blazor's root component has rendered. */
+        body:has([b-blazor-ssr-end]) .al-splash,
+        body.al-ready .al-splash {
             opacity: 0;
-        }
-
-            .page::before {
-                content: '';
-                position: absolute;
-                top: 8px;
-                left: 5px;
-                right: 5px;
-                height: 2px;
-                background: #e2e8f0;
-                box-shadow: 0 6px 0 #e2e8f0, 0 12px 0 #e2e8f0, 0 18px 0 #e2e8f0;
-            }
-
-            .page:nth-child(1) {
-                animation: page-fly 3s ease-in-out infinite;
-                animation-delay: 0s;
-            }
-
-            .page:nth-child(2) {
-                animation: page-fly 3s ease-in-out infinite;
-                animation-delay: 0.5s;
-            }
-
-            .page:nth-child(3) {
-                animation: page-fly 3s ease-in-out infinite;
-                animation-delay: 1s;
-            }
-
-            .page:nth-child(4) {
-                animation: page-fly 3s ease-in-out infinite;
-                animation-delay: 1.5s;
-            }
-
-        /* Document icons floating */
-        .floating-docs {
-            position: absolute;
-            width: 100%;
-            height: 100%;
             pointer-events: none;
+            transition: opacity 240ms var(--splash-ease);
         }
 
-        .doc-icon {
-            position: absolute;
-            font-size: 1.5rem;
-            opacity: 0.6;
-            animation: float-doc 4s ease-in-out infinite;
+        .al-splash {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--splash-bg);
+            z-index: 1;
         }
 
-            .doc-icon:nth-child(1) {
-                left: 10%;
-                top: 20%;
-                animation-delay: 0s;
-                color: var(--ug-yellow);
-            }
-
-            .doc-icon:nth-child(2) {
-                right: 10%;
-                top: 30%;
-                animation-delay: 1s;
-                color: var(--ug-red);
-            }
-
-            .doc-icon:nth-child(3) {
-                left: 5%;
-                bottom: 30%;
-                animation-delay: 2s;
-                color: var(--assetlen-secondary);
-            }
-
-            .doc-icon:nth-child(4) {
-                right: 15%;
-                bottom: 20%;
-                animation-delay: 1.5s;
-                color: var(--accent-gold);
-            }
-
-        /* Text content */
-        .loading-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--assetlen-primary);
-            margin-bottom: 0.5rem;
-            animation: fade-in-up 0.8s ease-out;
+        /* Hairline rule across the top — architectural reference */
+        .al-splash__rule {
+            height: 1px;
+            background: var(--splash-border);
         }
 
-        .loading-slogan {
-            font-size: 1.1rem;
-            color: var(--assetlen-secondary);
-            margin-bottom: 1.5rem;
-            font-style: italic;
-            animation: fade-in-up 0.8s ease-out 0.2s both;
+        .al-splash__top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 32px;
+            gap: 16px;
         }
 
-        .loading-description {
-            max-width: 450px;
-            color: #4a5568;
+        .al-splash__brand {
+            font-family: var(--splash-font-display);
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: var(--splash-text);
+        }
+
+        .al-splash__meta {
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--splash-text-subtle);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .al-splash__stage {
+            flex: 1 1 auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            place-items: center;
+            padding: 24px;
+            min-height: 0;
+        }
+
+        .al-splash__panel {
+            width: 100%;
+            max-width: 560px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        /* Blueprint plot — SVG is animated by stroke-dashoffset */
+        .al-blueprint {
+            width: 100%;
+            max-width: 320px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            margin-bottom: 28px;
+        }
+
+        .al-bp-grid line {
+            stroke: var(--splash-border);
+            stroke-width: 0.5;
+        }
+
+        .al-bp-plot line,
+        .al-bp-plot polyline,
+        .al-bp-plot path {
+            fill: none;
+            stroke: var(--splash-blueprint);
+            stroke-width: 1.4;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+            stroke-dasharray: 600;
+            stroke-dashoffset: 600;
+            animation: al-trace 2.4s var(--splash-ease) forwards;
+        }
+
+        .al-bp-plot line:nth-child(1)     { animation-delay: 0ms; }
+        .al-bp-plot line:nth-child(2)     { animation-delay: 80ms; }
+        .al-bp-plot line:nth-child(3)     { animation-delay: 160ms; }
+        .al-bp-plot line:nth-child(4)     { animation-delay: 240ms; }
+        .al-bp-plot polyline:nth-of-type(1)  { animation-delay: 360ms; }
+        .al-bp-plot polyline:nth-of-type(2)  { animation-delay: 480ms; }
+        .al-bp-plot path:nth-of-type(1)      { animation-delay: 640ms; }
+
+        /* Compass dot — the focal point */
+        .al-bp-dot {
+            fill: var(--splash-accent);
+            opacity: 0;
+            animation: al-fade-in 480ms var(--splash-ease) 1100ms forwards;
+        }
+
+        .al-bp-dot-ring {
+            fill: none;
+            stroke: var(--splash-accent);
+            stroke-width: 1.2;
+            opacity: 0;
+            transform-origin: 50% 50%;
+            animation: al-pulse-ring 2.4s ease-out 1300ms infinite;
+        }
+
+        @keyframes al-trace {
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes al-fade-in {
+            to { opacity: 1; }
+        }
+
+        @keyframes al-pulse-ring {
+            0%   { opacity: 0.6; transform: scale(0.6); }
+            70%  { opacity: 0;   transform: scale(1.8); }
+            100% { opacity: 0;   transform: scale(1.8); }
+        }
+
+        .al-splash__name {
+            font-family: var(--splash-font-display);
+            font-size: 44px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--splash-text);
+            margin: 0;
+            line-height: 1.1;
+        }
+
+        .al-splash__tagline {
+            margin: 12px 0 28px;
+            font-size: 15px;
             line-height: 1.6;
-            margin-bottom: 2rem;
-            animation: fade-in-up 0.8s ease-out 0.4s both;
+            color: var(--splash-text-muted);
+            max-width: 36ch;
         }
 
-        /* Progress bar */
-        .progress-container {
-            width: 280px;
-            animation: fade-in-up 0.8s ease-out 0.6s both;
-        }
-
-        .progress-bar-wrapper {
-            height: 6px;
-            background: #e2e8f0;
-            border-radius: 3px;
+        /* Determinate-feeling progress that's actually loop-animated.
+           Hairline rule with a terracotta sweep — calm not busy. */
+        .al-splash__progress {
+            width: 100%;
+            max-width: 280px;
+            height: 2px;
+            background: var(--splash-border);
+            border-radius: 1px;
             overflow: hidden;
-            margin-bottom: 0.75rem;
+            position: relative;
         }
 
-        .progress-bar-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--ug-black) 0%, var(--ug-yellow) 50%, var(--ug-red) 100%);
-            background-size: 200% 100%;
-            border-radius: 3px;
-            animation: progress-animate 2s ease-in-out infinite, progress-gradient 3s linear infinite;
-            width: 60%;
+        .al-splash__progress::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: var(--splash-accent);
+            transform-origin: left center;
+            animation: al-progress 1.8s var(--splash-ease) infinite;
         }
 
-        .loading-status {
-            font-size: 0.85rem;
-            color: #718096;
+        @keyframes al-progress {
+            0%   { transform: translateX(-100%) scaleX(0.3); }
+            50%  { transform: translateX(0%)    scaleX(0.6); }
+            100% { transform: translateX(120%)  scaleX(0.3); }
+        }
+
+        .al-splash__status {
+            margin-top: 14px;
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--splash-text-subtle);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .al-splash__bottom {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            justify-content: space-between;
+            padding: 20px 32px;
+            gap: 16px;
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--splash-text-subtle);
         }
 
-        .loading-dots::after {
-            content: '';
-            animation: dots 1.5s steps(4, end) infinite;
+        .al-splash__bottom-spec {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 6px;
+            font-variant-numeric: tabular-nums;
         }
 
-        /* Features list */
-        .features-preview {
-            display: flex;
-            gap: 2rem;
-            margin-top: 2rem;
-            flex-wrap: wrap;
-            justify-content: center;
-            animation: fade-in-up 0.8s ease-out 0.8s both;
+        .al-splash__bottom-spec b {
+            color: var(--splash-text-muted);
+            font-weight: 600;
         }
 
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #4a5568;
-            font-size: 0.85rem;
+        @media (max-width: 540px) {
+            .al-splash__top { padding: 18px 20px; }
+            .al-splash__bottom { padding: 16px 20px; flex-wrap: wrap; }
+            .al-splash__name { font-size: 32px; }
+            .al-splash__tagline { font-size: 14px; }
+            .al-blueprint { max-width: 240px; margin-bottom: 20px; }
         }
 
-        .feature-icon {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, var(--assetlen-primary), var(--assetlen-secondary));
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1rem;
-        }
+        /* ─── Blazor error UI — calm, not catastrophic ──────────── */
 
-        /* Animations */
-        @keyframes pulse-glow {
-            0%, 100% {
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            }
-
-            50% {
-                box-shadow: 0 4px 25px rgba(214, 158, 46, 0.4);
-            }
-        }
-
-        @keyframes stripe-shimmer {
-            0%, 100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.7;
-            }
-        }
-
-        @keyframes book-open {
-            0%, 100% {
-                transform: rotateY(0deg);
-            }
-
-            50% {
-                transform: rotateY(-30deg);
-            }
-        }
-
-        @keyframes page-fly {
-            0% {
-                opacity: 0;
-                transform: translate(50px, 40px) rotate(0deg) scale(0.5);
-            }
-
-            20% {
-                opacity: 1;
-            }
-
-            80% {
-                opacity: 1;
-            }
-
-            100% {
-                opacity: 0;
-                transform: translate(150px, -60px) rotate(25deg) scale(1);
-            }
-        }
-
-        @keyframes float-doc {
-            0%, 100% {
-                transform: translateY(0) rotate(0deg);
-            }
-
-            50% {
-                transform: translateY(-10px) rotate(5deg);
-            }
-        }
-
-        @keyframes fade-in-up {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes progress-animate {
-            0% {
-                width: 20%;
-            }
-
-            50% {
-                width: 80%;
-            }
-
-            100% {
-                width: 20%;
-            }
-        }
-
-        @keyframes progress-gradient {
-            0% {
-                background-position: 0% 50%;
-            }
-
-            100% {
-                background-position: 200% 50%;
-            }
-        }
-
-        @keyframes dots {
-            0% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
-
-            100% {
-                content: '';
-            }
-        }
-
-        /* Responsive */
-        @media (max-width: 480px) {
-            .loading-title {
-                font-size: 1.4rem;
-            }
-
-            .loading-slogan {
-                font-size: 1rem;
-            }
-
-            .features-preview {
-                gap: 1rem;
-            }
-
-            .book-animation {
-                transform: scale(0.8);
-            }
-        }
-
-        /* Custom Error Toast Styles */
         #blazor-error-ui {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
+            inset: auto 24px 24px 24px;
+            max-width: 480px;
+            margin-left: auto;
+            background: var(--splash-bg-elevated);
+            border: 1px solid var(--splash-border-strong);
+            border-left: 3px solid var(--splash-accent);
+            border-radius: 10px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 24px rgba(26, 29, 33, 0.10);
+            color: var(--splash-text);
+            font-size: 14px;
+            line-height: 1.5;
             z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            animation: error-fade-in 0.3s ease-out;
         }
 
-            #blazor-error-ui[style*="display: block"],
-            #blazor-error-ui[style*="display:block"] {
-                display: flex !important;
-            }
-
-        .error-toast {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            max-width: 420px;
-            width: 90%;
-            overflow: hidden;
-            animation: error-slide-up 0.4s ease-out;
-        }
-
-        .error-toast-header {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-            padding: 1.25rem 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .error-icon {
-            width: 48px;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            flex-shrink: 0;
-        }
-
-        .error-toast-header h3 {
-            color: white;
-            margin: 0;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .error-toast-header p {
-            color: rgba(255, 255, 255, 0.85);
-            margin: 0.25rem 0 0;
-            font-size: 0.85rem;
-        }
-
-        .error-toast-body {
-            padding: 1.5rem;
-        }
-
-        .error-message {
-            color: #374151;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            margin-bottom: 1.25rem;
-        }
-
-        .error-code {
-            background: #f3f4f6;
-            border-left: 4px solid #dc2626;
-            padding: 0.75rem 1rem;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.8rem;
-            color: #6b7280;
-            margin-bottom: 1.25rem;
-            border-radius: 0 8px 8px 0;
-            word-break: break-word;
-        }
-
-        .error-actions {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .btn-reload {
-            flex: 1;
-            min-width: 140px;
-            padding: 0.75rem 1.25rem;
-            background: linear-gradient(135deg, var(--assetlen-primary) 0%, var(--assetlen-secondary) 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            transition: all 0.2s ease;
+        #blazor-error-ui .reload,
+        #blazor-error-ui .dismiss {
+            color: var(--splash-accent);
             text-decoration: none;
-        }
-
-            .btn-reload:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(26, 54, 93, 0.4);
-                color: white;
-            }
-
-        .btn-dismiss {
-            padding: 0.75rem 1.25rem;
-            background: #f3f4f6;
-            color: #4b5563;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 13px;
+            margin-right: 12px;
             cursor: pointer;
-            transition: all 0.2s ease;
         }
 
-            .btn-dismiss:hover {
-                background: #e5e7eb;
-            }
-
-        .error-footer {
-            padding: 1rem 1.5rem;
-            background: #f9fafb;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
+        #blazor-error-ui .reload:hover,
+        #blazor-error-ui .dismiss:hover {
+            text-decoration: underline;
         }
 
-            .error-footer p {
-                margin: 0;
-                font-size: 0.8rem;
-                color: #6b7280;
-            }
-
-            .error-footer a {
-                color: var(--assetlen-primary);
-                text-decoration: none;
-                font-weight: 500;
-            }
-
-                .error-footer a:hover {
-                    text-decoration: underline;
-                }
-
-        @keyframes error-fade-in {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
+        .blazor-error-boundary {
+            background: var(--splash-bg-elevated);
+            border: 1px solid var(--splash-border-strong);
+            border-left: 3px solid var(--splash-accent);
+            border-radius: 10px;
+            color: var(--splash-text);
+            padding: 16px 20px;
+            margin: 16px;
         }
 
-        @keyframes error-slide-up {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .error-toast-header {
-                padding: 1rem;
-            }
-
-            .error-toast-body {
-                padding: 1rem;
-            }
-
-            .error-actions {
-                flex-direction: column;
-            }
-
-            .btn-reload, .btn-dismiss {
-                width: 100%;
-            }
+        .blazor-error-boundary::before {
+            content: "Something didn't load. ";
+            font-weight: 600;
         }
     </style>
 </head>
 
 <body>
     <div id="app">
-        <!-- Header with Uganda branding -->
-        <header class="loading-header">
-            <div class="emblem-container">
-                <img src="_content/assetlen.Shared/Coat_of_arms_of_Uganda.png" 
-                     alt="Coat of arms of Uganda"
-                     onerror="this.style.display='none'" />
+        <!-- ASSETLEN bootstrap splash — replaced by the Blazor root once the WASM bundle is live. -->
+        <div class="al-splash" aria-hidden="true">
+            <div class="al-splash__top">
+                <div class="al-splash__brand">ASSETLEN</div>
+                <div class="al-splash__meta">Architectural folio · v1.0</div>
             </div>
-            <h1>The Republic of Uganda</h1>
-            <h2>Ministry of Works & Transport</h2>
-        </header>
+            <div class="al-splash__rule"></div>
 
-        <!-- Flag stripes -->
-        <div class="flag-stripes">
-            <div class="stripe"></div>
-            <div class="stripe"></div>
-            <div class="stripe"></div>
+            <div class="al-splash__stage">
+                <div class="al-splash__panel">
+                    <!-- Animated blueprint — a hairline grid behind a traced floor plan -->
+                    <svg class="al-blueprint" viewBox="0 0 200 200" fill="none" role="img" aria-label="ASSETLEN architectural mark">
+                        <!-- Background grid (static) -->
+                        <g class="al-bp-grid">
+                            <line x1="0"   y1="40"  x2="200" y2="40" />
+                            <line x1="0"   y1="80"  x2="200" y2="80" />
+                            <line x1="0"   y1="120" x2="200" y2="120" />
+                            <line x1="0"   y1="160" x2="200" y2="160" />
+                            <line x1="40"  y1="0"   x2="40"  y2="200" />
+                            <line x1="80"  y1="0"   x2="80"  y2="200" />
+                            <line x1="120" y1="0"   x2="120" y2="200" />
+                            <line x1="160" y1="0"   x2="160" y2="200" />
+                        </g>
+
+                        <!-- Plot: an abstract floor plan traced in sequence -->
+                        <g class="al-bp-plot">
+                            <!-- Outer envelope (drawn first, edge by edge) -->
+                            <line x1="30"  y1="40"  x2="170" y2="40" />
+                            <line x1="170" y1="40"  x2="170" y2="160" />
+                            <line x1="170" y1="160" x2="30"  y2="160" />
+                            <line x1="30"  y1="160" x2="30"  y2="40" />
+
+                            <!-- Interior partitions -->
+                            <polyline points="30,100 100,100 100,40" />
+                            <polyline points="100,100 170,100" />
+
+                            <!-- A door swing / arc -->
+                            <path d="M 100 100 A 18 18 0 0 1 118 118" />
+                        </g>
+
+                        <!-- Compass dot (accent) -->
+                        <circle class="al-bp-dot-ring" cx="100" cy="100" r="14" />
+                        <circle class="al-bp-dot" cx="100" cy="100" r="3.4" />
+                    </svg>
+
+                    <h1 class="al-splash__name">ASSETLEN</h1>
+                    <p class="al-splash__tagline">
+                        Real-estate project management — built for contractors who want to deliver the work, not the dashboard.
+                    </p>
+
+                    <div class="al-splash__progress" role="progressbar" aria-label="Loading application"></div>
+                    <div class="al-splash__status">
+                        <span id="al-splash-status-text">Loading workspace</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="al-splash__rule"></div>
+            <div class="al-splash__bottom">
+                <span class="al-splash__bottom-spec"><b>scale</b> mobile · tablet · desktop</span>
+                <span class="al-splash__bottom-spec"><b>dwg</b> AL-001</span>
+            </div>
         </div>
-
-        <!-- Main loading content -->
-        <main class="loading-content">
-            <!-- Book animation -->
-            <div class="book-animation">
-                <!-- Floating document icons -->
-                <div class="floating-docs">
-                    <span class="doc-icon">📄</span>
-                    <span class="doc-icon">📋</span>
-                    <span class="doc-icon">📑</span>
-                    <span class="doc-icon">📖</span>
-                </div>
-
-                <!-- Animated book -->
-                <div class="book">
-                    <div class="book-spine"></div>
-                    <div class="book-cover"></div>
-                </div>
-
-                <!-- Flying pages -->
-                <div class="flying-pages">
-                    <div class="page"></div>
-                    <div class="page"></div>
-                    <div class="page"></div>
-                    <div class="page"></div>
-                </div>
-            </div>
-
-            <!-- Text content -->
-            <h1 class="loading-title">ASSETLEN</h1>
-            <p class="loading-slogan">"Knowledge at Your Fingertips"</p>
-            <p class="loading-description">
-                Your digital gateway to official transport manuals, technical documents, 
-                and regulatory guidelines. Access, read, and collaborate on essential 
-                resources anytime, anywhere.
-            </p>
-
-            <!-- Progress indicator -->
-            <div class="progress-container">
-                <div class="progress-bar-wrapper">
-                    <div class="progress-bar-fill"></div>
-                </div>
-                <div class="loading-status">
-                    <span>Preparing your library</span>
-                    <span class="loading-dots"></span>
-                </div>
-            </div>
-
-            <!-- Feature preview -->
-            <div class="features-preview">
-                <div class="feature-item">
-                    <div class="feature-icon">📚</div>
-                    <span>Digital Library</span>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-icon">🔍</div>
-                    <span>Smart Search</span>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-icon">💬</div>
-                    <span>Collaboration</span>
-                </div>
-            </div>
-        </main>
     </div>
 
     <div id="blazor-error-ui">
-        <div class="error-toast">
-            <div class="error-toast-header">
-                <div class="error-icon">⚠️</div>
-                <div>
-                    <h3>Application Error</h3>
-                    <p>Something unexpected happened</p>
-                </div>
-            </div>
-            <div class="error-toast-body">
-                <p class="error-message">
-                    We apologize for the inconvenience. The application encountered an unexpected error 
-                    and could not complete your request. Please reload the page to continue.
-                </p>
-                <div class="error-code">
-                    Error Reference: ASSETLEN-ERR-<script>document.write(Date.now().toString(36).toUpperCase())</script>
-                </div>
-                <div class="error-actions">
-                    <a href="/" class="btn-reload" onclick="location.href='/'; location.reload(); return false;">
-                        <span>🔄</span> Reload Application
-                    </a>
-                    <button type="button" class="btn-dismiss" onclick="this.closest('#blazor-error-ui').style.display='none'">
-                        Dismiss
-                    </button>
-                </div>
-            </div>
-            <div class="error-footer">
-                <p>If this issue persists, please <a href="mailto:support@assetlen.com">contact the administrator</a> with the error reference above.</p>
-            </div>
-        </div>
+        Something didn't load.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss" onclick="this.closest('#blazor-error-ui').style.display='none'">Dismiss</a>
     </div>
 
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
     <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Mark the splash for removal once the Blazor root has mounted.
+        // The CSS hides .al-splash when body.al-ready is set; this keeps
+        // the splash a layout sibling instead of a child of #app, so the
+        // transition out doesn't fight Blazor's hydration.
+        (function () {
+            var statusEl = document.getElementById('al-splash-status-text');
+            var statuses = ['Loading workspace', 'Composing layout', 'Tracing baselines', 'Almost there'];
+            var i = 0;
+            var t = setInterval(function () {
+                i = (i + 1) % statuses.length;
+                if (statusEl) statusEl.textContent = statuses[i];
+            }, 1800);
+
+            // When Blazor renders into #app the splash is no longer the only child.
+            var app = document.getElementById('app');
+            if (!app) return;
+            var observer = new MutationObserver(function () {
+                var hasBlazorContent = Array.from(app.children).some(function (child) {
+                    return !child.classList || !child.classList.contains('al-splash');
+                });
+                if (hasBlazorContent) {
+                    document.body.classList.add('al-ready');
+                    clearInterval(t);
+                    observer.disconnect();
+                    setTimeout(function () {
+                        var splash = document.querySelector('.al-splash');
+                        if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+                    }, 320);
+                }
+            });
+            observer.observe(app, { childList: true, subtree: false });
+        })();
+    </script>
 </body>
 
 </html>

@@ -6,6 +6,14 @@ This file is the single source of truth for product naming, aesthetic, multi-ten
 
 ---
 
+## 0. Working agreement
+
+- **Never run `git commit` or `git push`.** The user commits manually. You may stage with `git add` only when the user explicitly asks; otherwise leave the working tree dirty after a change and let the user inspect the diff. This applies even when "the phase is done" or "the build is green" — the call to commit is the user's.
+- Update [plan.md](plan.md) when a phase completes, but **leave it unstaged** along with everything else. The user will batch all changes into a single commit on their side.
+- Verify CSS reachability in the browser DevTools after touching anything under `wwwroot/` or any `.razor.css` (see §4.1). A green `dotnet build` does not prove the styles loaded.
+
+---
+
 ## 1. Product naming (canonical)
 
 Use these terms everywhere — UI copy, file names, type names, route segments.
@@ -107,10 +115,12 @@ Carousel auto-slide: **5000ms** dwell, **400ms** cross-fade. Pause on hover and 
 
 ### 4.1 CSS
 
-- Component styles live in a co-located `Foo.razor.css`. No global selectors there.
-- Shared tokens, resets, utilities, and keyframes live in [assetlen/assetlen.Shared/Styles/app.css](assetlen/assetlen.Shared/Styles/app.css). When you find duplication across two `.razor.css` files, promote it to `app.css`.
+- Component styles live in a co-located `Foo.razor.css`. No global selectors there. **Every `.razor` file must have its sibling `.razor.css`** — even if the file just declares the component-scoped class names. A missing sibling is a bug.
+- Shared tokens, resets, utilities, and keyframes live in [assetlen/assetlen.Shared/wwwroot/app.css](assetlen/assetlen.Shared/wwwroot/app.css). **It MUST live under `wwwroot/`** — Razor Class Libraries only serve static assets from `wwwroot/`, never from arbitrary folders like `Styles/`. Files outside `wwwroot/` will silently 404 in the browser and every `var(--al-*)` token will resolve to nothing. The bundle is referenced as `<link href="_content/assetlen.Shared/app.css" />` from `assetlen.Client/wwwroot/index.html`.
+- Component-scoped `.razor.css` files are bundled separately by Blazor CSS isolation and reach the browser via `assetlen.Client.styles.css` (which auto-imports the RCL's `*.bundle.scp.css`). You do **not** link them by hand — but they only work once `app.css` (the token source) is loading, since scoped rules reference `--al-*`.
 - Class naming: kebab-case, component-prefixed. `al-card`, `al-card__title`, `al-card--featured`. The `al-` prefix is mandatory for shared utilities; per-component classes use the component name (e.g. `project-card`, `project-card__cover`).
 - Never write a literal color, font-family, radius, or duration. Use a token.
+- After adding or moving any global CSS, manually verify it's reachable in DevTools (Network tab → filter `.css` → confirm 200, not 404).
 
 ### 4.2 Razor
 
@@ -138,8 +148,10 @@ assetlen/assetlen.Shared/
     Navigation/                     Breadcrumbs (name-based), Header, SideNav
     Media/                          MediaCarousel, GhostFrame, EntryThumb
     UI/                             Card, Badge, Button overrides
-  Styles/
+  wwwroot/
     app.css                         tokens, resets, utilities, keyframes — ONLY
+                                    (MUST live here so the RCL serves it
+                                    as /_content/assetlen.Shared/app.css)
   Layout/                           MainLayout, header/footer shell
   Pages/                            top-level routes only (e.g. /, /login). Module routes live inside the module.
 ```

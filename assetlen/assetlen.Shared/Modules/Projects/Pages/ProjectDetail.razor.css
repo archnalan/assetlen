@@ -1,5 +1,5 @@
 /* ProjectDetail — scoped via Blazor CSS isolation.
-   Module-wide tokens come from --al-* in Styles/app.css. */
+   Module-wide tokens come from --al-* in wwwroot/app.css. */
 
 .project-input {
     width: 100%;

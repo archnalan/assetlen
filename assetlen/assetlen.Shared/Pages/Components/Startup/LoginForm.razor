@@ -1,39 +1,78 @@
-﻿@using assetlen.Shared.Models.Models
+@using assetlen.Shared.Models.Models
 @inject ILogger<LoginForm> _logger
 
-<FluentEditForm EditContext="@EditContext" OnValidSubmit="HandleFormSubmit" novalidate>
-    <FluentTextField Size="30" Placeholder="Email or username" @bind-Value="LoginDto.Email"
-                     Style="width: 100%; margin-bottom: 1rem;" AutoComplete="off">
-        <FluentIcon Value="@(new Icons.Regular.Size16.Person())" Slot="start" Color="Color.Neutral" />
-    </FluentTextField>
-
-    <FluentTextField Size="30" Placeholder="Password" @bind-Value="LoginDto.Password" Type="password"
-                     Style="width: 100%; margin-bottom: 0.5rem;"                     @onkeydown="@(e => HandleKeyDown(e, () => HandleFormSubmit()))"
-                     AutoComplete="off">
-        <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Slot="start" Color="Color.Neutral" />
-    </FluentTextField>
-
-    @if (OnForgotPassword.HasDelegate)
-    {
-        <div style="text-align: right; margin-bottom: 1rem;">
-            <a href="javascript:void(0)" @onclick="OnForgotPassword"
-                   style="font-size: 14px; color: var(--accent-fill-rest); text-decoration: none;">
-                Forgot password?
-            </a>
+<EditForm EditContext="@EditContext" OnValidSubmit="HandleFormSubmit" class="lf">
+    <div class="lf__field">
+        <label class="lf__label" for="lf-email">Email or username</label>
+        <div class="lf__input-wrap">
+            <svg class="lf__input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+            </svg>
+            <input id="lf-email" class="lf__input" type="text" autocomplete="username"
+                   placeholder="you@studio.com"
+                   @bind-value="LoginDto.Email" @bind-value:event="oninput" />
         </div>
-    }
+    </div>
 
-    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Loading="@isLoading"
-                  IconEnd="@(new Icons.Regular.Size20.ArrowEnter())"                  Style="width: 100%; min-height: 2.5rem; font-weight: 600;"
-                  OnClick="HandleFormSubmit">
-        Sign In
-    </FluentButton>
+    <div class="lf__field">
+        <div class="lf__label-row">
+            <label class="lf__label" for="lf-password">Password</label>
+            @if (OnForgotPassword.HasDelegate)
+            {
+                <button type="button" class="lf__forgot" @onclick="OnForgotPassword">Forgot?</button>
+            }
+        </div>
+        <div class="lf__input-wrap">
+            <svg class="lf__input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <input id="lf-password" class="lf__input" type="@(showPassword ? "text" : "password")"
+                   autocomplete="current-password"
+                   placeholder="••••••••"
+                   @bind-value="LoginDto.Password" @bind-value:event="oninput"
+                   @onkeydown="@(e => HandleKeyDown(e))" />
+            <button type="button" class="lf__reveal" @onclick="() => showPassword = !showPassword"
+                    aria-label="@(showPassword ? "Hide password" : "Show password")">
+                @if (showPassword)
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.55 18.55 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.45 18.45 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                }
+            </button>
+        </div>
+    </div>
 
-    <div style="min-height: 2rem; margin-top: 0.75rem;">
+    <button type="submit" class="lf__submit" disabled="@isLoading">
+        @if (isLoading)
+        {
+            <span class="lf__spinner" aria-hidden="true"></span>
+            <text>Signing in…</text>
+        }
+        else
+        {
+            <text>Sign in</text>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+            </svg>
+        }
+    </button>
+
+    <div class="lf__validation">
         <DataAnnotationsValidator />
         <ValidationSummary />
     </div>
-</FluentEditForm>
+</EditForm>
 
 @code {
     [Parameter] public UserLogin LoginDto { get; set; } = default!;
@@ -43,15 +82,10 @@
     [Parameter] public bool isLoading { get; set; }
     [Parameter] public EventCallback OnForgotPassword { get; set; }
 
-    private bool _isFirstSubmit = true;
+    private bool showPassword;
 
     private async Task HandleFormSubmit()
     {
-        if (_isFirstSubmit)
-        {
-            _isFirstSubmit = false;
-            return;
-        }
         await ClearErrors.InvokeAsync();
         if (isLoading) return;
         isLoading = true;
@@ -59,12 +93,12 @@
         isLoading = false;
     }
 
-    private async Task HandleKeyDown(KeyboardEventArgs e, Func<Task> submitAction)
+    private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
-            await Task.Delay(100);
-            await submitAction.Invoke();
+            await Task.Delay(50);
+            await HandleFormSubmit();
         }
     }
 }

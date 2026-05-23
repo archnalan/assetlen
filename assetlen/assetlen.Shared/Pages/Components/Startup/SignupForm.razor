@@ -1,128 +1,139 @@
-﻿@using Newtonsoft.Json
+@using Newtonsoft.Json
 @using assetlen.Shared.Models.Models
 @using assetlen.Shared.Models.Models.ViewModels.Users
 @inject ILogger<SignupForm> _logger
 
-<div class="signup-form">
+<div class="sf">
     @switch (currentStep)
     {
         case SignupStep.ChooseMethod:
-            <!-- Step 1: Choose signup method -->
-            <div class="signup-methods">
-                <FluentButton Appearance="Appearance.Outline"
-                              Style="width: 100%; min-height: 2.5rem; font-weight: 500; margin-bottom: 0.75rem;"
-                              @onclick="SignupWithGoogle" Disabled="isProcessing">
-                    <svg width="18" height="18" viewBox="0 0 18 18" style="margin-right: 0.5rem;">
-                        <path            d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"
-                                         fill="#4285F4" />
-                        <path            d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"
-                                         fill="#34A853" />
-                        <path            d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"
-                                         fill="#FBBC05" />
-                        <path            d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.166 6.656 3.58 9 3.58Z"
-                                         fill="#EA4335" />
+            <div class="sf__methods">
+                <button type="button" class="sf__btn sf__btn--ghost"
+                        @onclick="SignupWithGoogle" disabled="@isProcessing">
+                    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+                        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
+                        <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853" />
+                        <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z" fill="#FBBC05" />
+                        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.166 6.656 3.58 9 3.58Z" fill="#EA4335" />
                     </svg>
                     Continue with Google
-                </FluentButton>
+                </button>
 
-                <div class="method-divider">
-                    <span>or sign up with email/phone</span>
-                </div>
+                <div class="sf__divider"><span>or</span></div>
 
-                <FluentButton Appearance="Appearance.Outline"                              Style="width: 100%; min-height: 2.5rem; font-weight: 500;"
-                              @onclick="StartSignup">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.PersonAdd())" Style="margin-right: 0.4rem;" />
-                    Sign up with Email or Phone
-                </FluentButton>
+                <button type="button" class="sf__btn sf__btn--ghost" @onclick="StartSignup">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                        <line x1="19" y1="8" x2="19" y2="14" />
+                        <line x1="22" y1="11" x2="16" y2="11" />
+                    </svg>
+                    Sign up with email or phone
+                </button>
+
+                <p class="sf__switch">
+                    Already on ASSETLEN?
+                    <button type="button" class="sf__link" @onclick="() => OnBackToLogin.InvokeAsync()">Sign in</button>
+                </p>
             </div>
             break;
 
         case SignupStep.SignupForm:
-            <!-- Step 2: Combined signup form -->
-            <div class="signup-form-content">
-                <FluentTextField Placeholder="First name" @bind-Value="firstName"                                 Style="width: 100%; margin-bottom: 0.75rem;">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.Person())" Slot="start" Color="Color.Neutral" />
-                </FluentTextField>
-
-                <FluentTextField Placeholder="Last name" @bind-Value="lastName"                                 Style="width: 100%; margin-bottom: 0.75rem;">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.Person())" Slot="start" Color="Color.Neutral" />
-                </FluentTextField>
-
-                <FluentTextField Placeholder="Email address (optional)" @bind-Value="email"
-                                 Style="width: 100%; margin-bottom: 0.75rem;"                                 TextFieldType="TextFieldType.Email">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.Mail())" Slot="start" Color="Color.Neutral" />
-                </FluentTextField>
-
-                <FluentTextField Placeholder="Phone number (optional)" @bind-Value="phoneNumber"
-                                 Style="width: 100%; margin-bottom: 0.75rem;" TextFieldType="TextFieldType.Tel">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.Phone())" Slot="start" Color="Color.Neutral" />
-                </FluentTextField>
-
-                <div style="color: var(--neutral-foreground-rest); font-size: 0.8rem; margin-bottom: 0.75rem; opacity: 0.8;">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.Info())" Style="margin-right: 0.3rem;" />
-                    At least one (email or phone) is required
+            <div class="sf__form">
+                <div class="sf__row">
+                    <div class="sf__field">
+                        <label class="sf__label" for="sf-first">First name</label>
+                        <input id="sf-first" class="sf__input" autocomplete="given-name"
+                               placeholder="Asha"
+                               @bind-value="firstName" @bind-value:event="oninput" />
+                    </div>
+                    <div class="sf__field">
+                        <label class="sf__label" for="sf-last">Last name</label>
+                        <input id="sf-last" class="sf__input" autocomplete="family-name"
+                               placeholder="Mukasa"
+                               @bind-value="lastName" @bind-value:event="oninput" />
+                    </div>
                 </div>
 
-                <FluentTextField Placeholder="Create password" @bind-Value="password" Type="password"
-                                 Style="width: 100%; margin-bottom: 0.75rem;">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Slot="start" Color="Color.Neutral" />
-                </FluentTextField>
+                <div class="sf__field">
+                    <label class="sf__label" for="sf-email">Email <span class="sf__opt">optional</span></label>
+                    <input id="sf-email" class="sf__input" type="email" autocomplete="email"
+                           placeholder="you@studio.com"
+                           @bind-value="email" @bind-value:event="oninput" />
+                </div>
 
-                <FluentTextField Placeholder="Confirm password" @bind-Value="confirmPassword" Type="password"
-                                 Style="width: 100%; margin-bottom: 1rem;">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Slot="start" Color="Color.Neutral" />
-                </FluentTextField>
+                <div class="sf__field">
+                    <label class="sf__label" for="sf-phone">Phone <span class="sf__opt">optional</span></label>
+                    <input id="sf-phone" class="sf__input" type="tel" autocomplete="tel"
+                           placeholder="+256 7XX XXX XXX"
+                           @bind-value="phoneNumber" @bind-value:event="oninput" />
+                </div>
+
+                <p class="sf__hint">Give us at least one — email or phone — so we can verify your account.</p>
+
+                <div class="sf__field">
+                    <label class="sf__label" for="sf-pw">Password</label>
+                    <input id="sf-pw" class="sf__input" type="password" autocomplete="new-password"
+                           placeholder="At least 8 characters"
+                           @bind-value="password" @bind-value:event="oninput" />
+                </div>
+
+                <div class="sf__field">
+                    <label class="sf__label" for="sf-pw2">Confirm password</label>
+                    <input id="sf-pw2" class="sf__input" type="password" autocomplete="new-password"
+                           placeholder="Re-enter password"
+                           @bind-value="confirmPassword" @bind-value:event="oninput" />
+                </div>
 
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
-                    <div class="signup-error">@errorMessage</div>
+                    <div class="sf__alert sf__alert--error" role="alert">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <span>@errorMessage</span>
+                    </div>
                 }
 
-                <FluentButton Appearance="Appearance.Accent" Style="width: 100%; min-height: 2.5rem; font-weight: 600;"
-                              @onclick="SubmitSignup" Disabled="isProcessing" Loading="isProcessing">
-                    @if (!isProcessing)
+                <button type="button" class="sf__btn sf__btn--primary"
+                        @onclick="SubmitSignup" disabled="@isProcessing">
+                    @if (isProcessing)
                     {
-                        <FluentIcon Value="@(new Icons.Regular.Size16.PersonAdd())" Style="margin-right: 0.5rem;" />
+                        <span class="sf__spinner" aria-hidden="true"></span>
+                        <text>Creating account…</text>
                     }
-                    Create Account
-                </FluentButton>
+                    else
+                    {
+                        <text>Create account</text>
+                    }
+                </button>
+
+                <button type="button" class="sf__back" @onclick="GoBackStep">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    Back
+                </button>
             </div>
             break;
 
         case SignupStep.Success:
-            <!-- Step 3: Account created -->
-            <div class="success-section">
-                <div class="success-icon">
-                    <FluentIcon Value="@(new Icons.Regular.Size48.CheckmarkCircle())" Color="Color.Custom"
-                                CustomColor="#38a169" />
-                </div>
-                <h3>Account created!</h3>
-                <p>Your account has been created successfully. Please verify your @(hasEmail ? "email" : "phone number") on
-                    first login.</p>
-
-                    <FluentButton Appearance="Appearance.Accent"
-                                  Style="width: 100%; min-height: 2.5rem; font-weight: 600; margin-top: 1rem;"                              @onclick="GoToLogin">
-                        Sign In Now
-                    </FluentButton>
-                </div>
-                break;
-            }
-
-            @if (currentStep == SignupStep.SignupForm)
-            {
-                <button class="back-btn" @onclick="GoBackStep">
-                    <FluentIcon Value="@(new Icons.Regular.Size16.ArrowLeft())" />
-                    Back
+            <div class="sf__success">
+                <svg class="sf__success-mark" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="24" cy="24" r="22" />
+                    <polyline points="14 24 21 31 34 18" />
+                </svg>
+                <h3 class="sf__success-title">Account created</h3>
+                <p class="sf__success-desc">
+                    Verify your @(hasEmail ? "email" : "phone number") on first sign-in and you're set.
+                </p>
+                <button type="button" class="sf__btn sf__btn--primary" @onclick="GoToLogin">
+                    Sign in now
                 </button>
-            }
-            else if (currentStep == SignupStep.ChooseMethod)
-            {
-                <div class="login-link">
-                    Already have an account?
-                    <button @onclick="() => OnBackToLogin.InvokeAsync()">Sign in</button>
-                </div>
-            }
-    </div>
+            </div>
+            break;
+    }
+</div>
 
 @code {
     [Parameter] public EventCallback OnSignupComplete { get; set; }
@@ -132,7 +143,6 @@
     private enum SignupStep { ChooseMethod, SignupForm, Success }
     private SignupStep currentStep = SignupStep.ChooseMethod;
 
-    // Form fields
     private string firstName = "";
     private string lastName = "";
     private string email = "";
@@ -156,7 +166,6 @@
             isProcessing = true;
             errorMessage = "";
             StateHasChanged();
-
             await OnSignupWithGoogle.InvokeAsync();
         }
         catch (Exception ex)
@@ -175,40 +184,34 @@
     {
         errorMessage = "";
 
-        // Validation
         if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
         {
             errorMessage = "Please enter your first and last name.";
             return;
         }
-
         if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(phoneNumber))
         {
             errorMessage = "Please provide either an email address or phone number.";
             return;
         }
-
         if (!string.IsNullOrWhiteSpace(email) && !email.Contains("@"))
         {
-            errorMessage = "Please enter a valid email address.";
+            errorMessage = "That email doesn't look right.";
             return;
         }
-
         if (!string.IsNullOrWhiteSpace(phoneNumber) && phoneNumber.Length < 10)
         {
-            errorMessage = "Please enter a valid phone number (at least 10 digits).";
+            errorMessage = "Phone number needs at least 10 digits.";
             return;
         }
-
         if (string.IsNullOrWhiteSpace(password) || password.Length < 4)
         {
             errorMessage = "Password must be at least 4 characters.";
             return;
         }
-
         if (password != confirmPassword)
         {
-            errorMessage = "Passwords do not match.";
+            errorMessage = "Passwords don't match.";
             return;
         }
 
@@ -217,18 +220,16 @@
             isProcessing = true;
             StateHasChanged();
 
-            // Check if email is taken (if provided)
             if (!string.IsNullOrWhiteSpace(email))
             {
                 var emailCheck = await _auth.EmailTaken(email);
                 if (emailCheck.IsSuccessStatusCode && emailCheck.Content)
                 {
-                    errorMessage = "This email is already registered. Please sign in instead.";
+                    errorMessage = "This email is already registered. Try signing in.";
                     return;
                 }
             }
 
-            // Create user account
             var registerDto = new RegisterUserDto
             {
                 FirstName = firstName,
@@ -244,26 +245,21 @@
             {
                 hasEmail = !string.IsNullOrWhiteSpace(email);
                 currentStep = SignupStep.Success;
-                ToastService.ShowSuccess("Account created successfully!");
+                ToastService.ShowSuccess("Account created.");
             }
             else
             {
                 var errorContent = result.Error?.Content;
                 var errorJson = JsonConvert.DeserializeObject<JToken>(errorContent)?["message"];
-                if (!string.IsNullOrEmpty(errorContent))
-                {
-                    errorMessage = errorJson?.ToString()??errorContent;
-                }
-                else
-                {
-                    errorMessage = "Failed to create account. Please try again.";
-                }
+                errorMessage = !string.IsNullOrEmpty(errorContent)
+                    ? errorJson?.ToString() ?? errorContent
+                    : "Couldn't create the account. Please try again.";
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during signup");
-            errorMessage = "Something went wrong. Please try again.";
+            errorMessage = "Something went wrong on our end. Please try again.";
         }
         finally
         {
@@ -278,8 +274,5 @@
         currentStep = SignupStep.ChooseMethod;
     }
 
-    private void GoToLogin()
-    {
-        OnSignupComplete.InvokeAsync();
-    }
+    private void GoToLogin() => OnSignupComplete.InvokeAsync();
 }

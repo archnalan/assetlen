@@ -38,6 +38,7 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 2.4 | Curated Client view — `ClientVisible` gating end-to-end | Done | `f0af240` |
 | 3.1 | Timeline graph (expected vs actual layers) | Done | `36777d4` |
 | 3.2 | Finance: receipts, budgets, projections, versioning | Done | `10a1ffa` |
+| 3.3 | Accessibility — curate nav, drop stale POS sidebar, breadcrumbs | Done | `a194bf0` |
 | 4.1 | WhatsApp bridge | Planned | — |
 | 4.2 | Visual search ("trench") | Planned | — |
 | 4.3 | Hybrid media: Google Drive per contractor | Planned | — |

@@ -92,3 +92,14 @@ public interface IFlagDAL
     Task<ServiceResult<FlagDto>> ResolveFlag(string flagId, string actingUserId);
     Task<ServiceResult<FlagDto>> NudgeFlag(string flagId, string actingUserId);
 }
+
+public interface IBudgetDAL
+{
+    Task<ServiceResult<ProjectBudgetSummaryDto>> GetSummary(string projectId, string actingUserId);
+    Task<ServiceResult<BudgetLineItemDto>> AddLineItem(BudgetLineItemCreateDto dto, string actingUserId);
+    Task<ServiceResult<BudgetLineItemDto>> UpdateLineItem(BudgetLineItemUpdateDto dto, string actingUserId);
+    Task<ServiceResult<bool>> DeleteLineItem(string lineItemId, string actingUserId);
+    Task<ServiceResult<ReceiptDto>> AddReceipt(ReceiptCreateDto dto, string actingUserId);
+    Task<ServiceResult<List<ReceiptDto>>> GetReceiptsByLineItem(string lineItemId, string actingUserId);
+    Task<ServiceResult<bool>> DeleteReceipt(string receiptId, string actingUserId);
+}

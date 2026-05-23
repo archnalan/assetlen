@@ -1,0 +1,388 @@
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@inject ILogger<BudgetTab> Logger
+
+@if (loading)
+{
+    <div class="project-skeleton project-skeleton-card" style="height:120px;"></div>
+    <div class="project-skeleton project-skeleton-card project-mt-sm" style="height:200px;"></div>
+}
+else if (summary is null)
+{
+    <p class="project-text-sm project-text-muted">Budget unavailable for this project.</p>
+}
+else
+{
+    <section class="budget-summary">
+        <div class="budget-summary__stats al-num">
+            <div class="budget-summary__stat">
+                <span class="budget-summary__label">Project budget</span>
+                <span class="budget-summary__value">@FormatCurrency(summary.ProjectBudget)</span>
+            </div>
+            <div class="budget-summary__stat">
+                <span class="budget-summary__label">Planned</span>
+                <span class="budget-summary__value">@FormatCurrency(summary.TotalPlanned)</span>
+                <span class="budget-summary__sub">@summary.AllocationPercent% of budget</span>
+            </div>
+            <div class="budget-summary__stat">
+                <span class="budget-summary__label">Spent</span>
+                <span class="budget-summary__value">@FormatCurrency(summary.TotalSpent)</span>
+                <span class="budget-summary__sub">@summary.SpendPercent% of plan</span>
+            </div>
+            <div class="budget-summary__stat">
+                <span class="budget-summary__label">Remaining</span>
+                <span class="budget-summary__value @(summary.Remaining < 0 ? "is-negative" : "")">@FormatCurrency(summary.Remaining)</span>
+            </div>
+        </div>
+
+        @if (summary.PlannedByCategory.Count > 0)
+        {
+            <div class="budget-summary__chart">
+                <div class="budget-summary__chart-header">
+                    <span class="project-text-xs project-text-muted">Spend by category</span>
+                </div>
+                @foreach (var cat in summary.PlannedByCategory.Keys.OrderBy(k => (int)k))
+                {
+                    var planned = summary.PlannedByCategory[cat];
+                    var spent = summary.SpentByCategory.TryGetValue(cat, out var s) ? s : 0;
+                    var spentPct = planned > 0 ? Math.Min((double)(spent / planned) * 100, 100) : 0;
+                    <div class="budget-cat-row">
+                        <span class="budget-cat-row__swatch budget-cat-row__swatch--@CategoryClass(cat)"></span>
+                        <span class="budget-cat-row__label">@cat</span>
+                        <div class="budget-cat-row__bar">
+                            <div class="budget-cat-row__fill budget-cat-row__fill--@CategoryClass(cat)"
+                                 style="width:@(spentPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                        </div>
+                        <span class="budget-cat-row__amount al-num">@FormatCurrency(spent) / @FormatCurrency(planned)</span>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="auth">
+        <section class="budget-lines__add">
+            @if (!showAddLine)
+            {
+                <button class="project-btn project-btn-primary project-btn-sm"
+                        @onclick="() => showAddLine = true">+ Add line item</button>
+            }
+            else
+            {
+                <div class="budget-lines__add-form">
+                    <input class="project-input" placeholder="Title (e.g. 'Foundation concrete')"
+                           maxlength="200" @bind="newLineTitle" @bind:event="oninput" />
+                    <div class="budget-lines__add-row">
+                        <select class="project-input" @bind="newLineCategory">
+                            @foreach (var c in Enum.GetValues<BudgetCategory>())
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select>
+                        <input class="project-input" type="number" min="0" step="0.01"
+                               placeholder="Planned amount" @bind="newLineAmount" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(lineError))
+                    {
+                        <div class="project-form-error">@lineError</div>
+                    }
+                    <div class="budget-lines__add-actions">
+                        <button class="project-btn project-btn-link"
+                                @onclick="CancelAddLine" disabled="@savingLine">Cancel</button>
+                        <button class="project-btn project-btn-primary"
+                                @onclick="SaveLine"
+                                disabled="@(savingLine || string.IsNullOrWhiteSpace(newLineTitle))">
+                            @(savingLine ? "Adding…" : "Add line item")
+                        </button>
+                    </div>
+                </div>
+            }
+        </section>
+    </AuthorizeView>
+
+    @if (summary.LineItems.Count == 0)
+    {
+        <p class="project-text-sm project-text-muted project-mt-md">No budget line items yet. Break this project's spend into categories above.</p>
+    }
+    else
+    {
+        <div class="budget-lines">
+            @foreach (var line in summary.LineItems)
+            {
+                var isOpen = openLineId == line.Id;
+                var spentPct = line.PlannedAmount > 0 ? Math.Min((double)(line.TotalSpent / line.PlannedAmount) * 100, 100) : 0;
+                var over = line.PlannedAmount > 0 && line.TotalSpent > line.PlannedAmount;
+                <article class="budget-line @(isOpen ? "is-open" : "")">
+                    <header class="budget-line__head" @onclick="() => ToggleLine(line.Id!)">
+                        <span class="budget-line__swatch budget-line__swatch--@CategoryClass(line.Category)"></span>
+                        <div class="budget-line__title-wrap">
+                            <h4 class="budget-line__title">@line.Title</h4>
+                            <div class="budget-line__meta">
+                                <span class="budget-line__cat">@line.Category</span>
+                                @if (!string.IsNullOrEmpty(line.StageName))
+                                {
+                                    <span>· @line.StageName</span>
+                                }
+                                <span>· @(line.ReceiptCount) @(line.ReceiptCount == 1 ? "receipt" : "receipts")</span>
+                            </div>
+                        </div>
+                        <div class="budget-line__amounts al-num">
+                            <div class="budget-line__spent @(over ? "is-over" : "")">@FormatCurrency(line.TotalSpent)</div>
+                            <div class="budget-line__planned">/ @FormatCurrency(line.PlannedAmount)</div>
+                        </div>
+                    </header>
+
+                    <div class="budget-line__progress">
+                        <div class="budget-line__progress-fill budget-line__progress-fill--@CategoryClass(line.Category) @(over ? "is-over" : "")"
+                             style="width:@(spentPct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                    </div>
+
+                    @if (isOpen)
+                    {
+                        <div class="budget-line__body">
+                            @if (loadingReceiptsFor == line.Id)
+                            {
+                                <div class="project-skeleton project-skeleton-card" style="height:60px;"></div>
+                            }
+                            else if (receipts.TryGetValue(line.Id!, out var rs) && rs.Count > 0)
+                            {
+                                <ul class="budget-receipts">
+                                    @foreach (var r in rs)
+                                    {
+                                        <li class="budget-receipts__row">
+                                            <div>
+                                                <div class="budget-receipts__amount al-num">@FormatCurrency(r.Amount)</div>
+                                                <div class="project-text-xs project-text-muted">
+                                                    @(r.PaymentDate?.ToString("MMM dd, yyyy") ?? "—")
+                                                    @if (!string.IsNullOrEmpty(r.VendorName))
+                                                    {
+                                                        <span> · @r.VendorName</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(r.Notes))
+                                            {
+                                                <div class="project-text-xs">@r.Notes</div>
+                                            }
+                                            <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="rauth">
+                                                <button class="project-btn project-btn-link"
+                                                        @onclick="() => DeleteReceipt(line.Id!, r.Id!)"
+                                                        disabled="@(deletingReceiptId == r.Id)">
+                                                    @(deletingReceiptId == r.Id ? "Removing…" : "Remove")
+                                                </button>
+                                            </AuthorizeView>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="project-text-xs project-text-muted">No receipts yet on this line.</p>
+                            }
+
+                            <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="rauth">
+                                <div class="budget-receipts__add">
+                                    <input class="project-input" type="number" min="0" step="0.01"
+                                           placeholder="Amount"
+                                           @bind="receiptInput.Amount" />
+                                    <input class="project-input" placeholder="Vendor (optional)"
+                                           @bind="receiptInput.Vendor" />
+                                    <input class="project-input" type="date"
+                                           @bind="receiptInput.Date" />
+                                    <button class="project-btn project-btn-primary project-btn-sm"
+                                            @onclick="() => SaveReceipt(line.Id!)"
+                                            disabled="@(savingReceipt || receiptInput.Amount <= 0)">
+                                        @(savingReceipt ? "Saving…" : "Record receipt")
+                                    </button>
+                                </div>
+                            </AuthorizeView>
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    private ProjectBudgetSummaryDto? summary;
+    private bool loading = true;
+    private string? openLineId;
+    private string? loadingReceiptsFor;
+    private string? deletingReceiptId;
+    private readonly Dictionary<string, List<ReceiptDto>> receipts = new();
+
+    // Add-line form
+    private bool showAddLine;
+    private bool savingLine;
+    private string newLineTitle = string.Empty;
+    private decimal newLineAmount;
+    private BudgetCategory newLineCategory = BudgetCategory.Materials;
+    private string? lineError;
+
+    // Add-receipt form (single inline buffer keyed by openLineId)
+    private bool savingReceipt;
+    private readonly ReceiptInput receiptInput = new();
+
+    private class ReceiptInput
+    {
+        public decimal Amount { get; set; }
+        public string Vendor { get; set; } = string.Empty;
+        public DateTime Date { get; set; } = DateTime.UtcNow.Date;
+    }
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        try
+        {
+            var resp = await _budgetApi.GetSummary(ProjectId);
+            if (resp.IsSuccessStatusCode) summary = resp.Content;
+            else Logger.LogError("Failed loading budget: {Err}", _apiResponseHandler.GetApiErrorMessage(resp));
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error loading budget"); }
+        finally { loading = false; }
+    }
+
+    private async Task ToggleLine(string id)
+    {
+        if (openLineId == id)
+        {
+            openLineId = null;
+            return;
+        }
+        openLineId = id;
+        if (!receipts.ContainsKey(id))
+        {
+            loadingReceiptsFor = id;
+            StateHasChanged();
+            try
+            {
+                var resp = await _budgetApi.GetReceiptsByLineItem(id);
+                if (resp.IsSuccessStatusCode) receipts[id] = resp.Content ?? new();
+            }
+            catch (Exception ex) { Logger.LogError(ex, "Error loading receipts"); }
+            finally { loadingReceiptsFor = null; }
+        }
+    }
+
+    private void CancelAddLine()
+    {
+        showAddLine = false;
+        newLineTitle = string.Empty;
+        newLineAmount = 0;
+        newLineCategory = BudgetCategory.Materials;
+        lineError = null;
+    }
+
+    private async Task SaveLine()
+    {
+        if (string.IsNullOrWhiteSpace(newLineTitle)) return;
+        savingLine = true;
+        lineError = null;
+        StateHasChanged();
+        try
+        {
+            var dto = new BudgetLineItemCreateDto
+            {
+                ProjectId = ProjectId,
+                Title = newLineTitle.Trim(),
+                Category = newLineCategory,
+                PlannedAmount = newLineAmount
+            };
+            var resp = await _budgetApi.AddLineItem(dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                CancelAddLine();
+                await Load();
+            }
+            else
+            {
+                lineError = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not add line item.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving line item");
+            lineError = "Could not add line item.";
+        }
+        finally
+        {
+            savingLine = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveReceipt(string lineItemId)
+    {
+        if (receiptInput.Amount <= 0) return;
+        savingReceipt = true;
+        StateHasChanged();
+        try
+        {
+            var dto = new ReceiptCreateDto
+            {
+                BudgetLineItemId = lineItemId,
+                Amount = receiptInput.Amount,
+                PaymentDate = receiptInput.Date.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(receiptInput.Date, DateTimeKind.Utc)
+                    : receiptInput.Date,
+                VendorName = string.IsNullOrWhiteSpace(receiptInput.Vendor) ? null : receiptInput.Vendor.Trim()
+            };
+            var resp = await _budgetApi.AddReceipt(dto);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                if (receipts.TryGetValue(lineItemId, out var list)) list.Insert(0, resp.Content);
+                else receipts[lineItemId] = new() { resp.Content };
+                receiptInput.Amount = 0;
+                receiptInput.Vendor = string.Empty;
+                receiptInput.Date = DateTime.UtcNow.Date;
+                await Load();
+            }
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error adding receipt"); }
+        finally { savingReceipt = false; StateHasChanged(); }
+    }
+
+    private async Task DeleteReceipt(string lineItemId, string receiptId)
+    {
+        deletingReceiptId = receiptId;
+        StateHasChanged();
+        try
+        {
+            var resp = await _budgetApi.DeleteReceipt(receiptId);
+            if (resp.IsSuccessStatusCode)
+            {
+                if (receipts.TryGetValue(lineItemId, out var list))
+                    list.RemoveAll(r => r.Id == receiptId);
+                await Load();
+            }
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Error deleting receipt"); }
+        finally { deletingReceiptId = null; StateHasChanged(); }
+    }
+
+    private static string CategoryClass(BudgetCategory c) => c switch
+    {
+        BudgetCategory.Materials => "materials",
+        BudgetCategory.Labor => "labor",
+        BudgetCategory.Equipment => "equipment",
+        BudgetCategory.Permits => "permits",
+        BudgetCategory.Contingency => "contingency",
+        _ => "other"
+    };
+
+    private static string FormatCurrency(decimal amount)
+    {
+        var abs = Math.Abs(amount);
+        string body = abs >= 1_000_000_000 ? $"{amount / 1_000_000_000:N1}B"
+                    : abs >= 1_000_000     ? $"{amount / 1_000_000:N1}M"
+                    : abs >= 1_000          ? $"{amount / 1_000:N1}K"
+                    : amount.ToString("N0");
+        return body;
+    }
+}

@@ -24,7 +24,7 @@ namespace assetlen.API.Controllers
 
 
 		[HttpGet]
-		[ProducesResponseType(typeof(List<ReceiptDto>), 200)]
+		[ProducesResponseType(typeof(List<ReceiptItemDto>), 200)]
 		[Authorize(Roles = $"{UserRoles.Crew}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 		public async Task<ActionResult> GetReceiptItemsFromDBbasedOnSlipID(int slipId)
@@ -40,7 +40,7 @@ namespace assetlen.API.Controllers
 		[HttpPost]
 		[Authorize(Roles = $"{UserRoles.Contractor}",
 		AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-		[ProducesResponseType(typeof(ReceiptDto), 200)]
+		[ProducesResponseType(typeof(List<ReceiptItemDto>), 200)]
 		public async Task<ActionResult> CreateOrSyncNewReceiptItems([FromBody] List<ReceiptItemDto> rtDto)
 		{
 			var result = await _receiptsDAL.CreateOrSyncNewReceiptItems(rtDto);

@@ -52,6 +52,9 @@ else
         <button class="project-tab @(activeTab == "overview" ? "active" : "")" @onclick='() => SetTab("overview")'>Overview</button>
         <button class="project-tab @(activeTab == "team" ? "active" : "")" @onclick='() => SetTab("team")'>Team</button>
         <button class="project-tab @(activeTab == "funding" ? "active" : "")" @onclick='() => SetTab("funding")'>Funding</button>
+        <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}")" Context="budgetAuth">
+            <button class="project-tab @(activeTab == "budget" ? "active" : "")" @onclick='() => SetTab("budget")'>Budget</button>
+        </AuthorizeView>
         <button class="project-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Site Journal</button>
         <button class="project-tab @(activeTab == "issues" ? "active" : "")" @onclick='() => SetTab("issues")'>Issues</button>
         <button class="project-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
@@ -69,6 +72,9 @@ else
                 break;
             case "funding":
                 @RenderFunding();
+                break;
+            case "budget":
+                <BudgetTab ProjectId="ProjectId" />
                 break;
             case "progress":
                 @RenderProgress();

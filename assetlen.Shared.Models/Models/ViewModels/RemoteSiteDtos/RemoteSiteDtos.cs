@@ -313,6 +313,118 @@ public class StreamCommentEvent
     public ProgressCommentDto? Comment { get; set; }
 }
 
+// ─── Budget DTOs ─────────────────────────────────────────────
+
+public class BudgetLineItemDto : BaseDto
+{
+    public string? ProjectId { get; set; }
+    public string? StageId { get; set; }
+    public string? Title { get; set; }
+    public string? Notes { get; set; }
+    public BudgetCategory Category { get; set; } = BudgetCategory.Other;
+    public decimal PlannedAmount { get; set; }
+    public int DisplayOrder { get; set; }
+
+    // Computed
+    public string? StageName { get; set; }
+    public decimal TotalSpent { get; set; }
+    public decimal Remaining => PlannedAmount - TotalSpent;
+    public int ReceiptCount { get; set; }
+}
+
+public class BudgetLineItemCreateDto
+{
+    [Required]
+    [MaxLength(40)]
+    public string? ProjectId { get; set; }
+
+    [MaxLength(40)]
+    public string? StageId { get; set; }
+
+    [Required]
+    [MaxLength(200)]
+    public string? Title { get; set; }
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
+
+    public BudgetCategory Category { get; set; } = BudgetCategory.Other;
+
+    [Range(0, double.MaxValue)]
+    public decimal PlannedAmount { get; set; }
+}
+
+public class BudgetLineItemUpdateDto
+{
+    [Required]
+    [MaxLength(40)]
+    public string? Id { get; set; }
+
+    [MaxLength(200)]
+    public string? Title { get; set; }
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
+
+    public BudgetCategory? Category { get; set; }
+
+    public decimal? PlannedAmount { get; set; }
+
+    [MaxLength(40)]
+    public string? StageId { get; set; }
+}
+
+public class ReceiptDto : BaseDto
+{
+    public string? BudgetLineItemId { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime? PaymentDate { get; set; }
+    public string? VendorName { get; set; }
+    public string? Notes { get; set; }
+    public string? ReceiptImageUrl { get; set; }
+
+    // Populated
+    public string? LineItemTitle { get; set; }
+    public string? CreatedByName { get; set; }
+}
+
+public class ReceiptCreateDto
+{
+    [Required]
+    [MaxLength(40)]
+    public string? BudgetLineItemId { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal Amount { get; set; }
+
+    public DateTime? PaymentDate { get; set; }
+
+    [MaxLength(200)]
+    public string? VendorName { get; set; }
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
+
+    [MaxLength(500)]
+    public string? ReceiptImageUrl { get; set; }
+}
+
+public class ProjectBudgetSummaryDto
+{
+    public string? ProjectId { get; set; }
+    public decimal ProjectBudget { get; set; }
+    public decimal TotalPlanned { get; set; }
+    public decimal TotalSpent { get; set; }
+    public decimal Remaining => TotalPlanned - TotalSpent;
+    public decimal SpendPercent =>
+        TotalPlanned > 0 ? Math.Round(TotalSpent / TotalPlanned * 100, 1) : 0;
+    public decimal AllocationPercent =>
+        ProjectBudget > 0 ? Math.Round(TotalPlanned / ProjectBudget * 100, 1) : 0;
+    public Dictionary<BudgetCategory, decimal> PlannedByCategory { get; set; } = new();
+    public Dictionary<BudgetCategory, decimal> SpentByCategory { get; set; } = new();
+    public List<BudgetLineItemDto> LineItems { get; set; } = new();
+}
+
 // ─── Flag DTOs ───────────────────────────────────────────────
 
 public class FlagDto : BaseDto

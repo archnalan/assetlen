@@ -90,6 +90,8 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_ProjectSubscription> tbl_ProjectSubscriptions { get; set; }
     public virtual DbSet<tbl_Flag> tbl_Flags { get; set; }
     public virtual DbSet<tbl_ProjectMember> tbl_ProjectMembers { get; set; }
+    public virtual DbSet<tbl_BudgetLineItem> tbl_BudgetLineItems { get; set; }
+    public virtual DbSet<tbl_Receipt> tbl_Receipts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -301,6 +303,14 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             (_isSuperAdmin || x.TenantId == _tenantId || x.TenantId == null || x.Access == Access.Public)
             && (x.Access == null || x.Access != Access.Protected)
             && (x.IsDeleted == false || x.IsDeleted == null));
+        modelBuilder.Entity<tbl_BudgetLineItem>().HasQueryFilter(x =>
+            (_isSuperAdmin || x.TenantId == _tenantId || x.TenantId == null || x.Access == Access.Public)
+            && (x.Access == null || x.Access != Access.Protected)
+            && (x.IsDeleted == false || x.IsDeleted == null));
+        modelBuilder.Entity<tbl_Receipt>().HasQueryFilter(x =>
+            (_isSuperAdmin || x.TenantId == _tenantId || x.TenantId == null || x.Access == Access.Public)
+            && (x.Access == null || x.Access != Access.Protected)
+            && (x.IsDeleted == false || x.IsDeleted == null));
 
         // Channel-based (Client/Crew) visibility is enforced at the service
         // layer — DbContext-level filtering would need ITenantProvider to
@@ -403,6 +413,26 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasOne(e => e.CreatedBy).WithMany().HasForeignKey(e => e.CreatedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.AssignedTo).WithMany().HasForeignKey(e => e.AssignedToId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.ResolvedBy).WithMany().HasForeignKey(e => e.ResolvedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_BudgetLineItem>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_BudgetLineItem_ProjectId");
+            entity.HasIndex(e => e.StageId).HasDatabaseName("IX_BudgetLineItem_StageId");
+            entity.HasIndex(e => e.Category).HasDatabaseName("IX_BudgetLineItem_Category");
+            entity.Property(e => e.PlannedAmount).HasColumnType("decimal(18,4)");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.CreatedBy).WithMany().HasForeignKey(e => e.CreatedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_Receipt>(entity =>
+        {
+            entity.HasIndex(e => e.BudgetLineItemId).HasDatabaseName("IX_Receipt_BudgetLineItemId");
+            entity.HasIndex(e => e.PaymentDate).HasDatabaseName("IX_Receipt_PaymentDate");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,4)");
+            entity.HasOne(e => e.BudgetLineItem).WithMany(b => b.Receipts).HasForeignKey(e => e.BudgetLineItemId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.CreatedBy).WithMany().HasForeignKey(e => e.CreatedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         // EmployeeApproval relationship

@@ -74,4 +74,19 @@ namespace assetlen.Shared.Models.Models.RemoteSite
         High = 2,
         Critical = 3
     }
+
+    /// <summary>
+    /// Category buckets for a project budget line item. Drives the
+    /// breakdown chart on the Budget tab. Extending requires a UI change
+    /// because the chart uses a fixed swatch palette.
+    /// </summary>
+    public enum BudgetCategory
+    {
+        Materials = 0,
+        Labor = 1,
+        Equipment = 2,
+        Permits = 3,
+        Contingency = 4,
+        Other = 99
+    }
 }

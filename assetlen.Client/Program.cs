@@ -233,6 +233,10 @@ builder.Services
     .AddRefitClient<IFlagsApi>()
     .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
     .AddHttpMessageHandler<AuthHeaderHandler>();
+builder.Services
+    .AddRefitClient<IBudgetApi>()
+    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
+    .AddHttpMessageHandler<AuthHeaderHandler>();
 
 builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
     sp.GetRequiredService<IStorageService>(),

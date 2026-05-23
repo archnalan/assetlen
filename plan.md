@@ -36,8 +36,8 @@ You are likely a fresh Claude agent picking up where the last one left off. Befo
 | 2.2 | Flags — issue lifecycle + weekly nudge | Done | `284ad49` |
 | 2.3 | Streams — SignalR chat tied to media, dual channels | Done | `4883c8f` |
 | 2.4 | Curated Client view — `ClientVisible` gating end-to-end | Done | `f0af240` |
-| 3.1 | Timeline graph (expected vs actual layers) | Planned | — |
-| 3.2 | Finance: receipts, budgets, projections, versioning | Planned | — |
+| 3.1 | Timeline graph (expected vs actual layers) | Done | `36777d4` |
+| 3.2 | Finance: receipts, budgets, projections, versioning | Done | `10a1ffa` |
 | 4.1 | WhatsApp bridge | Planned | — |
 | 4.2 | Visual search ("trench") | Planned | — |
 | 4.3 | Hybrid media: Google Drive per contractor | Planned | — |
@@ -179,9 +179,39 @@ Defense-in-depth on top of the controller `[Authorize(Roles=…)]` gates and the
 
 The collaboration core. Site Journal Entries with photos/captions, Flags raised on entries, Streams (SignalR) tied to media, dual Channel enforcement (Crew default, Client opt-in).
 
-## Phase 3 — Timeline + Finance (planned)
+## Phase 3 — Timeline + Finance (done)
 
-Multi-layer timeline (expected baseline, revised baseline, actual). Finance with receipts, line-itemed budgets, projections vs actuals.
+## Phase 3.1 — TimelineChart (done)
+
+**What landed:**
+- `Modules/Timeline/Components/TimelineChart.razor` (+ CSS) — CSS-grid Gantt with planned-range bar (`--al-blueprint-soft`) and an overlaid actual-progress bar (`--al-blueprint`) sized to `CompletionPercentage`. Bar color escalates to warning/danger by `DaysAheadOrBehind`; completed stages turn `--al-success`.
+- Today marker (`--al-accent` vertical line) drawn when current date falls in the chart span. Span auto-computed from earliest planned-start to latest planned-end (padded 3d each side); falls back to a sensible window when no stages have dates.
+- Legend + month-range header. Stages with missing dates render an inline "No dates set" affordance instead of a phantom bar.
+- `ProjectDetail` Timeline tab now delegates to `<TimelineChart>`.
+
+**Carried forward:**
+- Revised-baseline layer (would need a `tbl_StageBaseline` history table to capture replans).
+- Hover tooltip with full date range (current title attr is enough for now).
+
+## Phase 3.2 — Finance (done)
+
+**What landed:**
+- `tbl_BudgetLineItem` (ProjectId / optional StageId / Title / Notes / Category enum / PlannedAmount / DisplayOrder) and `tbl_Receipt` (BudgetLineItemId / Amount / PaymentDate / VendorName / Notes / optional ReceiptImageUrl). Cascade delete from project → line items → receipts.
+- `BudgetCategory` enum: Materials / Labor / Equipment / Permits / Contingency / Other — drives the swatch palette.
+- Migration `AddBudgetAndReceipts` shipped.
+- DTOs: `BudgetLineItemDto`, `BudgetLineItem(Create|Update)Dto`, `ReceiptDto`, `ReceiptCreateDto`, `ProjectBudgetSummaryDto` (aggregate with PlannedByCategory + SpentByCategory + LineItems).
+- `IBudgetDAL` + `BudgetDAL`: GetSummary (stakeholder read), Add/Update/Delete LineItem (owner/PM only), AddReceipt / GetReceiptsByLineItem / DeleteReceipt. Soft-delete via `IsDeleted`.
+- `BudgetController`: outer auth = Contractor/Manager/Client (per the §5.5 Finance matrix); mutations gated to Contractor/Manager only. `IBudgetApi` (Refit) + WASM DI + `_Imports` injection.
+- `Modules/Finance/Components/BudgetTab.razor` (+ CSS): 4-stat summary (Budget / Planned / Spent / Remaining + allocation + spend %), category-breakdown bar chart, "Add line item" form (owner/PM only), expandable line cards with receipts list + inline "Record receipt" form. Over-budget lines flip to `--al-danger`.
+- `ProjectDetail` gains a "Budget" tab (visible to Contractor/Manager/Client only). Crew + Guest don't see the tab.
+- Housekeeping: deleted POS leftover `ReceiptDto` (slip-layout artifact, namespace clash); fixed two stale `ProducesResponseType` annotations in `ReceiptsController` (always returned `ReceiptItemDto`).
+
+**Carried forward:**
+- Versioning on budget revisions (CLAUDE.md mentioned it; deferred — would need a `tbl_BudgetLineItemRevision` audit table).
+- Per-stage filter on the Budget tab (StageId column exists; UI doesn't filter by it yet).
+- Vendor entity + vendor picker (currently free-text on receipts).
+- Receipt image upload pipeline (column exists; UI is text-only for now).
+- Burn-rate projection chart (the summary has the data but the trend line isn't drawn yet).
 
 ## Phase 4 — Integrations & Lookbook (planned)
 

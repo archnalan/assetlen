@@ -1,6 +1,7 @@
 @page "/project/{ProjectId}/progress/add"
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@using static assetlen.Shared.Components.Navigation.Breadcrumbs
 @layout ProjectsLayout
 @attribute [Authorize(Roles = $"{UserRoles.Manager},{UserRoles.Crew},{UserRoles.Contractor}")]
 @inject NavigationManager Nav
@@ -8,13 +9,12 @@
 
 <PageTitle>Capture Entry — ASSETLEN</PageTitle>
 
+<Breadcrumbs Items="@BuildBreadcrumbs()" />
+
 <div class="project-page-header">
     <div>
-        <a href="/project/@ProjectId" class="project-btn project-btn-link" style="padding:0;font-size:0.85rem;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            Back to Project
-        </a>
-        <h1 class="project-page-title project-mt-xs">Capture Entry</h1>
+        <h1 class="project-page-title">Capture Entry</h1>
+        <p class="project-page-subtitle">Post a new Site Journal entry</p>
     </div>
 </div>
 
@@ -150,8 +150,17 @@
     };
 
     private List<StageDto>? stages;
+    private string? projectName;
     private bool isSaving;
     private string? errorMessage;
+
+    private IEnumerable<BreadcrumbItem> BuildBreadcrumbs()
+    {
+        yield return new BreadcrumbItem("Portfolio", "/portfolio");
+        yield return new BreadcrumbItem(projectName ?? "Project", $"/project/{ProjectId}");
+        yield return new BreadcrumbItem("Site Journal", $"/project/{ProjectId}");
+        yield return new BreadcrumbItem("Capture entry");
+    }
 
     private bool CanSubmit =>
         !string.IsNullOrWhiteSpace(model.StageId) &&
@@ -168,6 +177,12 @@
                 stages = resp.Content;
         }
         catch (Exception ex) { Logger.LogError(ex, "Error loading stages"); }
+        try
+        {
+            var pResp = await _projectsRSApi.GetProjectById(ProjectId);
+            if (pResp.IsSuccessStatusCode) projectName = pResp.Content?.ProjectName;
+        }
+        catch { /* breadcrumb falls back to "Project" */ }
     }
 
     private async Task OnFilesSelected(InputFileChangeEventArgs e)

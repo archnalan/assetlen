@@ -6,6 +6,10 @@
 <div class="al-home">
     <div class="al-home__brand">ASSETLEN</div>
     <p class="al-home__tagline">Real estate project management.</p>
+    <div class="al-home__cta">
+        <a href="/portfolio" class="al-home__btn al-home__btn--primary">Open Portfolio</a>
+        <a href="/pm" class="al-home__btn">Manager dashboard</a>
+    </div>
     <p class="al-home__meta al-muted al-num">
         Running on <em>@factor</em> · <em>@platform</em>
     </p>
@@ -33,6 +37,39 @@
         font-size: var(--al-font-size-md);
         color: var(--al-text-muted);
         margin: 0;
+    }
+
+    .al-home__cta {
+        display: flex;
+        gap: var(--al-space-3);
+        flex-wrap: wrap;
+        margin-top: var(--al-space-3);
+    }
+
+    .al-home__btn {
+        display: inline-block;
+        padding: var(--al-space-2) var(--al-space-5);
+        font-size: var(--al-font-size-sm);
+        font-weight: var(--al-weight-semibold);
+        border-radius: var(--al-radius-sm);
+        text-decoration: none;
+        border: 1px solid var(--al-border-strong);
+        color: var(--al-text);
+        background: var(--al-surface);
+        transition: border-color var(--al-transition-fast), background var(--al-transition-fast);
+    }
+
+    .al-home__btn:hover { border-color: var(--al-text-muted); }
+
+    .al-home__btn--primary {
+        background: var(--al-accent);
+        border-color: var(--al-accent);
+        color: var(--al-accent-contrast);
+    }
+
+    .al-home__btn--primary:hover {
+        background: var(--al-accent-hover);
+        border-color: var(--al-accent-hover);
     }
 
     .al-home__meta {

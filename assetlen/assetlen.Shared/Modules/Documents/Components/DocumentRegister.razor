@@ -1,0 +1,554 @@
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@using Refit
+@inject IArtifactDownloadService _downloads
+@inject ILogger<DocumentRegister> Logger
+
+@*
+    Law 2: a reissued drawing supersedes, never replaces. "Which drawing was
+    current when we poured that slab" gets asked months later and decides who
+    pays (evidence F4) — so the history stays one click away, not hidden.
+*@
+
+<section class="docs">
+    <header class="docs__head">
+        <div>
+            <h3 class="docs__title">Documents</h3>
+            <p class="docs__sub">
+                Drawings, schedules and permits. Reissuing supersedes — nothing is ever replaced.
+            </p>
+        </div>
+        @if (CanWrite && !showAdd)
+        {
+            <button type="button" class="docs__primary" @onclick="() => showAdd = true">
+                Add document
+            </button>
+        }
+    </header>
+
+    @if (CanWrite && showAdd)
+    {
+        <div class="docs__form">
+            <div class="docs__form-head">
+                <h4 class="docs__form-title">New document</h4>
+                <button type="button" class="docs__ghost" @onclick="CancelAdd" disabled="@busy">Cancel</button>
+            </div>
+
+            <label class="docs__label" for="doc-title">Title</label>
+            <input id="doc-title" class="docs__input" placeholder="e.g. Ground floor plan"
+                   @bind="newTitle" @bind:event="oninput" />
+
+            <div class="docs__form-grid">
+                <div>
+                    <label class="docs__label" for="doc-kind">Kind</label>
+                    <select id="doc-kind" class="docs__input" @bind="newKind">
+                        @foreach (var kind in Kinds)
+                        {
+                            <option value="@kind">@Humanise(kind)</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="docs__label" for="doc-channel">Visible to</label>
+                    <select id="doc-channel" class="docs__input" @bind="newChannel" disabled="@(!CanExpose)">
+                        <option value="@Channel.Crew">Delivery side only</option>
+                        <option value="@Channel.Client">Client side too</option>
+                    </select>
+                </div>
+            </div>
+
+            <label class="docs__label" for="doc-file">First revision</label>
+            <InputFile id="doc-file" class="docs__file" OnChange="OnNewFile" />
+            @if (newFile is not null)
+            {
+                <p class="docs__hint">@newFile.Name · @Size(newFile.Size)</p>
+            }
+
+            @if (!string.IsNullOrEmpty(addError))
+            {
+                <div class="docs__error" role="alert">@addError</div>
+            }
+
+            <button type="button" class="docs__primary docs__primary--wide"
+                    @onclick="CreateDocument"
+                    disabled="@(busy || newFile is null || string.IsNullOrWhiteSpace(newTitle))">
+                @(busy ? "Uploading…" : "Create document")
+            </button>
+        </div>
+    }
+
+    @if (loading)
+    {
+        <div class="al-shimmer docs__ghost"></div>
+        <div class="al-shimmer docs__ghost"></div>
+    }
+    else if (loadError)
+    {
+        <div class="docs__error" role="alert">
+            Could not load documents.
+            <button type="button" class="docs__ghost" @onclick="Load">Try again</button>
+        </div>
+    }
+    else if (documents.Count == 0)
+    {
+        <div class="docs__empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                 aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+            </svg>
+            <p class="docs__empty-title">No documents yet</p>
+            <p class="docs__empty-desc">
+                Drawings and schedules uploaded here keep a revision history, so an old
+                issue stays readable after it has been superseded.
+            </p>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in documents.GroupBy(d => d.Kind).OrderBy(g => g.Key))
+        {
+            <div class="docs__group">
+                <h4 class="docs__group-title">@Humanise(group.Key)</h4>
+
+                @foreach (var doc in group.OrderBy(d => d.Title))
+                {
+                    var current = doc.Revisions.FirstOrDefault(r => r.IsCurrent)
+                                  ?? doc.Revisions.OrderByDescending(r => r.RevisionNo).FirstOrDefault();
+                    var superseded = doc.Revisions
+                        .Where(r => current is null || r.Id != current.Id)
+                        .OrderByDescending(r => r.RevisionNo)
+                        .ToList();
+                    var open = expanded.Contains(doc.Id!);
+
+                    <article class="docs__row">
+                        <div class="docs__row-main">
+                            <div class="docs__row-identity">
+                                <div class="docs__row-title">
+                                    @doc.Title
+                                    @if (current is not null)
+                                    {
+                                        <span class="docs__rev al-num">Rev @current.RevisionNo</span>
+                                    }
+                                    <span class="al-badge @(doc.Channel == Channel.Client ? "al-badge--blueprint" : "al-badge--neutral")">
+                                        @(doc.Channel == Channel.Client ? "Issued to client" : "Internal")
+                                    </span>
+                                </div>
+
+                                @if (current is not null)
+                                {
+                                    <div class="docs__row-meta">
+                                        Issued by @(current.IssuedByName ?? "—")
+                                        <span class="docs__dot" aria-hidden="true">·</span>
+                                        <span class="al-num">@Date(current.IssuedAt)</span>
+                                        @if (current.Artifact is not null)
+                                        {
+                                            <span class="docs__dot" aria-hidden="true">·</span>
+                                            <span class="al-num">@Size(current.Artifact.ByteSize)</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(current.Notes))
+                                    {
+                                        <p class="docs__notes">“@current.Notes”</p>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="docs__row-meta">No revision uploaded yet.</div>
+                                }
+                            </div>
+
+                            <div class="docs__row-actions">
+                                @if (current?.ArtifactId is { } aid)
+                                {
+                                    <button type="button" class="docs__ghost"
+                                            disabled="@(downloading == current.Id)"
+                                            @onclick="() => Open(current, doc.Title)">
+                                        @(downloading == current.Id ? "Opening…" : "Open")
+                                    </button>
+                                }
+                                @if (CanExpose)
+                                {
+                                    <button type="button" class="docs__ghost"
+                                            disabled="@(busyDocId == doc.Id)"
+                                            @onclick="() => ToggleChannel(doc)">
+                                        @(doc.Channel == Channel.Client ? "Withdraw" : "Issue to client")
+                                    </button>
+                                }
+                                @if (CanWrite)
+                                {
+                                    <button type="button" class="docs__ghost"
+                                            @onclick="() => StartRevision(doc.Id!)">
+                                        Reissue
+                                    </button>
+                                }
+                                @if (superseded.Count > 0)
+                                {
+                                    <button type="button" class="docs__ghost"
+                                            aria-expanded="@open"
+                                            @onclick="() => Toggle(doc.Id!)">
+                                        @(open ? "Hide" : "History") (@superseded.Count)
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        @if (revisionFor == doc.Id)
+                        {
+                            <div class="docs__reissue">
+                                <label class="docs__label" for="@($"rev-file-{doc.Id}")">New revision</label>
+                                <InputFile id="@($"rev-file-{doc.Id}")" class="docs__file" OnChange="OnRevisionFile" />
+                                @if (revisionFile is not null)
+                                {
+                                    <p class="docs__hint">@revisionFile.Name · @Size(revisionFile.Size)</p>
+                                }
+                                <input class="docs__input" placeholder="What changed? (optional but worth it)"
+                                       @bind="revisionNotes" @bind:event="oninput" />
+                                @if (!string.IsNullOrEmpty(revisionError))
+                                {
+                                    <div class="docs__error" role="alert">@revisionError</div>
+                                }
+                                <div class="docs__reissue-actions">
+                                    <button type="button" class="docs__ghost" @onclick="CancelRevision" disabled="@busy">
+                                        Cancel
+                                    </button>
+                                    <button type="button" class="docs__primary"
+                                            @onclick="() => AddRevision(doc.Id!)"
+                                            disabled="@(busy || revisionFile is null)">
+                                        @(busy ? "Uploading…" : "Supersede current")
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        @* Dimmed, never hidden: an old issue must stay reachable. *@
+                        @if (open && superseded.Count > 0)
+                        {
+                            <ol class="docs__history">
+                                @foreach (var rev in superseded)
+                                {
+                                    <li class="docs__history-row">
+                                        <span class="docs__rev al-num">Rev @rev.RevisionNo</span>
+                                        <span class="docs__row-meta">
+                                            @(rev.IssuedByName ?? "—")
+                                            <span class="docs__dot" aria-hidden="true">·</span>
+                                            <span class="al-num">@Date(rev.IssuedAt)</span>
+                                            @if (!string.IsNullOrWhiteSpace(rev.Notes))
+                                            {
+                                                <span class="docs__dot" aria-hidden="true">·</span>
+                                                @rev.Notes
+                                            }
+                                        </span>
+                                        <button type="button" class="docs__ghost"
+                                                disabled="@(downloading == rev.Id)"
+                                                @onclick="() => Open(rev, doc.Title)">
+                                            @(downloading == rev.Id ? "Opening…" : "Open")
+                                        </button>
+                                    </li>
+                                }
+                            </ol>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="docs__error" role="alert">@error</div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>Anyone on the delivery side may upload and reissue.</summary>
+    [Parameter] public bool CanWrite { get; set; }
+
+    /// <summary>Only the mediator, owner or manager may issue to the client.</summary>
+    [Parameter] public bool CanExpose { get; set; }
+
+    /// <summary>Matches ArtifactDAL.MaxUploadBytes, which rejects anything larger.</summary>
+    private const long MaxUploadBytes = 40L * 1024 * 1024;
+
+    private List<DocumentDto> documents = new();
+    private readonly HashSet<string> expanded = new();
+    private bool loading = true, loadError, busy, showAdd;
+    private string? error, addError, revisionError, revisionFor, busyDocId, downloading;
+
+    private string newTitle = string.Empty;
+    private DocumentKind newKind = DocumentKind.ArchitecturalDrawing;
+    private Channel newChannel = Channel.Crew;
+    private IBrowserFile? newFile;
+
+    private string revisionNotes = string.Empty;
+    private IBrowserFile? revisionFile;
+
+    // Ordered the way a site reads them, not by enum value.
+    private static readonly DocumentKind[] Kinds =
+    {
+        DocumentKind.ArchitecturalDrawing,
+        DocumentKind.StructuralDrawing,
+        DocumentKind.Schedule,
+        DocumentKind.BillOfQuantities,
+        DocumentKind.Quotation,
+        DocumentKind.Permit,
+        DocumentKind.Other
+    };
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        loadError = false;
+        StateHasChanged();
+        try
+        {
+            var resp = await _artifactsApi.GetDocuments(ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+                documents = resp.Content;
+            else
+                loadError = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading documents for {ProjectId}", ProjectId);
+            loadError = true;
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Toggle(string documentId)
+    {
+        if (!expanded.Add(documentId)) expanded.Remove(documentId);
+    }
+
+    private void OnNewFile(InputFileChangeEventArgs e)
+    {
+        newFile = e.File;
+        addError = null;
+    }
+
+    private void OnRevisionFile(InputFileChangeEventArgs e)
+    {
+        revisionFile = e.File;
+        revisionError = null;
+    }
+
+    private void StartRevision(string documentId)
+    {
+        revisionFor = documentId;
+        revisionFile = null;
+        revisionNotes = string.Empty;
+        revisionError = null;
+    }
+
+    private void CancelRevision()
+    {
+        revisionFor = null;
+        revisionFile = null;
+        revisionNotes = string.Empty;
+        revisionError = null;
+    }
+
+    private void CancelAdd()
+    {
+        showAdd = false;
+        newTitle = string.Empty;
+        newKind = DocumentKind.ArchitecturalDrawing;
+        newChannel = Channel.Crew;
+        newFile = null;
+        addError = null;
+    }
+
+    /// <summary>
+    /// Bytes first, then attach. Upload is content-addressed, so a failure between
+    /// the two steps costs nothing — a retry matches the hash instead of copying.
+    /// </summary>
+    private async Task<string?> UploadAsync(IBrowserFile file)
+    {
+        await using var stream = file.OpenReadStream(MaxUploadBytes);
+        var part = new StreamPart(stream, file.Name, file.ContentType);
+        var resp = await _artifactsApi.Upload(part, ProjectId);
+
+        if (resp.IsSuccessStatusCode && resp.Content is not null)
+            return resp.Content.Id;
+
+        throw new InvalidOperationException(
+            _apiResponseHandler.GetApiErrorMessage(resp) ?? "The file could not be uploaded.");
+    }
+
+    private async Task CreateDocument()
+    {
+        if (newFile is null || string.IsNullOrWhiteSpace(newTitle)) return;
+        busy = true;
+        addError = null;
+        StateHasChanged();
+        try
+        {
+            var artifactId = await UploadAsync(newFile);
+
+            var created = await _artifactsApi.CreateDocument(new DocumentCreateDto
+            {
+                ProjectId = ProjectId,
+                Title = newTitle.Trim(),
+                Kind = newKind,
+                Channel = CanExpose ? newChannel : Channel.Crew
+            });
+
+            if (!created.IsSuccessStatusCode || created.Content is null)
+            {
+                addError = _apiResponseHandler.GetApiErrorMessage(created) ?? "Could not create the document.";
+                return;
+            }
+
+            var withRevision = await _artifactsApi.AddRevision(new ArtifactRevisionCreateDto
+            {
+                DocumentId = created.Content.Id,
+                ArtifactId = artifactId
+            });
+
+            if (!withRevision.IsSuccessStatusCode)
+            {
+                addError = _apiResponseHandler.GetApiErrorMessage(withRevision)
+                           ?? "The document was created but the file could not be attached.";
+                await Load();
+                return;
+            }
+
+            CancelAdd();
+            await Load();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating document on {ProjectId}", ProjectId);
+            addError = ex is InvalidOperationException ? ex.Message : "Could not create the document.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddRevision(string documentId)
+    {
+        if (revisionFile is null) return;
+        busy = true;
+        revisionError = null;
+        StateHasChanged();
+        try
+        {
+            var artifactId = await UploadAsync(revisionFile);
+
+            var resp = await _artifactsApi.AddRevision(new ArtifactRevisionCreateDto
+            {
+                DocumentId = documentId,
+                ArtifactId = artifactId,
+                Notes = string.IsNullOrWhiteSpace(revisionNotes) ? null : revisionNotes.Trim()
+            });
+
+            if (resp.IsSuccessStatusCode)
+            {
+                // Seeing the previous drawing move into the superseded list is the
+                // confirmation that matters.
+                expanded.Add(documentId);
+                CancelRevision();
+                await Load();
+            }
+            else
+            {
+                revisionError = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not add the revision.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error adding revision to {DocumentId}", documentId);
+            revisionError = ex is InvalidOperationException ? ex.Message : "Could not add the revision.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleChannel(DocumentDto doc)
+    {
+        busyDocId = doc.Id;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var next = doc.Channel == Channel.Client ? Channel.Crew : Channel.Client;
+            var resp = await _artifactsApi.SetDocumentChannel(doc.Id!, next);
+
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                var i = documents.FindIndex(d => d.Id == doc.Id);
+                if (i >= 0) documents[i] = resp.Content;
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not change who can see this.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error changing channel on document {DocumentId}", doc.Id);
+            error = "Could not change who can see this.";
+        }
+        finally
+        {
+            busyDocId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Open(ArtifactRevisionDto revision, string? docTitle)
+    {
+        if (revision.ArtifactId is null) return;
+        downloading = revision.Id;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var name = revision.Artifact?.OriginalFileName
+                       ?? $"{docTitle ?? "document"}-rev{revision.RevisionNo}";
+
+            if (!await _downloads.OpenAsync(revision.ArtifactId, name, revision.Artifact?.MimeType))
+                error = "That file could not be opened. It may have been withdrawn.";
+        }
+        finally
+        {
+            downloading = null;
+            StateHasChanged();
+        }
+    }
+
+    private static string Date(DateTime? value) => value?.ToString("d MMM yyyy") ?? "—";
+
+    private static string Size(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 => $"{bytes / 1024d / 1024d:N1} MB",
+        >= 1024 => $"{bytes / 1024d:N0} KB",
+        _ => $"{bytes} B"
+    };
+
+    private static string Humanise(DocumentKind kind) => kind switch
+    {
+        DocumentKind.ArchitecturalDrawing => "Architectural drawings",
+        DocumentKind.StructuralDrawing => "Structural drawings",
+        DocumentKind.BillOfQuantities => "Bills of quantities",
+        DocumentKind.Schedule => "Schedules",
+        DocumentKind.Quotation => "Quotations",
+        DocumentKind.Permit => "Permits",
+        _ => "Other"
+    };
+}

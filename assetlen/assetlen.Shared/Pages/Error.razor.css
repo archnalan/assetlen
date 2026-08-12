@@ -1,0 +1,40 @@
+/* Error — scoped via Blazor CSS isolation. Tokens only.
+
+   The markup reached for Bootstrap's .text-danger, which is a red the palette
+   does not define and which does not shift for the dark theme. These rules
+   restate the page in ASSETLEN's own terms; .text-danger stays on the elements
+   only so nothing depends on the order the two stylesheets load in. */
+
+h1.text-danger,
+h2.text-danger {
+    font-family: var(--al-font-display);
+    color: var(--al-danger);
+    letter-spacing: -0.01em;
+}
+
+h1.text-danger { font-size: var(--al-font-size-xl); margin: 0 0 var(--al-space-2); }
+h2.text-danger { font-size: var(--al-font-size-md); margin: 0 0 var(--al-space-5); }
+
+h3 {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-base);
+    color: var(--al-text);
+    margin: var(--al-space-5) 0 var(--al-space-2);
+}
+
+p {
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    max-width: 70ch;
+    margin: 0 0 var(--al-space-3);
+}
+
+strong { color: var(--al-text); font-weight: var(--al-weight-semibold); }
+
+/* The request id is the one thing worth copying out of this page, so it is
+   monospaced and selectable rather than styled as prose. */
+code {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-xs);
+    user-select: all;
+}

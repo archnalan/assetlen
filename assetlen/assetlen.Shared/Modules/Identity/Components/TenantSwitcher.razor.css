@@ -1,0 +1,119 @@
+/* TenantSwitcher — which account you are acting in. Tokens only.
+
+   Quiet by default: it is orientation, not an action. It only renders at all
+   when there is more than one account to be in. */
+
+.tswitch {
+    position: relative;
+}
+
+.tswitch__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    max-width: 14rem;
+    padding: var(--al-space-1) var(--al-space-3);
+    background: transparent;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-pill);
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text-muted);
+    cursor: pointer;
+    transition: border-color var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.tswitch__trigger:hover {
+    border-color: var(--al-border-strong);
+    color: var(--al-text);
+}
+
+/* Accent dot: the one persistent signal that "you are somewhere specific". */
+.tswitch__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--al-radius-pill);
+    background: var(--al-accent);
+    flex: 0 0 auto;
+}
+
+.tswitch__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tswitch__menu {
+    position: absolute;
+    top: calc(100% + var(--al-space-2));
+    right: 0;
+    z-index: 30;
+    min-width: 15rem;
+    max-height: 60vh;
+    overflow-y: auto;
+    margin: 0;
+    padding: var(--al-space-1);
+    list-style: none;
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    box-shadow: var(--al-shadow, 0 8px 24px rgba(0, 0, 0, 0.16));
+}
+
+.tswitch__heading {
+    padding: var(--al-space-2) var(--al-space-3);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--al-text-subtle);
+}
+
+.tswitch__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    width: 100%;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: transparent;
+    border: 0;
+    border-radius: var(--al-radius-sm);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--al-transition-fast);
+}
+
+.tswitch__item:hover:not(:disabled) { background: var(--al-surface-2); }
+.tswitch__item:disabled { opacity: 0.6; cursor: progress; }
+.tswitch__item.is-current { background: var(--al-accent-soft); }
+
+.tswitch__item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tswitch__item-note,
+.tswitch__check {
+    flex: 0 0 auto;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.tswitch__check { color: var(--al-accent); }
+
+.tswitch__error {
+    padding: var(--al-space-2) var(--al-space-3);
+    color: var(--al-danger);
+    font-size: var(--al-font-size-xs);
+}
+
+@media (max-width: 600px) {
+    .tswitch__trigger { max-width: 9rem; }
+    .tswitch__menu { min-width: 12rem; }
+}

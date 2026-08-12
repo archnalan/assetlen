@@ -21,6 +21,14 @@ namespace assetlen.Shared.Apicalls
         [Post("/api/Authorization/Login")]
         Task<IApiResponse<LoginResponseDto>> Login([Body] UserLogin login);
 
+        /// <summary>Every account this person may act in (assetlen.md §10.2).</summary>
+        [Get("/api/Authorization/GetMyAccounts")]
+        Task<IApiResponse<List<TenantMembershipDto>>> GetMyAccounts();
+
+        /// <summary>Move to another account. Returns a token scoped to it.</summary>
+        [Post("/api/Authorization/SwitchTenant")]
+        Task<IApiResponse<LoginResponseDto>> SwitchTenant([Query] string tenantId);
+
         [Post("/api/Authorization/RefreshToken")]
         Task<IApiResponse<LoginResponseDto>> RefreshToken([Body] RefreshTokenRequestDto request);
 

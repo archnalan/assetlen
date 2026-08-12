@@ -83,6 +83,14 @@ public interface IArtifactDAL
 
     Task<ServiceResult<DocumentDto>> GetDocumentAsync(
         string documentId, string userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Release a controlled document to the client side, or withdraw it. Same
+    /// gate as frame exposure: this is the mediator's decision, and it carries
+    /// every revision of the document with it.
+    /// </summary>
+    Task<ServiceResult<DocumentDto>> SetDocumentChannelAsync(
+        string documentId, Channel channel, string userId, CancellationToken ct = default);
 }
 
 /// <summary>A stream of artifact bytes plus what the caller needs to serve it.</summary>

@@ -1,0 +1,126 @@
+@using assetlen.Shared.Models.Models.ViewModels.Users
+@inject AuthenticationStateProvider _authState
+@inject NavigationManager _navigation
+@inject ILogger<TenantSwitcher> Logger
+
+@*
+    One human, many accounts (§10.2). Nalan works for several developers and
+    appears as a guest in each, on one login — so which account he is acting in
+    has to be visible at all times, not inferred.
+*@
+
+@if (accounts.Count > 1)
+{
+    <div class="tswitch">
+        <button type="button" class="tswitch__trigger" @onclick="Toggle"
+                aria-expanded="@open" aria-haspopup="listbox"
+                title="@($"Acting in {CurrentName}")">
+            <span class="tswitch__dot" aria-hidden="true"></span>
+            <span class="tswitch__name">@CurrentName</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+
+        @if (open)
+        {
+            <ul class="tswitch__menu" role="listbox">
+                <li class="tswitch__heading">Acting in</li>
+                @foreach (var account in accounts)
+                {
+                    <li>
+                        <button type="button" role="option"
+                                aria-selected="@account.IsCurrent"
+                                class="tswitch__item @(account.IsCurrent ? "is-current" : "")"
+                                disabled="@(switching is not null)"
+                                @onclick="() => Switch(account)">
+                            <span class="tswitch__item-name">@account.TenantName</span>
+                            @if (account.IsCurrent)
+                            {
+                                <span class="tswitch__check" aria-hidden="true">✓</span>
+                            }
+                            else if (switching == account.TenantId)
+                            {
+                                <span class="tswitch__item-note">Switching…</span>
+                            }
+                            else if (account.IsDefault)
+                            {
+                                <span class="tswitch__item-note">Default</span>
+                            }
+                        </button>
+                    </li>
+                }
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <li class="tswitch__error" role="alert">@error</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Where to land after switching. The current page may not exist in the new account.</summary>
+    [Parameter] public string RedirectTo { get; set; } = "/portfolio";
+
+    private List<TenantMembershipDto> accounts = new();
+    private bool open;
+    private string? switching, error;
+
+    private string CurrentName =>
+        accounts.FirstOrDefault(a => a.IsCurrent)?.TenantName ?? "Account";
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            var resp = await _auth.GetMyAccounts();
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+                accounts = resp.Content;
+        }
+        catch (Exception ex)
+        {
+            // A switcher that cannot list accounts simply does not render.
+            Logger.LogWarning(ex, "Could not list accounts");
+        }
+    }
+
+    private void Toggle() => open = !open;
+
+    private async Task Switch(TenantMembershipDto account)
+    {
+        if (account.IsCurrent || account.TenantId is null) return;
+
+        switching = account.TenantId;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await _auth.SwitchTenant(account.TenantId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                // The new token is the switch. Everything the app can reach is
+                // decided by its TenantId claim, not by any local state.
+                await ((CustomAuthStateProvider)_authState).MarkUserAsAuthenticated(resp.Content);
+
+                // Full reload: cached project lists belong to the account being
+                // left, and showing them under the new name would be a lie.
+                _navigation.NavigateTo(RedirectTo, forceLoad: true);
+                return;
+            }
+
+            error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not switch account.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error switching to account {TenantId}", account.TenantId);
+            error = "Could not switch account.";
+        }
+        finally
+        {
+            switching = null;
+            StateHasChanged();
+        }
+    }
+}

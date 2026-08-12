@@ -4,19 +4,15 @@
 @inject ILogger<EntryPhotoPanel> Logger
 
 @*
-    The frames on one Site Log entry, and — for a mediator — the gesture that
-    puts some of them in front of the client.
-
-    Nalan posts thirteen to eighteen frames in a batch. Forwarding all of them
-    is what WhatsApp already does and is the thing Assetlen exists to replace,
-    so exposure is per frame and defaults to crew-only. The denominator stays
-    visible to the client side on purpose: being told the feed is curated is
-    what makes the curation acceptable.
+    Nalan posts 13–18 frames in a batch. Forwarding all of them is what WhatsApp
+    already does, so exposure is per frame and defaults to crew-only. The client
+    still sees the denominator — being told the feed is curated is what makes the
+    curation acceptable.
 *@
 
-@if (Images is { Count: > 0 })
+@if (frames is { Count: > 0 })
 {
-    var ordered = Images.OrderBy(i => i.DisplayOrder).ToList();
+    var ordered = frames.OrderBy(i => i.DisplayOrder).ToList();
     var active = ordered[Math.Clamp(activeIndex, 0, ordered.Count - 1)];
     var exposedCount = ordered.Count(i => i.Channel == Channel.Client);
 
@@ -116,12 +112,11 @@
             </div>
         }
 
-        @* The denominator. A client-side reader is told the feed is filtered
-           rather than being left to assume it is complete. *@
-        @if (!CanExpose && TotalCount > ordered.Count)
+        @* Told the feed is filtered, rather than left to assume it is complete. *@
+        @if (!CanExpose && total > ordered.Count)
         {
             <p class="entry-photos__note">
-                Showing @ordered.Count of @TotalCount frames. The rest is internal site record.
+                Showing @ordered.Count of @total frames. The rest is internal site record.
             </p>
         }
 
@@ -135,12 +130,11 @@
                    StartIndex="lightboxStart"
                    Images="@(ordered.Select(i => new PhotoLightbox.LightboxImage(i.ImageUrl ?? string.Empty, i.Caption)).ToList())" />
 }
-else if (TotalCount > 0)
+else if (total > 0)
 {
-    @* Every frame on this entry is crew-only. Saying so beats rendering
-       nothing, which reads as "the contractor posted no photos". *@
+    @* Saying so beats rendering nothing, which reads as "no photos were posted". *@
     <p class="entry-photos__note">
-        @TotalCount frame@(TotalCount > 1 ? "s" : "") on this entry, none released to the client side yet.
+        @total frame@(total > 1 ? "s" : "") on this entry, none released to the client side yet.
     </p>
 }
 
@@ -148,9 +142,8 @@ else if (TotalCount > 0)
     [Parameter, EditorRequired] public List<ProgressImageDto> Images { get; set; } = new();
 
     /// <summary>
-    /// True total on the entry, including frames this reader cannot see.
-    /// Defaults to the visible count so callers that have not been updated
-    /// simply show no denominator rather than a wrong one.
+    /// True total including frames this reader cannot see. Defaults to the visible
+    /// count, so an un-updated caller shows no denominator rather than a wrong one.
     /// </summary>
     [Parameter] public int TotalCount { get; set; }
 
@@ -166,9 +159,15 @@ else if (TotalCount > 0)
     private string? error;
     private readonly HashSet<string> selected = new();
 
+    // Local mirrors: writing back into [Parameter] properties is not durable —
+    // Blazor reassigns them from the parent and the update silently reverts.
+    private List<ProgressImageDto> frames = new();
+    private int total;
+
     protected override void OnParametersSet()
     {
-        if (TotalCount < Images.Count) TotalCount = Images.Count;
+        frames = Images;
+        total = Math.Max(TotalCount, Images.Count);
     }
 
     private void StartCurating()
@@ -212,11 +211,10 @@ else if (TotalCount > 0)
 
             if (resp.IsSuccessStatusCode && resp.Content is not null)
             {
-                // The server returns the whole entry: exposure changes what the
-                // entry itself reports, so trusting a local patch here would
-                // drift from what any other reader is shown.
-                Images = resp.Content.Images;
-                TotalCount = resp.Content.ImageCount;
+                // Take the server copy: exposure changes what the entry reports, so a
+                // local patch would drift from what other readers are shown.
+                frames = resp.Content.Images;
+                total = resp.Content.ImageCount;
                 activeIndex = 0;
                 selected.Clear();
                 await OnChanged.InvokeAsync(resp.Content);

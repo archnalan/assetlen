@@ -492,28 +492,18 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
                     entity.Property("LastModifiedBy").CurrentValue = _tenantProvider.GetUserId();
                 }
 
-                // A new project records its owning account explicitly. Every row
-                // that later hangs off this project reads OwnerTenantId back
-                // through ResolveOwningTenantId, so a null here would silently
-                // send those rows to whichever tenant happened to write them —
-                // the exact failure the resolver exists to prevent. ProjectDAL
-                // sets it (a sub-project inherits its parent's owner); this is
-                // the backstop for every other insertion path.
+                // Child rows read OwnerTenantId back through ResolveOwningTenantId, so
+                // a null here would send them to whichever tenant wrote them. ProjectDAL
+                // sets it for sub-projects; this is the backstop for every other path.
                 if (entity.Entity is tbl_Project newProject
                     && string.IsNullOrEmpty(newProject.OwnerTenantId))
                 {
                     newProject.OwnerTenantId = _tenantProvider.GetTenantId();
                 }
 
-                // Set TenantId if exists, is string, and is null.
-                //
-                // Project-scoped rows are stamped with the PROJECT'S OWNER, not
-                // with whoever is writing. Peter owns the project (assetlen.md D1)
-                // and contractors are guests in it — once one human can belong to
-                // several accounts, stamping from the writer's claim would put a
-                // guest's comment in the guest's own tenant, where the global
-                // filter hides it from the owner. The row would simply vanish.
-                // Falls back to the caller's tenant for platform rows with no project.
+                // Stamped with the PROJECT OWNER, not the writer. Peter owns the project
+                // (D1) and contractors are guests in it — stamping from the writer would
+                // put a guest comment in the guest tenant, where the filter hides it.
                 var tenantIdProp = entity.Metadata.FindProperty("TenantId");
                 if (tenantIdProp != null && tenantIdProp.ClrType == typeof(string))
                 {
@@ -559,15 +549,9 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
                 {
                     entity.Property("LastModifiedBy").CurrentValue = _tenantProvider.GetUserId();
                 }
-                // Set TenantId if exists, is string, and is null.
-                //
-                // Project-scoped rows are stamped with the PROJECT'S OWNER, not
-                // with whoever is writing. Peter owns the project (assetlen.md D1)
-                // and contractors are guests in it — once one human can belong to
-                // several accounts, stamping from the writer's claim would put a
-                // guest's comment in the guest's own tenant, where the global
-                // filter hides it from the owner. The row would simply vanish.
-                // Falls back to the caller's tenant for platform rows with no project.
+                // Stamped with the PROJECT OWNER, not the writer. Peter owns the project
+                // (D1) and contractors are guests in it — stamping from the writer would
+                // put a guest comment in the guest tenant, where the filter hides it.
                 var tenantIdProp = entity.Metadata.FindProperty("TenantId");
                 if (tenantIdProp != null && tenantIdProp.ClrType == typeof(string))
                 {
@@ -583,15 +567,8 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     }
 
     /// <summary>
-    /// The tenant that owns the row being written — the <em>project's</em> owner,
-    /// not the caller's account.
-    /// <para>
-    /// Resolution order: a project's own <c>OwnerTenantId</c>; otherwise the
-    /// owner of the project the row hangs off, read from the change tracker if
-    /// the project is already loaded and from the database only if it is not.
-    /// Returns null for platform rows with no project, and the caller falls
-    /// back to their own tenant.
-    /// </para>
+    /// The tenant that owns the row — the <em>project</em> owner, not the caller.
+    /// Null for platform rows with no project, and the caller falls back to their own.
     /// </summary>
     private string? ResolveOwningTenantId(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entity)
     {
@@ -607,16 +584,14 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         if (string.IsNullOrEmpty(projectId))
             return null;
 
-        // Prefer the tracked instance — the common case is a DAL that just
-        // loaded the project to authorize the write, so this costs nothing.
+        // Usually already tracked: the DAL just loaded it to authorize the write.
         var tracked = ChangeTracker.Entries<tbl_Project>()
             .FirstOrDefault(e => e.Entity.Id == projectId)?.Entity;
         if (tracked is not null)
             return tracked.OwnerTenantId;
 
-        // IgnoreQueryFilters: a guest writing into the owner's project cannot
-        // see that project through the tenant filter, which is precisely the
-        // situation this method exists to handle.
+        // IgnoreQueryFilters: a guest cannot see the owner project through the
+        // tenant filter, which is the situation this method exists for.
         return tbl_Projects_RS
             .IgnoreQueryFilters()
             .Where(p => p.Id == projectId)

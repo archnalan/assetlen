@@ -1483,12 +1483,26 @@ namespace assetlen.Service.DbServices
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-            var roles = await _userManager.GetRolesAsync(user);
+            // Roles are per account when the membership names them: a person can
+            // be a developer in their own and delivery-side in another. Falls
+            // back to the global roles, which is what every pre-P2.5 row has.
+            var accounts = await GetAccountsAsync(user.Id, tenantId);
+            var membershipRoles = accounts.FirstOrDefault(a => a.TenantId == tenantId)?.Roles;
+
+            var roles = string.IsNullOrWhiteSpace(membershipRoles)
+                ? await _userManager.GetRolesAsync(user)
+                : membershipRoles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
             user.Roles = JsonConvert.SerializeObject(roles);
+
+            // The claims DTO carries the ACTIVE account, not AppUser.TenantId,
+            // which is only where this person lands at sign-in.
+            var claimsUser = user.Adapt<UserClaimsDto>();
+            claimsUser.TenantId = tenantId;
 
             var claims = new List<Claim>()
             {
-                new Claim("user", JsonConvert.SerializeObject(user.Adapt<UserClaimsDto>()))
+                new Claim("user", JsonConvert.SerializeObject(claimsUser))
             };
 
             foreach (var role in roles)
@@ -1542,10 +1556,119 @@ namespace assetlen.Service.DbServices
                 token = new JwtSecurityTokenHandler().WriteToken(token),
                 exp = expiryTime,
                 TenantId = tenantId,
-                RefreshToken = refreshToken.Token
+                RefreshToken = refreshToken.Token,
+                Accounts = accounts
             };
 
             return result;
+        }
+
+        /// <summary>
+        /// Every account this person may act in, newest membership last.
+        /// <c>AppUser.TenantId</c> is included even without a membership row so a
+        /// user who pre-dates the table is never locked out of their own account.
+        /// </summary>
+        private async Task<List<TenantMembershipDto>> GetAccountsAsync(string userId, string? activeTenantId)
+        {
+            // IgnoreQueryFilters is not needed — tbl_TenantMemberships is
+            // deliberately unscoped, because the filter would hide every account
+            // except the one being left.
+            var memberships = await _context.tbl_TenantMemberships
+                .Where(m => m.UserId == userId && m.IsActive)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var user = await _context.Users.IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user?.TenantId is { Length: > 0 } home && memberships.All(m => m.TenantId != home))
+            {
+                memberships.Add(new tbl_TenantMembership
+                {
+                    UserId = userId,
+                    TenantId = home,
+                    IsDefault = true,
+                    IsActive = true
+                });
+            }
+
+            var ids = memberships.Select(m => m.TenantId).ToList();
+            var names = await _context.tbl_Tenants.IgnoreQueryFilters()
+                .Where(t => ids.Contains(t.TenantId))
+                .Select(t => new { t.TenantId, t.Name })
+                .AsNoTracking()
+                .ToListAsync();
+
+            return memberships
+                .Select(m => new TenantMembershipDto
+                {
+                    TenantId = m.TenantId,
+                    TenantName = names.FirstOrDefault(n => n.TenantId == m.TenantId)?.Name ?? m.TenantId,
+                    IsDefault = m.IsDefault,
+                    IsCurrent = m.TenantId == activeTenantId,
+                    Roles = m.Roles,
+                    JoinedAt = m.JoinedAt
+                })
+                .OrderByDescending(a => a.IsDefault)
+                .ThenBy(a => a.TenantName)
+                .ToList();
+        }
+
+        public async Task<ServiceResult<List<TenantMembershipDto>>> GetMyAccounts(string userId, string? activeTenantId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userId))
+                    return ServiceResult<List<TenantMembershipDto>>.Failure(
+                        new UnAuthorizedException("Not signed in."));
+
+                return ServiceResult<List<TenantMembershipDto>>.Success(
+                    await GetAccountsAsync(userId, activeTenantId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing accounts for {UserId}", userId);
+                return ServiceResult<List<TenantMembershipDto>>.Failure(new ServerErrorException(ex.Message));
+            }
+        }
+
+        /// <summary>
+        /// Re-issue the token against another account. Membership is checked here
+        /// and nowhere else — the client picks, the server decides.
+        /// </summary>
+        public async Task<ServiceResult<LoginResponseDto>> SwitchTenant(string userId, string tenantId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(tenantId))
+                    return ServiceResult<LoginResponseDto>.Failure(
+                        new BadRequestException("A user and an account are required."));
+
+                var user = await _context.Users.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.Id == userId);
+                if (user is null)
+                    return ServiceResult<LoginResponseDto>.Failure(new NotFoundException("User not found."));
+
+                var accounts = await GetAccountsAsync(userId, tenantId);
+                if (accounts.All(a => a.TenantId != tenantId))
+                    return ServiceResult<LoginResponseDto>.Failure(
+                        new ForbiddenException("You do not belong to that account."));
+
+                var ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                var userAgent = _httpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString();
+
+                var token = await GenerateToken(user, tenantId, ipAddress,
+                    DetermineDeviceType(userAgent), DetermineBrowserType(userAgent));
+
+                _logger.LogInformation("User {UserId} switched to account {TenantId}", userId, tenantId);
+                return ServiceResult<LoginResponseDto>.Success(token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error switching {UserId} to account {TenantId}", userId, tenantId);
+                return ServiceResult<LoginResponseDto>.Failure(new ServerErrorException(ex.Message));
+            }
         }
 
         public async Task<ServiceResult<LoginResponseDto>> RefreshToken(RefreshTokenRequestDto request, string ipAddress = null, string deviceType = null, string browserType = null)

@@ -72,6 +72,7 @@ else
             <button class="project-tab @(activeTab == "budget" ? "active" : "")" @onclick='() => SetTab("budget")'>Budget</button>
         </AuthorizeView>
         <button class="project-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Site Journal</button>
+        <button class="project-tab @(activeTab == "documents" ? "active" : "")" @onclick='() => SetTab("documents")'>Documents</button>
         <button class="project-tab @(activeTab == "issues" ? "active" : "")" @onclick='() => SetTab("issues")'>Issues</button>
         <button class="project-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
     </div>
@@ -94,6 +95,11 @@ else
                 break;
             case "progress":
                 @RenderProgress();
+                break;
+            case "documents":
+                <DocumentRegister ProjectId="ProjectId"
+                                  CanWrite="@(standing?.CanWrite ?? false)"
+                                  CanExpose="@(standing?.CanExposeToClient ?? false)" />
                 break;
             case "issues":
                 @RenderIssues();

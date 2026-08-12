@@ -3,13 +3,9 @@
 @inject ILogger<ProjectSizingPanel> Logger
 
 @*
-    Size and billing tier.
-
-    Assetlen bills per project by floor area, never per seat — adding the
-    plumber must never cost anything, or the roster stops being honest. Two
-    rules from assetlen.md §10.3 are visible here rather than buried: a tier
-    can only rise when a person says yes, and sub-projects roll up into the
-    parent rather than billing separately.
+    Billed per project by floor area, never per seat — adding the plumber must
+    never cost anything. A tier only rises when a person says yes, and
+    sub-projects roll up into the parent (assetlen.md §10.3).
 *@
 
 <section class="sizing">
@@ -39,8 +35,7 @@
     }
     else if (sizing is not null)
     {
-        @* A pending increase is the one thing on this panel that needs an
-           answer, so it sits above the numbers and cannot be scrolled past. *@
+        @* The one thing here that needs an answer, so it cannot be scrolled past. *@
         @if (sizing.RequiresConfirmation)
         {
             <div class="sizing__pending" role="alert">
@@ -126,8 +121,7 @@
                     </button>
                 </div>
 
-                @* Predict the consequence before the click, so the confirmation
-                   step is never a surprise. *@
+                @* Predict the consequence before the click. *@
                 @if (Dirty && PreviewTier is { } preview)
                 {
                     <p class="sizing__preview @(preview > sizing.Tier ? "is-up" : "")">
@@ -162,7 +156,7 @@
 @code {
     [Parameter, EditorRequired] public string ProjectId { get; set; } = string.Empty;
 
-    /// <summary>Owner or manager. Server re-checks; this only decides what is drawn.</summary>
+    /// <summary>Server re-checks; this only decides what is drawn.</summary>
     [Parameter] public bool CanManage { get; set; }
 
     /// <summary>Raised when the tier changes, so a parent header can restate it.</summary>
@@ -177,9 +171,8 @@
     private bool Dirty => areaInput != loadedArea;
 
     /// <summary>
-    /// Mirrors <c>ProjectSizingPolicy</c>, which is shared, so the preview and
-    /// the server agree by construction rather than by coincidence. Uses the
-    /// roll-up total minus this project's old area plus the typed one.
+    /// Uses the shared <c>ProjectSizingPolicy</c>, so preview and server agree by
+    /// construction rather than by coincidence.
     /// </summary>
     private ProjectSizeTier? PreviewTier
     {

@@ -1,0 +1,7 @@
+/* RouteTracker — no markup.
+
+   This component renders nothing: it exists to mirror the current route into
+   IAppLifecycleHandler and to redirect to /login when the token is dropped.
+   The file is here because CLAUDE.md §4.1 requires every .razor to have a
+   sibling, and its absence should mean "someone forgot", not "this one is
+   special". If markup is ever added, its styles belong here. */

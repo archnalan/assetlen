@@ -1,0 +1,21 @@
+/* ProjectsLayout — the Projects shell: top bar, main region, mobile bottom nav.
+
+   Every project-* class here is defined globally in wwwroot/projects.css so the
+   pages inside the shell share one vocabulary with it. See
+   PortfolioDashboard.razor.css for why those rules are not restated here.
+
+   Only what belongs to the shell itself is below. */
+
+/* Keep the last row of content clear of the fixed bottom nav. Without this the
+   final card sits underneath it on mobile and reads as a cut-off list. */
+@media (max-width: 768px) {
+    .project-main {
+        padding-bottom: calc(var(--al-space-8) + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* Dismiss-on-blur is handled by the click-away in markup; this only keeps the
+   menu above the page content it overlays. */
+.project-profile-dropdown {
+    z-index: 20;
+}

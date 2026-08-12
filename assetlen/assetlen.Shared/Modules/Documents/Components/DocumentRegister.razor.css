@@ -1,0 +1,299 @@
+/* DocumentRegister — the drawing register. Tokens only; theme follows the app.
+
+   The visual job here is to make "which revision is current" unmissable and
+   "which revisions are not" still reachable. Current rows read at full
+   contrast; superseded ones are dimmed but never hidden. */
+
+.docs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+}
+
+.docs__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+.docs__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    margin: 0;
+}
+
+.docs__sub {
+    margin: var(--al-space-1) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    max-width: 54ch;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+
+.docs__primary {
+    flex: 0 0 auto;
+    padding: var(--al-space-2) var(--al-space-4);
+    background: var(--al-accent);
+    color: var(--al-text-inverse);
+    border: 0;
+    border-radius: var(--al-radius-sm);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity var(--al-transition-fast);
+}
+
+.docs__primary--wide { align-self: flex-start; margin-top: var(--al-space-2); }
+.docs__primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.docs__primary:hover:not(:disabled) { opacity: 0.9; }
+
+.docs__ghost {
+    background: transparent;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-xs);
+    padding: var(--al-space-1) var(--al-space-2);
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.docs__ghost:hover:not(:disabled) {
+    border-color: var(--al-border-strong);
+    color: var(--al-text);
+}
+
+.docs__ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Create form ─────────────────────────────────────────────────── */
+
+.docs__form {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    padding: var(--al-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.docs__form-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.docs__form-title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-base);
+    margin: 0;
+}
+
+.docs__form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--al-space-3);
+}
+
+.docs__label {
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text-muted);
+}
+
+.docs__input {
+    width: 100%;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    color: var(--al-text);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    transition: border-color var(--al-transition-fast);
+}
+
+.docs__input:focus-visible { outline: none; border-color: var(--al-accent); }
+.docs__input:disabled { opacity: 0.6; }
+
+.docs__file {
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.docs__hint {
+    margin: 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+/* ── Groups and rows ─────────────────────────────────────────────── */
+
+.docs__group { display: flex; flex-direction: column; gap: var(--al-space-2); }
+
+.docs__group-title {
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--al-text-subtle);
+    margin: 0;
+}
+
+.docs__row {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    padding: var(--al-space-3) var(--al-space-4);
+}
+
+.docs__row-main {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    flex-wrap: wrap;
+}
+
+.docs__row-identity { min-width: 0; flex: 1 1 20rem; }
+
+.docs__row-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+/* The revision number is the fact the register exists to state. */
+.docs__rev {
+    flex: 0 0 auto;
+    padding: 1px var(--al-space-2);
+    border-radius: var(--al-radius-xs);
+    background: var(--al-surface-2);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+}
+
+.docs__row-meta {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    margin-top: var(--al-space-1);
+    overflow-wrap: anywhere;
+}
+
+.docs__dot { margin: 0 var(--al-space-1); color: var(--al-text-subtle); }
+
+.docs__notes {
+    margin: var(--al-space-2) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text);
+    font-style: italic;
+    border-left: 2px solid var(--al-border-strong);
+    padding-left: var(--al-space-2);
+}
+
+.docs__row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-1);
+    flex: 0 0 auto;
+}
+
+/* ── Reissue ─────────────────────────────────────────────────────── */
+
+.docs__reissue {
+    margin-top: var(--al-space-3);
+    padding-top: var(--al-space-3);
+    border-top: 1px solid var(--al-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.docs__reissue-actions {
+    display: flex;
+    gap: var(--al-space-2);
+    align-items: center;
+}
+
+/* ── History ─────────────────────────────────────────────────────── */
+
+.docs__history {
+    list-style: none;
+    margin: var(--al-space-3) 0 0;
+    padding: var(--al-space-3) 0 0;
+    border-top: 1px solid var(--al-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+/* Dimmed, not hidden: superseded is the state most of the register is in, and
+   an old issue still has to be readable months later. */
+.docs__history-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    opacity: 0.7;
+}
+
+.docs__history-row .docs__row-meta { margin-top: 0; flex: 1 1 12rem; }
+
+/* ── States ──────────────────────────────────────────────────────── */
+
+.docs__ghost-block,
+.docs__ghost:where(div) { display: none; }
+
+.docs__empty {
+    text-align: center;
+    padding: var(--al-space-6) var(--al-space-4);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius);
+    color: var(--al-text-subtle);
+}
+
+.docs__empty-title {
+    margin: var(--al-space-2) 0 var(--al-space-1);
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+}
+
+.docs__empty-desc {
+    margin: 0 auto;
+    max-width: 46ch;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.docs__error {
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+@media (max-width: 760px) {
+    .docs__head { flex-direction: column; align-items: stretch; }
+    .docs__form-grid { grid-template-columns: 1fr; }
+    .docs__row-actions > * { flex: 1 1 auto; text-align: center; }
+}

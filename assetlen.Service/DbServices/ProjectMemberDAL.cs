@@ -49,9 +49,8 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (project is null)
                 return ServiceResult<ProjectMemberDto>.Failure(new NotFoundException("Project not found."));
 
-            // The side defaults from the specialization but is stored
-            // explicitly — an architect or engineer sits on whichever side
-            // retained them, and that varies per project.
+            // Stored explicitly: an architect sits on whichever side retained them,
+            // and that varies per project.
             var side = dto.Side ?? ProjectSideDefaults.For(dto.Specialization);
             var isMediator = dto.IsMediator ?? ProjectSideDefaults.MediatesByDefault(dto.Specialization);
 
@@ -128,20 +127,9 @@ public class ProjectMemberDAL : IProjectMemberDAL
     }
 
     /// <summary>
-    /// Who may put someone on the roster, and on which side.
-    /// <para>
-    /// Owner and manager may do anything. A <b>mediator may staff their own
-    /// side</b> and only their own side — assetlen.md D5: Peter appoints the
-    /// mediator, the mediator staffs the delivery side. Without this the
-    /// architect could not add his own foreman, and Peter would be back to
-    /// hiring the subcontractors himself, which is the arrangement the product
-    /// exists to end.
-    /// </para>
-    /// <para>
-    /// Appointing another mediator is never delegated. It is the one decision
-    /// that changes whose name is accountable for what crosses (§10.1), and it
-    /// belongs to the person who owns the project.
-    /// </para>
+    /// D5: Peter appoints the mediator, the mediator staffs the delivery side —
+    /// their own side only. Appointing a mediator is never delegated; it decides
+    /// whose name is accountable for everything that crosses (§10.1).
     /// Returns an exception to fail with, or null when the action is allowed.
     /// </summary>
     private static Exception? CheckMayStaff(ProjectAccess access, ProjectSide targetSide, bool appointingMediator)
@@ -161,10 +149,8 @@ public class ProjectMemberDAL : IProjectMemberDAL
     }
 
     /// <summary>
-    /// A project has one mediator, or at most two. More than that and "what
-    /// Peter sees is what the architect chose" stops being true — the whole
-    /// point of the two-sided model is a single accountable filter.
-    /// Returns an exception to fail with, or null when the cap allows it.
+    /// One mediator, at most two. More and "what Peter sees is what the architect
+    /// chose" stops being true. Returns an exception, or null when the cap allows it.
     /// </summary>
     private async Task<Exception?> CheckMediatorCapAsync(string projectId, string? excludingMemberId)
     {
@@ -191,10 +177,8 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (project is null)
                 return ServiceResult<List<ProjectMemberDto>>.Failure(new NotFoundException("Project not found."));
 
-            // Any stakeholder may see who else is on the project. Knowing that
-            // a clerk of works and an engineer exist is not privileged — the
-            // client needs it to know who they are dealing with, and hiding it
-            // was an artefact of the old owner-only check.
+            // Who is on the project is not privileged — the client needs to know who
+            // they are dealing with (D5).
             var access = await _access.ResolveAsync(project, actingUserId);
             if (!access.CanRead)
                 return ServiceResult<List<ProjectMemberDto>>.Failure(new ForbiddenException("Access denied."));
@@ -231,9 +215,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (member is null)
                 return ServiceResult<bool>.Failure(new NotFoundException("Member not found."));
 
-            // A mediator may remove people from their own side — the same
-            // authority that let them add them. Removing a mediator is not
-            // delegated; see CheckMayStaff.
+            // Same authority that let them add: own side only, mediators excepted.
             var access = await _access.ResolveAsync(member.Project, actingUserId);
             var refusal = CheckMayStaff(access, member.Side, appointingMediator: false);
             if (refusal is not null)
@@ -243,8 +225,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
                 return ServiceResult<bool>.Failure(new ForbiddenException(
                     "Only the project owner can stand a mediator down."));
 
-            // Standing down the last mediator would leave nobody able to expose
-            // anything, and the client side would silently go dark.
+            // Without a mediator nothing can be exposed and the client goes dark.
             if (member.IsMediator && member.IsActive)
             {
                 var remaining = await _context.tbl_ProjectMembers
@@ -283,10 +264,8 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (member is null)
                 return ServiceResult<ProjectMemberDto>.Failure(new NotFoundException("Member not found."));
 
-            // Both the side they are on now and the side they would land on
-            // must be within the caller's reach — otherwise a mediator could
-            // move one of their own people onto the client side, which is a way
-            // of writing the other party's roster.
+            // Both the current side and the destination must be within reach, or a
+            // mediator could write the other party roster by moving people across.
             var access = await _access.ResolveAsync(member.Project, actingUserId);
             var appointing = dto.IsMediator == true && !member.IsMediator;
             var refusal = CheckMayStaff(access, member.Side, appointing)
@@ -294,8 +273,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (refusal is not null)
                 return ServiceResult<ProjectMemberDto>.Failure(refusal);
 
-            // Standing a mediator down changes who is accountable, so it stays
-            // with the owner even though the person sits on the caller's side.
+            // Standing a mediator down changes who is accountable — owner only.
             if (dto.IsMediator == false && member.IsMediator && !access.CanManage)
                 return ServiceResult<ProjectMemberDto>.Failure(new ForbiddenException(
                     "Only the project owner can stand a mediator down."));

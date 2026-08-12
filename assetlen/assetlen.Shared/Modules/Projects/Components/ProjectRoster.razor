@@ -3,13 +3,9 @@
 @inject ILogger<ProjectRoster> Logger
 
 @*
-    The two-sided roster.
-
-    A project has two principal parties and one accountable face between them.
-    That structure is the product, so the screen shows it literally: two
-    columns, the mediator seat above them, and every person visibly on one side
-    or the other. A flat member list would let the most important fact about a
-    person — which side they answer to — hide inside a dropdown.
+    Two principal parties, one accountable face between them. The screen shows
+    that literally, because a flat list would hide the most important fact about
+    a person — which side they answer to.
 *@
 
 <div class="roster">
@@ -36,8 +32,7 @@
         }
         else if (mediators.Count == 0)
         {
-            @* Never expected — the creator is seated at project create — but if
-               it happens the client side has gone silent and that must be loud. *@
+            @* The creator is seated at create, so this means the client side has gone silent. *@
             <div class="roster__alarm">
                 <strong>No mediator on this project.</strong>
                 Nothing can reach the client side until someone is appointed.
@@ -107,10 +102,8 @@
                         <button type="button" class="roster__ghost-btn" @onclick="CancelAdd" disabled="@saving">Cancel</button>
                     </div>
 
-                    @* Off-platform parties are first-class. Most people named in a
-                       commitment — the tile supplier, the plumber — will never
-                       sign in, and a roster that cannot hold them pushes their
-                       names into free text where nothing can be held against them. *@
+                    @* Most parties named in a commitment never sign in. A roster that
+                       cannot hold them pushes their names into free text. *@
                     <div class="roster__seg" role="tablist" aria-label="Kind of party">
                         <button type="button" role="tab" aria-selected="@(!addOffPlatform)"
                                 class="roster__seg-btn @(addOffPlatform ? "" : "is-active")"
@@ -219,8 +212,7 @@
                 </button>
                 @if (showFormer)
                 {
-                    @* Kept visible on purpose: a name that appears on an old
-                       commitment must still resolve to a person. *@
+                    @* A name on an old commitment must still resolve to a person. *@
                     <ul class="roster__former-list">
                         @foreach (var m in former)
                         {
@@ -241,10 +233,7 @@
 @code {
     [Parameter, EditorRequired] public string ProjectId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Whether the viewer may restructure the roster. Resolved server-side and
-    /// passed in; hiding a control is a courtesy, never the enforcement.
-    /// </summary>
+    /// <summary>Server-resolved. Hiding a control is a courtesy, never the enforcement.</summary>
     [Parameter] public bool CanManage { get; set; }
 
     /// <summary>Raised after any change, so the parent can refresh its own view.</summary>
@@ -268,9 +257,7 @@
         ? !string.IsNullOrWhiteSpace(addPartyName)
         : !string.IsNullOrWhiteSpace(addEmail);
 
-    // Ordered for a human reading a picker, not by enum value. Lead first
-    // because it is the commonest appointment; Other last because it is the
-    // fallback.
+    // Ordered for a human reading a picker, not by enum value.
     private static readonly ProjectMemberSpecialization[] Specializations =
     {
         ProjectMemberSpecialization.Lead,
@@ -448,8 +435,7 @@
             }
             else
             {
-                // The cap and last-mediator rules are server-side; surface the
-                // server's sentence rather than inventing a local one.
+                // Surface the server sentence — it owns the cap and last-mediator rules.
                 error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not apply that change.";
             }
         }

@@ -1,0 +1,6 @@
+/* SearchInput — a debounced wrapper around FluentSearch.
+
+   The component renders no elements of its own: callers pass SearchClass and
+   SearchStyle straight through to FluentSearch, so the styling decision belongs
+   to the caller, not here. Present so the missing-sibling check stays
+   meaningful. */

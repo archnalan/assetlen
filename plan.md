@@ -125,8 +125,12 @@ later phase writes through this.
   org. One change in `UpdateTimestamps` ([AssetlenDbContext.cs:472](assetlen.Service/DataAccess/AssetlenDbContext.cs)) —
   the single place TenantId is stamped. Without this, a guest writing into the owner's
   project stamps their own tenant and the row vanishes behind the query filter.
-- **Deferred to P2.5:** the login tenant-picker, the JWT active-tenant claim and the UI
-  switcher. Inert until a second account exists.
+- **P2.5 — done.** `GetMyAccounts` / `SwitchTenant` re-issue the token against another of
+  the caller's accounts, membership verified server-side. Roles now come from
+  `tbl_TenantMembership.Roles` when set and fall back to the global roles, so a person can
+  be a developer in their own account and delivery-side in another. The claims DTO carries
+  the **active** account, not `AppUser.TenantId`, which is only where they land at sign-in.
+  `TenantSwitcher` sits in the Projects top bar and only renders past one account.
 
 **Sides and the accountable face (assetlen.md §10.1).**
 - `ProjectSide { Client, Contractor }` and `tbl_ProjectMember.{ Side, IsMediator, PartyName }`.
@@ -170,14 +174,61 @@ backfills `OwnerTenantId` from each project's existing tenant, derives every mem
 `AppUser.TenantId` — without those, existing rows come up on the wrong side of the channel
 boundary. Solution builds with 0 errors.
 
-**Outstanding:** the roles / sizing UI, auto-seeding the project creator as mediator,
-`AssetlenHub` still using the tenant-global `IsExternal()`, the P2.5 login tenant-picker,
-and re-running the access audit with its personas reversed.
+**UI — the two-sided model made visible.**
+- `ProjectRoster.razor` replaces the Team tab. Two columns, the mediator seat above them,
+  off-platform parties as first-class rows, side reassignment and appointment inline. The
+  old surface was an email box and a raw enum `<select>`, which could not express a side at
+  all — the most important fact about a person would have stayed invisible.
+- `ProjectSizingPanel.razor` on Overview: area, band, roll-up breakdown, and a pending
+  upgrade that states what it will cost before it is accepted.
+- `EntryPhotoPanel` gains curation — select frames, expose or withdraw, with
+  *"3 of 18 shown to the client"* always on screen for the mediator and the true
+  denominator always on screen for the client.
+- `GetMyStanding` returns the caller's per-project `ProjectAccess` so a page renders the
+  right surface without re-deriving the rules. It is a mirror of the server's decision,
+  never a substitute for it.
 
-**Exit:** the same file uploaded twice yields one artifact and two refs; a client-side
-reader receives only exposed frames while the entry reports its true total; a reissued
-drawing pins the new revision without breaking pointers; removing a contractor from a
-project loses nothing.
+**Also closed:** the project creator is now seated as mediator #1 at create (a project
+without one leaves the client side permanently dark); `OwnerTenantId` is written on create
+and inherited by sub-projects, without which every child row fell back to the writer's
+tenant and the P2 ownership model did nothing; `AssetlenHub` resolves the side per project
+instead of from the tenant-global role claim, and now also gates `JoinProject`; and a
+**mediator may staff their own side** — required by D5 and previously impossible, which
+would have left Peter hiring the subcontractors himself.
+
+**Found by the suite, and fixed:** `ProjectSizingService.GetAsync` never resolved to the
+billable parent, so reading a guest wing reported the wing billing as its own project; and
+`OwnAreaSqm` returned the parent's area when viewing a sub-project, which would have
+invited an editor to overwrite the house's figure with the wing's.
+
+**Exit — met.** `tools/e2e-p2-peter.sh` drives the live API as Peter, Nalan, a foreman and
+an unrelated principal: **48 assertions, 0 failures.** The same file uploaded twice yields
+one artifact; a client-side reader receives only exposed frames while the entry reports its
+true total; a crew entry answers 404 rather than 403, since a refusal would confirm the
+Site Log exists; the tier never rises without a person accepting it.
+
+**Documents (F4).** `DocumentRegister` is the drawing register: reissue supersedes rather
+than replaces, the superseded issue stays downloadable, and `SetDocumentChannel` lets the
+mediator issue a drawing to the client or withdraw it. Downloads go through
+`IArtifactDownloadService` — artifact bytes sit behind an authenticated endpoint, so an
+`href` or `src` fetches them without a bearer token and against the wrong origin.
+
+**Found while building the register:** `IsVisibleAsync` consulted only `tbl_ArtifactRefs`,
+so a document released to the client was *listed* and its bytes still 404'd. Visibility now
+follows the document's own channel.
+
+**CSS debt cleared.** All 16 `.razor` files have siblings, and the four inline `<style>`
+blocks are gone. Three auth forms (forgot-password, phone-reset, reset-password) had been
+rendering **unstyled** since the login refactor: their class vocabulary lived in
+`LoginComponent.razor.css`, which CSS isolation never applied to a child component, and the
+rewrite took the orphaned rules with it.
+
+**Exit — met.** `tools/e2e-p2-peter.sh`: **65 assertions, 0 failures.**
+
+**Outstanding:** `tools/e2e-access-audit.sh` still casts the contractor as project owner and
+is superseded by the suite above; artifact *images* still render through
+`ProgressImageDto.ImageUrl`, which has the same authenticated-endpoint problem the download
+service solves for files.
 
 ---
 

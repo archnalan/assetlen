@@ -29,6 +29,18 @@ public interface IArtifactsApi
     [Get("/api/Artifacts/Get")]
     Task<IApiResponse<ArtifactDto>> Get([Query] string artifactId);
 
+    /// <summary>
+    /// The bytes, through the authenticated pipeline.
+    /// <para>
+    /// <c>ArtifactDto.Url</c> cannot be put in an <c>href</c> or a <c>src</c>:
+    /// the browser issues that request without the bearer token and against the
+    /// client's own origin, so it 401s or 404s. Anything that needs the content
+    /// fetches it here and hands the browser a blob.
+    /// </para>
+    /// </summary>
+    [Get("/api/Artifacts/{artifactId}/content")]
+    Task<HttpResponseMessage> Download(string artifactId);
+
     [Post("/api/Artifacts/AddRef")]
     Task<IApiResponse<ArtifactRefDto>> AddRef([Body] ArtifactRefCreateDto dto);
 
@@ -61,4 +73,8 @@ public interface IArtifactsApi
 
     [Get("/api/Artifacts/GetDocument")]
     Task<IApiResponse<DocumentDto>> GetDocument([Query] string documentId);
+
+    /// <summary>Issue a document to the client side, or withdraw it.</summary>
+    [Put("/api/Artifacts/SetDocumentChannel")]
+    Task<IApiResponse<DocumentDto>> SetDocumentChannel([Query] string documentId, [Query] Channel channel);
 }

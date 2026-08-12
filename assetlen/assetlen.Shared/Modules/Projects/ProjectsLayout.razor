@@ -27,6 +27,7 @@
             <div class="project-topbar-actions">
                 <AuthorizeView>
                     <Authorized>
+                        <TenantSwitcher />
                         <button class="project-avatar-btn" @onclick="ToggleProfileMenu">
                             <span class="project-avatar-initials">@GetInitials()</span>
                         </button>

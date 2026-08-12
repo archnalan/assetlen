@@ -1,0 +1,55 @@
+/* NavMenuSearch — scoped via Blazor CSS isolation. Tokens only.
+
+   Lifted out of an inline <style> block that leaked these class names into the
+   global namespace — .option-item and .option-title are generic enough to
+   collide with any other list this app grows.
+
+   Plain selectors rather than ::deep: the option and selected-item templates
+   are markup authored in *this* .razor, so the compiler stamps the scope
+   attribute onto those elements directly. That holds even if FluentAutocomplete
+   renders its popup outside this component's subtree, which ::deep would not. */
+
+.selected-item,
+.option-item {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    min-width: 0;
+}
+
+.option-item {
+    width: 100%;
+    padding: var(--al-space-1) 0;
+    cursor: pointer;
+}
+
+.option-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.option-title {
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Where the item sits in the nav tree. Secondary to the title — it
+   disambiguates two identically-named leaves, it is not the thing being read. */
+.option-path,
+.item-path {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.item-path {
+    margin-left: auto;
+    padding-left: var(--al-space-2);
+}

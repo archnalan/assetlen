@@ -245,8 +245,20 @@ public class ArtifactDAL : IArtifactDAL
         if (access.CanSeeSiteLog)
             return true;
 
-        return await _context.tbl_ArtifactRefs
+        var exposedByRef = await _context.tbl_ArtifactRefs
             .AnyAsync(r => r.ArtifactId == artifactId && r.Channel == Channel.Client, ct);
+        if (exposedByRef)
+            return true;
+
+        // A controlled document carries its own channel and does not create a
+        // ref row, so a ref-only test refused the bytes for every drawing a
+        // client was entitled to: GetDocumentsAsync listed it, and the download
+        // then 404'd. Visibility follows the document that revision belongs to.
+        return await _context.tbl_ArtifactRevisions
+            .Include(r => r.Document)
+            .AnyAsync(r => r.ArtifactId == artifactId
+                        && r.Document != null
+                        && r.Document.Channel == Channel.Client, ct);
     }
 
     // ─── Refs and exposure ───────────────────────────────────────────────
@@ -578,6 +590,39 @@ public class ArtifactDAL : IArtifactDAL
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error reading document {DocumentId}", documentId);
+            return Fail<DocumentDto>(new ServerErrorException(ex.Message));
+        }
+    }
+
+    public async Task<ServiceResult<DocumentDto>> SetDocumentChannelAsync(
+        string documentId, Channel channel, string userId, CancellationToken ct = default)
+    {
+        try
+        {
+            var document = await _context.tbl_Documents
+                .Include(d => d.Project)
+                    .ThenInclude(p => p!.ParentProject)
+                .FirstOrDefaultAsync(d => d.Id == documentId, ct);
+            if (document is null)
+                return Fail<DocumentDto>(new NotFoundException("Document not found."));
+
+            // Same gate as a Site Log frame. Issuing a drawing to the client is
+            // the act that makes it the drawing they build expectations on.
+            if (!await _access.CanExposeToClientAsync(document.Project, userId, ct))
+                return Fail<DocumentDto>(new ForbiddenException(
+                    "Only a project mediator, owner or manager can change what the client sees."));
+
+            document.Channel = channel;
+            await _context.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "Document {DocumentId} set to {Channel} by {UserId}", documentId, channel, userId);
+
+            return await GetDocumentAsync(documentId, userId, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting channel on document {DocumentId}", documentId);
             return Fail<DocumentDto>(new ServerErrorException(ex.Message));
         }
     }

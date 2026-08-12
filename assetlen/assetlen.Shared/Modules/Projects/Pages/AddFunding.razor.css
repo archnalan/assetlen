@@ -1,0 +1,14 @@
+/* AddFunding — scoped via Blazor CSS isolation.
+
+   Form chrome comes from the shared project-* vocabulary in
+   wwwroot/projects.css. See PortfolioDashboard.razor.css for why it is not
+   copied here.
+
+   Only what is local to recording a deposit belongs below. */
+
+/* Money. Tabular figures so an amount can be checked digit by digit against a
+   receipt — the whole point of the page is that this number is right. */
+.project-input[type="number"] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}

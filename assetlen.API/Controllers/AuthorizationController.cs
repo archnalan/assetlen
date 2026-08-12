@@ -151,6 +151,40 @@ namespace assetlen.API.Controllers
             return Ok(loginResponse.Data);
         }
 
+        // AllowAnonymous on both account actions is deliberate. The controller
+        // gates on Contractor, and [Authorize] filters AND together — a Manager
+        // asking which accounts they belong to would be refused by a rule about
+        // something else entirely. Authentication still runs, so a bearer token
+        // still populates the claims; the DAL rejects a caller with no user id.
+
+        /// <summary>Every account the caller may act in (assetlen.md §10.2).</summary>
+        [AllowAnonymous]
+        [HttpGet]
+        [ProducesResponseType(typeof(List<TenantMembershipDto>), 200)]
+        public async Task<IActionResult> GetMyAccounts()
+        {
+            var result = await _authorizationDAL.GetMyAccounts(
+                _tenantProvider.GetUserId(), _tenantProvider.GetTenantId());
+
+            if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error);
+            return Ok(result.Data);
+        }
+
+        /// <summary>
+        /// Move to another account. The caller's membership is verified server-side;
+        /// the returned token is the only thing that changes what they can reach.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost]
+        [ProducesResponseType(typeof(LoginResponseDto), 200)]
+        public async Task<IActionResult> SwitchTenant([FromQuery][Required] string tenantId)
+        {
+            var result = await _authorizationDAL.SwitchTenant(_tenantProvider.GetUserId(), tenantId);
+
+            if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error);
+            return Ok(result.Data);
+        }
+
         [AllowAnonymous]
         [HttpPost]
         [ProducesResponseType(typeof(string), 200)]

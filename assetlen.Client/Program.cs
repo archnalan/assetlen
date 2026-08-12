@@ -85,6 +85,11 @@ builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
 
 builder.Services.AddSingleton<GlobalContext>();
 builder.Services.AddScoped<ICustomFileSaver, FileSaverWeb>();
+
+// Artifact bytes sit behind an authenticated endpoint, so they cannot be
+// reached from an href or a src. Everything fetches through Refit and hands the
+// browser a blob.
+builder.Services.AddScoped<IArtifactDownloadService, ArtifactDownloadService>();
 builder.Services.AddScoped<IPrintService, PrintServiceWeb>();
 builder.Services.AddScoped<NavigationService>();
 builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();

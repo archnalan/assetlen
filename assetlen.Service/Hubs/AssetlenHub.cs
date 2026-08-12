@@ -24,11 +24,9 @@ namespace assetlen.Service.Hubs;
 /// broadcasts to stream-{streamId}:crew, so external principals never see
 /// internal chatter even via the live transport.
 ///
-/// Which side a caller is on is resolved <b>per project</b>. It used to be read
-/// from the tenant-global role claim, which gave one person the same standing on
-/// every project — so a mediator on one project was treated as internal on all
-/// of them, and the live transport leaked crew traffic the REST layer correctly
-/// withheld.
+/// The side is resolved <b>per project</b>. A tenant-global role claim gave one
+/// person the same standing everywhere, and the live transport then leaked crew
+/// traffic the REST layer correctly withheld.
 /// </summary>
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme,
     Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew},{UserRoles.Client},{UserRoles.Guest}")]
@@ -53,8 +51,7 @@ public class AssetlenHub : Hub
 
     public async Task JoinProject(string projectId)
     {
-        // Presence is not public: joining the group is how a connection starts
-        // receiving that project's broadcasts.
+        // Joining the group is how a connection starts receiving broadcasts.
         if (!await _access.CanReadAsync(projectId, _tenant.GetUserId()))
             throw new HubException("You do not have access to this project.");
 
@@ -72,8 +69,7 @@ public class AssetlenHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, StreamGroup(streamId));
 
-        // The crew group carries unsanitised Site Log traffic. Same test the
-        // REST layer applies: contractor-side, or the mediator.
+        // Crew traffic is the unsanitised Site Log. Same test as the REST layer.
         if (access.CanSeeSiteLog)
             await Groups.AddToGroupAsync(Context.ConnectionId, CrewStreamGroup(streamId));
     }
@@ -82,15 +78,12 @@ public class AssetlenHub : Hub
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, StreamGroup(streamId));
 
-        // Leave unconditionally — a membership change mid-connection must not
-        // strand a connection inside the crew group it can no longer justify.
+        // Unconditional: a membership change must not strand a connection in the
+        // crew group it can no longer justify.
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, CrewStreamGroup(streamId));
     }
 
-    /// <summary>
-    /// A stream id is a ProgressUpdate id; the side is a property of that
-    /// entry's project, so the project has to be looked up to answer at all.
-    /// </summary>
+    /// <summary>A stream id is a ProgressUpdate id; the side belongs to its project.</summary>
     private async Task<ProjectAccess> ResolveStreamAccessAsync(string streamId)
     {
         var projectId = await _context.tbl_ProgressUpdates

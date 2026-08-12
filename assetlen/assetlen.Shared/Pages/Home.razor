@@ -15,69 +15,6 @@
     </p>
 </div>
 
-<style>
-    .al-home {
-        display: flex;
-        flex-direction: column;
-        gap: var(--al-space-3);
-        padding: var(--al-space-7) var(--al-space-5);
-        max-width: 48rem;
-        margin: 0 auto;
-    }
-
-    .al-home__brand {
-        font-family: var(--al-font-display);
-        font-size: var(--al-font-size-2xl);
-        font-weight: var(--al-weight-semibold);
-        letter-spacing: -0.02em;
-        color: var(--al-text);
-    }
-
-    .al-home__tagline {
-        font-size: var(--al-font-size-md);
-        color: var(--al-text-muted);
-        margin: 0;
-    }
-
-    .al-home__cta {
-        display: flex;
-        gap: var(--al-space-3);
-        flex-wrap: wrap;
-        margin-top: var(--al-space-3);
-    }
-
-    .al-home__btn {
-        display: inline-block;
-        padding: var(--al-space-2) var(--al-space-5);
-        font-size: var(--al-font-size-sm);
-        font-weight: var(--al-weight-semibold);
-        border-radius: var(--al-radius-sm);
-        text-decoration: none;
-        border: 1px solid var(--al-border-strong);
-        color: var(--al-text);
-        background: var(--al-surface);
-        transition: border-color var(--al-transition-fast), background var(--al-transition-fast);
-    }
-
-    .al-home__btn:hover { border-color: var(--al-text-muted); }
-
-    .al-home__btn--primary {
-        background: var(--al-accent);
-        border-color: var(--al-accent);
-        color: var(--al-accent-contrast);
-    }
-
-    .al-home__btn--primary:hover {
-        background: var(--al-accent-hover);
-        border-color: var(--al-accent-hover);
-    }
-
-    .al-home__meta {
-        font-size: var(--al-font-size-sm);
-        margin: 0;
-    }
-</style>
-
 @code {
     private string factor => FormFactor.GetFormFactor();
     private string platform => FormFactor.GetPlatform();

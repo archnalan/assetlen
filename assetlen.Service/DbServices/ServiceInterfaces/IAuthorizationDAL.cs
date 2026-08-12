@@ -33,6 +33,12 @@ namespace assetlen.Service.DbServices.ServiceInterfaces
         Task<ServiceResult<bool>> UserNameTaken(string userName);
         Task<ServiceResult<bool>> EmailTaken(string email);
         Task<ServiceResult<LoginResponseDto>> RefreshToken(RefreshTokenRequestDto request, string ipAddress = null, string deviceType = null, string browserType = null);
+
+        /// <summary>Every account this person may act in (assetlen.md §10.2).</summary>
+        Task<ServiceResult<List<TenantMembershipDto>>> GetMyAccounts(string userId, string? activeTenantId);
+
+        /// <summary>Re-issue the token against another of the caller's accounts.</summary>
+        Task<ServiceResult<LoginResponseDto>> SwitchTenant(string userId, string tenantId);
         Task<ServiceResult<string>> SendVerificationCode(SendVerificationCodeDto sendVerificationCodeDto);
         Task<ServiceResult<string>> VerifyCode(VerifyCodeDto verifyCodeDto);
         Task<ServiceResult<string>> ResendVerificationCode(string identifier);

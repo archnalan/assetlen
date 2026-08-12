@@ -1,0 +1,6 @@
+/* WarningConfirmationRight — no classes of its own.
+
+   The component is built entirely from FluentUI primitives (FluentDialogBody,
+   FluentButton) and carries no markup this stylesheet could target. Present so
+   the missing-sibling check stays meaningful; add rules here if the dialog ever
+   grows its own elements. */

@@ -231,4 +231,15 @@ public class ArtifactsController : ControllerBase
         if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
         return Ok(result.Data);
     }
+
+    /// <summary>Issue a document to the client side, or withdraw it. Mediator, owner or manager.</summary>
+    [HttpPut]
+    [ProducesResponseType(typeof(DocumentDto), 200)]
+    public async Task<ActionResult> SetDocumentChannel(
+        [FromQuery][Required] string documentId, [FromQuery] Channel channel, CancellationToken ct)
+    {
+        var result = await _dal.SetDocumentChannelAsync(documentId, channel, _tenantProvider.GetUserId(), ct);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
 }

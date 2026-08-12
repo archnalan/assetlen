@@ -156,6 +156,18 @@ builder.Services.AddScoped<IPMDashboardDAL, PMDashboardDAL>();
 builder.Services.AddScoped<IFlagDAL, FlagDAL>();
 builder.Services.AddScoped<IBudgetDAL, BudgetDAL>();
 builder.Services.AddScoped<IProjectHealthService, ProjectHealthService>();
+builder.Services.AddScoped<IProjectSizingService, ProjectSizingService>();
+
+// ── Artifact store (P2 — assetlen.md Law 2) ──
+// Storage is content-addressed on local disk for now. Swapping in Blob or
+// Drive is an IArtifactStorage implementation and nothing else, which is why
+// tbl_Artifact stores a *relative* path.
+builder.Services.AddSingleton<IArtifactStorage>(sp => new LocalArtifactStorage(
+    builder.Configuration["Artifacts:StorageRoot"]
+        ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data"),
+    sp.GetRequiredService<ILogger<LocalArtifactStorage>>()));
+builder.Services.AddSingleton<IThumbnailGenerator, ImageSharpThumbnailGenerator>();
+builder.Services.AddScoped<IArtifactDAL, ArtifactDAL>();
 
 builder.Services.AddSignalR();
 builder.Services.AddIdentity<AppUser, IdentityRole>

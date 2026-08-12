@@ -78,6 +78,16 @@ public class ProjectMemberDto : BaseDto
 {
     public string? ProjectId { get; set; }
     public string? UserId { get; set; }
+
+    /// <summary>Set when this is an off-platform party with no login.</summary>
+    public string? PartyName { get; set; }
+
+    /// <summary>Which of the project's two principal parties this member belongs to.</summary>
+    public ProjectSide Side { get; set; } = ProjectSide.Contractor;
+
+    /// <summary>True for the one or two people who mediate between the sides.</summary>
+    public bool IsMediator { get; set; }
+
     public ProjectMemberSpecialization Specialization { get; set; }
     public string? Title { get; set; }
     public bool IsActive { get; set; }
@@ -89,6 +99,9 @@ public class ProjectMemberDto : BaseDto
     public string? UserEmail { get; set; }
     public string? UserProfilePicUrl { get; set; }
     public string? AssignedByName { get; set; }
+
+    /// <summary>True when there is no platform account behind this row.</summary>
+    public bool IsOffPlatform => string.IsNullOrEmpty(UserId);
 }
 
 public class ProjectMemberCreateDto
@@ -96,13 +109,29 @@ public class ProjectMemberCreateDto
     [Required]
     public string? ProjectId { get; set; }
 
-    /// <summary>Either UserId OR UserEmail must be supplied.</summary>
+    /// <summary>
+    /// UserId OR UserEmail for a platform user; leave both empty and supply
+    /// <see cref="PartyName"/> for an off-platform party who is attributable
+    /// on commitments but will never sign in.
+    /// </summary>
     public string? UserId { get; set; }
 
     [EmailAddress]
     public string? UserEmail { get; set; }
 
+    [MaxLength(200)]
+    public string? PartyName { get; set; }
+
     public ProjectMemberSpecialization Specialization { get; set; } = ProjectMemberSpecialization.Other;
+
+    /// <summary>Null defaults from <see cref="Specialization"/> via <c>ProjectSideDefaults.For</c>.</summary>
+    public ProjectSide? Side { get; set; }
+
+    /// <summary>
+    /// Null defaults from <see cref="Specialization"/>. Setting true when the
+    /// project already has two mediators is rejected with 409.
+    /// </summary>
+    public bool? IsMediator { get; set; }
 
     [MaxLength(120)]
     public string? Title { get; set; }
@@ -211,7 +240,21 @@ public class ProgressUpdateDto : BaseDto
     // Populated
     public string? CreatedByName { get; set; }
     public string? StageName { get; set; }
+
+    /// <summary>
+    /// Frames this reader may see. For a client-side reader this is the exposed
+    /// subset, not the whole batch — compare against <see cref="ImageCount"/>.
+    /// </summary>
     public List<ProgressImageDto> Images { get; set; } = new();
+
+    /// <summary>
+    /// Total frames on the entry regardless of exposure. Lets the mediator's UI
+    /// show "3 of 18 shared" without a second round trip. A client-side reader
+    /// receives this too — being told the feed is filtered is Peter's stated
+    /// trust condition, and hiding the denominator would break it.
+    /// </summary>
+    public int ImageCount { get; set; }
+
     public List<ProgressCommentDto> Comments { get; set; } = new();
 }
 
@@ -245,11 +288,38 @@ public class ProgressUpdateCreateDto
 public class ProgressImageDto : BaseDto
 {
     public string? ProgressUpdateId { get; set; }
+
+    /// <summary>Pointer to the canonical file. Null only on pre-P2 rows.</summary>
+    public string? ArtifactId { get; set; }
+
     public string? ImageUrl { get; set; }
     public string? ThumbnailUrl { get; set; }
     public string? Caption { get; set; }
     public int DisplayOrder { get; set; }
+
+    /// <summary>
+    /// Visibility of this frame. A client-side reader only ever receives
+    /// frames already at <see cref="Channel.Client"/>, so this reads
+    /// <c>Client</c> for everything they can see.
+    /// </summary>
+    public Channel Channel { get; set; } = Channel.Crew;
+
+    public string? ExposedById { get; set; }
+    public DateTime? ExposedAt { get; set; }
+
     public List<ProgressCommentDto> Comments { get; set; } = new();
+}
+
+/// <summary>
+/// Expose or withdraw specific frames on one entry. The mediator's core
+/// curation gesture — pick three of eighteen, not all or nothing.
+/// </summary>
+public class ProgressImageExposureDto
+{
+    [Required]
+    public List<string> ImageIds { get; set; } = new();
+
+    public Channel Channel { get; set; } = Channel.Crew;
 }
 
 public class ProgressImageUploadDto

@@ -40,6 +40,18 @@ namespace assetlen.Shared.Apicalls
 
         [Get("/api/ProjectsRS/GetProjectAnalytics")]
         Task<IApiResponse<ProjectAnalyticsDto>> GetProjectAnalytics([Query] string projectId);
-    }
 
+        // ─── Sizing and billing tier ───
+        // Billing is per project by floor area, never per seat.
+
+        [Get("/api/ProjectsRS/GetProjectSizing")]
+        Task<IApiResponse<ProjectSizingDto>> GetProjectSizing([Query] string projectId);
+
+        [Put("/api/ProjectsRS/SetProjectArea")]
+        Task<IApiResponse<ProjectSizingDto>> SetProjectArea([Body] ProjectAreaUpdateDto dto);
+
+        /// <summary>Accept a pending tier increase — it changes the bill.</summary>
+        [Put("/api/ProjectsRS/ConfirmProjectTier")]
+        Task<IApiResponse<ProjectSizingDto>> ConfirmProjectTier([Query] string projectId);
+    }
 }

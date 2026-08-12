@@ -12,49 +12,85 @@ public class ProjectAccessService : IProjectAccessService
 
     public ProjectAccessService(AssetlenDbContext context) => _context = context;
 
-    public async Task<ProjectAccessLevel> GetAccessAsync(string? projectId, string? userId, CancellationToken ct = default)
+    public async Task<ProjectAccess> ResolveAsync(string? projectId, string? userId, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(projectId) || string.IsNullOrEmpty(userId))
-            return ProjectAccessLevel.None;
+            return ProjectAccess.None;
 
         var project = await _context.tbl_Projects_RS
             .Include(p => p.ParentProject)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == projectId, ct);
 
-        return await GetAccessAsync(project, userId, ct);
+        return await ResolveAsync(project, userId, ct);
     }
 
-    public async Task<ProjectAccessLevel> GetAccessAsync(tbl_Project? project, string? userId, CancellationToken ct = default)
+    public async Task<ProjectAccess> ResolveAsync(tbl_Project? project, string? userId, CancellationToken ct = default)
     {
         if (project is null || string.IsNullOrEmpty(userId))
-            return ProjectAccessLevel.None;
+            return ProjectAccess.None;
 
-        // Ownership — the project's own, or its parent's for a sub-project.
-        if (project.InvestorId == userId || project.ProjectManagerId == userId
-            || project.ParentProject?.InvestorId == userId
-            || project.ParentProject?.ProjectManagerId == userId)
-            return ProjectAccessLevel.Manage;
-
-        // Membership — on this project or, for a sub-project, on its parent.
-        // Highest specialization wins if somebody is a member of both.
-        var specializations = await _context.tbl_ProjectMembers
+        // Membership is read first even for owners: it carries the side and the
+        // mediator flag, which ownership alone cannot tell us. A project created
+        // before this model existed may have no rows at all — the ownership
+        // fallback below keeps those projects usable.
+        var memberships = await _context.tbl_ProjectMembers
             .Where(m => m.UserId == userId
                      && m.IsActive
                      && (m.ProjectId == project.Id
                          || (project.ParentProjectId != null && m.ProjectId == project.ParentProjectId)))
-            .Select(m => m.Specialization)
+            .Select(m => new { m.Specialization, m.Side, m.IsMediator })
             .ToListAsync(ct);
 
-        if (specializations.Count == 0)
-            return ProjectAccessLevel.None;
+        var isMediator = memberships.Any(m => m.IsMediator);
+
+        // Ownership — the project's own, or its parent's for a sub-project.
+        var isInvestor = project.InvestorId == userId || project.ParentProject?.InvestorId == userId;
+        var isManager = project.ProjectManagerId == userId || project.ParentProject?.ProjectManagerId == userId;
+
+        if (isInvestor || isManager)
+        {
+            // An explicit membership row still decides the side — the investor
+            // is client-side, the project manager contractor-side, unless a row
+            // says otherwise. Owners get Manage either way.
+            var ownerSide = memberships.Count > 0
+                ? HighestSide(memberships.Select(m => m.Side))
+                : (isInvestor ? ProjectSide.Client : ProjectSide.Contractor);
+
+            // The project manager mediates by default when nobody else does —
+            // otherwise a legacy project would have no one able to expose.
+            return new ProjectAccess(
+                ProjectAccessLevel.Manage,
+                ownerSide,
+                isMediator || (memberships.Count == 0 && isManager));
+        }
+
+        if (memberships.Count == 0)
+            return ProjectAccess.None;
 
         // An Observer is a read-only stakeholder. Any other specialization —
         // clerk of works, engineer, the developer themselves — may contribute.
-        return specializations.Any(s => s != ProjectMemberSpecialization.Observer)
+        var level = memberships.Any(m => m.Specialization != ProjectMemberSpecialization.Observer)
             ? ProjectAccessLevel.Write
             : ProjectAccessLevel.Read;
+
+        return new ProjectAccess(level, HighestSide(memberships.Select(m => m.Side)), isMediator);
     }
+
+    /// <summary>
+    /// A user who is somehow a member on both sides (member of the parent as
+    /// client, of the sub-project as contractor) is treated as contractor-side:
+    /// the side that sees <em>more</em> loses no information, and failing the
+    /// other way would hide the Site Log from someone entitled to it.
+    /// </summary>
+    private static ProjectSide HighestSide(IEnumerable<ProjectSide> sides) =>
+        sides.Any(s => s == ProjectSide.Contractor) ? ProjectSide.Contractor : ProjectSide.Client;
+
+    public async Task<ProjectAccessLevel> GetAccessAsync(string? projectId, string? userId, CancellationToken ct = default) =>
+        (await ResolveAsync(projectId, userId, ct)).Level;
+
+    public async Task<ProjectAccessLevel> GetAccessAsync(tbl_Project? project, string? userId, CancellationToken ct = default) =>
+        (await ResolveAsync(project, userId, ct)).Level;
 
     public async Task<bool> CanReadAsync(string? projectId, string? userId, CancellationToken ct = default) =>
         await GetAccessAsync(projectId, userId, ct) >= ProjectAccessLevel.Read;
@@ -73,4 +109,7 @@ public class ProjectAccessService : IProjectAccessService
 
     public async Task<bool> CanManageAsync(tbl_Project? project, string? userId, CancellationToken ct = default) =>
         await GetAccessAsync(project, userId, ct) >= ProjectAccessLevel.Manage;
+
+    public async Task<bool> CanExposeToClientAsync(tbl_Project? project, string? userId, CancellationToken ct = default) =>
+        (await ResolveAsync(project, userId, ct)).CanExposeToClient;
 }

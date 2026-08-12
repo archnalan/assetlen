@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # ASSETLEN — three-user access regression suite (plan.md P0 exit criterion).
 #
-# Walks the three real personas of the vision — David (contractor/owner),
+# Walks the three real personas of the vision — Nalan (contractor/owner),
 # Peter (developer/client) and Colin (clerk of works) — through the paths that
 # finding A1 broke. Every one of these returned 403 before P0.
 #
@@ -45,7 +45,7 @@ echo
 DAVID=$(tok "$OWNER_EMAIL" "$OWNER_PASS")
 [ -z "$DAVID" ] && { echo "FATAL: owner login failed. Is the API up on the https profile?"; exit 1; }
 
-# ── Fixtures: two teammates, both active members of David's first project ────
+# ── Fixtures: two teammates, both active members of Nalan's first project ────
 for U in "peter:Client:Peter:Developer:8:Developer" "clerk:Crew:Colin:Clerk:5:Clerk of works"; do
   IFS=: read -r name role fn ln spec title <<<"$U"
   "${CURL[@]}" -o /dev/null -X POST "$API/Authorization/CreateUser" -H "Authorization: Bearer $DAVID" \
@@ -103,7 +103,7 @@ PIX="/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0
 CAP="{\"ProjectId\":\"$PID\",\"StageId\":\"$SID\",\"Description\":\"Regression capture\",\"CompletionPercentage\":40,\"HasIssues\":false,\"Channel\":0,\"Images\":[{\"FileName\":\"a.jpg\",\"ContentType\":\"image/jpeg\",\"Base64Image\":\"$PIX\",\"DisplayOrder\":1}]}"
 
 echo
-echo "The clerk of works can do the job (David.md: capture must be dumber than WhatsApp)"
+echo "The clerk of works can do the job (Nalan.md: capture must be dumber than WhatsApp)"
 expect "clerk opens the project"        200 "$(status GET  "/ProjectsRS/GetProjectById?projectId=$PID" "$CLERK")"
 expect "clerk reads the stage list"     200 "$(status GET  "/Stages/GetStagesByProjectId?projectId=$PID" "$CLERK")"
 expect "clerk reads the site log"       200 "$(status GET  "/Progress/GetProgressUpdates?projectId=$PID" "$CLERK")"
@@ -122,13 +122,13 @@ expect "peter sees project analytics"   200 "$(status GET  "/ProjectsRS/GetProje
 expect "peter's search finds his job"   200 "$(status GET  "/ProjectsRS/SearchProjects?keywords=" "$PETER")"
 
 echo
-echo "Curation still holds (assetlen.md §5: David controls emphasis, not truth)"
+echo "Curation still holds (assetlen.md §5: Nalan controls emphasis, not truth)"
 expect "peter cannot edit the budget"   403 "$(status POST "/Budget/AddLineItem" "$PETER" "{\"ProjectId\":\"$PID\",\"Title\":\"x\",\"PlannedAmount\":1,\"Category\":0}")"
 expect "clerk cannot publish to client" 403 "$(status PUT  "/Progress/SetChannel?updateId=00000000-0000-0000-0000-000000000000&channel=Client" "$CLERK")"
 
 echo
 echo "Membership is per-project, not global"
-# A second project David owns and Peter is NOT a member of. Access must not
+# A second project Nalan owns and Peter is NOT a member of. Access must not
 # leak sideways just because Peter is a member of the first one.
 find_fixture() {
   "${CURL[@]}" "$API/ProjectsRS/SearchProjects?keywords=AccessIsolationFixture" \

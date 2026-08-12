@@ -36,7 +36,8 @@ public class FlagDAL : IFlagDAL
             var project = await LoadProjectWithParent(dto.ProjectId);
             if (project is null)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Project not found."));
-            if (!await _access.CanReadAsync(project, actingUserId))
+            var access = await _access.ResolveAsync(project, actingUserId);
+            if (!access.CanRead)
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
 
             var flag = new tbl_Flag
@@ -48,8 +49,10 @@ public class FlagDAL : IFlagDAL
                 Title = dto.Title,
                 Description = dto.Description,
                 Severity = dto.Severity,
-                // External principals can only raise on their own (Client) channel.
-                Channel = _tenant.IsExternal() ? Channel.Client : dto.Channel,
+                // A client-side principal can only raise on the Client channel —
+                // decided per project, so the same person may raise a Crew-channel
+                // query on a different project where they mediate.
+                Channel = !access.CanSeeSiteLog ? Channel.Client : dto.Channel,
                 Status = FlagStatus.Open,
                 CreatedById = actingUserId,
                 AssignedToId = dto.AssignedToId,
@@ -74,9 +77,10 @@ public class FlagDAL : IFlagDAL
             var flag = await LoadFlagWithIncludes(flagId);
             if (flag is null)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
-            if (!await _access.CanReadAsync(flag.Project, actingUserId))
+            var access = await _access.ResolveAsync(flag.Project, actingUserId);
+            if (!access.CanRead)
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
-            if (_tenant.IsExternal() && flag.Channel != Channel.Client)
+            if (!access.CanSeeSiteLog && flag.Channel != Channel.Client)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
             return ServiceResult<FlagDto>.Success(ToDto(flag));
         }
@@ -94,7 +98,8 @@ public class FlagDAL : IFlagDAL
             var project = await LoadProjectWithParent(projectId);
             if (project is null)
                 return ServiceResult<List<FlagDto>>.Failure(new NotFoundException("Project not found."));
-            if (!await _access.CanReadAsync(project, actingUserId))
+            var access = await _access.ResolveAsync(project, actingUserId);
+            if (!access.CanRead)
                 return ServiceResult<List<FlagDto>>.Failure(new ForbiddenException("Access denied."));
 
             var query = _context.tbl_Flags
@@ -109,7 +114,7 @@ public class FlagDAL : IFlagDAL
             if (status.HasValue)
                 query = query.Where(f => f.Status == status.Value);
 
-            if (_tenant.IsExternal())
+            if (!access.CanSeeSiteLog)
                 query = query.Where(f => f.Channel == Channel.Client);
 
             var flags = await query
@@ -138,7 +143,8 @@ public class FlagDAL : IFlagDAL
                 .FirstOrDefaultAsync(u => u.Id == progressUpdateId);
             if (update is null)
                 return ServiceResult<List<FlagDto>>.Failure(new NotFoundException("Entry not found."));
-            if (!await _access.CanReadAsync(update.Project, actingUserId))
+            var access = await _access.ResolveAsync(update.Project, actingUserId);
+            if (!access.CanRead)
                 return ServiceResult<List<FlagDto>>.Failure(new ForbiddenException("Access denied."));
 
             var entryQuery = _context.tbl_Flags
@@ -150,7 +156,7 @@ public class FlagDAL : IFlagDAL
                 .Where(f => f.ProgressUpdateId == progressUpdateId)
                 .AsNoTracking();
 
-            if (_tenant.IsExternal())
+            if (!access.CanSeeSiteLog)
                 entryQuery = entryQuery.Where(f => f.Channel == Channel.Client);
 
             var flags = await entryQuery

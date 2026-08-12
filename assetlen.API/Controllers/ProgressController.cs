@@ -79,6 +79,24 @@ public class ProgressController : ControllerBase
         return Ok(result.Data);
     }
 
+    /// <summary>
+    /// Expose or withdraw individual frames on an entry — the mediator picks
+    /// three of eighteen. The role gate here is coarse; the real check is
+    /// <c>IProjectAccessService.CanExposeToClientAsync</c>, which admits the
+    /// project's mediator whichever side they sit on.
+    /// </summary>
+    [HttpPut]
+    [ProducesResponseType(typeof(ProgressUpdateDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew},{UserRoles.Client}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> SetImageChannel([FromBody] ProgressImageExposureDto dto)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _progressDAL.SetImageChannel(dto, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(PaginationDetails<ProgressUpdateDto>), 200)]
     public async Task<ActionResult> GetProgressUpdates(

@@ -59,6 +59,21 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_Receipt> tbl_Receipts { get; set; }
 
     /// <summary>
+    /// One human, many accounts (assetlen.md §10.2). **Not** tenant-scoped —
+    /// see the entity remarks.
+    /// </summary>
+    public virtual DbSet<tbl_TenantMembership> tbl_TenantMemberships { get; set; }
+
+    // ─── Artifact store (P2 — assetlen.md Law 2) ───────────────
+    // One canonical file per hash; every use is a ref, and the ref carries the
+    // Client/Crew exposure. Documents pin a current revision over an
+    // append-only revision chain.
+    public virtual DbSet<tbl_Artifact> tbl_Artifacts { get; set; }
+    public virtual DbSet<tbl_ArtifactRef> tbl_ArtifactRefs { get; set; }
+    public virtual DbSet<tbl_Document> tbl_Documents { get; set; }
+    public virtual DbSet<tbl_ArtifactRevision> tbl_ArtifactRevisions { get; set; }
+
+    /// <summary>
     /// The one tenancy rule, applied per entity:
     ///   (SuperAdmin OR same tenant OR unowned OR Public) AND not Protected AND not soft-deleted.
     /// </summary>
@@ -103,10 +118,18 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         TenantScoped<tbl_ProjectMember>(modelBuilder);
         TenantScoped<tbl_BudgetLineItem>(modelBuilder);
         TenantScoped<tbl_Receipt>(modelBuilder);
+        TenantScoped<tbl_Artifact>(modelBuilder);
+        TenantScoped<tbl_ArtifactRef>(modelBuilder);
+        TenantScoped<tbl_Document>(modelBuilder);
+        TenantScoped<tbl_ArtifactRevision>(modelBuilder);
 
         // Channel-based (Client/Crew) visibility is enforced at the service
-        // layer — DbContext-level filtering would need ITenantProvider to
-        // expose role information. Added in P5 when the Client Brief ships.
+        // layer, not here: it depends on the caller's *per-project* side, which
+        // a DbContext-level filter cannot see. ArtifactDAL is the choke point —
+        // it resolves ProjectAccess once and filters refs on
+        // ProjectAccess.CanSeeSiteLog. Do not add a channel query filter here
+        // and assume it covers the surface; it would silently miss the
+        // mediator, who is client-side yet entitled to the whole Site Log.
 
         // ─── Projects + Site Log relationships ─────────────────────
         modelBuilder.Entity<tbl_Project>(entity =>
@@ -116,7 +139,16 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasIndex(e => e.ProjectManagerId).HasDatabaseName("IX_Project_ProjectManagerId");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_Project_Status");
             entity.HasIndex(e => e.ParentProjectId).HasDatabaseName("IX_Project_ParentProjectId");
+
+            // The developer's account owns the project. Every child row is
+            // stamped from here — see ResolveOwningTenantId.
+            entity.HasIndex(e => e.OwnerTenantId).HasDatabaseName("IX_Project_OwnerTenantId");
+
+            // Billing is per project by size; this index backs the tier rollup.
+            entity.HasIndex(e => e.SizeTier).HasDatabaseName("IX_Project_SizeTier");
+
             entity.Property(e => e.TotalBudget).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.FloorAreaSqm).HasColumnType("decimal(12,2)");
             entity.HasOne(e => e.Investor).WithMany().HasForeignKey(e => e.InvestorId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.ProjectManager).WithMany().HasForeignKey(e => e.ProjectManagerId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             // Self-ref for one-level Sub-project nesting. NoAction on delete —
@@ -185,6 +217,11 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_ProjectMember_ProjectId");
             entity.HasIndex(e => e.UserId).HasDatabaseName("IX_ProjectMember_UserId");
             entity.HasIndex(e => new { e.ProjectId, e.UserId }).HasDatabaseName("IX_ProjectMember_Project_User");
+
+            // "Who is on the client side of this project?" and "who mediates?"
+            // are asked on every access resolution — keep both index seeks.
+            entity.HasIndex(e => new { e.ProjectId, e.Side }).HasDatabaseName("IX_ProjectMember_Project_Side");
+            entity.HasIndex(e => new { e.ProjectId, e.IsMediator }).HasDatabaseName("IX_ProjectMember_Project_Mediator");
             entity.HasOne(e => e.Project).WithMany(p => p.Members).HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.AssignedBy).WithMany().HasForeignKey(e => e.AssignedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
@@ -225,6 +262,69 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.Property(e => e.Amount).HasColumnType("decimal(18,4)");
             entity.HasOne(e => e.BudgetLineItem).WithMany(b => b.Receipts).HasForeignKey(e => e.BudgetLineItemId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.CreatedBy).WithMany().HasForeignKey(e => e.CreatedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_TenantMembership>(entity =>
+        {
+            entity.HasIndex(e => e.UserId).HasDatabaseName("IX_TenantMembership_UserId");
+            entity.HasIndex(e => new { e.UserId, e.TenantId })
+                  .IsUnique()
+                  .HasDatabaseName("UX_TenantMembership_User_Tenant");
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ─── Artifact store ────────────────────────────────────────
+        modelBuilder.Entity<tbl_Artifact>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_Artifact_ProjectId");
+
+            // Law 2 enforced in the schema, not just in code: the same bytes
+            // cannot become two artifacts on one project. ArtifactDAL catches
+            // the violation and adopts the winner, so a race dedupes too.
+            entity.HasIndex(e => new { e.ProjectId, e.Sha256 })
+                  .IsUnique()
+                  .HasDatabaseName("UX_Artifact_Project_Sha256");
+
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.UploadedBy).WithMany().HasForeignKey(e => e.UploadedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_ArtifactRef>(entity =>
+        {
+            entity.HasIndex(e => e.ArtifactId).HasDatabaseName("IX_ArtifactRef_ArtifactId");
+            entity.HasIndex(e => new { e.TargetType, e.TargetId }).HasDatabaseName("IX_ArtifactRef_Target");
+
+            // The Client Brief reads "everything exposed on this project" —
+            // make that one index seek rather than a scan.
+            entity.HasIndex(e => new { e.ProjectId, e.Channel }).HasDatabaseName("IX_ArtifactRef_Project_Channel");
+
+            // One artifact points at one target once. Re-attaching is a no-op,
+            // which is how a re-send stops producing a duplicate.
+            entity.HasIndex(e => new { e.ArtifactId, e.TargetType, e.TargetId })
+                  .IsUnique()
+                  .HasDatabaseName("UX_ArtifactRef_Artifact_Target");
+
+            entity.HasOne(e => e.Artifact).WithMany(a => a.References).HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ExposedBy).WithMany().HasForeignKey(e => e.ExposedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_Document>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_Document_ProjectId");
+            entity.HasIndex(e => e.Kind).HasDatabaseName("IX_Document_Kind");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<tbl_ArtifactRevision>(entity =>
+        {
+            entity.HasIndex(e => e.DocumentId).HasDatabaseName("IX_ArtifactRevision_DocumentId");
+            entity.HasIndex(e => new { e.DocumentId, e.RevisionNo })
+                  .IsUnique()
+                  .HasDatabaseName("UX_ArtifactRevision_Document_RevisionNo");
+
+            entity.HasOne(e => e.Document).WithMany(d => d.Revisions).HasForeignKey(e => e.DocumentId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.IssuedBy).WithMany().HasForeignKey(e => e.IssuedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         // ─── Platform tables ───────────────────────────────────────
@@ -392,14 +492,23 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
                     entity.Property("LastModifiedBy").CurrentValue = _tenantProvider.GetUserId();
                 }
 
-                // Set TenantId if exists, is string, and is null
+                // Set TenantId if exists, is string, and is null.
+                //
+                // Project-scoped rows are stamped with the PROJECT'S OWNER, not
+                // with whoever is writing. Peter owns the project (assetlen.md D1)
+                // and contractors are guests in it � once one human can belong to
+                // several accounts, stamping from the writer's claim would put a
+                // guest's comment in the guest's own tenant, where the global
+                // filter hides it from the owner. The row would simply vanish.
+                // Falls back to the caller's tenant for platform rows with no project.
                 var tenantIdProp = entity.Metadata.FindProperty("TenantId");
                 if (tenantIdProp != null && tenantIdProp.ClrType == typeof(string))
                 {
                     var tenantIdEntry = entity.Property("TenantId");
-                    if (tenantIdEntry.CurrentValue == null || tenantIdEntry.CurrentValue == "")
+                    if (tenantIdEntry.CurrentValue == null || (string?)tenantIdEntry.CurrentValue == "")
                     {
-                        tenantIdEntry.CurrentValue = _tenantProvider.GetTenantId();
+                        tenantIdEntry.CurrentValue =
+                            ResolveOwningTenantId(entity) ?? _tenantProvider.GetTenantId();
                     }
                 }
 
@@ -437,18 +546,69 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
                 {
                     entity.Property("LastModifiedBy").CurrentValue = _tenantProvider.GetUserId();
                 }
-                // Set TenantId if exists, is string, and is null
+                // Set TenantId if exists, is string, and is null.
+                //
+                // Project-scoped rows are stamped with the PROJECT'S OWNER, not
+                // with whoever is writing. Peter owns the project (assetlen.md D1)
+                // and contractors are guests in it � once one human can belong to
+                // several accounts, stamping from the writer's claim would put a
+                // guest's comment in the guest's own tenant, where the global
+                // filter hides it from the owner. The row would simply vanish.
+                // Falls back to the caller's tenant for platform rows with no project.
                 var tenantIdProp = entity.Metadata.FindProperty("TenantId");
                 if (tenantIdProp != null && tenantIdProp.ClrType == typeof(string))
                 {
                     var tenantIdEntry = entity.Property("TenantId");
-                    if (tenantIdEntry.CurrentValue == null || tenantIdEntry.CurrentValue == "")
+                    if (tenantIdEntry.CurrentValue == null || (string?)tenantIdEntry.CurrentValue == "")
                     {
-                        tenantIdEntry.CurrentValue = _tenantProvider.GetTenantId();
+                        tenantIdEntry.CurrentValue =
+                            ResolveOwningTenantId(entity) ?? _tenantProvider.GetTenantId();
                     }
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The tenant that owns the row being written — the <em>project's</em> owner,
+    /// not the caller's account.
+    /// <para>
+    /// Resolution order: a project's own <c>OwnerTenantId</c>; otherwise the
+    /// owner of the project the row hangs off, read from the change tracker if
+    /// the project is already loaded and from the database only if it is not.
+    /// Returns null for platform rows with no project, and the caller falls
+    /// back to their own tenant.
+    /// </para>
+    /// </summary>
+    private string? ResolveOwningTenantId(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entity)
+    {
+        // A project carries its own owner.
+        if (entity.Entity is tbl_Project project)
+            return project.OwnerTenantId;
+
+        var projectIdProp = entity.Metadata.FindProperty("ProjectId");
+        if (projectIdProp is null || projectIdProp.ClrType != typeof(string))
+            return null;
+
+        var projectId = entity.Property("ProjectId").CurrentValue as string;
+        if (string.IsNullOrEmpty(projectId))
+            return null;
+
+        // Prefer the tracked instance — the common case is a DAL that just
+        // loaded the project to authorize the write, so this costs nothing.
+        var tracked = ChangeTracker.Entries<tbl_Project>()
+            .FirstOrDefault(e => e.Entity.Id == projectId)?.Entity;
+        if (tracked is not null)
+            return tracked.OwnerTenantId;
+
+        // IgnoreQueryFilters: a guest writing into the owner's project cannot
+        // see that project through the tenant filter, which is precisely the
+        // situation this method exists to handle.
+        return tbl_Projects_RS
+            .IgnoreQueryFilters()
+            .Where(p => p.Id == projectId)
+            .Select(p => p.OwnerTenantId)
+            .FirstOrDefault();
     }
 
     // Helper to check if property is DateTime or DateTime? (using IProperty)

@@ -20,11 +20,16 @@ namespace assetlen.API.Controllers;
 public class ProjectsRSController : ControllerBase
 {
     private readonly IProjectDAL _projectDAL;
+    private readonly IProjectSizingService _sizing;
     private readonly ITenantProvider _tenantProvider;
 
-    public ProjectsRSController(IProjectDAL projectDAL, ITenantProvider tenantProvider)
+    public ProjectsRSController(
+        IProjectDAL projectDAL,
+        IProjectSizingService sizing,
+        ITenantProvider tenantProvider)
     {
         _projectDAL = projectDAL;
+        _sizing = sizing;
         _tenantProvider = tenantProvider;
     }
 
@@ -142,6 +147,47 @@ public class ProjectsRSController : ControllerBase
     {
         var userId = _tenantProvider.GetUserId();
         var result = await _projectDAL.GetProjectAnalytics(projectId, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    // ─── Sizing and billing tier ──────────────────────────────
+    // Assetlen bills the developer per project, by floor area — never per
+    // seat, so the bill does not grow when the contractor hires a labourer.
+
+    [HttpGet]
+    [ProducesResponseType(typeof(ProjectSizingDto), 200)]
+    public async Task<ActionResult> GetProjectSizing([FromQuery][Required] string projectId, CancellationToken ct)
+    {
+        var result = await _sizing.GetAsync(projectId, _tenantProvider.GetUserId(), ct);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    /// <summary>
+    /// Declare or correct floor area. A tier that moves **up** comes back as
+    /// <c>PendingTier</c> and is not applied until <see cref="ConfirmProjectTier"/>;
+    /// a tier that moves down applies at once.
+    /// </summary>
+    [HttpPut]
+    [ProducesResponseType(typeof(ProjectSizingDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> SetProjectArea([FromBody] ProjectAreaUpdateDto dto, CancellationToken ct)
+    {
+        var result = await _sizing.SetAreaAsync(dto, _tenantProvider.GetUserId(), ct);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    /// <summary>Accept a pending tier increase. It changes the bill, so a person says yes.</summary>
+    [HttpPut]
+    [ProducesResponseType(typeof(ProjectSizingDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> ConfirmProjectTier([FromQuery][Required] string projectId, CancellationToken ct)
+    {
+        var result = await _sizing.ConfirmTierAsync(projectId, _tenantProvider.GetUserId(), ct);
         if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
         return Ok(result.Data);
     }

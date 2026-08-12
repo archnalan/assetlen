@@ -1,319 +1,373 @@
 # ASSETLEN — Implementation Plan
 
-**Living document.** Rewritten 2026-08-12 against [assetlen.md](assetlen.md), [Peter.md](Peter.md) and [David.md](David.md).
+**Living document.** Rewritten **2026-08-12 (third revision)** against
+[assetlen.md](assetlen.md) §0, after deciding that **Peter buys**.
 
 ---
 
 ## How to use this file (read first, every session)
 
-1. **Read [assetlen.md](assetlen.md) first.** It is the product truth. [CLAUDE.md](CLAUDE.md) is the *engineering* charter — aesthetic, CSS, folder layout — and defers to assetlen.md wherever they disagree.
+1. **Read [assetlen.md](assetlen.md) first.** It is the product truth. [CLAUDE.md](CLAUDE.md) is the *engineering* charter — aesthetic, CSS, folder layout — and defers to it.
 2. **Read this file end-to-end** before writing code.
-3. **Apply the ship test to everything.** assetlen.md §7: *"Does it help someone hold a past commitment against present reality?"* If not, it does not ship. The §7 "Do not build" table is binding.
+3. **Two ship tests, both binding.** assetlen.md §8: *"Does it help someone hold a past commitment against present reality?"* And Law 0: *"Does it still work when the contractor is silent?"* A feature failing the second is **tier 3** and cannot be counted toward launch.
 4. **Challenge the plan.** If a phase no longer fits, say so before implementing and propose the revision in the same turn.
 5. **Never commit.** Per CLAUDE.md §0 the user commits manually. Leave the tree dirty.
 
 ---
 
-## The one-line reframe
+## The reframe that reorders everything
 
-> **WhatsApp stores messages. Construction runs on commitments.**
+The previous two versions of this plan were written for Nalan. They assumed the contractor
+captures, the system drafts, the contractor curates, and Peter reads. Every step depended
+on the person with the least incentive to pay, and Peter — the buyer — was last in the
+chain.
 
-What is built today is a competent generic construction-PM app: Project → Stage → ProgressUpdate → Flag → Budget. What Peter and David need is a **commitments register**. These are not the same product, and the gap is the plan.
+The correction is not just "build for Peter." It is this:
 
----
+> **Peter is not missing updates. He receives 1,055 of them. He cannot read them.**
 
-## Audit — 2026-08-12
+The corpus is unambiguous: 1,529 messages, 723 of them media, arriving in chronological
+batches of thirteen to eighteen. Peter chased seventeen times *on days when photos had
+already been posted* ([evidence](whatsapp-evidence.md) F1, F2). On 25 February he received
+seventeen photos and replied *"Nothing much changed."*
 
-Run against a live API (`https://localhost:7264`) with three real users: David (Contractor, project owner), Peter (Client, active project member), Colin (Crew, active project member). Every row below is an observed HTTP response, not a code reading.
+**The content already exists and already reaches him.** Assetlen's tier-1 job is not to
+generate it. It is to **restructure what already arrives** into something readable,
+searchable and reconcilable — with no contractor involvement whatsoever.
 
-| # | Scenario | Vision objective | Result |
-|---|---|---|---|
-| 1 | David logs in, lists projects | baseline | **200** ✅ |
-| 2 | David adds Peter + clerk as members | 3-user MVP | **200**, rows created ✅ |
-| 3 | Clerk opens the project | clerk can work | **403 Access denied** ❌ |
-| 4 | Clerk captures a photo | 3-tap capture | **403 Access denied** ❌ |
-| 5 | Peter opens the project | Peter's daily loop | **403 Access denied** ❌ |
-| 6 | Peter reads the Site Journal | evidence he can trust | **403 Access denied** ❌ |
-| 7 | Peter reads the budget | money against progress | **403 Access denied** ❌ |
-| 8 | Peter raises a flag | asking a question at all | **403 Access denied** ❌ |
-| 9 | David publishes an entry to Client, Peter reads it | curated Client view | **403 Access denied** ❌ |
-| 10 | Peter + clerk load the portfolio | — | **200, 1 card each** ⚠️ inconsistent with 3–9 |
-| 11 | Same photo posted twice | Law 2, hash dedup | 2 entries, 2 copies ❌ |
-| 12 | Photo bytes round-trip | media is the product | **corrupted on write** ❌ |
-| 13 | `GET /Brief/Today` | Peter's one page | **404 — not built** |
-| 14 | `GET /Search` | Peter's 4 retrievals | **404 — not built** |
-| 15 | `GET /Commitments` | the one object | **404 — not built** |
+That single change reorders the phases. Ingest becomes the front door. Extraction moves
+from P8 to the middle of the plan because it is now the only path from a forwarded pile to
+a register. Capture and curation — the old P4 and P5 — drop to the end, where the
+contractor tier belongs.
 
-### A1 — Project membership is decorative *(blocks everything)*
+### Peter's standing, restated
 
-`ProjectDAL.GetPortfolioDashboard` ([ProjectDAL.cs:52](assetlen.Service/DbServices/ProjectDAL.cs)) includes `tbl_ProjectMembers` in its visibility query. Every other authorization path — `ProjectDAL.GetProjectById:275`, and the private `IsProjectStakeholder` duplicated in [ProgressDAL.cs:400](assetlen.Service/DbServices/ProgressDAL.cs), [FlagDAL.cs:264](assetlen.Service/DbServices/FlagDAL.cs), [BudgetDAL.cs:280](assetlen.Service/DbServices/BudgetDAL.cs) — checks **only** `InvestorId` / `ProjectManagerId`.
-
-Consequence: a member sees the project card, then gets 403 on every route behind it. Only two user IDs on earth can use a project. **Peter and the clerk cannot exist.** Phase 1.5 shipped a members UI with no effect on access; Phase 2.4's "curated Client view" is unreachable because no client can read anything.
-
-### A2 — Every uploaded photo is corrupted on write *(highest severity)*
-
-[ProgressDAL.cs:92](assetlen.Service/DbServices/ProgressDAL.cs):
-
-```csharp
-img.Base64Image.TrimStart("data:image/jpeg;base64,".ToCharArray())
-```
-
-`TrimStart(char[])` strips *any* leading character in that set, and `/` is in it. JPEG base64 always begins `/9j/`. Verified against the DB: sent `/9j/4AAQSkZJ`, stored `9j/4AAQSkZJR`, and `Convert.FromBase64String` throws on the stored value. **No Site Journal photo has ever decoded.** Images are also stored as data-URIs inline in `tbl_ProgressImage.ImageUrl`, with the same string reused as the thumbnail.
-
-### A3 — The clerk has no route to capture, by construction
-
-`/project/{id}/progress/add` is linked from exactly one place: a quick action on `/pm` ([PMDashboard.razor:309](assetlen/assetlen.Shared/Modules/Projects/Pages/PMDashboard.razor)), which is `[Authorize(Roles = Manager,Contractor)]`. Crew cannot load the only page that links to capture. The mobile FAB points at `/project/create` — the rarest action in the product.
-
-### A4 — Capture is a form, and the vision forbids forms
-
-[ProgressUpload.razor](assetlen/assetlen.Shared/Modules/Projects/Pages/ProgressUpload.razor) requires stage select, completion-% slider, a mandatory description, a visibility choice and an issue checkbox before the photo. Roughly 8–9 interactions plus typing, against WhatsApp's 3. David.md failure condition: *"Posting a photo takes longer than it does in WhatsApp."*
-
-### A5 — Peter's product does not exist yet
-
-No Commitment, no deliverable checklist, no daily brief, no OCR, no search route, no markup layer, no parked ideas, no extraction, no provenance. Peter's four retrievals have nowhere to happen. `SearchProjects` matches project names only.
-
-### A6 — Built features that the vision cuts
-
-- `TimelineChart` (Phase 3.1) is a Gantt chart. assetlen.md §7: *"Gantt charts and critical path — Peter thinks in stages, not networks."*
-- `/portfolio` is the landing page. §7: *"Multi-project portfolio dashboards — One project must work first."*
-- Planned Phase 4 (Lookbook, 3D explorer, visual search) appears nowhere in the vision.
-
-### A7 — Scaffold debt
-
-36 POS `DbSet`s, ~24 POS controllers, ~150 POS DTOs, 37 unregistered-or-unused Refit clients, POS tables inside `InitialAssetlen`. `assetlen.Sqlite` has zero migrations. Orphaned UI: `AssetlenHeadedLayout` (Uganda MoWT), `SplashScreen`/`Register` still branded Billtrick, `MainLayout` footer links to billtrick.com and a dead `admin/dashboard`. Build is green (0 errors, 682 warnings); `RefundsController`/`CustomerDepositController` are `#if false` and harmless.
+- **He owns the account.** Projects belong to it (assetlen.md D1).
+- **He hires and fires contractors at will.** A contractor is a participant in a project,
+  never its owner. Removing one loses no commitment, no artifact and no history.
+- **Accountability is per contractor, per project.** Every commitment carries the
+  accountable mediator's name (assetlen.md §10.1), so *"what did this contractor commit to,
+  and did they deliver it"* falls out of the commitment model rather than needing a feature.
 
 ---
 
-## Status of prior phases, re-marked against the vision
+## Audit — 2026-08-12 (historical)
 
-Phases 0–3 were graded against their own acceptance criteria and passed. Graded against Peter and David, most are partial.
+Fifteen scenarios run against a live API with three real users. Findings A1 (project
+membership granted nothing) and A2 (`TrimStart(char[])` corrupted every uploaded JPEG) were
+the blockers; both were fixed in P0 and the audit script is
+[tools/e2e-access-audit.sh](tools/e2e-access-audit.sh), 18/18 green. A7 (POS scaffold debt)
+was cleared in P1.
 
-| Phase | Title | Build status | Vision status |
+**A5 and A6 stand, and the buyer decision makes them worse:**
+
+- **A5 — Peter's product still does not exist.** No commitment, no register, no money
+  ledger, no search, no ingest. Everything built to date serves the contractor's workflow.
+- **A6 — features the vision cuts.** `TimelineChart` is a Gantt chart and is cut.
+  `/portfolio` was demoted as a landing page — **that demotion is now reversed**, see below.
+
+**A8 — new, and the largest.** *There is no way to get a year of existing project history
+into Assetlen.* Peter's entire record lives in a WhatsApp thread and an email account. Under
+Law 0 this is the front door, and no phase of the previous plan contained it.
+
+---
+
+## Status of prior phases
+
+| Phase | Title | Build | Verdict under the buyer decision |
 |---|---|---|---|
-| 0 – 0.6 | Strip POS, rename, .NET 10 | Done | Incomplete — see A7 |
-| 1.1 – 1.2 | Domain, roles, `tbl_ProjectMember` | Done | Table exists, grants nothing — A1 |
-| 1.3 – 1.4 | Dashboard, ProjectCard, Breadcrumbs | Done | Serves David; §7 cuts it as a landing page |
-| 1.5 | Member-add flow | Done | **Cosmetic** — A1 |
-| 1.5.1 | ProjectCreate refresh | Done | Fine |
-| 2.1a–c | Site Journal, channels, entry detail | Done | **Photos corrupt** — A2, A3, A4 |
-| 2.2 | Flags | Done | Peter cannot raise one — A1 |
-| 2.3 | Streams (SignalR) | Done | Works; entry-rooted only |
-| 2.4 | Curated Client view | Done | **Unreachable** — A1 |
-| 3.1 | Timeline chart | Done | §7 cuts Gantt — A6 |
-| 3.2 | Finance | Done | Client gets 403 despite the matrix — A1 |
+| 0 – 0.6 | Strip POS, rename, .NET 10 | Done | Fine — neutral |
+| 1.1 – 1.2 | Domain, roles, `tbl_ProjectMember` | Done | Fine; roles collapse in P2 |
+| 1.3 – 1.4 | Dashboard, ProjectCard, Breadcrumbs | Done | **Promoted** — this becomes Peter's home |
+| 1.5 – 1.5.1 | Member-add flow, ProjectCreate | Done | Reworked in P2 for sides + mediator |
+| 2.1 – 2.4 | Site Journal, channels, entry detail, curated view | Done | **Tier 3.** Correct, but not launch-critical |
+| 3.1 | Timeline chart | Done | **Cut.** Retire `TimelineChart` |
+| 3.2 | Finance | Done | Becomes the stage money ledger in P3 |
 | 3.3 | Accessibility / nav | Done | Fine |
+| **P0** | Unblock membership access | **Done** — 18/18 | Still correct and still necessary |
+| **P1** | Scaffold strip + migration baseline | **Done** — 18/18 from empty | Fine |
+
+P0 and P1 were both right and both invisible. The detail of what landed in each is
+preserved in git history and in the audit script; it is not repeated here because it no
+longer informs a decision.
 
 ---
 
 ## Phase plan
 
-Ordered so that each phase is testable by a real person. Nothing after P0 can be evaluated until P0 lands.
+Ordered by **when Peter would pay**, not by dependency convenience. Every phase up to P8
+must work with the contractor silent.
 
-| Phase | Title | Status |
-|---|---|---|
-| P0 | Unblock the three-user MVP | **Done** — 18/18 green |
-| P1 | Scaffold strip + migration baseline | **Done** — 18/18 green from an empty server |
-| P2 | Artifact store — one canonical file, hash-addressed | Planned |
-| P3 | Commitment model + funded stages with deliverables | Planned |
-| P4 | Dumb capture | Planned |
-| P5 | Two surfaces — Site Log and Client Brief | Planned |
-| P6 | Retrieval — OCR and unified search | Planned |
-| P7 | Markup layers + query state | Planned |
-| P8 | Extraction + parked ideas | Planned |
-| P9 | Parity — notifications, voice, share sheet | Planned |
+| Phase | Title | Tier | Status |
+|---|---|---|---|
+| P2 | Ownership, sides, and the artifact store | 1 | **In progress** |
+| P3 | Ingest — the front door | 1 | Planned |
+| P4 | Commitment model + the money ledger | 1 | Planned |
+| P5 | Extraction — pile into register | 1 | Planned |
+| P6 | Retrieval — Peter's four searches | 1 | Planned |
+| P7 | Peter's surfaces — home and the daily brief | 1 | Planned |
+| P8 | Markup, query state, parked ideas | 1–2 | Planned |
+| P9 | The contractor tier | 3 | Planned |
 
-### P0 — Unblock the three-user MVP *(done)*
+---
 
-Nothing in the vision was testable until Peter and the clerk could use the app.
+### P2 — Ownership, sides, and the artifact store *(in progress)*
 
-**What landed:**
-- `ProjectAccessLevel` enum (`None < Read < Write < Manage`) in `RemoteSiteEnums.cs`.
-- `IProjectAccessService` + `ProjectAccessService` — the single parent-aware resolver. Ownership → `Manage`; an active `tbl_ProjectMember` → `Write`, or `Read` when the specialization is `Observer`. Sub-projects inherit the parent's ownership *and* membership.
-- The four private `IsProjectStakeholder` copies deleted. `ProjectDAL`, `ProgressDAL`, `FlagDAL`, `BudgetDAL`, `StageDAL` and `FundingDAL` now all route through the service; registered scoped in `Program.cs`.
-- `BudgetDAL` read and manage finally diverge — `CanManageBudget` was aliased to the stakeholder check, so any stakeholder could edit the budget.
-- `ProgressDAL.AddProgressUpdate` accepts any member with `Write`. The clerk of works can capture.
-- Comments require `Write`, not ownership — this is how Peter asks a question at all.
-- Funding reads, project analytics and `SearchProjects` opened to members. Peter's "money against progress" needs the funding endpoints, and search was returning less than the dashboard already showed.
-- **A2 fixed.** `BuildImageUrl` strips a data-URI prefix by `IndexOf(',')` and preserves the declared content type. Verified: a `/9j/…` JPEG now round-trips byte-identical and decodes with the right magic bytes. The corrupt rows were purged — unrecoverable.
-- Capture is reachable: the mobile bottom-nav centre button is context-aware (capture inside a project, create outside), and the Site Journal tab gained a desktop "Capture entry" action, role-gated to Contractor/Manager/Crew.
+Establishes who owns a project, who is on which side of it, and where files live. Every
+later phase writes through this.
 
-**Exit criterion met:** [tools/e2e-access-audit.sh](tools/e2e-access-audit.sh) — 18 assertions across the three personas, **18 passed**. Run it against a live API on the https profile after any auth change.
+**Ownership (assetlen.md D1, §10.2).**
+- `tbl_Project.OwnerTenantId` — the developer's account owns the project.
+- `tbl_TenantMembership { TenantId, UserId, Roles, IsDefault }` — one human, one login,
+  many accounts. Nalan is a guest in several developers' accounts; `AppUser.TenantId`
+  demotes to a *default*, not the truth.
+- `TenantId` on project-scoped rows is **derived from the project**, not from the writer's
+  org. One change in `UpdateTimestamps` ([AssetlenDbContext.cs:472](assetlen.Service/DataAccess/AssetlenDbContext.cs)) —
+  the single place TenantId is stamped. Without this, a guest writing into the owner's
+  project stamps their own tenant and the row vanishes behind the query filter.
+- **Deferred to P2.5:** the login tenant-picker, the JWT active-tenant claim and the UI
+  switcher. Inert until a second account exists.
 
-**Carried forward:**
-- `StageDAL` create/update/delete and `FundingDAL` add/confirm still use inline ownership tests. Correct behaviour (owner/PM only) but not parent-aware; fold into `CanManageAsync` when P3 touches stages.
-- The membership lookup is one extra query per authorization call. Fine at this scale; cache per-request if it shows up.
+**Sides and the accountable face (assetlen.md §10.1).**
+- `ProjectSide { Client, Contractor }` and `tbl_ProjectMember.{ Side, IsMediator, PartyName }`.
+- `ProjectAccess { Level, Side, IsMediator }` — resolved once by `IProjectAccessService`.
+  `CanSeeSiteLog = Side == Contractor || IsMediator`. `CanExposeToClient = IsMediator || Manage`.
+- **Per-project, never tenant-global.** The old `_tenant.IsExternal()` read a JWT role
+  claim, so one person had one standing everywhere. Replaced throughout `ProgressDAL` and
+  `FlagDAL`; `AssetlenHub` still carries the old check and must follow.
+- Mediator cap of two, enforced; the last one cannot be stood down.
+- The mediator may add and remove **delivery-side** members only. The client side is
+  Peter's alone.
+- **Three lists, never merged:** the accountable face (one name, on everything Peter sees),
+  true authorship (delivery side only), and the access roster (Peter, always — who holds a
+  key, nothing more).
+- **Roles collapse 6 → 4**: developer, representative, mediator, delivery. Do not add a fifth.
 
-### P1 — Scaffold strip + migration baseline *(done)*
+**Artifact store (Law 2).**
+- `tbl_Artifact { ProjectId, Sha256, ByteSize, MimeType, StoragePath, ThumbnailPath, OriginalFileName, UploadedById, CapturedAt, Width, Height }`, unique on `(ProjectId, Sha256)`.
+- `tbl_ArtifactRef { ArtifactId, ProjectId, TargetType, TargetId, Channel, Caption, DisplayOrder, ExposedById, ExposedAt }` — the pointer, and **the unit of exposure**.
+- Content-addressed storage, sharded two hex deep, behind `IArtifactStorage`. Thumbnails
+  behind `IThumbnailGenerator` (ImageSharp).
+- `tbl_ProgressImage` becomes a pointer; its `Channel` is **enforced** — it existed before
+  P2 and no query read it, so promoting an entry pushed all eighteen frames across.
+- `tbl_Document` + `tbl_ArtifactRevision` — current revision pinned, superseded archived
+  never deleted ([evidence](whatsapp-evidence.md) F4).
 
-Done before Commitment work so every later phase moves through a small surface.
+**Billing — per project, by size (assetlen.md §10.3).**
+- `ProjectSizeTier { Small, Medium, Large }` and `ProjectSizingPolicy` — thresholds in one
+  place, because changing a boundary changes what every project is billed.
+- `tbl_Project.{ FloorAreaSqm, SizeTier, SizeSource, SizeTierConfirmedById/At }`.
+- `IProjectSizingService` rolls sub-project areas into the billable parent. Upgrades are
+  **proposed** (`PendingTier`) and require confirmation; downgrades apply at once.
+- Area-from-drawings is deferred, but `ProjectSizeSource` already distinguishes a declared
+  figure from a derived one so automation can never silently overwrite a person.
 
-**What landed:**
+**Landed:** all of the above — schema, services, `ArtifactsController` (multipart upload +
+streaming), the sizing endpoints, `SetImageChannel`, DI, the Refit clients, and migration
+`20260812130526_P2_OwnershipSidesArtifacts`, **applied to the dev database**. The migration
+backfills `OwnerTenantId` from each project's existing tenant, derives every member's
+`Side` and `IsMediator` from their specialization, and seeds `tbl_TenantMemberships` from
+`AppUser.TenantId` — without those, existing rows come up on the wrong side of the channel
+boundary. Solution builds with 0 errors.
 
-- **Entities.** 36 POS entity classes deleted. 21 DbSets remain: 10 platform
-  (tenant, config, log, sync log, role values, refresh tokens, verification
-  codes, subscription request/seat, employee approval) and 11 ASSETLEN.
-  `tbl_EmployeeApproval` was briefly deleted and restored — it backs the
-  two-admin promotion flow in `UsersDAL`, which is Identity, not POS.
-- **Query filters.** The 52 hand-copied `HasQueryFilter` lambdas collapsed to a
-  single generic `TenantScoped<T>()` helper called once per entity. Adding a
-  DbSet without its filter used to leak rows across tenants silently; the rule
-  now lives in one place. `AssetlenDbContext` went 1201 → 415 lines.
-- **Service + API.** 92 files deleted (30 DALs, 31 interfaces, 31 controllers)
-  plus the Excel-import / file-upload / slip-printing stack. DI registrations in
-  `assetlen.API/Program.cs` went from 44 to 12.
-- **Seeding.** `InitialSeedDataDto` no longer carries POS reference data
-  (categories, segments, suppliers, taxes, payment modes, cash denominations,
-  order statuses) or ~40 till-behaviour settings. A tenant now starts empty
-  except for 13 platform settings. `SeedSegmentsSupplierCategoriesTaxAsync` →
-  `SeedTenantSettingsAsync`.
-- **Removed two dangerous endpoints.** `ConfigDAL.DeleteAllFromSpecifiedTable`
-  interpolated a caller-supplied table name straight into `DELETE FROM {table}`,
-  and `ResetDataBaseTransactions` wiped a hard-coded list of POS tables. Neither
-  had a caller.
-- **Client.** 31 Refit interfaces deleted; the remaining 11 register through one
-  `AddApi<T>()` helper (`assetlen.Client/Program.cs` 258 → 92 lines).
-  `_Imports.razor` had been globally injecting every POS API into every
-  component — with the endpoints gone that would have failed DI on every page.
-- **UI.** Deleted `AssetlenHeadedLayout`, the Billtrick-branded `SplashScreen`
-  and `Register`, three unreferenced product-search widgets, and the `/setup`
-  desktop install wizard (SQL Express installer, LAN server discovery, kills a
-  `Billtrickv2.API` process — none of it applies to a hosted SaaS). Stripped the
-  dead 134-line Billtrick block from `EmptyLayout`, the POS splash from
-  `MainLayout`, and 5 orphaned brand images. Fixed the dead `admin/dashboard`
-  link and gave `Routes.razor` a styled 404 + not-authorized state with a
-  sibling `.razor.css`.
-- **`assetlen.Sqlite` removed** — zero migrations, zero code, and its only
-  wiring was a commented-out `UseSqlite`. The `Database.IsSqlite()` branch stays
-  in the DbContext so it can come back cheaply.
-- **Migration baseline.** Dev DB dropped, 3 migrations replaced by one
-  `20260812040220_InitialAssetlen`. 28 tables: 8 Identity, 20 ASSETLEN +
-  platform.
+**Outstanding:** the roles / sizing UI, auto-seeding the project creator as mediator,
+`AssetlenHub` still using the tenant-global `IsExternal()`, the P2.5 login tenant-picker,
+and re-running the access audit with its personas reversed.
 
-**Two bugs this surfaced (both only visible on a genuinely empty server):**
+**Exit:** the same file uploaded twice yields one artifact and two refs; a client-side
+reader receives only exposed frames while the entry reports its true total; a reissued
+drawing pins the new revision without breaking pointers; removing a contractor from a
+project loses nothing.
 
-- **Hangfire lost a startup race.** It builds its schema when the storage is
-  constructed during service registration — before EF creates the database. The
-  `HangFire.*` tables were never created, so capture and flag-raising returned
-  500 (`Invalid object name 'HangFire.Job'`). Now `PrepareSchemaIfNecessary =
-  false`, with an explicit `EnsureHangfireSchema()` after the migration. It
-  clears the connection pool first: SqlClient caches the pre-database failure
-  for several seconds and fails fast without contacting the server.
-- **The seeded admin was unguessable.** `DatabaseSeeder` prefixed a random
-  4-character GUID to the configured username *unconditionally*, so the
-  credentials in `appsettings.json` never worked and you had to read the real
-  email out of the database to log in. Replaced by `UserNameAllocator`, which
-  uses the desired name verbatim and suffixes only on an actual collision.
-  Applied to the Google signup path too.
+---
 
-**Exit criterion met.** Build green; 21 DbSets; `tbl_Product` and 15 other POS
-tables absent from the schema; the P0 suite passes 18/18 against a database
-created from nothing (empty SQL Server → migration → seed → run). Captured
-images still round-trip byte-identical and decode with valid `FFD8` magic.
+### P3 — Ingest: the front door *(new — A8, assetlen.md D3)*
 
-**Carried forward:**
-- 16 `.razor` files still have no sibling `.razor.css`, which CLAUDE.md §4.1
-  calls a bug. All pre-date P1.
-- `tools/e2e-access-audit.sh` now seeds its own subject project, so it runs from
-  zero. Its isolation fixture had a non-ASCII em dash in a JSON payload that
-  made the API reject it with a 400 — invisible until the DB was empty.
-- The `Configurations` enum in `statics.cs` still lists ~40 POS keys. Harmless
-  (no schema), and some surviving UI reads them. Prune when P5 revisits settings.
+**Nothing else matters if Peter cannot get his year of history in.** This phase is the
+whole tier-1 thesis and it did not exist in the previous plan.
 
-### P2 — Artifact store *(assetlen.md Law 2)*
+- **WhatsApp export import.** Accept the `.txt` + media archive. Parse timestamp, author,
+  body and media markers. Every media file becomes an artifact, hash-deduplicated — the
+  same receipt sent five times collapses to one with five refs, which is Law 2 proving
+  itself on real data before a single new photo is taken.
+- **Share-sheet target** and **email-in** per project, for the ongoing trickle.
+- `tbl_IngestedMessage { ProjectId, SourceType, ExternalAuthor, AuthorMemberId?, SentAt, Body, ArtifactId? }` —
+  raw and immutable. Extraction reads it; nothing else does.
+- **Author mapping.** An export names people who may have no login. Map each thread
+  participant to a `tbl_ProjectMember` — including off-platform ones via `PartyName` — so
+  attribution survives import.
+- Re-importing an overlapping export must not duplicate. Dedupe on
+  `(ProjectId, SentAt, ExternalAuthor, hash(Body))`.
 
-The foundation for everything Peter does. One upload, one permanent address, every later mention a pointer.
+**Exit:** import the real 1,529-message export. Assert the message count, the artifact
+count, **zero duplicate artifacts**, and that every participant maps to a member.
 
-- `tbl_Artifact { Id, TenantId, ProjectId, Sha256, ByteSize, MimeType, StoragePath, OriginalFileName, UploadedById, CapturedAt, Width, Height }`, unique index on `(TenantId, Sha256)`.
-- Multipart upload endpoint (not base64). Hash on arrival; an existing hash returns the existing artifact — *"this is already Receipt R-014."*
-- Content-addressed storage under `wwwroot/artifacts/{sha[0..2]}/{sha}`, served statically. Blob/Drive swap later behind the same interface.
-- Server-side thumbnail generation.
-- `tbl_ProgressImage` becomes a pointer (`ArtifactId`) rather than an owner of bytes.
+---
 
-**Exit:** the same file uploaded twice yields one artifact and two references; audit row 11 goes green.
+### P4 — Commitment model + the money ledger *(assetlen.md §3, §6)*
 
-### P3 — Commitment model *(assetlen.md §3, the one object)*
+Peter's second-worst pain and the one that cost him a 9 AM meeting
+([evidence](whatsapp-evidence.md) F3).
 
-- `tbl_Deliverable { StageId, Title, DisplayOrder, Status }` — 5–8 checklist items per funded stage.
-- `tbl_Commitment { ProjectId, DeliverableId?, Kind (Spec|Price|Date|Material|Choice), Title, Body, Maturity (Idea|InDiscussion|Agreed|Delivered|Verified), QueryState (Cleared|QueryRaised|Resolved), AgreedById, AgreedAt, Amount?, Currency?, DueDate?, LeadTimeDays?, SupersedesId? }`.
-- `tbl_CommitmentLink { CommitmentId, TargetType, TargetId, Relation }` — backlinks in both directions to artifacts, entries, comments, receipts.
-- `tbl_Stage` gains `FundedAmount` / `FundedAt`.
-- Provenance strip derived from links: *agreed → evidence → invoiced → cleared → queried → resolved*.
-- Fold `tbl_Flag` into the model: a Flag becomes a Commitment in `QueryRaised`, or a blocker, rather than a parallel concept.
+- `tbl_Deliverable { StageId, Title, DisplayOrder, Status }` — 5–8 per funded stage.
+- `tbl_Commitment { ProjectId, DeliverableId?, Kind (Spec|Price|Date|Material|Choice), Title, Body, Maturity, QueryState, SourceChannel (App|Ingested|Verbal|Meeting), AccountableMemberId, AgreedById, AgreedWithPartyName?, AgreedAt, Amount?, Currency?, DueDate?, LeadTimeDays?, SupersedesId?, CounterpartyConfirmedAt? }`.
+- `tbl_CommitmentLink { CommitmentId, TargetType, TargetId, Relation }` — backlinks both ways.
+- **The money ledger.** `tbl_Stage` gains `FundedAmount` / `FundedAt`; a per-stage rollup of
+  **funded → claimed → cleared → carried forward**. This is the single screen that would
+  have prevented *"Too many stages combined. I want to know if they were cleared or not."*
+- **Variation register.** `tbl_Variation { CommitmentId, Reason, CostDelta, Currency, RaisedById, ApprovedById?, ApprovedAt?, Status }`. Eight costed variations in the corpus,
+  including an entire added floor, none of them recorded. F3 is *caused* by F4.
+- **Verbal decisions.** One tap creates a Commitment at `Agreed` with
+  `SourceChannel = Verbal`, attributed to both parties. The counterparty gets
+  **Confirm** / **That's not what we said**; a dispute flips it to `QueryRaised`.
+- **Accountability is a query, not a feature.** `AccountableMemberId` is always the
+  mediator. *"What did this contractor commit to on this project, and what state is each in"*
+  is a group-by.
+- Fold `tbl_Flag` in: a Flag is a Commitment in `QueryRaised`, or a blocker.
 
-**Exit:** assetlen.md §9 test 1 — hand-enter one finished stage's ~20 commitments from a real WhatsApp thread and show Peter the page.
+**Exit:** assetlen.md §11 test 1 — hand-enter the sixteen retaining-wall commitments already
+drafted in [whatsapp-evidence.md](whatsapp-evidence.md) §7, show Peter the page, and ask
+whether it saves the scrolling. **Run the hand version before writing the schema.**
 
-### P4 — Dumb capture *(David's adoption condition)*
+---
 
-- `/capture` reachable in one tap from anywhere. The screen is today's active deliverables as large tap targets. Tap one, shoot, done.
-- No caption, no percentage, no channel, no form. Concurrent crews = three destinations, not three threads.
-- Offline queue (IndexedDB) with background sync; posting must survive a bad site connection.
-- Everything lands in the Site Log, never sanitised.
+### P5 — Extraction: pile into register *(Law 3 — promoted from P8)*
 
-**Exit:** measured three interactions from cold app to posted photo, and a post that completes with the API stopped.
+Under the old thesis the contractor posted structure and extraction tidied it. Under Law 0
+**extraction is the only path from forwarded material to a register**, so it moves from
+second-to-last to the middle of the plan.
 
-### P5 — Two surfaces *(assetlen.md §5)*
+- OCR every artifact on ingest via a Hangfire queue → `tbl_ArtifactText`.
+- Read `tbl_IngestedMessage` and propose commitments. **Only money, materials, dates and
+  decisions.** The corpus is hundreds of *"Okay"*, *"Noted"*, *"Good progress"* — those must
+  yield nothing.
+- Proposals land in a review queue Peter clears in bulk, not one nag at a time. Instrument
+  the accept rate; if it drops below roughly two-thirds, narrow the trigger rather than
+  shipping a confidently wrong register.
+- A single real message carries five material commitments and another carries four
+  quantities, in plain text with no OCR needed — the yield is high where the trigger is narrow.
 
-- **Site Log** — David's complete operational record. Internal only, grouped by deliverable.
-- **Client Brief** — `tbl_Brief` + `tbl_BriefBlock` (one block per deliverable), auto-drafted from the day's captures with the best two or three frames and a progress line.
-- David edits by exception: swipe to drop, tap to promote, one voice note per block becomes the narrative.
-- **Publishes at the cutoff whether or not he touches it.** Hangfire is already registered ([Program.cs:123](assetlen.API/Program.cs)) — use a recurring job.
-- **Truth floor:** commitments that move money, move a date, change an agreed spec, or are blockers / decisions Peter owes are injected into the brief regardless of curation and cannot be dropped. State the rule to both parties once, in plain language.
-- `/today` becomes Peter's landing page. `/portfolio` is demoted to David's surface.
+**Exit:** run extraction over the raw 11 Jun – 5 Jul window and diff against the sixteen
+hand-extracted commitments. Report precision and recall honestly. **This is the riskiest
+phase in the plan** — tier 1's entire value rests on it, and the old thesis had the
+contractor's structured posting as a safety net that no longer exists.
 
-**Exit:** assetlen.md §9 test 2 — hand-build one real site day; David says *"I'd have dropped two of those"*, Peter says *"this is what I wanted."*
+---
 
 ### P6 — Retrieval *(Peter's four searches)*
 
-- OCR every artifact on ingest via a Hangfire queue → `tbl_ArtifactText`.
-- Unified search over commitments, artifact text, entries and comments, using SQL Server full-text.
-- `/search` with results grouped by object type, and a "what did I approve on X?" shape rather than a message list.
+- Unified search over commitments, OCR text, ingested messages and artifacts, on SQL Server
+  full-text.
+- `/search` shaped as *"what did I approve on the balustrade?"* — grouped by object, not a
+  message list.
+- Every result carries its provenance strip: *agreed → evidence → invoiced → cleared →
+  queried → resolved*.
 
-**Exit:** a receipt that only ever existed as a photo is findable by its vendor name.
+**Exit:** a receipt that only ever existed as a photo inside a WhatsApp export is findable
+by its vendor name.
 
-### P7 — Markup layers + query state
+---
 
-- `tbl_Annotation { ArtifactId, Version, AuthorId, ShapesJson, CreatedAt }` — a versioned, attributed layer over the original. Never a new image.
-- Raise a query on a cleared commitment; resolving it **writes back into the commitment** (*"revised to 4 bags, +£X, agreed 6 Aug"*), not into a message.
+### P7 — Peter's surfaces *(the demotion reversed)*
 
-**Exit:** Peter circles a line on a receipt, asks, David answers, and the commitment value changes.
+- **`/` is Peter's multi-project home.** The old plan cut this citing *"one project must
+  work first"* — a sequencing note that hardened into a ban. Peter runs a main house, a
+  guest wing, external works and a second site simultaneously. If he pays, the first thing
+  he opens is all of them, each with: money position, decisions he owes, what moved.
+- **The daily brief, assembled with no curator.** One page per project per day, **grouped by
+  deliverable, not by time**, from ingested and captured material. Same-vantage-point
+  pairing inside each block — seventeen chronological frames provably read as *"nothing much
+  changed"*; one before/after pair does not.
+- **Decisions Peter owes**, with by-when and consequence, across all projects.
+- **The truth floor** — money, dates, agreed specs, blockers — is injected regardless of
+  curation and cannot be dropped. State the rule to both parties once, plainly.
+- Emphasis weighting per reader: the funder gets progress, money and dates; the
+  representative gets specs, finishes and choices owed ([Dinah.md](Dinah.md)).
 
-### P8 — Extraction + parked ideas *(Laws 3 and 4)*
+**Exit:** assetlen.md §11 test 3, the **silent-contractor test** — three weeks of tier 1
+built from a real export with zero contractor involvement. Would Peter pay for this alone?
 
-- Propose structure only on money, materials, dates and decisions. One tap to confirm. Instrument the confirmation count — if David is confirming more than a handful a day, narrow the trigger.
+---
+
+### P8 — Markup, query state, parked ideas
+
+- `tbl_Annotation { ArtifactId, Version, AuthorId, ShapesJson, CreatedAt }` — a versioned,
+  attributed layer over the original, never a new image. This is Peter's fourth search:
+  circle the thing, ask why.
+- Raise a query on a cleared commitment; resolving it **writes back into the commitment**,
+  not into a message.
 - Ideas parked against a future stage accumulate references and estimates silently.
-- Lead times compute a "decide by" date backwards from stage start; surface **only** when waiting costs something. Everything else stays silent.
-- Stage kickoff brief hands parked items back.
+- Lead times compute a "decide by" date backwards from stage start, and surface **only** when
+  waiting costs something (Law 4). Six weeks of finishing blocked on a shipping container is
+  the case this exists for.
 
-**Exit:** assetlen.md §9 test 3 — the bad-week test. One live project, three weeks, David survives a bad week without drifting back to WhatsApp.
+**Exit:** Peter circles a line on a receipt, asks, the answer changes the commitment value.
 
-### P9 — Parity *(assetlen.md §8, price of entry)*
+---
 
-Web push at WhatsApp-comparable speed; voice notes with transcription; share-sheet target so a photo can be sent from the camera roll or from WhatsApp itself; a deliberately second-class informal channel with **"file this to an item"** on every message.
+### P9 — The contractor tier *(tier 3 — everything above still works without it)*
+
+Only now, and only because nothing above depends on it.
+
+- Three-tap capture against today's deliverables; **bulk camera-roll import** as the primary
+  path — real capture is thirteen to eighteen frames at 22:00, not one in the moment.
+- Offline queue with background sync.
+- **Site Log** — the complete unsanitised record, delivery side only.
+- **Curation by exception**: the mediator drops, promotes and exposes **individual frames**;
+  the brief publishes at the cutoff whether or not he touches it.
+- Mediator staffs the delivery side; Peter keeps the access roster.
+- Web push at WhatsApp-comparable speed; voice notes with transcription.
+- Claims carry their own evidence so the contractor gets paid without a phone call.
+
+**Exit:** assetlen.md §11 test 2 — hand-build one real site day; the contractor says
+*"I'd have dropped two of those"*, Peter says *"this is what I wanted."*
 
 ---
 
 ## Explicitly not building
 
-Each line cites the clause that cuts it. Do not re-propose without amending assetlen.md.
-
 | Cut | Source |
 |---|---|
-| Holding or moving money / escrow | §7 — *"will consume the entire runway"* |
-| Gantt charts and critical path (**retire `TimelineChart`**) | §7 — *"Peter thinks in stages, not networks"* |
-| Bills of quantities | §7 — *"reintroduces the machinery he is avoiding"* |
-| Accounting integrations | §7 — *"not the bottleneck"* |
-| Multi-project dashboard as the primary surface | §7 — *"one project must work first"* |
-| Threaded general chat as a primary surface | §7 — *"rebuilds the problem"* |
-| Anything that adds a tap to capture | §7 — *"directly causes churn back to WhatsApp"* |
-| Lookbook, 3D explorer, visual search | Absent from the vision; fails the §7 ship test |
+| Holding or moving money / escrow | §8 — funds route through three agents, two banks and a third party's account |
+| **Any in-app informal channel** | §8 — cut harder under D3. WhatsApp keeps the conversation; we ingest it |
+| **Voice notes as a launch item** | §8 — parity aimed at a contractor who may never log in. Tier 3 |
+| Gantt charts and critical path (**retire `TimelineChart`**) | §8 — *"Peter thinks in stages, not networks"* |
+| Bills of quantities | §8 — his own BoQ was cut down twice for being too heavy |
+| Accounting integrations | §8 — not the bottleneck |
+| Roles beyond developer / representative / mediator / delivery | §8 — permissions complexity, no user value |
+| Anything that adds a tap to capture | §8 — directly causes churn back to WhatsApp |
+| Lookbook, 3D explorer, visual search | Absent from the vision |
 
-**Open tension, flagged not resolved:** Peter.md says Peter runs "two or three projects" at once, while §7 cuts multi-project dashboards. P5 demotes `/portfolio` rather than deleting it. Revisit after the bad-week test.
+### Reversed on 2026-08-12
+
+| Previously cut | Now | Why |
+|---|---|---|
+| Multi-project portfolio dashboard | **Peter's home screen (P7)** | He pays, and he runs four workstreams. One project must work first; it must not be the only thing that ever works. |
+
+---
+
+## Open risks, stated not solved
+
+1. **Extraction quality is the whole bet.** If P5 produces a half-wrong register, Peter
+   trusts none of it and tier 1 has no value. Validate by hand before building.
+2. ~~**Seat economics.**~~ **Resolved 2026-08-12** — billing is per project by floor area,
+   three tiers, delivery-side seats free and uncapped (assetlen.md §10.3, shipped in P2).
+   Automatic area-from-drawings is deferred; the source is recorded so it can never
+   silently overwrite a declared figure.
+3. **A silent contractor still means a thin day.** Restructuring what arrives is worth
+   paying for; it cannot manufacture a site photo nobody took. Tier 1 sells retrieval and
+   reconciliation, not omniscience — say so in the marketing rather than discovering it in
+   churn.
+4. **Nothing has been validated with a real person yet.** All three tests in assetlen.md §11
+   remain unrun, and the corpus to run them against has been sitting on disk since before P2
+   began.
 
 ---
 
 ## Update protocol
 
 1. Build green, no new errors.
-2. Re-run the P0 audit script; no row regresses.
+2. Re-run the P0 audit script; no row regresses. **Update its personas** — it still casts
+   the contractor as project owner, which the buyer decision reverses.
 3. Update the phase table above; add rows for sub-phases.
 4. Leave everything unstaged — the user commits.

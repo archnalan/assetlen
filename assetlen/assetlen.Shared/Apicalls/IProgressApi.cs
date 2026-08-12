@@ -19,6 +19,13 @@ namespace assetlen.Shared.Apicalls
         [Put("/api/Progress/SetChannel")]
         Task<IApiResponse<ProgressUpdateDto>> SetChannel([Query] string updateId, [Query] Channel channel);
 
+        /// <summary>
+        /// Expose or withdraw individual frames — the mediator picks three of
+        /// eighteen rather than flipping the whole batch across.
+        /// </summary>
+        [Put("/api/Progress/SetImageChannel")]
+        Task<IApiResponse<ProgressUpdateDto>> SetImageChannel([Body] ProgressImageExposureDto dto);
+
         [Get("/api/Progress/GetProgressUpdates")]
         Task<IApiResponse<PaginationDetails<ProgressUpdateDto>>> GetProgressUpdates(
             [Query] string projectId,

@@ -1,10 +1,12 @@
 # ASSETLEN — Design & Engineering Charter
 
-**Status (2026-08-12):** Phase P0 — unblocking the three-user MVP. See [plan.md](plan.md).
+**Status (2026-08-12):** P0 and P1 done. **Peter — the developer — is the buyer** (assetlen.md §0); the phase plan was reordered around that. P2 in progress. See [plan.md](plan.md).
 
-> **Precedence.** [assetlen.md](assetlen.md) is the product truth, with [Peter.md](Peter.md) and [David.md](David.md) as the user truth. **This file is the engineering charter** — aesthetic, CSS, folder layout, multi-tenancy — and **defers to assetlen.md wherever they disagree.** Read assetlen.md first, then this file, then plan.md.
+> **Precedence.** [assetlen.md](assetlen.md) is the product truth, with [Peter.md](Peter.md), [Nalan.md](Nalan.md) and [Dinah.md](Dinah.md) as the user truth, all three grounded in [whatsapp-evidence.md](whatsapp-evidence.md) — a real 1,529-message project thread. **This file is the engineering charter** — aesthetic, CSS, folder layout, multi-tenancy — and **defers to assetlen.md wherever they disagree.** Read assetlen.md first, then this file, then plan.md.
 >
-> Every feature must answer assetlen.md §7: *"Does it help someone hold a past commitment against present reality?"* If not, it does not ship. The §7 "Do not build" table is binding and is mirrored in plan.md.
+> **The contractor persona was renamed David → Nalan on 2026-08-12** and is now an *architect-contractor* (he designs and builds). A third persona, **Dinah**, was added: a second, local, client-side principal who owns finish decisions. Do not reintroduce "David".
+>
+> **Two ship tests, both binding.** assetlen.md §8: *"Does it help someone hold a past commitment against present reality?"* And **Law 0** (§4): *"Does it still work when the contractor is silent?"* A feature failing the second is **tier 3** and cannot count toward launch. The §8 "Do not build" table is binding and is mirrored in plan.md.
 
 ---
 
@@ -32,10 +34,10 @@ Use these terms everywhere — UI copy, file names, type names, route segments.
 | Stage checklist item | **Deliverable** | The thing capture is aimed at. Nothing floats. |
 | A stored file | **Artifact** | Uploaded once, permanent address, hash-matched. Later mentions are pointers, never copies. |
 | Markup on an artifact | **Annotation** | A versioned, attributed *layer* on the original. Never a new image. |
-| David's full record | **Site Log** | Complete, unsanitised, internal. The clerk posts here without judgement. |
+| Nalan's full record | **Site Log** | Complete, unsanitised, internal. The clerk posts here without judgement. |
 | Peter's daily page | **Client Brief** | One page per day, **grouped by deliverable, not by time**. Auto-drafted, publishes at the cutoff regardless. |
 | Non-curatable facts | **Truth floor** | Money, dates, agreed specs, blockers and decisions Peter owes reach Peter regardless of curation. |
-| The two channels | **Client channel** / **Crew channel** | David controls emphasis, not truth. |
+| The two channels | **Client channel** / **Crew channel** | Nalan controls emphasis, not truth. |
 
 **Retired terms** — do not reintroduce: *Site Journal* and *Entry* (→ Site Log / capture against a Deliverable), *Flag* (→ a Commitment in `QueryRaised`, or a blocker), *Lookbook*, *Client view* (→ Client Brief).
 
@@ -235,7 +237,15 @@ A user has access to a project if they are its owner, its manager, or an **activ
 
 > **Never re-implement this check inline.** Until P0, four DALs each carried a private `IsProjectStakeholder` that tested only `InvestorId`/`ProjectManagerId`, so members were visible on the dashboard and got 403 everywhere else — the client and the clerk of works could not use the product at all. See plan.md finding A1. A private stakeholder helper in a DAL is a bug.
 
-Against the vision, six roles is more than assetlen.md §7 asks for (*"no roles beyond developer / contractor / clerk"*). We keep the six deliberately — the cost is already paid and collapsing them touches every controller — but **do not add a seventh**, and do not let role checks substitute for the membership check.
+#### Sides and the mediator — the per-project authority (P2)
+
+**Tenant-level roles say what a user may do anywhere. `tbl_ProjectMember` says which projects, on which side, and whether they mediate.** All three must pass, and the side is **per project** — the same person is a client on one project and a mediator on another. Never infer a side from a tenant-level role; `ITenantProvider.IsExternal()` is global and using it for channel filtering was a bug, now removed.
+
+- `ProjectSide { Client, Contractor }` on every membership.
+- `IsMediator` — one, at most two per project. The mediator reads both surfaces, is the **only** person who may expose Site Log material to the client side, and is the **single accountable name** on everything that crosses (assetlen.md §10.1).
+- Resolve once via `IProjectAccessService.ResolveAsync` → `ProjectAccess { Level, Side, IsMediator }`. Use `CanSeeSiteLog` and `CanExposeToClient`; do not re-derive them.
+
+**Roles collapse 6 → 4** — developer, representative, mediator, delivery — per assetlen.md §8. The six-role enum survives for now because collapsing it touches every controller, but **do not add a fifth concept**, and do not let a role check substitute for the membership check.
 
 #### Module access matrix
 
@@ -256,11 +266,13 @@ The matrix is the **only** place these decisions live. Don't hard-code role chec
 
 ## 6. Phase plan
 
-**The phase plan lives in [plan.md](plan.md).** It was rewritten on 2026-08-12 against assetlen.md after a live end-to-end audit; the old Phase 0–4 sequence (Lookbook, 3D explorer, visual search) is retired because those features fail the §7 ship test.
+**The phase plan lives in [plan.md](plan.md).** Rewritten a third time on 2026-08-12, after deciding that **Peter — the developer — buys** (assetlen.md §0). The previous two orderings were written for the contractor and put the buyer last in the chain.
 
-Current shape: **P0** unblock the three-user MVP → **P1** scaffold strip → **P2** Artifact store → **P3** Commitment model → **P4** dumb capture → **P5** Site Log / Client Brief → **P6** OCR + search → **P7** markup + query state → **P8** extraction + parked ideas → **P9** parity.
+Current shape: **P2** ownership, sides + artifact store → **P3** ingest → **P4** commitment model + money ledger → **P5** extraction → **P6** retrieval → **P7** Peter's home + daily brief → **P8** markup, query state, parked ideas → **P9** the contractor tier. P0 and P1 are done.
 
-A phase ends when it is usable on mobile and desktop, has loading / empty / error states, and passes its exit criterion in plan.md. Phases P3, P5 and P8 are additionally gated by the three validation tests in assetlen.md §9.
+**Two ship tests, both binding.** assetlen.md §8: *"Does it help someone hold a past commitment against present reality?"* And **Law 0**: *"Does it still work when the contractor is silent?"* A feature that fails the second is **tier 3** and cannot count toward launch.
+
+A phase ends when it is usable on mobile and desktop, has loading / empty / error states, and passes its exit criterion in plan.md. P4, P7 and P9 are additionally gated by the three validation tests in assetlen.md §11.
 
 ---
 

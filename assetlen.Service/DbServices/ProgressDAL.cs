@@ -136,13 +136,17 @@ public class ProgressDAL : IProgressDAL
             if (update == null)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
 
-            if (!await _access.CanReadAsync(update.Project, userId))
+            var access = await _access.ResolveAsync(update.Project, userId);
+            if (!access.CanRead)
                 return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
 
-            if (_tenant.IsExternal() && update.Channel != Channel.Client)
+            // Per-project side, not the tenant-global role. The same person can
+            // be client-side on one project and mediate another; a global
+            // IsExternal() check would give them one answer for both.
+            if (!access.CanSeeSiteLog && update.Channel != Channel.Client)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
 
-            return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update));
+            return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update, access));
         }
         catch (Exception ex)
         {
@@ -163,11 +167,32 @@ public class ProgressDAL : IProgressDAL
             if (update == null)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
 
-            // Publishing to the client is a curation decision — owner/manager only.
-            if (!await _access.CanManageAsync(update.Project, userId))
-                return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Only the project owner or manager can change visibility"));
+            // Exposing to the client side is the mediator's decision. Owner and
+            // manager authority also qualifies; nobody else does — the clerk of
+            // works must not be able to put anything in front of the client.
+            if (!await _access.CanExposeToClientAsync(update.Project, userId))
+                return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException(
+                    "Only a project mediator, owner or manager can change what the client sees"));
 
             update.Channel = channel;
+
+            // Promoting the entry does NOT promote its frames. That was the old
+            // behaviour and it forwarded whole batches. Withdrawing it does pull
+            // the frames back, because a frame cannot be visible on an entry the
+            // reader can no longer open.
+            if (channel == Channel.Crew)
+            {
+                var frames = await _context.tbl_ProgressImages
+                    .Where(i => i.ProgressUpdateId == update.Id && i.Channel == Channel.Client)
+                    .ToListAsync();
+                foreach (var frame in frames)
+                {
+                    frame.Channel = Channel.Crew;
+                    frame.ExposedById = null;
+                    frame.ExposedAt = null;
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             return await GetProgressUpdateById(update.Id, userId);
@@ -217,7 +242,8 @@ public class ProgressDAL : IProgressDAL
             if (project == null)
                 return ServiceResult<PaginationDetails<ProgressUpdateDto>>.Failure(new NotFoundException("Project not found"));
 
-            if (!await _access.CanReadAsync(project, userId, ct))
+            var access = await _access.ResolveAsync(project, userId, ct);
+            if (!access.CanRead)
                 return ServiceResult<PaginationDetails<ProgressUpdateDto>>.Failure(new ForbiddenException("Access denied"));
 
             var query = _context.tbl_ProgressUpdates
@@ -232,7 +258,9 @@ public class ProgressDAL : IProgressDAL
             if (!string.IsNullOrEmpty(stageId))
                 query = query.Where(u => u.StageId == stageId);
 
-            if (_tenant.IsExternal())
+            // Per-project side. A mediator reads the whole Site Log even though
+            // they may sit on the client side of this project.
+            if (!access.CanSeeSiteLog)
                 query = query.Where(u => u.Channel == Channel.Client);
 
             var total = await query.CountAsync(ct);
@@ -243,7 +271,7 @@ public class ProgressDAL : IProgressDAL
                 .Take(limit)
                 .ToListAsync(ct);
 
-            var dtos = updates.Select(u => MapUpdateToDto(u)).ToList();
+            var dtos = updates.Select(u => MapUpdateToDto(u, access)).ToList();
 
             return ServiceResult<PaginationDetails<ProgressUpdateDto>>.Success(
                 new PaginationDetails<ProgressUpdateDto>
@@ -438,6 +466,8 @@ public class ProgressDAL : IProgressDAL
     private async Task<ServiceResult<ProgressUpdateDto>> GetProgressUpdateById(string updateId, string userId)
     {
         var update = await _context.tbl_ProgressUpdates
+            .Include(u => u.Project)
+                .ThenInclude(p => p!.ParentProject)
             .Include(u => u.CreatedBy)
             .Include(u => u.Stage)
             .Include(u => u.Images.OrderBy(i => i.DisplayOrder))
@@ -449,11 +479,93 @@ public class ProgressDAL : IProgressDAL
         if (update == null)
             return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Update not found"));
 
-        return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update));
+        var access = await _access.ResolveAsync(update.Project, userId);
+        return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update, access));
     }
 
-    private static ProgressUpdateDto MapUpdateToDto(tbl_ProgressUpdate u)
+    /// <summary>
+    /// Expose or withdraw individual frames on an entry. This is the operation
+    /// that replaces forwarding: the mediator picks three of eighteen rather
+    /// than flipping the whole batch across.
+    /// </summary>
+    public async Task<ServiceResult<ProgressUpdateDto>> SetImageChannel(
+        ProgressImageExposureDto dto, string userId)
     {
+        try
+        {
+            var ids = dto.ImageIds.Where(i => !string.IsNullOrEmpty(i)).Distinct().ToList();
+            if (ids.Count == 0)
+                return ServiceResult<ProgressUpdateDto>.Failure(new BadRequestException("No images supplied"));
+
+            var images = await _context.tbl_ProgressImages
+                .Include(i => i.ProgressUpdate)
+                    .ThenInclude(u => u!.Project)
+                        .ThenInclude(p => p!.ParentProject)
+                .Where(i => ids.Contains(i.Id))
+                .ToListAsync();
+
+            if (images.Count == 0)
+                return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Images not found"));
+
+            var entries = images.Select(i => i.ProgressUpdateId).Distinct().ToList();
+            if (entries.Count > 1)
+                return ServiceResult<ProgressUpdateDto>.Failure(
+                    new BadRequestException("All images must belong to the same entry"));
+
+            var entry = images[0].ProgressUpdate;
+            if (!await _access.CanExposeToClientAsync(entry?.Project, userId))
+                return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException(
+                    "Only a project mediator, owner or manager can change what the client sees"));
+
+            var exposing = dto.Channel == Channel.Client;
+            foreach (var image in images)
+            {
+                image.Channel = dto.Channel;
+                image.ExposedById = exposing ? userId : null;
+                image.ExposedAt = exposing ? DateTime.UtcNow : null;
+            }
+
+            // A frame is unreachable on an entry the client cannot open, so
+            // exposing any frame carries its entry across with it.
+            if (exposing && entry is not null && entry.Channel != Channel.Client)
+            {
+                var tracked = await _context.tbl_ProgressUpdates.FirstAsync(u => u.Id == entry.Id);
+                tracked.Channel = Channel.Client;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return await GetProgressUpdateById(entry!.Id, userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting image channel");
+            return ServiceResult<ProgressUpdateDto>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Map an entry for one specific reader.
+    /// <para>
+    /// <b>The image filter is the point of P2.</b> Before it, promoting an
+    /// entry pushed every frame it held to the client — and a real capture is
+    /// thirteen to eighteen frames posted in one batch, so that switch was a
+    /// forward, not a curation. Now each frame carries its own channel and a
+    /// client-side reader sees only the ones a mediator exposed.
+    /// </para>
+    /// <para>
+    /// <paramref name="access"/> is per project, never the tenant-global role:
+    /// a mediator sitting on the client side still reads the whole Site Log.
+    /// </para>
+    /// </summary>
+    private static ProgressUpdateDto MapUpdateToDto(tbl_ProgressUpdate u, ProjectAccess access)
+    {
+        var visibleImages = access.CanSeeSiteLog
+            ? u.Images ?? new List<tbl_ProgressImage>()
+            : (u.Images ?? new List<tbl_ProgressImage>())
+                .Where(i => i.Channel == Channel.Client)
+                .ToList();
+
         return new ProgressUpdateDto
         {
             Id = u.Id,
@@ -469,16 +581,25 @@ public class ProgressDAL : IProgressDAL
                 ? $"{u.CreatedBy.FirstName} {u.CreatedBy.LastName}" : null,
             StageName = u.Stage?.StageName,
             DateTimeCreated = u.DateTimeCreated,
-            Images = u.Images?.Select(i => new ProgressImageDto
+            ImageCount = u.Images?.Count ?? 0,
+            Images = visibleImages.Select(i => new ProgressImageDto
             {
                 Id = i.Id,
                 ProgressUpdateId = i.ProgressUpdateId,
-                ImageUrl = i.ImageUrl,
-                ThumbnailUrl = i.ThumbnailUrl,
+                ArtifactId = i.ArtifactId,
+                // An artifact-backed frame streams from its permanent address;
+                // a pre-P2 row falls back to the inline URL it still carries.
+                ImageUrl = i.ArtifactId is not null
+                    ? $"/api/Artifacts/{i.ArtifactId}/content" : i.ImageUrl,
+                ThumbnailUrl = i.ArtifactId is not null
+                    ? $"/api/Artifacts/{i.ArtifactId}/thumbnail" : i.ThumbnailUrl,
                 Caption = i.Caption,
                 DisplayOrder = i.DisplayOrder,
+                Channel = i.Channel,
+                ExposedById = i.ExposedById,
+                ExposedAt = i.ExposedAt,
                 DateTimeCreated = i.DateTimeCreated
-            }).ToList() ?? new(),
+            }).ToList(),
             Comments = u.Comments?.Select(c => new ProgressCommentDto
             {
                 Id = c.Id,

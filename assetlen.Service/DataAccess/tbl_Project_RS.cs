@@ -73,6 +73,20 @@ public class tbl_Project : BaseEntity
 
     public DateTime? SizeTierConfirmedAt { get; set; }
 
+    /// <summary>
+    /// Opaque token addressing this project's inbound mailbox — the ongoing
+    /// trickle half of the front door (plan.md P3). Mail sent to
+    /// <c>in+{key}@…</c> lands as ingested messages, attachments included.
+    /// <para>
+    /// Random and unguessable rather than derived from the project id, because
+    /// the address is pasted into third-party address books and forwarded on: it
+    /// is a capability, so it must be revocable by reissuing the key without
+    /// touching the project.
+    /// </para>
+    /// </summary>
+    [MaxLength(40)]
+    public string? IngestEmailKey { get; set; }
+
     public ProjectStatus Status { get; set; } = ProjectStatus.Active;
 
     public bool IsFirstFreeProject { get; set; }

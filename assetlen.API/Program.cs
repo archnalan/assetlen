@@ -169,6 +169,10 @@ builder.Services.AddSingleton<IArtifactStorage>(sp => new LocalArtifactStorage(
 builder.Services.AddSingleton<IThumbnailGenerator, ImageSharpThumbnailGenerator>();
 builder.Services.AddScoped<IArtifactDAL, ArtifactDAL>();
 
+// ── Ingest: the front door (P3 — assetlen.md D3) ──
+// Writes through the artifact store above, so it registers after it.
+builder.Services.AddScoped<IIngestDAL, IngestDAL>();
+
 builder.Services.AddSignalR();
 builder.Services.AddIdentity<AppUser, IdentityRole>
             (options =>

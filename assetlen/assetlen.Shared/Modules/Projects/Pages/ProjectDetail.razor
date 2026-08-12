@@ -73,6 +73,10 @@ else
         </AuthorizeView>
         <button class="project-tab @(activeTab == "progress" ? "active" : "")" @onclick='() => SetTab("progress")'>Site Journal</button>
         <button class="project-tab @(activeTab == "documents" ? "active" : "")" @onclick='() => SetTab("documents")'>Documents</button>
+        @* The front door (assetlen.md D3). Sits beside Documents rather than
+           inside a settings screen: bringing a year of history in is the first
+           thing a new project needs, not an administrative afterthought. *@
+        <button class="project-tab @(activeTab == "history" ? "active" : "")" @onclick='() => SetTab("history")'>History</button>
         <button class="project-tab @(activeTab == "issues" ? "active" : "")" @onclick='() => SetTab("issues")'>Issues</button>
         <button class="project-tab @(activeTab == "timeline" ? "active" : "")" @onclick='() => SetTab("timeline")'>Timeline</button>
     </div>
@@ -101,6 +105,13 @@ else
                                   CanWrite="@(standing?.CanWrite ?? false)"
                                   CanExpose="@(standing?.CanExposeToClient ?? false)" />
                 break;
+            case "history":
+                <ProjectImportPanel ProjectId="ProjectId"
+                                    CanWrite="@(standing?.CanWrite ?? false)"
+                                    CanManage="@(standing?.CanManage ?? false)"
+                                    OnImported="OnHistoryImported" />
+                <IngestedThread @ref="ingestedThread" ProjectId="ProjectId" />
+                break;
             case "issues":
                 @RenderIssues();
                 break;
@@ -128,6 +139,12 @@ else
     /// client here and a mediator on the next project along.
     /// </summary>
     private ProjectAccessDto? standing;
+
+    /// <summary>
+    /// Held so a finished import can refresh the record below it in place. The
+    /// two components are siblings, so neither can re-render the other.
+    /// </summary>
+    private IngestedThread? ingestedThread;
     private FlagStatus? flagStatusFilter = FlagStatus.Open;
     private bool isLoading = true;
     private string activeTab = "overview";
@@ -194,6 +211,15 @@ else
                 _ = LoadTimeline();
                 break;
         }
+    }
+
+    /// <summary>
+    /// An import can add a thousand messages, so the record below it is reloaded
+    /// rather than left showing the state from before the run.
+    /// </summary>
+    private async Task OnHistoryImported()
+    {
+        if (ingestedThread is not null) await ingestedThread.RefreshAsync();
     }
 
     private async Task LoadFunding()

@@ -16,6 +16,7 @@
 @using assetlen.Shared.Modules.Projects.Components
 @using assetlen.Shared.Modules.Journal.Components
 @using assetlen.Shared.Modules.Documents.Components
+@using assetlen.Shared.Modules.Ingest.Components
 @using assetlen.Shared.Modules.Identity.Components
 @using assetlen.Shared.Modules.Timeline.Components
 @using assetlen.Shared.Modules.Finance.Components
@@ -64,6 +65,7 @@
 @inject IBudgetApi _budgetApi
 @inject IProjectMembersApi _projectMembersApi
 @inject IArtifactsApi _artifactsApi
+@inject IIngestApi _ingestApi
 
 @* ── Infrastructure ── *@
 @inject IToastService ToastService

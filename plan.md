@@ -69,6 +69,8 @@ was cleared in P1.
 **A8 — new, and the largest.** *There is no way to get a year of existing project history
 into Assetlen.* Peter's entire record lives in a WhatsApp thread and an email account. Under
 Law 0 this is the front door, and no phase of the previous plan contained it.
+**Closed in P3** — the mechanism exists and is tested. What is still unrun is the mechanism
+against the *real* export, which is a validation task, not a build one.
 
 ---
 
@@ -86,6 +88,8 @@ Law 0 this is the front door, and no phase of the previous plan contained it.
 | 3.3 | Accessibility / nav | Done | Fine |
 | **P0** | Unblock membership access | **Done** — 18/18 | Still correct and still necessary |
 | **P1** | Scaffold strip + migration baseline | **Done** — 18/18 from empty | Fine |
+| **P2** | Ownership, sides, artifact store | **Done** — 65/65 | — |
+| **P3** | Ingest — the front door | **Done** — 51/51 | — |
 
 P0 and P1 were both right and both invisible. The detail of what landed in each is
 preserved in git history and in the audit script; it is not repeated here because it no
@@ -100,8 +104,8 @@ must work with the contractor silent.
 
 | Phase | Title | Tier | Status |
 |---|---|---|---|
-| P2 | Ownership, sides, and the artifact store | 1 | **In progress** |
-| P3 | Ingest — the front door | 1 | Planned |
+| P2 | Ownership, sides, and the artifact store | 1 | **Done** |
+| P3 | Ingest — the front door | 1 | **Done** |
 | P4 | Commitment model + the money ledger | 1 | Planned |
 | P5 | Extraction — pile into register | 1 | Planned |
 | P6 | Retrieval — Peter's four searches | 1 | Planned |
@@ -111,7 +115,7 @@ must work with the contractor silent.
 
 ---
 
-### P2 — Ownership, sides, and the artifact store *(in progress)*
+### P2 — Ownership, sides, and the artifact store *(done)*
 
 Establishes who owns a project, who is on which side of it, and where files live. Every
 later phase writes through this.
@@ -232,26 +236,94 @@ service solves for files.
 
 ---
 
-### P3 — Ingest: the front door *(new — A8, assetlen.md D3)*
+### P3 — Ingest: the front door *(done — A8, assetlen.md D3)*
 
 **Nothing else matters if Peter cannot get his year of history in.** This phase is the
 whole tier-1 thesis and it did not exist in the previous plan.
 
-- **WhatsApp export import.** Accept the `.txt` + media archive. Parse timestamp, author,
-  body and media markers. Every media file becomes an artifact, hash-deduplicated — the
-  same receipt sent five times collapses to one with five refs, which is Law 2 proving
-  itself on real data before a single new photo is taken.
+- **WhatsApp export import.** Accepts the `.txt` transcript or the `.zip` with its media,
+  detected by content rather than extension. Every media file becomes an artifact,
+  hash-deduplicated — the same receipt sent five times collapses to one with five refs,
+  which is Law 2 proving itself on real data before a single new photo is taken.
 - **Share-sheet target** and **email-in** per project, for the ongoing trickle.
-- `tbl_IngestedMessage { ProjectId, SourceType, ExternalAuthor, AuthorMemberId?, SentAt, Body, ArtifactId? }` —
-  raw and immutable. Extraction reads it; nothing else does.
-- **Author mapping.** An export names people who may have no login. Map each thread
-  participant to a `tbl_ProjectMember` — including off-platform ones via `PartyName` — so
+- `tbl_IngestedMessage` — raw and immutable. Extraction reads it; nothing else writes it.
+- **Author mapping.** An export names people who may have no login. Each participant maps
+  to a `tbl_ProjectMember`, including off-platform ones created via `PartyName`, so
   attribution survives import.
-- Re-importing an overlapping export must not duplicate. Dedupe on
-  `(ProjectId, SentAt, ExternalAuthor, hash(Body))`.
+- Re-importing an overlapping export must not duplicate.
 
-**Exit:** import the real 1,529-message export. Assert the message count, the artifact
-count, **zero duplicate artifacts**, and that every participant maps to a member.
+**Landed:** `tbl_IngestBatch` + `tbl_IngestedMessage`, `WhatsAppExportParser`,
+`IngestArchive`, `IngestDAL`, `IngestController`, the Refit client, DI, the
+`ProjectImportPanel` / `IngestedThread` UI on a new **History** tab, and migration
+`20260812210209_P3_Ingest`, **applied to the dev database**. Purely additive — nothing
+before P3 wrote ingested material, so unlike P2 there was nothing to backfill.
+
+**Import is two calls, not one.** `UploadArchive` stores and reports; `CommitImport`
+writes. The step between exists because attribution is the only part of an import that is
+expensive to undo — filing 1,055 messages against the wrong person is worse than not
+importing them, so who each name belongs to stays a decision somebody makes.
+
+**Four things that would each have silently corrupted a year of history:**
+
+- **The dedupe key needs an occurrence ordinal.** Android stamps to the minute and the
+  corpus's normal pattern is thirteen to eighteen photos inside one — same author, same
+  timestamp, all bodied `<Media omitted>`. The key named in the old plan text,
+  `(ProjectId, SentAt, ExternalAuthor, hash(Body))`, hashes those eighteen identically and
+  keeps **one**. The loss is invisible: the import reports success. The key is now
+  `(SentAt, Author, Body, MediaFileName, occurrence)`, and a re-import still adds nothing
+  because the same transcript always yields the same ordinals.
+- **Day/month order must be proven, not assumed.** `03/12/2025` is 3 December or 12 March
+  depending on the phone, and WhatsApp records no locale. Resolved across the whole file
+  from the first date whose component exceeds 12, and **reported** — a wrong guess moves
+  most of a year by months with no error anywhere.
+- **Invisible characters.** WhatsApp wraps stamps in direction marks (U+200E/200F) and
+  newer iOS separates the time from AM/PM with a narrow no-break space (U+202F). None
+  render; all defeat `\s` or a leading `^\[`. The symptom is a file that parses to zero
+  messages while looking perfect in an editor. The iOS fixture carries both deliberately.
+- **`UpdateTimestamps` resolves each new row's owning tenant** and falls back to a database
+  query per row when the project is not in the change tracker — 1,529 extra round trips.
+  The project is loaded tracked and `TenantId` is stamped explicitly.
+
+**Who may read an import.** Everything ingested is Site Log material (assetlen.md §5), so
+the contractor side and mediators read it. Beyond that **the importing side owns it**:
+`tbl_IngestBatch.ImportedSide` is captured at import time and stored, not re-derived, so
+material does not become readable — or stop being readable — because of a later roster
+edit. `CanManage` alone grants nothing; ownership answers *who holds a key*, not *who did
+what* (§10.1), and Peter has no business reading the crew's operational chatter (D5).
+
+**Exit — met.** `tools/e2e-p3-ingest.sh`: **51 assertions, 0 failures**, and
+`tools/e2e-all.sh` runs the whole chain at **116 assertions, 0 failures**. A 1,529-message
+export imports whole; re-uploading it reports 1,529 already present and adds none; the
+eighteen-photo minute survives as eighteen; an iOS archive yields 13 artifacts from 17
+attachments with the receipt sent five times stored once; a delivery-side import answers
+404 to the client side rather than 403.
+
+**The corpus is not in this repository and must not be added** — `whatsapp-evidence.md`
+forbids it, and the export carries real names, banks, account numbers and a location. The
+exit criterion therefore runs against `tools/make-ingest-fixtures.sh`, which synthesises an
+export with the same *shape* as the documented profile (§2: 1,529 messages, 47% media,
+three participants, an 18-photo minute). The generator counts what it writes and the parser
+reads it back independently, so agreement is evidence rather than a shared assumption.
+`tools/fixtures/` is gitignored, primarily as a guard for the day the real export is
+dropped there. **Running it against the genuine export remains outstanding** and is the one
+part of this exit criterion that a fixture cannot stand in for.
+
+**Outstanding:** media is stored one file at a time through `ArtifactDAL`, which re-checks
+access per call — correct, and the right choke point for Law 2, but a 723-file import is
+slow enough to want the Hangfire queue P5 already introduces.
+
+**`appsettings.json` is gitignored**, so the `Ingest` block added for this phase does not
+survive a clone. Unset, `InboundEmail` answers 503 rather than standing open, and the suite
+detects that and **skips** the four inbound-mail assertions rather than reporting a failure
+the reader would learn to ignore. On a new machine, add:
+
+```jsonc
+"Ingest": { "InboundDomain": "in.assetlen.app", "InboundSecret": "<per-environment>" }
+```
+
+or run with `INGEST_SECRET=… bash tools/e2e-p3-ingest.sh`. It must be a real secret before
+any deployment that can receive mail — anyone holding it can post into any project whose
+address they know.
 
 ---
 
@@ -410,15 +482,25 @@ Only now, and only because nothing above depends on it.
    reconciliation, not omniscience — say so in the marketing rather than discovering it in
    churn.
 4. **Nothing has been validated with a real person yet.** All three tests in assetlen.md §11
-   remain unrun, and the corpus to run them against has been sitting on disk since before P2
-   began.
+   remain unrun. P3 removes the excuse rather than the risk: the import path exists and is
+   green against a synthetic corpus, so the remaining cost of running test 1 for real is an
+   afternoon and one file that is deliberately not in this repository.
+
+5. **The parser is tested against fixtures this repository generates.** Two dialects, both
+   invisible-character classes and the ambiguous-date case are covered, and the fixtures
+   were built from the documented profile rather than from the parser's behaviour. But a
+   real export can still carry a shape nobody anticipated — a localised media marker, a
+   fourth timestamp format — and the failure mode is quiet: fewer messages than expected,
+   not an error. The preview step is the mitigation, and it only works if somebody reads
+   the count before pressing the button.
 
 ---
 
 ## Update protocol
 
 1. Build green, no new errors.
-2. Re-run the P0 audit script; no row regresses. **Update its personas** — it still casts
-   the contractor as project owner, which the buyer decision reverses.
+2. Run **`bash tools/e2e-all.sh`** — P0+P1+P2+P3 in one command, currently 116 assertions.
+   No row regresses. (`tools/e2e-access-audit.sh` is superseded: it still casts the
+   contractor as project owner, which the buyer decision reverses.)
 3. Update the phase table above; add rows for sub-phases.
 4. Leave everything unstaged — the user commits.

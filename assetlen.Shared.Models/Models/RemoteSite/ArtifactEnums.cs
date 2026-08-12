@@ -16,7 +16,15 @@ public enum ArtifactTargetType
     /// <summary>A block in a published Client Brief. Reserved for P5.</summary>
     Brief = 3,
     /// <summary>A receipt or invoice image.</summary>
-    Receipt = 4
+    Receipt = 4,
+
+    /// <summary>
+    /// An attachment that arrived through the front door — a photo inside a
+    /// WhatsApp export, a share-sheet push, an email attachment (P3). The ref
+    /// exists so the same receipt forwarded five times is one artifact with five
+    /// pointers, which is Law 2 proving itself on real data.
+    /// </summary>
+    IngestedMessage = 5
 }
 
 /// <summary>

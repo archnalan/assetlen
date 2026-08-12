@@ -73,6 +73,12 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_Document> tbl_Documents { get; set; }
     public virtual DbSet<tbl_ArtifactRevision> tbl_ArtifactRevisions { get; set; }
 
+    // ─── Ingest — the front door (P3 — assetlen.md D3) ─────────
+    // Raw forwarded material, landed verbatim. Extraction (P5) reads
+    // tbl_IngestedMessages; nothing else writes them.
+    public virtual DbSet<tbl_IngestBatch> tbl_IngestBatches { get; set; }
+    public virtual DbSet<tbl_IngestedMessage> tbl_IngestedMessages { get; set; }
+
     /// <summary>
     /// The one tenancy rule, applied per entity:
     ///   (SuperAdmin OR same tenant OR unowned OR Public) AND not Protected AND not soft-deleted.
@@ -122,6 +128,8 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         TenantScoped<tbl_ArtifactRef>(modelBuilder);
         TenantScoped<tbl_Document>(modelBuilder);
         TenantScoped<tbl_ArtifactRevision>(modelBuilder);
+        TenantScoped<tbl_IngestBatch>(modelBuilder);
+        TenantScoped<tbl_IngestedMessage>(modelBuilder);
 
         // Channel-based (Client/Crew) visibility is enforced at the service
         // layer, not here: it depends on the caller's *per-project* side, which
@@ -325,6 +333,39 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasOne(e => e.Document).WithMany(d => d.Revisions).HasForeignKey(e => e.DocumentId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.IssuedBy).WithMany().HasForeignKey(e => e.IssuedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ─── Ingest — the front door ───────────────────────────────
+        modelBuilder.Entity<tbl_IngestBatch>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_IngestBatch_ProjectId");
+            entity.HasIndex(e => new { e.ProjectId, e.SourceType }).HasDatabaseName("IX_IngestBatch_Project_Source");
+
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ImportedBy).WithMany().HasForeignKey(e => e.ImportedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ArchiveArtifact).WithMany().HasForeignKey(e => e.ArchiveArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_IngestedMessage>(entity =>
+        {
+            entity.HasIndex(e => e.BatchId).HasDatabaseName("IX_IngestedMessage_BatchId");
+
+            // The register reads a project's history in date order and P5 walks
+            // it the same way. One composite index serves both.
+            entity.HasIndex(e => new { e.ProjectId, e.SentAt }).HasDatabaseName("IX_IngestedMessage_Project_SentAt");
+
+            // Re-import safety enforced in the schema, not only in code: an
+            // overlapping export cannot create a second copy of a message even
+            // if two imports race. The unique constraint is the guarantee; the
+            // pre-check in IngestDAL is the fast path.
+            entity.HasIndex(e => new { e.ProjectId, e.DedupeKey })
+                  .IsUnique()
+                  .HasDatabaseName("UX_IngestedMessage_Project_DedupeKey");
+
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Batch).WithMany().HasForeignKey(e => e.BatchId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.AuthorMember).WithMany().HasForeignKey(e => e.AuthorMemberId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         // ─── Platform tables ───────────────────────────────────────

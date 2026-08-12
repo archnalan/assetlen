@@ -1,0 +1,513 @@
+@using Refit
+@inject ILogger<ProjectImportPanel> Logger
+
+@*
+    The front door (assetlen.md D3, plan.md P3).
+
+    Peter's year of history already exists and already reached him — it is simply
+    unreadable. This panel is where it comes in, and it must work with everyone
+    else on the project silent (Law 0).
+
+    Two steps, deliberately. Upload reads the export and reports; commit writes.
+    The step between them exists for one reason: attribution is the only part of
+    an import that is expensive to undo, so who each name belongs to is a
+    decision somebody makes rather than a guess the server commits to.
+*@
+
+<section class="import">
+    <header class="import__head">
+        <div>
+            <h3 class="import__title">Bring in your history</h3>
+            <p class="import__sub">
+                Export a WhatsApp chat and drop it here. Photos are matched by content, so the
+                same receipt sent five times becomes one file — not five.
+            </p>
+        </div>
+    </header>
+
+    @* ── Step 1: choose a file ──────────────────────────────────────── *@
+    @if (preview is null && lastResult is null)
+    {
+        <div class="import__drop">
+            <InputFile OnChange="OnFileChosen" class="import__file" accept=".zip,.txt"
+                       disabled="@(uploading || !CanWrite)" />
+            <p class="import__drop-hint">
+                <b>WhatsApp → the chat → Export chat.</b>
+                Either option works: <i>Without media</i> brings the conversation,
+                <i>With media</i> brings the photos too.
+            </p>
+        </div>
+
+        @if (!CanWrite)
+        {
+            <p class="import__note">You need write access to this project to import history.</p>
+        }
+
+        @if (uploading)
+        {
+            <div class="al-shimmer import__ghost"></div>
+            <p class="import__note">Reading @chosenName… nothing is saved yet.</p>
+        }
+    }
+
+    @* ── Step 2: confirm what was found, and say who is who ─────────── *@
+    @if (preview is not null && lastResult is null)
+    {
+        <div class="import__preview">
+            <dl class="import__facts">
+                <div class="import__fact">
+                    <dt>Messages</dt>
+                    <dd class="al-num">@preview.MessageCount.ToString("N0")</dd>
+                </div>
+                <div class="import__fact">
+                    <dt>New to this project</dt>
+                    <dd class="al-num">@preview.NewMessageCount.ToString("N0")</dd>
+                </div>
+                <div class="import__fact">
+                    <dt>Covering</dt>
+                    <dd>@DateRange(preview.FirstMessageAt, preview.LastMessageAt)</dd>
+                </div>
+                <div class="import__fact">
+                    <dt>Attachments</dt>
+                    <dd class="al-num">@preview.MediaMessageCount.ToString("N0")</dd>
+                </div>
+            </dl>
+
+            @* Re-importing an overlapping export is safe, and saying so before
+               the click is what makes it something a person will actually do. *@
+            @if (preview.AlreadyImportedCount > 0)
+            {
+                <p class="import__reassure">
+                    <b>@preview.AlreadyImportedCount.ToString("N0")</b> of these are already here and
+                    will be skipped. Importing again adds only what is new.
+                </p>
+            }
+
+            @if (preview.MediaFilesMissing > 0)
+            {
+                <p class="import__note">
+                    @preview.MediaFilesMissing.ToString("N0") attachments are referenced but not in this
+                    file — that is what <i>Export without media</i> means. The messages still come in;
+                    export again with media to bring the photos.
+                </p>
+            }
+
+            @* A wrong day/month reading shifts a year of history by months and
+               shows no error, so it is stated rather than assumed. *@
+            @if (preview.DateOrder == ExportDateOrder.AssumedDayFirst)
+            {
+                <p class="import__warn" role="alert">
+                    Dates in this export are ambiguous, so they were read <b>day first</b>
+                    (@preview.FirstMessageAt?.ToString("d MMM yyyy")). If that looks wrong, the export
+                    came from a month-first phone.
+                </p>
+            }
+
+            @if (preview.Warnings.Count > 0)
+            {
+                <ul class="import__warnings">
+                    @foreach (var w in preview.Warnings)
+                    {
+                        <li>@w</li>
+                    }
+                </ul>
+            }
+
+            <h4 class="import__section">Who is who</h4>
+            <p class="import__section-sub">
+                An export names people who may never sign in. Map them and the record keeps its
+                attribution; leave one unmapped and its messages still come in, just unattributed.
+            </p>
+
+            <ul class="import__people">
+                @foreach (var p in preview.Participants)
+                {
+                    var key = p.ExternalAuthor ?? string.Empty;
+                    <li class="import__person">
+                        <div class="import__person-id">
+                            <span class="import__person-name">@p.ExternalAuthor</span>
+                            <span class="import__person-count al-num">
+                                @p.MessageCount.ToString("N0") messages@(p.MediaCount > 0 ? $", {p.MediaCount:N0} with photos" : "")
+                            </span>
+                        </div>
+
+                        <select class="import__select" value="@ChoiceFor(key)"
+                                @onchange="e => SetChoice(key, e.Value?.ToString())">
+                            <option value="">Leave unattributed</option>
+                            @foreach (var m in members)
+                            {
+                                <option value="@m.Id">@MemberLabel(m)</option>
+                            }
+                            <option value="@NewPartyToken">➕ Add as an off-platform party</option>
+                        </select>
+                    </li>
+                }
+            </ul>
+
+            <div class="import__actions">
+                <button type="button" class="import__secondary" @onclick="Reset" disabled="@committing">
+                    Cancel
+                </button>
+                <button type="button" class="import__primary" @onclick="Commit" disabled="@committing">
+                    @(committing
+                        ? "Importing…"
+                        : $"Import {preview.NewMessageCount:N0} message{(preview.NewMessageCount == 1 ? "" : "s")}")
+                </button>
+            </div>
+
+            @if (committing)
+            {
+                <p class="import__note">
+                    A year of history takes a moment. Leaving this page does not stop it.
+                </p>
+            }
+        </div>
+    }
+
+    @* ── Step 3: what actually happened ─────────────────────────────── *@
+    @if (lastResult is not null)
+    {
+        <div class="import__result">
+            <h4 class="import__section">Imported</h4>
+            <dl class="import__facts">
+                <div class="import__fact">
+                    <dt>Messages added</dt>
+                    <dd class="al-num">@lastResult.ImportedMessageCount.ToString("N0")</dd>
+                </div>
+                <div class="import__fact">
+                    <dt>Already had</dt>
+                    <dd class="al-num">@lastResult.DuplicateMessageCount.ToString("N0")</dd>
+                </div>
+                <div class="import__fact">
+                    <dt>Files stored</dt>
+                    <dd class="al-num">@lastResult.NewArtifactCount.ToString("N0")</dd>
+                </div>
+                <div class="import__fact">
+                    <dt>Duplicate files avoided</dt>
+                    <dd class="al-num">@lastResult.DuplicateArtifactCount.ToString("N0")</dd>
+                </div>
+            </dl>
+            <div class="import__actions">
+                <button type="button" class="import__secondary" @onclick="Reset">Import another</button>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="import__error" role="alert">@error</div>
+    }
+
+    @* ── The ongoing trickle ────────────────────────────────────────── *@
+    @if (inbox is not null && !string.IsNullOrEmpty(inbox.EmailAddress))
+    {
+        <div class="import__inbox">
+            <h4 class="import__section">Or forward it as you go</h4>
+            <p class="import__section-sub">
+                Anything sent to this address lands on the project, attachments included.
+            </p>
+            <div class="import__inbox-row">
+                <code class="import__address">@inbox.EmailAddress</code>
+                @if (CanManage)
+                {
+                    <button type="button" class="import__ghost-btn" @onclick="ResetInbox" disabled="@resettingInbox">
+                        @(resettingInbox ? "Reissuing…" : "Reissue")
+                    </button>
+                }
+            </div>
+            <p class="import__note">
+                Anyone holding this address can post to the project. Reissue it if it gets out.
+            </p>
+        </div>
+    }
+
+    @* ── Past runs ──────────────────────────────────────────────────── *@
+    @if (loadingBatches)
+    {
+        <div class="al-shimmer import__ghost"></div>
+    }
+    else if (batches.Count > 0)
+    {
+        <div class="import__history">
+            <h4 class="import__section">Previous imports</h4>
+            <ul class="import__batches">
+                @foreach (var b in batches)
+                {
+                    <li class="import__batch">
+                        <div class="import__batch-main">
+                            <span class="import__batch-name">@(b.OriginalFileName ?? SourceLabel(b.SourceType))</span>
+                            <span class="import__batch-meta al-num">
+                                @b.ImportedMessageCount.ToString("N0") messages
+                                @if (b.NewArtifactCount > 0)
+                                {
+                                    <text> · @b.NewArtifactCount.ToString("N0") files</text>
+                                }
+                                @if (b.StartedAt is not null)
+                                {
+                                    <text> · @b.StartedAt.Value.ToString("d MMM yyyy")</text>
+                                }
+                            </span>
+                        </div>
+                        <span class="import__batch-status import__batch-status--@b.Status.ToString().ToLowerInvariant()">
+                            @b.Status
+                        </span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>Server re-checks every call; this only decides what is drawn.</summary>
+    [Parameter] public bool CanWrite { get; set; } = true;
+
+    [Parameter] public bool CanManage { get; set; }
+
+    /// <summary>Raised after a successful import so a parent can refresh the record.</summary>
+    [Parameter] public EventCallback OnImported { get; set; }
+
+    /// <summary>
+    /// Marks a participant to be created as an off-platform party rather than
+    /// mapped onto an existing member. Not a member id, so it cannot collide.
+    /// </summary>
+    private const string NewPartyToken = "__new__";
+
+    /// <summary>
+    /// Blazor's default read ceiling is 512 KB — a year's export with media is
+    /// three orders of magnitude larger, and the failure is an exception rather
+    /// than a truncated file.
+    /// </summary>
+    private const long MaxUploadBytes = 512L * 1024 * 1024;
+
+    private IngestPreviewDto? preview;
+    private IngestBatchDto? lastResult;
+    private List<ProjectMemberDto> members = new();
+    private List<IngestBatchDto> batches = new();
+    private ProjectInboxDto? inbox;
+
+    private readonly Dictionary<string, string> choices = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool uploading, committing, loadingBatches = true, resettingInbox;
+    private string? error, chosenName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadMembers(), LoadBatches(), LoadInbox());
+    }
+
+    private async Task LoadMembers()
+    {
+        try
+        {
+            var resp = await _projectMembersApi.GetMembersByProject(ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+                members = resp.Content.Where(m => m.IsActive).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading members for import mapping on {ProjectId}", ProjectId);
+        }
+    }
+
+    private async Task LoadBatches()
+    {
+        loadingBatches = true;
+        try
+        {
+            var resp = await _ingestApi.GetBatches(ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+                batches = resp.Content;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading import history for {ProjectId}", ProjectId);
+        }
+        finally
+        {
+            loadingBatches = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadInbox()
+    {
+        try
+        {
+            var resp = await _ingestApi.GetInbox(ProjectId);
+            if (resp.IsSuccessStatusCode) inbox = resp.Content;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading the inbound address for {ProjectId}", ProjectId);
+        }
+    }
+
+    private async Task OnFileChosen(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        uploading = true;
+        error = null;
+        chosenName = file.Name;
+        StateHasChanged();
+
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxUploadBytes);
+            var part = new StreamPart(stream, file.Name, file.ContentType ?? "application/octet-stream");
+
+            var resp = await _ingestApi.UploadArchive(part, ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                preview = resp.Content;
+                SeedChoices(preview);
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "That file could not be read.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error uploading an export to {ProjectId}", ProjectId);
+            error = "That file could not be read.";
+        }
+        finally
+        {
+            uploading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Pre-select the server's suggestions. They are only ever a starting point:
+    /// the user still sees every row before anything is written.
+    /// </summary>
+    private void SeedChoices(IngestPreviewDto p)
+    {
+        choices.Clear();
+        foreach (var participant in p.Participants)
+        {
+            if (!string.IsNullOrEmpty(participant.ExternalAuthor) &&
+                !string.IsNullOrEmpty(participant.SuggestedMemberId))
+                choices[participant.ExternalAuthor] = participant.SuggestedMemberId;
+        }
+    }
+
+    private string ChoiceFor(string author) => choices.GetValueOrDefault(author, string.Empty);
+
+    private void SetChoice(string author, string? value)
+    {
+        if (string.IsNullOrEmpty(value)) choices.Remove(author);
+        else choices[author] = value;
+    }
+
+    private async Task Commit()
+    {
+        if (preview?.BatchId is null) return;
+
+        committing = true;
+        error = null;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new IngestCommitDto { BatchId = preview.BatchId };
+
+            foreach (var (author, choice) in choices)
+            {
+                dto.AuthorMappings.Add(choice == NewPartyToken
+                    ? new IngestAuthorMapDto
+                    {
+                        ExternalAuthor = author,
+                        // An off-platform party created from an import is
+                        // delivery-side and never a mediator — that appointment
+                        // is the owner's alone (assetlen.md §10.1).
+                        CreateAsPartyName = author,
+                        Side = ProjectSide.Contractor,
+                        Specialization = ProjectMemberSpecialization.Other
+                    }
+                    : new IngestAuthorMapDto { ExternalAuthor = author, MemberId = choice });
+            }
+
+            var resp = await _ingestApi.CommitImport(dto);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                lastResult = resp.Content;
+                preview = null;
+                await LoadBatches();
+                await LoadMembers();
+                await OnImported.InvokeAsync();
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "The import could not be applied.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error committing an import for {ProjectId}", ProjectId);
+            error = "The import could not be applied.";
+        }
+        finally
+        {
+            committing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResetInbox()
+    {
+        resettingInbox = true;
+        try
+        {
+            var resp = await _ingestApi.ResetInbox(ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null) inbox = resp.Content;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error reissuing the inbound address for {ProjectId}", ProjectId);
+        }
+        finally
+        {
+            resettingInbox = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Reset()
+    {
+        preview = null;
+        lastResult = null;
+        error = null;
+        chosenName = null;
+        choices.Clear();
+    }
+
+    private static string MemberLabel(ProjectMemberDto m)
+    {
+        var name = !string.IsNullOrWhiteSpace(m.UserFullName) ? m.UserFullName : m.PartyName;
+        var side = m.Side == ProjectSide.Client ? "client" : "delivery";
+        return $"{name} ({side})";
+    }
+
+    private static string DateRange(DateTime? from, DateTime? to)
+    {
+        if (from is null || to is null) return "—";
+        return from.Value.Year == to.Value.Year
+            ? $"{from:d MMM} – {to:d MMM yyyy}"
+            : $"{from:MMM yyyy} – {to:MMM yyyy}";
+    }
+
+    private static string SourceLabel(IngestSourceType source) => source switch
+    {
+        IngestSourceType.WhatsAppExport => "WhatsApp export",
+        IngestSourceType.ShareSheet => "Shared from a phone",
+        IngestSourceType.Email => "Forwarded by email",
+        _ => "Added directly"
+    };
+}

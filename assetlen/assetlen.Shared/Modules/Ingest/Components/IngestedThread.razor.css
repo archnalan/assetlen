@@ -1,0 +1,261 @@
+/* IngestedThread — the raw record, read back.
+
+   Intentionally sparse. This surface is the pile, not the brief: making it
+   attractive would encourage reading it, and assetlen.md §1 is explicit that
+   reading a stream is the problem the product exists to remove. Timestamps and
+   counts are tabular so a column of them scans. */
+
+.thread {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    padding: var(--al-space-4);
+}
+
+.thread__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+.thread__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    margin: 0;
+}
+
+.thread__sub {
+    margin: var(--al-space-1) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    max-width: 52ch;
+}
+
+.thread__count {
+    flex: 0 0 auto;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+}
+
+/* ── Filters ─────────────────────────────────────────────────────── */
+
+.thread__filters {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    margin-top: var(--al-space-4);
+    flex-wrap: wrap;
+}
+
+.thread__search {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    color: var(--al-text);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    transition: border-color var(--al-transition-fast);
+}
+
+.thread__search:focus-visible {
+    outline: none;
+    border-color: var(--al-accent);
+}
+
+.thread__toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.thread__ghost {
+    height: 72px;
+    border-radius: var(--al-radius-sm);
+    margin-top: var(--al-space-3);
+}
+
+/* ── Days ────────────────────────────────────────────────────────── */
+
+.thread__days {
+    list-style: none;
+    margin: var(--al-space-4) 0 0;
+    padding: 0;
+}
+
+.thread__day + .thread__day { margin-top: var(--al-space-5); }
+
+/* Sticky so the day stays answerable while scrolling a batch of eighteen —
+   losing track of which day a photo belongs to is the exact failure mode. */
+.thread__date {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0 0 var(--al-space-2);
+    padding: var(--al-space-2) 0;
+    background: var(--al-bg-elevated);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--al-text-subtle);
+}
+
+.thread__messages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.thread__msg {
+    padding: var(--al-space-3);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface-2);
+}
+
+.thread__msg + .thread__msg { margin-top: var(--al-space-2); }
+
+/* A WhatsApp notice is not a person speaking, and must not read like one. */
+.thread__msg--system {
+    background: transparent;
+    border: 1px dashed var(--al-border);
+    color: var(--al-text-subtle);
+}
+
+.thread__msg-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+.thread__author {
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.thread__as,
+.thread__unmapped {
+    margin-left: var(--al-space-2);
+    font-weight: var(--al-weight-medium);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.thread__unmapped {
+    padding: 0 var(--al-space-2);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-pill);
+}
+
+.thread__time {
+    flex: 0 0 auto;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+/* Hard line breaks carry meaning here: a materials list arrives as one message
+   with one item per line, and collapsing it destroys the structure extraction
+   depends on. */
+.thread__body {
+    margin: var(--al-space-2) 0 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.thread__attach {
+    display: inline-block;
+    margin-top: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.thread__attach--missing {
+    color: var(--al-text-subtle);
+    font-style: italic;
+}
+
+/* ── Empty, error, pager ─────────────────────────────────────────── */
+
+.thread__empty {
+    margin-top: var(--al-space-4);
+    padding: var(--al-space-6) var(--al-space-4);
+    text-align: center;
+    border: 1px dashed var(--al-border);
+    border-radius: var(--al-radius-sm);
+}
+
+.thread__empty-title {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+}
+
+.thread__empty-sub {
+    margin: var(--al-space-2) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.thread__error {
+    margin-top: var(--al-space-3);
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+.thread__ghost-btn {
+    background: transparent;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-xs);
+    padding: var(--al-space-1) var(--al-space-3);
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    color: inherit;
+    cursor: pointer;
+}
+
+.thread__ghost-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.thread__pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    margin-top: var(--al-space-4);
+    padding-top: var(--al-space-3);
+    border-top: 1px solid var(--al-border);
+}
+
+.thread__pager-pos {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────── */
+
+@media (max-width: 760px) {
+    .thread__head { flex-direction: column; align-items: flex-start; }
+
+    .thread__msg-head { flex-direction: column; align-items: flex-start; gap: 2px; }
+}

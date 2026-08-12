@@ -1,0 +1,361 @@
+/* ProjectImportPanel — the front door (assetlen.md D3).
+
+   Counts are the whole point of this screen: "1,529 messages, 1,400 you already
+   have" is what makes a second import something a person will risk. They are
+   therefore tabular figures and given more weight than the chrome around them. */
+
+.import {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    padding: var(--al-space-4);
+}
+
+.import__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+.import__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    margin: 0;
+}
+
+.import__sub {
+    margin: var(--al-space-1) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    max-width: 56ch;
+}
+
+/* ── Step 1: the drop zone ───────────────────────────────────────── */
+
+.import__drop {
+    margin-top: var(--al-space-4);
+    padding: var(--al-space-5) var(--al-space-4);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface-2);
+    text-align: center;
+}
+
+.import__file {
+    display: block;
+    width: 100%;
+    max-width: 380px;
+    margin: 0 auto;
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+}
+
+.import__drop-hint {
+    margin: var(--al-space-3) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.import__ghost {
+    height: 96px;
+    border-radius: var(--al-radius-sm);
+    margin-top: var(--al-space-4);
+}
+
+/* ── Facts ───────────────────────────────────────────────────────── */
+
+.import__facts {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--al-space-3);
+    margin: var(--al-space-4) 0 0;
+}
+
+.import__fact {
+    padding: var(--al-space-3);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+    min-width: 0;
+}
+
+.import__fact dt {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    margin-bottom: var(--al-space-1);
+}
+
+.import__fact dd {
+    margin: 0;
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+/* ── Notices ─────────────────────────────────────────────────────── */
+
+.import__reassure {
+    margin: var(--al-space-3) 0 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-accent-soft);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text);
+}
+
+.import__warn {
+    margin: var(--al-space-3) 0 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-warning-soft);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text);
+}
+
+.import__warnings {
+    margin: var(--al-space-2) 0 0;
+    padding-left: var(--al-space-4);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.import__note {
+    margin: var(--al-space-2) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+/* ── Sections ────────────────────────────────────────────────────── */
+
+.import__section {
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--al-text-subtle);
+    margin: var(--al-space-5) 0 var(--al-space-2);
+}
+
+.import__section-sub {
+    margin: 0 0 var(--al-space-3);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    max-width: 60ch;
+}
+
+/* ── Who is who ──────────────────────────────────────────────────── */
+
+.import__people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.import__person {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3) 0;
+    border-top: 1px solid var(--al-border);
+}
+
+.import__person:first-child { border-top: 0; }
+
+.import__person-id {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.import__person-name {
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+.import__person-count {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.import__select {
+    flex: 0 1 260px;
+    min-width: 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    color: var(--al-text);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    transition: border-color var(--al-transition-fast);
+}
+
+.import__select:focus-visible {
+    outline: none;
+    border-color: var(--al-accent);
+}
+
+/* ── Actions ─────────────────────────────────────────────────────── */
+
+.import__actions {
+    display: flex;
+    gap: var(--al-space-2);
+    justify-content: flex-end;
+    margin-top: var(--al-space-4);
+    flex-wrap: wrap;
+}
+
+.import__primary,
+.import__secondary {
+    border: 0;
+    border-radius: var(--al-radius-sm);
+    padding: var(--al-space-2) var(--al-space-4);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity var(--al-transition-fast);
+}
+
+.import__primary { background: var(--al-accent); color: var(--al-text-inverse); }
+
+.import__secondary {
+    background: transparent;
+    border: 1px solid var(--al-border-strong);
+    color: var(--al-text);
+}
+
+.import__primary:disabled,
+.import__secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+.import__primary:hover:not(:disabled),
+.import__secondary:hover:not(:disabled) { opacity: 0.88; }
+
+.import__ghost-btn {
+    background: transparent;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-xs);
+    padding: var(--al-space-1) var(--al-space-3);
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    color: inherit;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.import__error {
+    margin-top: var(--al-space-3);
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+}
+
+/* ── Inbound address ─────────────────────────────────────────────── */
+
+.import__inbox {
+    margin-top: var(--al-space-5);
+    padding-top: var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+}
+
+.import__inbox-row {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    flex-wrap: wrap;
+}
+
+/* An address is copied by hand more often than clicked — monospace so the
+   characters are individually legible, and free to wrap on a phone. */
+.import__address {
+    flex: 1 1 260px;
+    min-width: 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+/* ── Past runs ───────────────────────────────────────────────────── */
+
+.import__history {
+    margin-top: var(--al-space-5);
+    padding-top: var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+}
+
+.import__batches {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.import__batch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    padding: var(--al-space-2) 0;
+    border-top: 1px solid var(--al-border);
+}
+
+.import__batch:first-child { border-top: 0; }
+
+.import__batch-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.import__batch-name {
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+.import__batch-meta {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.import__batch-status {
+    flex: 0 0 auto;
+    padding: 2px var(--al-space-2);
+    border-radius: var(--al-radius-pill);
+    border: 1px solid var(--al-border-strong);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.import__batch-status--completed { border-color: var(--al-success); color: var(--al-success); }
+.import__batch-status--failed { border-color: var(--al-danger); color: var(--al-danger); }
+.import__batch-status--previewed { border-color: var(--al-warning); color: var(--al-warning); }
+
+/* ── Mobile ──────────────────────────────────────────────────────── */
+
+@media (max-width: 760px) {
+    .import__facts { grid-template-columns: repeat(2, 1fr); }
+
+    .import__person { flex-direction: column; align-items: stretch; }
+
+    .import__select { flex: 1 1 auto; }
+
+    .import__actions > button { flex: 1 1 auto; }
+}
+
+@media (max-width: 420px) {
+    .import__facts { grid-template-columns: 1fr; }
+}

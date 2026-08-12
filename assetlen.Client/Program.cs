@@ -77,6 +77,7 @@ AddApi<IProjectMembersApi>();
 AddApi<IFlagsApi>();
 AddApi<IBudgetApi>();
 AddApi<IArtifactsApi>();
+AddApi<IIngestApi>();
 
 builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
     sp.GetRequiredService<IStorageService>(),

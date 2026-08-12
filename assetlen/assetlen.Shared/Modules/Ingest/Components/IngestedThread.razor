@@ -1,0 +1,223 @@
+@inject ILogger<IngestedThread> Logger
+
+@*
+    The raw record, read back (plan.md P3).
+
+    Deliberately plain. This is not the Client Brief and must not pretend to be:
+    it is the unstructured pile exactly as it arrived, kept so extraction (P5)
+    has something to read and so a person can check what the importer actually
+    took in. The readable surface — grouped by deliverable, not by time — is P7's
+    job, and building a nicer version of the pile here would quietly re-create
+    the thing assetlen.md §1 says is the problem.
+
+    Grouped by day only because an undivided run of a thousand messages is
+    unnavigable, and because the day is the unit Peter already thinks in.
+*@
+
+<section class="thread">
+    <header class="thread__head">
+        <div>
+            <h3 class="thread__title">Imported record</h3>
+            <p class="thread__sub">
+                Everything brought in, exactly as it arrived. Nothing here is edited.
+            </p>
+        </div>
+        @if (!loading && records is not null)
+        {
+            <span class="thread__count al-num">@records.TotalCount.ToString("N0")</span>
+        }
+    </header>
+
+    <div class="thread__filters">
+        <input class="thread__search" type="search" placeholder="Search the record…"
+               value="@search" @onchange="OnSearchChanged" aria-label="Search imported messages" />
+        <label class="thread__toggle">
+            <input type="checkbox" checked="@mediaOnly" @onchange="OnMediaOnlyChanged" />
+            <span>Attachments only</span>
+        </label>
+    </div>
+
+    @if (loading)
+    {
+        <div class="al-shimmer thread__ghost"></div>
+        <div class="al-shimmer thread__ghost"></div>
+    }
+    else if (loadError)
+    {
+        <div class="thread__error" role="alert">
+            Could not load the record.
+            <button type="button" class="thread__ghost-btn" @onclick="() => Load(0)">Try again</button>
+        </div>
+    }
+    else if (records is null || records.Messages.Count == 0)
+    {
+        @* Two different empty states. "No history yet" is a prompt to import;
+           "nothing matched" is a prompt to widen the search. Collapsing them
+           into one message sends the reader to the wrong place. *@
+        <div class="thread__empty">
+            @if (HasFilter)
+            {
+                <p class="thread__empty-title">Nothing matched.</p>
+                <p class="thread__empty-sub">Try a different word, or clear the filters.</p>
+            }
+            else
+            {
+                <p class="thread__empty-title">No history has been brought in yet.</p>
+                <p class="thread__empty-sub">
+                    Import a WhatsApp export and a year of messages, photos and receipts lands here.
+                </p>
+            }
+        </div>
+    }
+    else
+    {
+        <ol class="thread__days">
+            @foreach (var day in records.Messages.GroupBy(m => m.SentAt.Date).OrderBy(g => g.Key))
+            {
+                <li class="thread__day">
+                    <h4 class="thread__date">@day.Key.ToString("dddd d MMMM yyyy")</h4>
+                    <ul class="thread__messages">
+                        @foreach (var m in day.OrderBy(x => x.SentAt).ThenBy(x => x.SequenceNo))
+                        {
+                            <li class="thread__msg @(m.IsSystemMessage ? "thread__msg--system" : "")">
+                                <div class="thread__msg-head">
+                                    <span class="thread__author">
+                                        @if (!string.IsNullOrEmpty(m.AuthorMemberName))
+                                        {
+                                            @m.AuthorMemberName
+                                            @* The export's own name is kept beside the mapped one:
+                                               the mapping is a claim, and the export is the evidence
+                                               for it. Hiding the original makes it unfalsifiable. *@
+                                            @if (!string.Equals(m.AuthorMemberName, m.ExternalAuthor, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <span class="thread__as">as “@m.ExternalAuthor”</span>
+                                            }
+                                        }
+                                        else if (!string.IsNullOrEmpty(m.ExternalAuthor))
+                                        {
+                                            @m.ExternalAuthor
+                                            <span class="thread__unmapped">unmapped</span>
+                                        }
+                                        else
+                                        {
+                                            <text>System</text>
+                                        }
+                                    </span>
+                                    <time class="thread__time al-num" datetime="@m.SentAt.ToString("s")">
+                                        @m.SentAt.ToString("HH:mm")
+                                    </time>
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(m.Body))
+                                {
+                                    <p class="thread__body">@m.Body</p>
+                                }
+
+                                @if (m.ArtifactId is not null)
+                                {
+                                    <span class="thread__attach">📎 @(m.MediaFileName ?? "Attachment")</span>
+                                }
+                                else if (m.MediaFileName is not null || (string.IsNullOrWhiteSpace(m.Body) && !m.IsSystemMessage))
+                                {
+                                    @* An attachment the transcript names but the archive did not
+                                       contain. Shown rather than dropped: a gap in the record is a
+                                       fact about the export, and silently omitting it makes the
+                                       history look complete when it is not. *@
+                                    <span class="thread__attach thread__attach--missing">
+                                        📎 @(m.MediaFileName ?? "Attachment") — not included in the export
+                                    </span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </li>
+            }
+        </ol>
+
+        @if (records.TotalCount > records.Take)
+        {
+            <div class="thread__pager">
+                <button type="button" class="thread__ghost-btn"
+                        @onclick="() => Load(records.Skip - records.Take)" disabled="@(records.Skip <= 0)">
+                    Newer
+                </button>
+                <span class="thread__pager-pos al-num">
+                    @(records.Skip + 1)–@Math.Min(records.Skip + records.Take, records.TotalCount) of @records.TotalCount.ToString("N0")
+                </span>
+                <button type="button" class="thread__ghost-btn"
+                        @onclick="() => Load(records.Skip + records.Take)"
+                        disabled="@(records.Skip + records.Take >= records.TotalCount)">
+                    Older
+                </button>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>Restrict to one import run. Null shows everything the caller may read.</summary>
+    [Parameter] public string? BatchId { get; set; }
+
+    private const int PageSize = 100;
+
+    private IngestedMessagePageDto? records;
+    private bool loading = true, loadError, mediaOnly;
+    private string? search;
+
+    private bool HasFilter => mediaOnly || !string.IsNullOrWhiteSpace(search);
+
+    protected override async Task OnInitializedAsync() => await Load(0);
+
+    /// <summary>
+    /// Reload when the parent points this at a different project — without it a
+    /// tab switch would keep showing the previous project's record.
+    /// </summary>
+    public async Task RefreshAsync() => await Load(0);
+
+    private async Task OnSearchChanged(ChangeEventArgs e)
+    {
+        search = e.Value?.ToString();
+        await Load(0);
+    }
+
+    private async Task OnMediaOnlyChanged(ChangeEventArgs e)
+    {
+        mediaOnly = e.Value is bool b && b;
+        await Load(0);
+    }
+
+    private async Task Load(int skip)
+    {
+        loading = true;
+        loadError = false;
+        StateHasChanged();
+
+        try
+        {
+            var resp = await _ingestApi.GetMessages(new IngestedMessageQueryDto
+            {
+                ProjectId = ProjectId,
+                BatchId = BatchId,
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                MediaOnly = mediaOnly,
+                Skip = Math.Max(0, skip),
+                Take = PageSize
+            });
+
+            if (resp.IsSuccessStatusCode && resp.Content is not null) records = resp.Content;
+            else loadError = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading the imported record for {ProjectId}", ProjectId);
+            loadError = true;
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+}

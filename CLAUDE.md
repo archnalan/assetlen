@@ -1,6 +1,6 @@
 # ASSETLEN — Design & Engineering Charter
 
-**Status (2026-08-12):** P0 and P1 done. **Peter — the developer — is the buyer** (assetlen.md §0); the phase plan was reordered around that. P2 in progress. See [plan.md](plan.md).
+**Status (2026-08-13):** P0, P1, P2 and P3 done — `bash tools/e2e-all.sh` runs the whole chain at 116 assertions, 0 failures. **Peter — the developer — is the buyer** (assetlen.md §0); the phase plan was reordered around that. P4 next. See [plan.md](plan.md).
 
 > **Precedence.** [assetlen.md](assetlen.md) is the product truth, with [Peter.md](Peter.md), [Nalan.md](Nalan.md) and [Dinah.md](Dinah.md) as the user truth, all three grounded in [whatsapp-evidence.md](whatsapp-evidence.md) — a real 1,529-message project thread. **This file is the engineering charter** — aesthetic, CSS, folder layout, multi-tenancy — and **defers to assetlen.md wherever they disagree.** Read assetlen.md first, then this file, then plan.md.
 >
@@ -146,6 +146,7 @@ assetlen/assetlen.Shared/
     Identity/                       tenants, users, roles, invites, auth
     Projects/                       Project, SubProject, dashboard, detail shell
     Journal/                        Site Journal entries, Flags
+    Ingest/                         WhatsApp export import, share sheet, email-in (P3)
     Streams/                        real-time chat tied to media, dual channels
     Timeline/                       multi-layer expected-vs-actual graph
     Finance/                        receipts, budgets, projections
@@ -167,7 +168,9 @@ assetlen/assetlen.Shared/
 
 **Promotion rule:** A component lives in its owning module until **two** modules need it. Then it moves up to `Components/`. Don't pre-promote.
 
-**Module map vs. the vision.** The tree above predates the assetlen.md rewrite. `Lookbook/` is retired — do not build into it. `Journal/` becomes the **Site Log**, and gains siblings `Commitments/` (the one object, P3), `Artifacts/` (canonical files, P2) and `Brief/` (the Client Brief, P5). Rename as each phase lands rather than in one sweep.
+**Module map vs. the vision.** The tree above predates the assetlen.md rewrite. `Lookbook/` is retired — do not build into it. `Journal/` becomes the **Site Log**, and gains siblings `Ingest/` (the front door — **landed in P3**), `Commitments/` (the one object, P4), `Documents/` (the drawing register — landed in P2) and `Brief/` (the Client Brief, P7). Rename as each phase lands rather than in one sweep.
+
+**Ingest is raw and stays raw.** `tbl_IngestedMessage` is written once by the importer and read by extraction (P5) and search (P6). Nothing edits it — the corpus contains fourteen edits and ten deletions, and a typo inverted a design verdict for nine hours ([whatsapp-evidence.md](whatsapp-evidence.md) F6). Do not build a nicer reader for it either: the pile is the problem, and the readable surface is the Client Brief in P7.
 
 (Solution renamed `mowt.*` → `assetlen.*` in Phase 0.5; the WASM client is now `assetlen.Client`. DbContext renamed `mowtDbContext` → `AssetlenDbContext` in Phase 0.6.)
 

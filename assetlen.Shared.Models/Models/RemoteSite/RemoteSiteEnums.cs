@@ -89,4 +89,22 @@ namespace assetlen.Shared.Models.Models.RemoteSite
         Contingency = 4,
         Other = 99
     }
+
+    /// <summary>
+    /// What a user may do inside one project. Resolved from ownership plus
+    /// <c>tbl_ProjectMember</c> by <c>IProjectAccessService</c> — never inline
+    /// in a DAL. Roles say <em>what</em> a user may do; this says <em>where</em>.
+    /// Both must pass. Levels are ordered, so compare with <c>&gt;=</c>.
+    /// </summary>
+    public enum ProjectAccessLevel
+    {
+        /// <summary>Not a stakeholder. The project must appear not to exist.</summary>
+        None = 0,
+        /// <summary>Active member marked <c>Observer</c> — may look, not touch.</summary>
+        Read = 1,
+        /// <summary>Active member — may capture, comment and raise queries.</summary>
+        Write = 2,
+        /// <summary>Project owner or manager (or the parent's, for a sub-project).</summary>
+        Manage = 3
+    }
 }

@@ -1,5 +1,6 @@
-﻿using assetlen.Service.DataAccess;
+using assetlen.Service.DataAccess;
 using assetlen.Service.DbServices;
+using assetlen.Service.Extensions;
 using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.Models.statics;
@@ -38,20 +39,24 @@ namespace assetlen.API
                         await roleManager.CreateAsync(new IdentityRole(roleName));
                     }
                 }
-                //create default user
-                string random = Guid.NewGuid().ToString().Substring(0, 4);
+                // Create the bootstrap admin under the name configured in
+                // appsettings. A suffix is added only if that name is taken —
+                // the credentials in appsettings must be the ones that work.
+                var desiredUserName = Configuration.GetSection("UserSettings")["UserName"];
+                var desiredEmail = Configuration.GetSection("UserSettings")["UserEmail"];
+
                 var poweruser = new AppUser
                 {
-                    UserName = random + Configuration.GetSection("UserSettings")["UserName"],
-                    Email = random + Configuration.GetSection("UserSettings")["UserEmail"],
+                    UserName = await UserNameAllocator.ResolveUserNameAsync(userManager, desiredUserName),
+                    Email = await UserNameAllocator.ResolveEmailAsync(userManager, desiredEmail),
                     FirstName = "System",
                     LastName = "Admin",
 
                 };
 
                 var userPassword = Configuration.GetSection("UserSettings")["UserPassword"];
-                var _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Email == poweruser.Email);
-                if (_user is null) _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserName == poweruser.UserName);
+                var _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Email == desiredEmail);
+                if (_user is null) _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserName == desiredUserName);
 
 
                 if (_user == null && !context.tbl_Tenants.IgnoreQueryFilters().Any())
@@ -89,7 +94,7 @@ namespace assetlen.API
 
 
                                 var seedData = new InitialSeedDataDto(poweruser.TenantId);
-                                await SeedSegmentsSupplierCategoriesTaxAsync(context, logger, seedData);
+                                await SeedTenantSettingsAsync(context, logger, seedData);
 
                                 await scope.CommitAsync();
                             }
@@ -104,85 +109,14 @@ namespace assetlen.API
             }
         }
 
-        public static async Task SeedSegmentsSupplierCategoriesTaxAsync(AssetlenDbContext context, ILogger logger, InitialSeedDataDto seedData)
+        /// <summary>
+        /// Seeds the platform settings a new tenant needs. ASSETLEN seeds no
+        /// domain data — no reference lists, no sample projects. A tenant starts empty.
+        /// </summary>
+        public static async Task SeedTenantSettingsAsync(AssetlenDbContext context, ILogger logger, InitialSeedDataDto seedData)
         {
             try
             {
-
-                //categories
-                var categoryExists = context.tbl_Categories.Any(c => c.TenantId == seedData.tenantId);
-                if (!categoryExists)
-                {
-                    var item = seedData.categories;
-                    context.Add(item);
-                    logger.LogInformation("Seeding Category: {Category}", item.Category);
-                }
-                //segments
-                var segmentExists = context.tbl_Segments.Any(c => c.TenantId == seedData.tenantId);
-                if (!segmentExists)
-                {
-                    var item = seedData.segments;
-                    context.Add(item);
-                    logger.LogInformation("Seeding Segment: {Segment}", item.Segment);
-                }
-                //suppliers
-                var supplierExists = context.tbl_Suppliers.Any(c => c.TenantId == seedData.tenantId);
-                if (!supplierExists)
-                {
-                    var item = seedData.suppliers;
-                    context.Add(item);
-                    logger.LogInformation("Seeding supplier: {supplier}", item.FullName);
-                }
-                //taxes
-                var taxExists = context.tbl_Taxes.Any(c => c.TenantId == seedData.tenantId);
-                if (!taxExists)
-                {
-
-                    context.AddRange(seedData.taxes);
-                    logger.LogInformation("Seeding Taxes");
-
-                }
-                //paymentmodes
-                // Seed Payment Modes
-                var paymentModesExist = context.tbl_PaymentModes.Any();
-                if (!paymentModesExist && seedData.paymentModes is not null)
-                {
-
-
-                    context.tbl_PaymentModes.AddRange(seedData.paymentModes);
-
-                    foreach (var mode in seedData.paymentModes)
-                    {
-                        logger.LogInformation("Seeding Payment Mode: {mode}", mode.Description);
-                    }
-                }
-
-                // Order Statuses
-                var orderStatusExists = context.tbl_OrderStatuses.Any(c => c.TenantId == seedData.tenantId);
-                if (!orderStatusExists)
-                {
-                    context.tbl_OrderStatuses.AddRange(seedData.orderStatuses);
-                    foreach (var status in seedData.orderStatuses)
-                    {
-                        logger.LogInformation("Seeding Order Status: {OrderName}", status.OrderName);
-                    }
-                }
-
-                // Seed Cash Items. no query filters
-                var cashItemsExist = context.tbl_CashItems.Any();
-                if (!cashItemsExist)
-                {
-
-
-                    context.tbl_CashItems.AddRange(seedData.cashItems);
-
-                    foreach (var item in seedData.cashItems)
-                    {
-                        logger.LogInformation("Seeding Cash Item: {amount}", item.Amount);
-                    }
-                }
-
-                //settings
                 var settings = context.tbl_Configurations.Any(c => c.TenantId == seedData.tenantId);
                 if (!settings)
                 {
@@ -195,14 +129,10 @@ namespace assetlen.API
                             logger.LogInformation("Seeding configuration SettingID: {SettingID}", item.ConfigId);
                         }
                     }
-
                 }
 
-
                 await context.SaveChangesAsync();
-                logger.LogInformation("Configuration seeding complete.");
-
-
+                logger.LogInformation("Tenant settings seeding complete.");
             }
             catch (Exception ex)
             {

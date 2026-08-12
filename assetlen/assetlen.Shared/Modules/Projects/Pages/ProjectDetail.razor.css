@@ -308,3 +308,16 @@ textarea.project-input {
     gap: var(--al-space-3);
     margin-top: var(--al-space-3);
 }
+
+/* ─── Site Journal ─────────────────────────────────────────────
+   Capture action above the feed. Hidden on mobile, where the
+   bottom-nav centre button already does this in one tap. */
+.project-journal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--al-space-3);
+}
+
+@media (max-width: 767px) {
+    .project-journal-actions { display: none; }
+}

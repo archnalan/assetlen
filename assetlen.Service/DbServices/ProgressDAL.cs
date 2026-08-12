@@ -18,29 +18,36 @@ public class ProgressDAL : IProgressDAL
     private readonly ILogger<ProgressDAL> _logger;
     private readonly ITenantProvider _tenant;
     private readonly IHubContext<AssetlenHub> _hub;
+    private readonly IProjectAccessService _access;
 
     public ProgressDAL(
         AssetlenDbContext context,
         ILogger<ProgressDAL> logger,
         ITenantProvider tenant,
-        IHubContext<AssetlenHub> hub)
+        IHubContext<AssetlenHub> hub,
+        IProjectAccessService access)
     {
         _context = context;
         _logger = logger;
         _tenant = tenant;
         _hub = hub;
+        _access = access;
     }
 
     public async Task<ServiceResult<ProgressUpdateDto>> AddProgressUpdate(ProgressUpdateCreateDto dto, string userId)
     {
         try
         {
-            var project = await _context.tbl_Projects_RS.FindAsync(dto.ProjectId);
+            var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
+                .FirstOrDefaultAsync(p => p.Id == dto.ProjectId);
             if (project == null)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Project not found"));
 
-            // PM or investor can add updates
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            // Anyone on the project team may capture — the clerk of works is the
+            // primary capturer, not the owner. Role gates at the controller
+            // decide *who* may capture; membership decides *where*.
+            if (!await _access.CanWriteAsync(project, userId))
                 return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
 
             var stage = await _context.tbl_Stages.FindAsync(dto.StageId);
@@ -85,11 +92,10 @@ public class ProgressDAL : IProgressDAL
                 int order = 1;
                 foreach (var img in dto.Images)
                 {
-                    // For MVP: store base64 as URL placeholder.
-                    // In production: convert to blob URL via Azure Blob Storage service.
-                    var imageUrl = img.Base64Image.StartsWith("http")
-                        ? img.Base64Image
-                        : $"data:image/jpeg;base64,{img.Base64Image.TrimStart("data:image/jpeg;base64,".ToCharArray())}";
+                    // Interim storage: a data URI on the row. P2 replaces this with
+                    // the hash-addressed Artifact store (plan.md), at which point
+                    // this becomes an ArtifactId pointer.
+                    var imageUrl = BuildImageUrl(img);
 
                     _context.tbl_ProgressImages.Add(new tbl_ProgressImage
                     {
@@ -130,7 +136,7 @@ public class ProgressDAL : IProgressDAL
             if (update == null)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
 
-            if (!IsProjectStakeholder(update.Project, userId))
+            if (!await _access.CanReadAsync(update.Project, userId))
                 return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
 
             if (_tenant.IsExternal() && update.Channel != Channel.Client)
@@ -157,10 +163,8 @@ public class ProgressDAL : IProgressDAL
             if (update == null)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
 
-            var ownerId = update.Project?.ParentProject?.InvestorId ?? update.Project?.InvestorId;
-            var pmId = update.Project?.ParentProject?.ProjectManagerId ?? update.Project?.ProjectManagerId;
-            if (ownerId != userId && pmId != userId &&
-                update.Project?.InvestorId != userId && update.Project?.ProjectManagerId != userId)
+            // Publishing to the client is a curation decision — owner/manager only.
+            if (!await _access.CanManageAsync(update.Project, userId))
                 return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Only the project owner or manager can change visibility"));
 
             update.Channel = channel;
@@ -206,11 +210,14 @@ public class ProgressDAL : IProgressDAL
     {
         try
         {
-            var project = await _context.tbl_Projects_RS.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId, ct);
+            var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId, ct);
             if (project == null)
                 return ServiceResult<PaginationDetails<ProgressUpdateDto>>.Failure(new NotFoundException("Project not found"));
 
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            if (!await _access.CanReadAsync(project, userId, ct))
                 return ServiceResult<PaginationDetails<ProgressUpdateDto>>.Failure(new ForbiddenException("Access denied"));
 
             var query = _context.tbl_ProgressUpdates
@@ -284,7 +291,8 @@ public class ProgressDAL : IProgressDAL
             if (project == null)
                 return ServiceResult<ProgressCommentDto>.Failure(new NotFoundException("Target not found"));
 
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            // Commenting is how Peter asks a question — any active member may.
+            if (!await _access.CanWriteAsync(project, userId))
                 return ServiceResult<ProgressCommentDto>.Failure(new ForbiddenException("Access denied"));
 
             var comment = new tbl_ProgressComment
@@ -394,16 +402,37 @@ public class ProgressDAL : IProgressDAL
     }
 
     /// <summary>
-    /// True when the user can read this project's content. Sub-projects
-    /// inherit the parent's stakeholder set.
+    /// Normalise an uploaded image into a storable URL.
+    /// <para>
+    /// Remote URLs pass through. Otherwise the payload is stored as a data URI
+    /// with its declared content type.
+    /// </para>
+    /// <para>
+    /// <b>Do not "simplify" this with <c>TrimStart(string.ToCharArray())</c>.</b>
+    /// That overload strips <em>any</em> leading character in the set, and '/'
+    /// appears in "image/jpeg" — so it ate the leading '/' of every JPEG's
+    /// "/9j/..." payload and silently corrupted every photo ever uploaded.
+    /// See plan.md finding A2.
+    /// </para>
     /// </summary>
-    private static bool IsProjectStakeholder(tbl_Project? project, string userId)
+    private static string BuildImageUrl(ProgressImageUploadDto img)
     {
-        if (project is null) return false;
-        var ownerId = project.ParentProject?.InvestorId ?? project.InvestorId;
-        var pmId = project.ParentProject?.ProjectManagerId ?? project.ProjectManagerId;
-        return ownerId == userId || pmId == userId
-            || project.InvestorId == userId || project.ProjectManagerId == userId;
+        var raw = img.Base64Image ?? string.Empty;
+
+        if (raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return raw;
+
+        // Strip an existing "data:<mime>;base64," prefix by finding the comma,
+        // never by trimming characters.
+        if (raw.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            var comma = raw.IndexOf(',');
+            if (comma >= 0) raw = raw[(comma + 1)..];
+        }
+
+        var mime = string.IsNullOrWhiteSpace(img.ContentType) ? "image/jpeg" : img.ContentType;
+        return $"data:{mime};base64,{raw}";
     }
 
     private async Task<ServiceResult<ProgressUpdateDto>> GetProgressUpdateById(string updateId, string userId)

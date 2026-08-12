@@ -1,8 +1,10 @@
 # ASSETLEN — Design & Engineering Charter
 
-**Status (2026-05-21):** Phase 0 — Foundation. The old `mowt` POS scaffold is being stripped; the project-management vision drives every UI/architecture decision from here forward.
+**Status (2026-08-12):** Phase P0 — unblocking the three-user MVP. See [plan.md](plan.md).
 
-This file is the single source of truth for product naming, aesthetic, multi-tenancy contract, and module map. Future-Claude reads it first.
+> **Precedence.** [assetlen.md](assetlen.md) is the product truth, with [Peter.md](Peter.md) and [David.md](David.md) as the user truth. **This file is the engineering charter** — aesthetic, CSS, folder layout, multi-tenancy — and **defers to assetlen.md wherever they disagree.** Read assetlen.md first, then this file, then plan.md.
+>
+> Every feature must answer assetlen.md §7: *"Does it help someone hold a past commitment against present reality?"* If not, it does not ship. The §7 "Do not build" table is binding and is mirrored in plan.md.
 
 ---
 
@@ -21,18 +23,23 @@ Use these terms everywhere — UI copy, file names, type names, route segments.
 | Concept | Canonical term | Rationale |
 |---|---|---|
 | The app | **ASSETLEN** | Hero name. Display in display-serif. |
+| **The one object** | **Commitment** | A spec, price, date, material or choice, carrying who agreed, when, and the evidence. Everything else hangs off it. |
+| Commitment maturity | **Idea → In discussion → Agreed → Delivered → Verified** | assetlen.md §3. |
+| Commitment query state | **Cleared → Query raised → Resolved** | Cleared is not closed. Resolution updates *the item*, not a message. |
 | Top-level container | **Project** | A residential / commercial development. |
 | Nested container | **Sub-project** | One level of nesting only (e.g. a guest wing). |
-| Daily site captures | **Site Journal** | Replaces "daily logs". The journal is *the* collaboration surface. |
-| Single journal capture | **Entry** | Photo + caption + thread. |
-| Chat tied to a media item | **Stream** | A live conversation rooted at an Entry, image, doc, or video. |
-| Issue tracker item | **Flag** | A site issue raised on an Entry until resolved. |
-| Timeline visualization | **Timeline** | Multi-layer expected-vs-actual graph. |
-| Portfolio generator | **Lookbook** | Auto-curated showcase, 3 templates. |
-| The two chat channels | **Client channel** / **Crew channel** | "Crew" feels right for the internal contractor team. |
-| Client-only filtered view | **Client view** | A curated slice the contractor publishes. |
+| Funded unit of work | **Stage** | Peter funds a stage up front. Holds 5–8 **Deliverables**. |
+| Stage checklist item | **Deliverable** | The thing capture is aimed at. Nothing floats. |
+| A stored file | **Artifact** | Uploaded once, permanent address, hash-matched. Later mentions are pointers, never copies. |
+| Markup on an artifact | **Annotation** | A versioned, attributed *layer* on the original. Never a new image. |
+| David's full record | **Site Log** | Complete, unsanitised, internal. The clerk posts here without judgement. |
+| Peter's daily page | **Client Brief** | One page per day, **grouped by deliverable, not by time**. Auto-drafted, publishes at the cutoff regardless. |
+| Non-curatable facts | **Truth floor** | Money, dates, agreed specs, blockers and decisions Peter owes reach Peter regardless of curation. |
+| The two channels | **Client channel** / **Crew channel** | David controls emphasis, not truth. |
 
-If you propose to rename one of these, update this table in the same PR.
+**Retired terms** — do not reintroduce: *Site Journal* and *Entry* (→ Site Log / capture against a Deliverable), *Flag* (→ a Commitment in `QueryRaised`, or a blocker), *Lookbook*, *Client view* (→ Client Brief).
+
+If you propose to rename one of these, update this table and assetlen.md in the same change.
 
 ---
 
@@ -158,6 +165,8 @@ assetlen/assetlen.Shared/
 
 **Promotion rule:** A component lives in its owning module until **two** modules need it. Then it moves up to `Components/`. Don't pre-promote.
 
+**Module map vs. the vision.** The tree above predates the assetlen.md rewrite. `Lookbook/` is retired — do not build into it. `Journal/` becomes the **Site Log**, and gains siblings `Commitments/` (the one object, P3), `Artifacts/` (canonical files, P2) and `Brief/` (the Client Brief, P5). Rename as each phase lands rather than in one sweep.
+
 (Solution renamed `mowt.*` → `assetlen.*` in Phase 0.5; the WASM client is now `assetlen.Client`. DbContext renamed `mowtDbContext` → `AssetlenDbContext` in Phase 0.6.)
 
 ---
@@ -218,7 +227,15 @@ if (!RolePermissions.HasAccess(userRoles, AppModule.Finance, ModuleAccess.Read))
 
 `UserRolesDto` exposes convenience accessors: `IsTenantAdmin` (Contractor || SystemAdmin), `CanSeeFinancials` (Contractor || Manager || Client || SystemAdmin), `IsInternal` (Contractor || Manager || Crew || SystemAdmin), `IsExternal` (Client || Guest).
 
-Project-level scoping (e.g. Manager sees only their projects) is enforced at the service layer via `tbl_ProjectMember`.
+#### Project-level access — `tbl_ProjectMember` is authoritative
+
+**Roles say what a user may do. `tbl_ProjectMember` says which projects they may do it in.** Both must pass.
+
+A user has access to a project if they are its owner, its manager, or an **active `tbl_ProjectMember`** row — resolved parent-aware so sub-projects inherit. This lives in **one** service (`IProjectAccessService`); every DAL calls it.
+
+> **Never re-implement this check inline.** Until P0, four DALs each carried a private `IsProjectStakeholder` that tested only `InvestorId`/`ProjectManagerId`, so members were visible on the dashboard and got 403 everywhere else — the client and the clerk of works could not use the product at all. See plan.md finding A1. A private stakeholder helper in a DAL is a bug.
+
+Against the vision, six roles is more than assetlen.md §7 asks for (*"no roles beyond developer / contractor / clerk"*). We keep the six deliberately — the cost is already paid and collapsing them touches every controller — but **do not add a seventh**, and do not let role checks substitute for the membership check.
 
 #### Module access matrix
 
@@ -239,13 +256,11 @@ The matrix is the **only** place these decisions live. Don't hard-code role chec
 
 ## 6. Phase plan
 
-- **Phase 0 (current):** Strip POS, write this doc, lay the token layer. Rename solution after the strip is done.
-- **Phase 1:** Domain models (Project / SubProject / Member), Dashboard with ProjectCard + MediaCarousel, Project detail shell with Breadcrumbs, create-project flow.
-- **Phase 2:** Site Journal, Flags (issues), Streams (chat), dual channels, curated Client view. *This is the collaboration core.*
-- **Phase 3:** Timeline graph, Financial module (receipts, budgets, versioning).
-- **Phase 4:** WhatsApp bridge, visual search, hybrid media storage with Google Drive, 3D explorer, Lookbook templates.
+**The phase plan lives in [plan.md](plan.md).** It was rewritten on 2026-08-12 against assetlen.md after a live end-to-end audit; the old Phase 0–4 sequence (Lookbook, 3D explorer, visual search) is retired because those features fail the §7 ship test.
 
-Each phase ends when the feature is usable on mobile + desktop, has loading/empty/error states, and is wired into Search and Breadcrumbs.
+Current shape: **P0** unblock the three-user MVP → **P1** scaffold strip → **P2** Artifact store → **P3** Commitment model → **P4** dumb capture → **P5** Site Log / Client Brief → **P6** OCR + search → **P7** markup + query state → **P8** extraction + parked ideas → **P9** parity.
+
+A phase ends when it is usable on mobile and desktop, has loading / empty / error states, and passes its exit criterion in plan.md. Phases P3, P5 and P8 are additionally gated by the three validation tests in assetlen.md §9.
 
 ---
 

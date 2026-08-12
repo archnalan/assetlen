@@ -56,187 +56,26 @@ builder.Services.AddScoped<IUserSessionService, UserSessionService>();
 builder.Services.AddSyncfusionBlazor();
 builder.Services.AddSingleton<IAppCloser, AppCloser>();
 
-builder.Services
-    .AddRefitClient<ICustomersApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<ISuppliersApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
- .AddRefitClient<ISegmentsAPI>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-.AddRefitClient<ICustomerDeposit>()
-.ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-.AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-         .AddRefitClient<ICategoriesAPI>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-         .AddRefitClient<IReportsApi>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-         .AddRefitClient<IShiftsApi>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-         .AddRefitClient<ITransactionsApi>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-        .AddRefitClient<IAuthorizationApi>()
-.ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-.AddHttpMessageHandler<AuthHeaderHandler>();
-
-
-builder.Services
-    .AddRefitClient<ICustomerDeposit>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-         .AddRefitClient<ICategoriesAPI>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
- .AddRefitClient<IProductsAPI>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
- .AddRefitClient<ITaxDataAPI>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
- .AddRefitClient<IGenerateCodeAPI>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
- .AddRefitClient<ICashItemsApi>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
- .AddRefitClient<IDiscountsAPI>()
- .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
- .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IExpenseApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<ITransactionDetailApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IPaymentsApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IRefundsApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IUsersAPI>()
+// One registration helper — every ASSETLEN API client is registered the same way.
+void AddApi<T>() where T : class => builder.Services
+    .AddRefitClient<T>()
     .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
     .AddHttpMessageHandler<AuthHeaderHandler>();
 
-builder.Services
-    .AddRefitClient<IProductReceivingApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IExpenseTypeApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IGenerateBarcodeAPI>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-.AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IConfigurationsApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IOrderStatusesApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-.AddRefitClient<IReceiptsApi>()
-.ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-.AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-.AddRefitClient<ISlipLayout>()
-.ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-.AddHttpMessageHandler<AuthHeaderHandler>();
+// Platform
+AddApi<IAuthorizationApi>();
+AddApi<IUsersAPI>();
+AddApi<IConfigurationsApi>();
+AddApi<ISubscriptionRequestApi>();
 
-builder.Services
-    .AddRefitClient<IFileProcessingApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-          .AddRefitClient<IProductRelationshipsApi>()
-          .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-          .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-          .AddRefitClient<ICustomerPricingApi>()
-          .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-          .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-              .AddRefitClient<IPrinterPreferencesApi>()
-              .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-              .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IProductDetailApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IUserFavoritesAPI>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IUserDocumentsAPI>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IProductDetailFeedbackApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<ISubscriptionRequestApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-
-builder.Services
-    .AddRefitClient<IProjectsRSApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IStagesApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IFundingApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IProgressApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IProjectMembersApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IFlagsApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
-builder.Services
-    .AddRefitClient<IBudgetApi>()
-    .ConfigureHttpClient(c => c.BaseAddress = baseAddressApi)
-    .AddHttpMessageHandler<AuthHeaderHandler>();
+// Projects + Site Log
+AddApi<IProjectsRSApi>();
+AddApi<IStagesApi>();
+AddApi<IFundingApi>();
+AddApi<IProgressApi>();
+AddApi<IProjectMembersApi>();
+AddApi<IFlagsApi>();
+AddApi<IBudgetApi>();
 
 builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
     sp.GetRequiredService<IStorageService>(),
@@ -246,7 +85,6 @@ builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
 builder.Services.AddSingleton<GlobalContext>();
 builder.Services.AddScoped<ICustomFileSaver, FileSaverWeb>();
 builder.Services.AddScoped<IPrintService, PrintServiceWeb>();
-builder.Services.AddScoped<FormDataPrep>();
 builder.Services.AddScoped<NavigationService>();
 builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();
 

@@ -13,18 +13,14 @@ namespace assetlen.Shared.statics
 {
     public class GlobalContext
     {
-        public CustomerDto? CurrentCustomer { get; set; }
         public string? ActiveToastError { get; set; }
         public string? CurrencySymbol { get; set; }
-        public SupplierDto? CurrentSupplier { get; set; }
         public string? CurrentLoginPage { get; set; }
         public string? CompanyName { get; set; }
         public string? CompanyLocation { get; set; }
         public string? CompanyPhone { get; set; }
         public string? DefaultFont { get; set; } = "montserrat";
         public List<ConfigurationDto>? ConfigSettings { get; set; } = new();
-
-        public HashSet<string>? CurrentCartProductIds { get; set; } = new();
 
         private readonly IConfigurationsApi _configApi;
 

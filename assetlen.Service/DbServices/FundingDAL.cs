@@ -12,11 +12,13 @@ public class FundingDAL : IFundingDAL
 {
     private readonly AssetlenDbContext _context;
     private readonly ILogger<FundingDAL> _logger;
+    private readonly IProjectAccessService _access;
 
-    public FundingDAL(AssetlenDbContext context, ILogger<FundingDAL> logger)
+    public FundingDAL(AssetlenDbContext context, ILogger<FundingDAL> logger, IProjectAccessService access)
     {
         _context = context;
         _logger = logger;
+        _access = access;
     }
 
     public async Task<ServiceResult<FundingEntryDto>> AddFundingEntry(FundingEntryCreateDto dto, string investorId)
@@ -104,11 +106,16 @@ public class FundingDAL : IFundingDAL
     {
         try
         {
-            var project = await _context.tbl_Projects_RS.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId);
+            var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId);
             if (project == null)
                 return ServiceResult<List<FundingEntryDto>>.Failure(new NotFoundException("Project not found"));
 
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            // Peter's core need: money against progress. Members read; only the
+            // investor adds funding and only the manager confirms it.
+            if (!await _access.CanReadAsync(project, userId))
                 return ServiceResult<List<FundingEntryDto>>.Failure(new ForbiddenException("Access denied"));
 
             var entries = await _context.tbl_FundingEntries
@@ -140,13 +147,14 @@ public class FundingDAL : IFundingDAL
         {
             var stage = await _context.tbl_Stages
                 .Include(s => s.Project)
+                    .ThenInclude(p => p!.ParentProject)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == stageId);
 
             if (stage == null)
                 return ServiceResult<List<FundingEntryDto>>.Failure(new NotFoundException("Stage not found"));
 
-            if (stage.Project?.InvestorId != userId && stage.Project?.ProjectManagerId != userId)
+            if (!await _access.CanReadAsync(stage.Project, userId))
                 return ServiceResult<List<FundingEntryDto>>.Failure(new ForbiddenException("Access denied"));
 
             var entries = await _context.tbl_FundingEntries

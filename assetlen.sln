@@ -11,8 +11,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "assetlen.Shared.Models", "a
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "assetlen.API", "assetlen.API\assetlen.API.csproj", "{9DD5A3E4-E6A8-4EAF-B353-FBB11EDBA43E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "assetlen.Sqlite", "assetlen.Sqlite\assetlen.Sqlite.csproj", "{2DF6AEDC-57E6-49D6-B92B-5A27E1E67362}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "assetlen.SqlServer", "assetlen.SqlServer\assetlen.SqlServer.csproj", "{5F198D8D-BA5D-4491-B79C-CE6EEC69F96A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "assetlen.Client", "assetlen.Client\assetlen.Client.csproj", "{67C66475-6065-44CD-89AC-20CD7E95801C}"
@@ -39,10 +37,6 @@ Global
 		{9DD5A3E4-E6A8-4EAF-B353-FBB11EDBA43E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9DD5A3E4-E6A8-4EAF-B353-FBB11EDBA43E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9DD5A3E4-E6A8-4EAF-B353-FBB11EDBA43E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2DF6AEDC-57E6-49D6-B92B-5A27E1E67362}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2DF6AEDC-57E6-49D6-B92B-5A27E1E67362}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2DF6AEDC-57E6-49D6-B92B-5A27E1E67362}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2DF6AEDC-57E6-49D6-B92B-5A27E1E67362}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5F198D8D-BA5D-4491-B79C-CE6EEC69F96A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5F198D8D-BA5D-4491-B79C-CE6EEC69F96A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5F198D8D-BA5D-4491-B79C-CE6EEC69F96A}.Release|Any CPU.ActiveCfg = Release|Any CPU

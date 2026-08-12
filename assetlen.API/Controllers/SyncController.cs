@@ -26,7 +26,7 @@ namespace assetlen.API.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(SizeDto), 200)]
+        [ProducesResponseType(typeof(SyncLogDto), 200)]
         public async Task<IActionResult> GetChanges([FromQuery] DateTime lastSync, [FromQuery] int Offset = 0, [FromQuery] int batchSize = 200)
         {
             var result = await _syncDAL.GetChangesFromOnlineApi(lastSync, Offset, batchSize);

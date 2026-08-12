@@ -1,6 +1,5 @@
-﻿@using System.Net.Http
+@using System.Net.Http
 @using System.Net.Http.Json
-@using assetlen.Shared.Models.Models.ViewModels.ProductStructureDtos
 @using System.ComponentModel.DataAnnotations
 @using assetlen.Shared.statics
 @using Microsoft.AspNetCore.Components.Forms
@@ -12,7 +11,6 @@
 @using Syncfusion.Blazor.Buttons
 @using Syncfusion.Blazor.Grids
 @using assetlen.Shared.Models.ViewModels
-@using assetlen.Shared.Models.Models.ViewModels.ConfigurationDtos
 @using assetlen.Shared.Layout
 @using assetlen.Shared.Modules.Projects
 @using assetlen.Shared.Modules.Projects.Components
@@ -21,8 +19,6 @@
 @using assetlen.Shared.Modules.Finance.Components
 @using assetlen.Shared.Components.Navigation
 @using assetlen.Shared.Components.Media
-@using assetlen.Shared.Models.Models.ViewModels.ReportingDto
-@using assetlen.Shared.Models.Models.ViewModels.ExportDtos
 @using assetlen.Shared.Services
 @using Microsoft.FluentUI.AspNetCore.Components
 @using assetlen.Shared.Pages.Components
@@ -33,14 +29,12 @@
 @using System.ComponentModel
 @using System.Dynamic
 @using Newtonsoft.Json.Linq
-@using Microsoft.AspNetCore.Http.Internal
 @using Microsoft.Extensions.Logging
 @using assetlen.Shared.Models.statics
 @using assetlen.Shared.Pages.Components.Startup
 @using Microsoft.AspNetCore.Hosting;
 @using Microsoft.AspNetCore.Http
 @using assetlen.Shared.Models.Models.ViewModels
-@using assetlen.Shared.Models.Models.DocumentModels
 @using assetlen.Shared.Apicalls
 @using assetlen.Shared.Models
 @using System.Diagnostics
@@ -48,57 +42,16 @@
 @using System.Globalization
 @using System.IO
 @using Mapster
-
-@inject ICustomersApi _customersApi
-@inject ISuppliersApi _suppliersApi
-@inject IShiftsApi _shiftsApi
-@inject ITransactionsApi _salesApi
-@inject ITransactionDetailApi _detailsApi
-@inject IProductReceivingApi _productReceivingApi
-@inject IPaymentsApi _paymentsApi
-@inject IToastService ToastService
-@inject NavigationManager _nav
-@inject IUsersAPI _usersApi
-
-@inject ISegmentsAPI _segmentsApi
-@inject IExpenseTypeApi _expenseTypeApi
-@inject ICategoriesAPI _categoriesApi
-@inject ITaxDataAPI _taxDataApi
-@inject IProductsAPI _productsApi
-@inject ICustomerDeposit _customerDepositApi
-@inject GlobalContext _global
-@inject ICategoriesAPI _categoriesApi
-@inject IReportsApi _reportsApi
-@inject IAuthorizationApi _auth
-@inject IDiscountsAPI _discountsAPI
-@inject IGenerateBarcodeAPI _barcodeApi
-@inject IConfigurationsApi _configApi
-@inject IOrderStatusesApi _orderStatusesApi
-@inject ICashItemsApi _cashItemsApi
-@inject IFileProcessingApi _fileProcessor
-@inject IFormFactor _formFactor
-@inject Blazored.LocalStorage.ILocalStorageService _localStorage
-@inject IProductRelationshipsApi _productRelationshipsApi
-@inject IPrintService _printService
-@inject ICustomFileSaver _fileSaver
-@inject ICustomerPricingApi _custPricingApi
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@inject AuthenticationStateProvider _authStateProvider
-@inject IApiResponseHandler _apiResponseHandler
-@inject IGenerateCodeAPI _generateCode
-@inject IDialogService DialogService
-@inject ISD _sd
-@inject IUserSessionService _userSession
-@inject IStorageService _storageService
-@inject IJSRuntime JS
-@inject IFormFactor FormFactor
-@inject IProductDetailApi _productDetailApi
-@inject IUserFavoritesAPI _userFavoritesApi
-@inject IUserDocumentsAPI _userDocumentsApi
+
+@* ── Platform ── *@
+@inject IAuthorizationApi _auth
+@inject IUsersAPI _usersApi
+@inject IConfigurationsApi _configApi
 @inject ISubscriptionRequestApi _subscriptionRequestApi
 
-@* ── Remote Site ── *@
+@* ── Projects + Site Log ── *@
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
 @inject IProjectsRSApi _projectsRSApi
@@ -108,3 +61,20 @@
 @inject IFlagsApi _flagsApi
 @inject IBudgetApi _budgetApi
 @inject IProjectMembersApi _projectMembersApi
+
+@* ── Infrastructure ── *@
+@inject IToastService ToastService
+@inject NavigationManager _nav
+@inject GlobalContext _global
+@inject IFormFactor _formFactor
+@inject IFormFactor FormFactor
+@inject Blazored.LocalStorage.ILocalStorageService _localStorage
+@inject IPrintService _printService
+@inject ICustomFileSaver _fileSaver
+@inject AuthenticationStateProvider _authStateProvider
+@inject IApiResponseHandler _apiResponseHandler
+@inject IDialogService DialogService
+@inject ISD _sd
+@inject IUserSessionService _userSession
+@inject IStorageService _storageService
+@inject IJSRuntime JS

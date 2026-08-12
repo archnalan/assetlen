@@ -24,13 +24,7 @@ namespace assetlen.Shared.statics
         public string currentMode { get; private set; } = "Light";
         public initialState isClicked { get; set; } = new initialState();
         public bool themeSettings { get; set; } = false;
-        public bool isExpensePayment { get; set; } = false;
-        public bool isCustomerDeposit { get; set; } = false;
-        public ExpenseDto? ExpenseRequest { get; set; }
-        public CustomerDepositDto? CustomerDepositRequest { get; set; }
-        public ShiftsDto CurrentShift { get; set; } = null;
         public Module CurrentModule { get; set; }
-        public List<PaymentModeDto> paymentModeDtos { get; set; }
         public UserClaimsDto? CurrentUser { get; private set; }
 
         // Event to notify components when user is updated
@@ -58,14 +52,6 @@ namespace assetlen.Shared.statics
         {
             currentMode = themeMode;
             await _localStorage.SetItemAsync("themeMode", themeMode);
-        }
-        
-        public void ResetPayments()
-        {
-            isExpensePayment = false;
-            ExpenseRequest = null;
-            isCustomerDeposit = false;
-            CustomerDepositRequest = null;
         }
     }
     

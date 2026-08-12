@@ -34,7 +34,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 using static assetlen.Service.DbServices.AuthorizationDAL;
-using assetlen.Service.FileProcessingServices;
 using assetlen.Service.Extensions;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -120,56 +119,34 @@ builder.Services.AddCors(options =>
                    .AllowAnyHeader();
         });
 });
+// Hangfire builds its own schema when the storage is constructed, which happens
+// during service registration — before EF has had a chance to create the
+// database. On a first boot against an empty server that raced and lost: the
+// HangFire.* tables were never created, and every endpoint that enqueues a job
+// then returned 500 with "Invalid object name 'HangFire.Job'".
+//
+// So: don't prepare the schema here. EnsureHangfireSchema() below runs it once
+// the database provably exists.
 builder.Services.AddHangfire(config => config.UseSimpleAssemblyNameTypeSerializer()
 .UseRecommendedSerializerSettings()
-.UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnectionHangfire")));
+.UseSqlServerStorage(
+    builder.Configuration.GetConnectionString("DefaultConnectionHangfire"),
+    new Hangfire.SqlServer.SqlServerStorageOptions { PrepareSchemaIfNecessary = false }));
 builder.Services.AddHangfireServer();
 builder.Services.AddTransient<ITenantProvider, TenantProvider>();
 builder.Services.AddScoped<ITenantServiceDAL, TenantServiceDAL>();
-builder.Services.AddScoped<ICustomerDAL, CustomerDAL>();
-builder.Services.AddScoped<ICategoryDAL, CategoryDAL>();
 builder.Services.AddScoped<IConfigDAL, ConfigDAL>();
-builder.Services.AddScoped<ICashItemsDAL, CashItemsDAL>();
-builder.Services.AddScoped<ICustomerPricingDAL, CustomerPricingDAL>();
-builder.Services.AddScoped<IExpenseDAL, ExpenseDAL>();
-//builder.Services.AddSingleton<IGenerateBarcodeDAL, GenerateBarcodeDAL>();
-builder.Services.AddScoped<IGenerateBarcodeDAL, GenerateBarcodeDAL>();
 builder.Services.AddScoped<ILogsDAL, LogsDAL>();
-builder.Services.AddScoped<IOrderStatusDAL, OrderStatusDAL>();
-builder.Services.AddScoped<IPaymentsDAL, PaymentsDAL>();
-builder.Services.AddScoped<IProductsDAL, ProductsDAL>();
-builder.Services.AddScoped<IUserFavoritesDAL, UserFavoritesDAL>();
-builder.Services.AddScoped<IUserDocumentsDAL, UserDocumentsDAL>();
-builder.Services.AddScoped<IProductReceivingDAL, ProductReceivingDAL>();
-builder.Services.AddScoped<IProductRelationshipsDAL, ProductRelationshipsDAL>();
-builder.Services.AddScoped<IReceiptsDAL, ReceiptsDAL>();
-builder.Services.AddScoped<ITransactionDAL, TransactionDAL>();
-builder.Services.AddScoped<ITransactionDetailDAL, TransactionDetailDAL>();
-builder.Services.AddScoped<IReportsDAL, ReportsDAL>();
-builder.Services.AddScoped<ISegmentsDAL, SegmentsDAL>();
-builder.Services.AddScoped<IShiftsDAL, ShiftsDAL>();
-builder.Services.AddScoped<ISlipsDAL, SlipsDAL>();
-builder.Services.AddScoped<ISupplierDAL, SupplierDAL>();
-builder.Services.AddScoped<ISupplierPaymentDAL, SupplierPaymentDAL>();
-builder.Services.AddScoped<ItaxDAL, taxDAL>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<SmtpSenderService>();
 builder.Services.AddScoped<IPandoraSmsService, PandoraSmsService>();
 builder.Services.AddScoped<IAuthorizationDAL, AuthorizationDAL>();
-builder.Services.AddScoped<IDiscountsDAL, DiscountsDAL>();
-builder.Services.AddScoped<PricingCalculations>();
-builder.Services.AddScoped<IPricingCalculations, PricingCalculations>();
 builder.Services.AddScoped<IUsersDAL, UsersDAL>();
-builder.Services.AddScoped<IExcelDomainService, ExcelDomainService>();
-builder.Services.AddScoped<IExpenseTypeDAL, ExpenseTypeDAL>();
-builder.Services.AddScoped<IFileProcessing, FileProcessing>();
-builder.Services.AddScoped<IPrinterPreferencesDAL, PrinterPreferencesDAL>();
-builder.Services.AddScoped<IProductDetailDAL, ProductDetailDAL>();
-builder.Services.AddScoped<IProductDetailFeedbackDAL, ProductDetailFeedbackDAL>();
 builder.Services.AddScoped<ISubscriptionRequestDAL, SubscriptionRequestDAL>();
-builder.Services.AddScoped<IFeedbackNotificationService, FeedbackNotificationService>();
 
 // ── Remote Site services ──
+// The single authority on per-project access. Every ASSETLEN DAL depends on it.
+builder.Services.AddScoped<IProjectAccessService, ProjectAccessService>();
 builder.Services.AddScoped<IProjectDAL, ProjectDAL>();
 builder.Services.AddScoped<IProjectMemberDAL, ProjectMemberDAL>();
 builder.Services.AddScoped<IStageDAL, StageDAL>();
@@ -289,7 +266,6 @@ builder.Services.AddRazorComponents();
 //builder.Services.AddScoped<Radzen.DialogService>();
 //builder.Services.AddScoped<Radzen.TooltipService>();
 //builder.Services.AddScoped<Radzen.ContextMenuService>();
-builder.Services.AddScoped<FileUploadManager>();
 builder.Services.AddWindowsService();
 //builder.Services.AddScoped<FormDataPrep>();
 builder.Services.AddScoped<ISyncDAL, SyncDAL>();
@@ -510,7 +486,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<FeedbackHub>("/hubs/feedback");
 app.MapHub<assetlen.Service.Hubs.AssetlenHub>("/hubs/assetlen");
 // Seed roles using a service scope
 using (var scope = app.Services.CreateScope())
@@ -518,6 +493,56 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     DatabaseSeeder.InitializeDb(app, app.Logger);
     await DatabaseSeeder.SeedRolesAndAdminAsync(services, builder.Configuration, app.Environment);
+}
+
+// The database now exists, so Hangfire can safely build its tables.
+EnsureHangfireSchema(
+    builder.Configuration.GetConnectionString("DefaultConnectionHangfire"),
+    app.Logger);
+
+static void EnsureHangfireSchema(string? connectionString, Microsoft.Extensions.Logging.ILogger logger)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        logger.LogWarning("No Hangfire connection string; background jobs are disabled.");
+        return;
+    }
+
+    // Hangfire's storage already tried to connect during service registration,
+    // when the database might not have existed yet. SqlClient caches that
+    // failure for a few seconds (the pool blocking period) and fails fast
+    // without contacting the server, so drop the poisoned pool first.
+    System.Data.SqlClient.SqlConnection.ClearAllPools();
+
+    for (var attempt = 1; attempt <= 5; attempt++)
+    {
+        try
+        {
+            // System.Data.SqlClient, not Microsoft.Data.SqlClient — this must
+            // behave exactly like the connection Hangfire opens for itself. The
+            // newer driver defaults Encrypt=true, and DefaultConnectionHangfire
+            // carries no TrustServerCertificate, so it would fail the TLS
+            // handshake against a local instance with a self-signed cert.
+            using var connection = new System.Data.SqlClient.SqlConnection(connectionString);
+            connection.Open();
+            Hangfire.SqlServer.SqlServerObjectsInstaller.Install(connection);
+            logger.LogInformation("Hangfire schema is present.");
+            return;
+        }
+        catch (Exception ex) when (attempt < 5)
+        {
+            logger.LogWarning("Hangfire schema attempt {Attempt} failed ({Message}); retrying.",
+                attempt, ex.Message);
+            System.Data.SqlClient.SqlConnection.ClearAllPools();
+            Thread.Sleep(TimeSpan.FromSeconds(2));
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal: the API still serves reads. Endpoints that enqueue a
+            // job will fail loudly, which is the correct signal to fix this.
+            logger.LogError(ex, "Could not prepare the Hangfire schema.");
+        }
+    }
 }
 
 

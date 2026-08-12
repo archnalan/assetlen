@@ -1,4 +1,4 @@
-﻿using assetlen.Service.DataAccess;
+using assetlen.Service.DataAccess;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.ServiceHandler;
 using assetlen.Shared.Models.Models;
@@ -586,70 +586,6 @@ namespace assetlen.Service.DbServices
         }
         #endregion
 
-        #region Delete user Data in DB from Database
-        public async Task<ServiceResult<bool>> DeleteAllFromSpecifiedTable(string table)
-        {
-            try
-            {
-                string sql = $"DELETE FROM {table};";
-                await _context.Database.ExecuteSqlRawAsync(sql);
-                return ServiceResult<bool>.Success(true);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Error while deleting all records from table {Table}: {Error}", table, ex);
-                return ServiceResult<bool>.Failure(
-                    new ServerErrorException("Could not delete all records from the specified table."));
-            }
-        }
-        #endregion
-
-        #region reset Database transactions
-        public async Task<ServiceResult<bool>> ResetDataBaseTransactions()
-        {
-            var tables = new List<string>
-            {
-                "tbl_customerDeposit",
-                "tbl_customerPricing",
-                "tbl_discounts",
-                "tbl_Expense",
-                "tbl_OrderProcesses",
-                "tbl_paymentAccounts",
-                "tbl_ProductReceiving",
-                "tbl_ProductRelationships",
-                "tbl_products",
-                "tbl_Refunds",
-                "tbl_shifts",
-                "tbl_SupplierPayment",
-                "tbl_transaction",
-                "tbl_transactionDetail"
-            };
-
-
-            using (var transaction = await _context.Database.BeginTransactionAsync())
-            {
-                try
-                {
-                    foreach (var table in tables)
-                    {
-                        string sql = $"DELETE FROM {table};";
-                        await _context.Database.ExecuteSqlRawAsync(sql);
-                    }
-
-                    await transaction.CommitAsync();
-                    return ServiceResult<bool>.Success(true);
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError("Error while resetting database transactions: {Error}", ex);
-                    return ServiceResult<bool>.Failure(
-                        new ServerErrorException("Could not reset database transactions."));
-                }
-            }
-        }
-        #endregion
-
         #region Update database Schema
         public async Task<ServiceResult<bool>> UpdateDatabaseSchemaWithScript(string scriptFileName)
         {
@@ -691,16 +627,9 @@ namespace assetlen.Service.DbServices
                         var syncData = new InitialSeedDataDto();
                         syncData.tenantId = _tenantProvider.GetTenantId();
 
-                        syncData.categories = await _context.tbl_Categories.OrderBy(x => x.DateTimeCreated).FirstAsync();
-                        syncData.segments = await _context.tbl_Segments.OrderBy(x => x.DateTimeCreated).FirstAsync();
-                        syncData.suppliers = await _context.tbl_Suppliers.OrderBy(x => x.DateTimeCreated).FirstAsync();
-                        syncData.taxes = await _context.tbl_Taxes.OrderBy(x => x.DateTimeCreated).Take(2).ToListAsync();
-                        syncData.cashItems = await _context.tbl_CashItems.OrderBy(x => x.DateTimeCreated).ToListAsync();
-                        syncData.paymentModes = await _context.tbl_PaymentModes.OrderBy(x => x.DateTimeCreated).ToListAsync();
                         syncData.configSeedData = await _context.tbl_Configurations.ToListAsync();
                         syncData.AppUser = await _context.Users.OrderBy(x => x.DateTimeCreated).FirstAsync();
                         syncData.tenantData = await _context.tbl_Tenants.FirstOrDefaultAsync(x => x.TenantId == syncData.tenantId);
-                        syncData.orderStatuses = await _context.tbl_OrderStatuses.OrderBy(x => x.DateTimeCreated).Take(3).ToListAsync();
                         //get role names
                         var roleids = await _context.UserRoles
                             .Where(x => x.UserId == syncData.AppUser.Id)

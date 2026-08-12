@@ -69,7 +69,6 @@
   <ItemGroup>
     <ProjectReference Include="..\assetlen.Service\assetlen.Service.csproj" />
     <ProjectReference Include="..\assetlen.Shared.Models\assetlen.Shared.Models.csproj" />
-    <ProjectReference Include="..\assetlen.Sqlite\assetlen.Sqlite.csproj" />
     <ProjectReference Include="..\assetlen.SqlServer\assetlen.SqlServer.csproj" />
   </ItemGroup>
 

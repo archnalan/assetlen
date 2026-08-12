@@ -549,6 +549,19 @@ else
     // ─── PROGRESS TAB ───────────────────────────────────────────────
     private RenderFragment RenderProgress() => __builder =>
     {
+        @* Capture must be reachable from the surface you're already looking at.
+           On mobile the bottom-nav centre button does this; desktop needs its own. *@
+        <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew}")">
+            <Authorized>
+                <div class="project-journal-actions">
+                    <a href="/project/@ProjectId/progress/add" class="project-btn project-btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        Capture entry
+                    </a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
         @if (loadingProgress)
         {
             <div class="project-skeleton project-skeleton-card" style="height:150px;"></div>
@@ -557,8 +570,8 @@ else
         else if (progressUpdates == null || !progressUpdates.Any())
         {
             <div class="project-empty project-mt-md">
-                <h3 class="project-empty-title">No progress updates</h3>
-                <p class="project-empty-desc">Your project manager will post updates with photos here.</p>
+                <h3 class="project-empty-title">Nothing captured yet</h3>
+                <p class="project-empty-desc">Site photos posted against a stage appear here, newest first.</p>
             </div>
         }
         else

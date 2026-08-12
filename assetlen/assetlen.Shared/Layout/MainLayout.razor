@@ -1,4 +1,4 @@
-﻿@using assetlen.Shared.Models.statics
+@using assetlen.Shared.Models.statics
 @using assetlen.Shared.Pages.Components.Startup
 @using Microsoft.AspNetCore.Hosting;
 @using System.Security.Claims
@@ -28,12 +28,12 @@
                 <FluentStack Orientation="Orientation.Horizontal" Class="align-items-center"
                              HorizontalAlignment="HorizontalAlignment.Start" VerticalAlignment="@VerticalAlignment.Center"
                              Style="height:3rem; padding-inline-start: 0.75rem;">
-                    <span>ASSETLEN <span class="d-none d-sm-inline">Document manager</span> - Admin</span>
+                    <span>ASSETLEN</span>
                 </FluentStack>
 
                 <FluentStack class="align-items-center gap-3">
                     <FluentIcon Value="@(new Icons.Regular.Size24.Home())"
-                                OnClick="@(() => _nav.NavigateTo("admin/dashboard"))"
+                                OnClick="@(() => _nav.NavigateTo("/portfolio"))"
                                 Style="width: 30px;fill: var(--fill-color);" />
                     <NavMenuSearch></NavMenuSearch>
                 </FluentStack>
@@ -60,9 +60,8 @@
             </div>
 
             <footer class="app-footer">
-                <a href="https://www.billtrick.com" target="_blank">Documentation and demos</a>
+                <span>ASSETLEN</span>
                 <span class="footer-spacer"></span>
-                <a href="https://learn.biltrick.com/" target="_blank">About ASSETLEN</a>
             </footer>
         </div>
 
@@ -127,10 +126,6 @@
             var user = _sd.CurrentUser;
             if (user == null)
             {
-                if (!(_formFactor.GetFormFactor().ToLower().Contains("web")))
-                {
-                    await OpenSplashScreen();
-                }
                 _nav.NavigateTo("/");
             }
         }
@@ -198,32 +193,7 @@
 
     }
 
-    private async Task OpenSplashScreen()
-    {
-        DialogParameters<SplashScreenContent> parameters = new()
-        {
-            Content = new SplashScreenContent
-            {
-                DisplayTime = 3000,
-                Title = "Billtrick POS",
-                SubTitle = "Unlocking Your Sales Potential",
-                LoadingText = "Loading...",
-                Message = (MarkupString)"one <i>transaction</i> at a <strong>time</strong> <br/> <a href='https://billtrick.com' >www.billtrick.com</a>",
-                Logo = "/billtricksplashscreen.png",
-            },
-            PreventDismissOnOverlayClick = true,
-            Modal = true,
-        };
-        _dialog = await DialogService.ShowDialogAsync<SplashScreen>(parameters.Content, parameters);
-        await Task.Delay(parameters.Content.DisplayTime);
-        await _dialog.CloseAsync();
-    }
 
-
-    private async Task HandleDefaultSplashAsync(DialogResult result)
-    {
-        await Task.Run(() => Debug.WriteLine($"Default splash closed"));
-    }
 
     // public List<T> HandleListResult<T>(Refit.IApiResponse<List<T>> result)
     // where T : new()

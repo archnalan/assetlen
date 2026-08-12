@@ -13,11 +13,13 @@ public class BudgetDAL : IBudgetDAL
 {
     private readonly AssetlenDbContext _context;
     private readonly ILogger<BudgetDAL> _logger;
+    private readonly IProjectAccessService _access;
 
-    public BudgetDAL(AssetlenDbContext context, ILogger<BudgetDAL> logger)
+    public BudgetDAL(AssetlenDbContext context, ILogger<BudgetDAL> logger, IProjectAccessService access)
     {
         _context = context;
         _logger = logger;
+        _access = access;
     }
 
     public async Task<ServiceResult<ProjectBudgetSummaryDto>> GetSummary(string projectId, string actingUserId)
@@ -27,7 +29,7 @@ public class BudgetDAL : IBudgetDAL
             var project = await LoadProjectWithParent(projectId);
             if (project is null)
                 return ServiceResult<ProjectBudgetSummaryDto>.Failure(new NotFoundException("Project not found."));
-            if (!IsProjectStakeholder(project, actingUserId))
+            if (!await _access.CanReadAsync(project, actingUserId))
                 return ServiceResult<ProjectBudgetSummaryDto>.Failure(new ForbiddenException("Access denied."));
 
             var lineItems = await _context.tbl_BudgetLineItems
@@ -72,7 +74,7 @@ public class BudgetDAL : IBudgetDAL
             var project = await LoadProjectWithParent(dto.ProjectId);
             if (project is null)
                 return ServiceResult<BudgetLineItemDto>.Failure(new NotFoundException("Project not found."));
-            if (!CanManageBudget(project, actingUserId))
+            if (!await _access.CanManageAsync(project, actingUserId))
                 return ServiceResult<BudgetLineItemDto>.Failure(new ForbiddenException("Only the project owner or manager can edit the budget."));
 
             var nextOrder = await _context.tbl_BudgetLineItems
@@ -116,7 +118,7 @@ public class BudgetDAL : IBudgetDAL
                 .FirstOrDefaultAsync(b => b.Id == dto.Id);
             if (item is null)
                 return ServiceResult<BudgetLineItemDto>.Failure(new NotFoundException("Line item not found."));
-            if (!CanManageBudget(item.Project, actingUserId))
+            if (!await _access.CanManageAsync(item.Project, actingUserId))
                 return ServiceResult<BudgetLineItemDto>.Failure(new ForbiddenException("Access denied."));
 
             if (!string.IsNullOrWhiteSpace(dto.Title)) item.Title = dto.Title;
@@ -145,7 +147,7 @@ public class BudgetDAL : IBudgetDAL
                 .FirstOrDefaultAsync(b => b.Id == lineItemId);
             if (item is null)
                 return ServiceResult<bool>.Failure(new NotFoundException("Line item not found."));
-            if (!CanManageBudget(item.Project, actingUserId))
+            if (!await _access.CanManageAsync(item.Project, actingUserId))
                 return ServiceResult<bool>.Failure(new ForbiddenException("Access denied."));
 
             item.IsDeleted = true;
@@ -172,7 +174,7 @@ public class BudgetDAL : IBudgetDAL
                 .FirstOrDefaultAsync(b => b.Id == dto.BudgetLineItemId);
             if (line is null)
                 return ServiceResult<ReceiptDto>.Failure(new NotFoundException("Line item not found."));
-            if (!CanManageBudget(line.Project, actingUserId))
+            if (!await _access.CanManageAsync(line.Project, actingUserId))
                 return ServiceResult<ReceiptDto>.Failure(new ForbiddenException("Access denied."));
 
             var receipt = new tbl_Receipt
@@ -208,7 +210,7 @@ public class BudgetDAL : IBudgetDAL
                 .FirstOrDefaultAsync(b => b.Id == lineItemId);
             if (line is null)
                 return ServiceResult<List<ReceiptDto>>.Failure(new NotFoundException("Line item not found."));
-            if (!IsProjectStakeholder(line.Project, actingUserId))
+            if (!await _access.CanReadAsync(line.Project, actingUserId))
                 return ServiceResult<List<ReceiptDto>>.Failure(new ForbiddenException("Access denied."));
 
             var receipts = await _context.tbl_Receipts
@@ -239,7 +241,7 @@ public class BudgetDAL : IBudgetDAL
                 .FirstOrDefaultAsync(r => r.Id == receiptId);
             if (receipt is null)
                 return ServiceResult<bool>.Failure(new NotFoundException("Receipt not found."));
-            if (!CanManageBudget(receipt.BudgetLineItem?.Project, actingUserId))
+            if (!await _access.CanManageAsync(receipt.BudgetLineItem?.Project, actingUserId))
                 return ServiceResult<bool>.Failure(new ForbiddenException("Access denied."));
 
             receipt.IsDeleted = true;
@@ -276,19 +278,6 @@ public class BudgetDAL : IBudgetDAL
             .FirstAsync(x => x.Id == id);
         return ToReceiptDto(r);
     }
-
-    private static bool IsProjectStakeholder(tbl_Project? project, string userId)
-    {
-        if (project is null) return false;
-        var ownerId = project.ParentProject?.InvestorId ?? project.InvestorId;
-        var pmId = project.ParentProject?.ProjectManagerId ?? project.ProjectManagerId;
-        return ownerId == userId || pmId == userId
-            || project.InvestorId == userId || project.ProjectManagerId == userId;
-    }
-
-    /// <summary>Owner or PM only — same rule as Member management.</summary>
-    private static bool CanManageBudget(tbl_Project? project, string userId) =>
-        IsProjectStakeholder(project, userId);
 
     private static BudgetLineItemDto ToLineDto(tbl_BudgetLineItem l) => new()
     {

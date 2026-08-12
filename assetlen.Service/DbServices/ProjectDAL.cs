@@ -17,17 +17,20 @@ public class ProjectDAL : IProjectDAL
     private readonly IProjectHealthService _healthService;
     private readonly ILogger<ProjectDAL> _logger;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IProjectAccessService _access;
 
     public ProjectDAL(
         AssetlenDbContext context,
         IProjectHealthService healthService,
         ILogger<ProjectDAL> logger,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        IProjectAccessService access)
     {
         _context = context;
         _healthService = healthService;
         _logger = logger;
         _tenantProvider = tenantProvider;
+        _access = access;
     }
 
     // ─── Portfolio Dashboard ──────────────────────────────────
@@ -270,12 +273,8 @@ public class ProjectDAL : IProjectDAL
             if (project == null)
                 return ServiceResult<ProjectDto>.Failure(new NotFoundException("Project not found"));
 
-            // Authorization: investor or assigned PM. Sub-projects inherit
-            // the parent's auth — match against either.
-            var ownerId = project.ParentProject?.InvestorId ?? project.InvestorId;
-            var pmId = project.ParentProject?.ProjectManagerId ?? project.ProjectManagerId;
-            if (ownerId != userId && pmId != userId &&
-                project.InvestorId != userId && project.ProjectManagerId != userId)
+            // Owner, manager, or an active member. Sub-projects inherit the parent's.
+            if (!await _access.CanReadAsync(project, userId))
                 return ServiceResult<ProjectDto>.Failure(new ForbiddenException("Access denied"));
 
             var totalFunded = project.FundingEntries
@@ -444,10 +443,19 @@ public class ProjectDAL : IProjectDAL
     {
         try
         {
+            // Same visibility rule as the dashboard: owner, manager, parent's
+            // owner/manager, or an active member. Search must not show less
+            // than the dashboard already shows.
             var query = _context.tbl_Projects_RS
                 .Include(p => p.Stages)
                 .Include(p => p.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
-                .Where(p => p.InvestorId == userId || p.ProjectManagerId == userId)
+                .Where(p =>
+                    p.InvestorId == userId
+                    || p.ProjectManagerId == userId
+                    || (p.ParentProject != null
+                        && (p.ParentProject.InvestorId == userId || p.ParentProject.ProjectManagerId == userId))
+                    || _context.tbl_ProjectMembers.Any(m =>
+                        m.ProjectId == p.Id && m.UserId == userId && m.IsActive))
                 .AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(keywords))
@@ -551,13 +559,14 @@ public class ProjectDAL : IProjectDAL
         try
         {
             var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == projectId);
 
             if (project == null)
                 return ServiceResult<List<TimelineEntryDto>>.Failure(new NotFoundException("Project not found"));
 
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            if (!await _access.CanReadAsync(project, userId))
                 return ServiceResult<List<TimelineEntryDto>>.Failure(new ForbiddenException("Access denied"));
 
             var stages = await _context.tbl_Stages
@@ -606,13 +615,14 @@ public class ProjectDAL : IProjectDAL
         try
         {
             var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == projectId);
 
             if (project == null)
                 return ServiceResult<ProjectAnalyticsDto>.Failure(new NotFoundException("Project not found"));
 
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            if (!await _access.CanReadAsync(project, userId))
                 return ServiceResult<ProjectAnalyticsDto>.Failure(new ForbiddenException("Access denied"));
 
             var oneWeekAgo = DateTime.UtcNow.AddDays(-7);

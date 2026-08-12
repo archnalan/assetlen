@@ -56,8 +56,23 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             <span>Portfolio</span>
         </a>
-        <a href="/project/create" class="project-bottomnav-item project-bottomnav-add">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        @*
+            Context-aware primary action. Inside a project the centre button
+            captures — the thing that happens many times a day, and the clerk of
+            works' only route in. Outside it, it creates a project. Capture must
+            never be more than one tap from the project you are looking at.
+        *@
+        <a href="@PrimaryActionHref" class="project-bottomnav-item project-bottomnav-add"
+           aria-label="@(CurrentProjectId is null ? "New project" : "Capture entry")"
+           title="@(CurrentProjectId is null ? "New project" : "Capture entry")">
+            @if (CurrentProjectId is null)
+            {
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            }
+            else
+            {
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            }
         </a>
         <a href="/pm" class="project-bottomnav-item @(IsActive("/pm") ? "active" : "")">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
@@ -72,11 +87,36 @@
 @code {
     private bool showProfileMenu = false;
 
+    protected override void OnInitialized() =>
+        Nav.LocationChanged += (_, _) => InvokeAsync(StateHasChanged);
+
     private bool IsActive(string path)
     {
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
         return uri.AbsolutePath.StartsWith(path, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// The project id from the current route, or null when we aren't inside one.
+    /// Routes are all of the form /project/{id}/...
+    /// </summary>
+    private string? CurrentProjectId
+    {
+        get
+        {
+            var segments = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath
+                .Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            if (segments.Length < 2 || !segments[0].Equals("project", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            // /project/create is the create flow, not a project id.
+            return segments[1].Equals("create", StringComparison.OrdinalIgnoreCase) ? null : segments[1];
+        }
+    }
+
+    private string PrimaryActionHref =>
+        CurrentProjectId is { } id ? $"/project/{id}/progress/add" : "/project/create";
 
     private string GetInitials()
     {

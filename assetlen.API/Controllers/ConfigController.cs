@@ -119,15 +119,6 @@ namespace assetlen.API.Controllers
 
 
 
-        [HttpDelete]
-        public async Task<ActionResult> ResetDataBaseTransactions()
-        {
-            var result = await _configDAL.ResetDataBaseTransactions();
-
-            if (result.IsSuccess) return Ok(result.Data);
-            return StatusCode(result.StatusCode, result.Error);
-        }
-
         [HttpPut]
         public async Task<ActionResult> UpdateDatabaseSchemaWithScript(string scriptFileName)
         {

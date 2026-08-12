@@ -13,11 +13,13 @@ public class StageDAL : IStageDAL
 {
     private readonly AssetlenDbContext _context;
     private readonly ILogger<StageDAL> _logger;
+    private readonly IProjectAccessService _access;
 
-    public StageDAL(AssetlenDbContext context, ILogger<StageDAL> logger)
+    public StageDAL(AssetlenDbContext context, ILogger<StageDAL> logger, IProjectAccessService access)
     {
         _context = context;
         _logger = logger;
+        _access = access;
     }
 
     public async Task<ServiceResult<StageDto>> CreateStage(string projectId, StageCreateDto dto, string userId)
@@ -133,13 +135,15 @@ public class StageDAL : IStageDAL
         try
         {
             var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == projectId);
 
             if (project == null)
                 return ServiceResult<List<StageDto>>.Failure(new NotFoundException("Project not found"));
 
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            // The clerk needs the stage list to have something to capture against.
+            if (!await _access.CanReadAsync(project, userId))
                 return ServiceResult<List<StageDto>>.Failure(new ForbiddenException("Access denied"));
 
             var stages = await _context.tbl_Stages
@@ -190,6 +194,7 @@ public class StageDAL : IStageDAL
         {
             var stage = await _context.tbl_Stages
                 .Include(s => s.Project)
+                    .ThenInclude(p => p!.ParentProject)
                 .Include(s => s.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == stageId);
@@ -197,7 +202,7 @@ public class StageDAL : IStageDAL
             if (stage == null)
                 return ServiceResult<StageDto>.Failure(new NotFoundException("Stage not found"));
 
-            if (stage.Project?.InvestorId != userId && stage.Project?.ProjectManagerId != userId)
+            if (!await _access.CanReadAsync(stage.Project, userId))
                 return ServiceResult<StageDto>.Failure(new ForbiddenException("Access denied"));
 
             var funded = stage.FundingEntries.Sum(f => f.Amount);

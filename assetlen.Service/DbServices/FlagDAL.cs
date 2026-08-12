@@ -14,12 +14,14 @@ public class FlagDAL : IFlagDAL
     private readonly AssetlenDbContext _context;
     private readonly ILogger<FlagDAL> _logger;
     private readonly ITenantProvider _tenant;
+    private readonly IProjectAccessService _access;
 
-    public FlagDAL(AssetlenDbContext context, ILogger<FlagDAL> logger, ITenantProvider tenant)
+    public FlagDAL(AssetlenDbContext context, ILogger<FlagDAL> logger, ITenantProvider tenant, IProjectAccessService access)
     {
         _context = context;
         _logger = logger;
         _tenant = tenant;
+        _access = access;
     }
 
     public async Task<ServiceResult<FlagDto>> AddFlag(FlagCreateDto dto, string actingUserId)
@@ -34,7 +36,7 @@ public class FlagDAL : IFlagDAL
             var project = await LoadProjectWithParent(dto.ProjectId);
             if (project is null)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Project not found."));
-            if (!IsProjectStakeholder(project, actingUserId))
+            if (!await _access.CanReadAsync(project, actingUserId))
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
 
             var flag = new tbl_Flag
@@ -72,7 +74,7 @@ public class FlagDAL : IFlagDAL
             var flag = await LoadFlagWithIncludes(flagId);
             if (flag is null)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
-            if (!IsProjectStakeholder(flag.Project, actingUserId))
+            if (!await _access.CanReadAsync(flag.Project, actingUserId))
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
             if (_tenant.IsExternal() && flag.Channel != Channel.Client)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
@@ -92,7 +94,7 @@ public class FlagDAL : IFlagDAL
             var project = await LoadProjectWithParent(projectId);
             if (project is null)
                 return ServiceResult<List<FlagDto>>.Failure(new NotFoundException("Project not found."));
-            if (!IsProjectStakeholder(project, actingUserId))
+            if (!await _access.CanReadAsync(project, actingUserId))
                 return ServiceResult<List<FlagDto>>.Failure(new ForbiddenException("Access denied."));
 
             var query = _context.tbl_Flags
@@ -136,7 +138,7 @@ public class FlagDAL : IFlagDAL
                 .FirstOrDefaultAsync(u => u.Id == progressUpdateId);
             if (update is null)
                 return ServiceResult<List<FlagDto>>.Failure(new NotFoundException("Entry not found."));
-            if (!IsProjectStakeholder(update.Project, actingUserId))
+            if (!await _access.CanReadAsync(update.Project, actingUserId))
                 return ServiceResult<List<FlagDto>>.Failure(new ForbiddenException("Access denied."));
 
             var entryQuery = _context.tbl_Flags
@@ -178,7 +180,7 @@ public class FlagDAL : IFlagDAL
                 .FirstOrDefaultAsync(f => f.Id == dto.Id);
             if (flag is null)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
-            if (!IsProjectStakeholder(flag.Project, actingUserId))
+            if (!await _access.CanReadAsync(flag.Project, actingUserId))
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
 
             if (!string.IsNullOrWhiteSpace(dto.Title)) flag.Title = dto.Title;
@@ -227,7 +229,7 @@ public class FlagDAL : IFlagDAL
                 .FirstOrDefaultAsync(f => f.Id == flagId);
             if (flag is null)
                 return ServiceResult<FlagDto>.Failure(new NotFoundException("Flag not found."));
-            if (!IsProjectStakeholder(flag.Project, actingUserId))
+            if (!await _access.CanReadAsync(flag.Project, actingUserId))
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
             if (flag.Status == FlagStatus.Resolved || flag.Status == FlagStatus.Archived)
                 return ServiceResult<FlagDto>.Failure(new BadRequestException("Cannot nudge a closed flag."));
@@ -260,15 +262,6 @@ public class FlagDAL : IFlagDAL
             .Include(f => f.ResolvedBy)
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == flagId);
-
-    private static bool IsProjectStakeholder(tbl_Project? project, string userId)
-    {
-        if (project is null) return false;
-        var ownerId = project.ParentProject?.InvestorId ?? project.InvestorId;
-        var pmId = project.ParentProject?.ProjectManagerId ?? project.ProjectManagerId;
-        return ownerId == userId || pmId == userId
-            || project.InvestorId == userId || project.ProjectManagerId == userId;
-    }
 
     private static string? FullName(AppUser? u) =>
         u is null ? null : $"{u.FirstName} {u.LastName}".Trim();

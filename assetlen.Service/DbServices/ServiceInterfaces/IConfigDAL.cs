@@ -11,8 +11,6 @@ namespace assetlen.Service.DbServices.ServiceInterfaces
 		Task<ServiceResult<ConfigurationDto>> GetSettingByID(int settingId, bool hideError = false);
 		Task<ServiceResult<ConfigurationDto>> UpdateSettingInDB(ConfigurationDto configDto);
 		Task<ServiceResult<bool>> DeleteSettingFromDB(int id);
-		Task<ServiceResult<bool>> DeleteAllFromSpecifiedTable(string table);
-		Task<ServiceResult<bool>> ResetDataBaseTransactions();
 		Task<ServiceResult<bool>> UpdateDatabaseSchemaWithScript(string scriptFileName);
 		Task<ServiceResult<List<ConfigurationDto>>> CreateConfigSettingsInDB(List<ConfigurationDto> configDtos);
 		Task<ServiceResult<List<ConfigurationDto>>> UpdateConfigSettingsInDB(List<ConfigurationDto> configDtos);

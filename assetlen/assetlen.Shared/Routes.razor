@@ -8,17 +8,27 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>
-                    @{
-                        // _navigationManager.NavigateTo("/login");
-                    }
-                    <p>Redirecting to login...</p>
+                    <div class="route-message">
+                        <h1 class="route-message__title">Sign in to continue</h1>
+                        <p class="route-message__body">
+                            This page belongs to a project. Sign in with the account
+                            that was invited to it.
+                        </p>
+                        <a class="route-message__action" href="/login">Go to sign in</a>
+                    </div>
                 </NotAuthorized>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="routeData" Selector="h1" />
         </Found>
         <NotFound>
             <LayoutView Layout="@typeof(Layout.MainLayout)">
-                <p>Sorry, there's nothing at this address.</p>
+                <div class="route-message">
+                    <h1 class="route-message__title">Nothing at this address</h1>
+                    <p class="route-message__body">
+                        The link may be out of date, or the project may have been renamed.
+                    </p>
+                    <a class="route-message__action" href="/portfolio">Back to your projects</a>
+                </div>
             </LayoutView>
         </NotFound>
     </Router>

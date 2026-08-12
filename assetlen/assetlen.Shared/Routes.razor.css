@@ -1,0 +1,58 @@
+/* Shown for 404 and for an unauthenticated hit on a protected route.
+   Both are dead ends, so both get the same shape: say what happened, then
+   offer the one link that is almost certainly wanted. */
+
+.route-message {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: var(--al-space-7) var(--al-space-4);
+}
+
+.route-message__title {
+    margin: 0;
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-xl);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--al-text);
+}
+
+.route-message__body {
+    margin: 0;
+    font-size: var(--al-font-size-base);
+    line-height: 1.6;
+    color: var(--al-text-muted);
+}
+
+.route-message__action {
+    margin-top: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-4);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-pill);
+    background: var(--al-surface);
+    color: var(--al-text);
+    font-size: var(--al-font-size-sm);
+    font-weight: 500;
+    text-decoration: none;
+    transition: background var(--al-transition-fast) var(--al-ease),
+                border-color var(--al-transition-fast) var(--al-ease);
+}
+
+.route-message__action:hover {
+    background: var(--al-surface-2);
+    border-color: var(--al-accent);
+}
+
+@media (min-width: 768px) {
+    .route-message {
+        padding: var(--al-space-8) var(--al-space-6);
+    }
+
+    .route-message__title {
+        font-size: var(--al-font-size-2xl);
+    }
+}

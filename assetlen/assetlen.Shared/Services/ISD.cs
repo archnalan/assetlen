@@ -22,14 +22,7 @@ namespace assetlen.Shared.Services
         void RemoveUser();
         void setColor(string colorHarshCode);
         void setMode(string themeMode);
-        void ResetPayments();
 
-        ShiftsDto CurrentShift { get; set; }
         Module CurrentModule { get; set; }
-        List<PaymentModeDto> paymentModeDtos { get; set; }
-        bool isExpensePayment { get; set; }
-        bool isCustomerDeposit { get; set; }
-        ExpenseDto? ExpenseRequest { get; set; }
-        CustomerDepositDto? CustomerDepositRequest { get; set; }
     }
 }

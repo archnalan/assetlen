@@ -1,4 +1,5 @@
-﻿using Google.Apis.Services;
+﻿using assetlen.Service.Extensions;
+using Google.Apis.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -318,7 +319,8 @@ namespace assetlen.Service.DbServices
                         var newUser = new AppUser()
                         {
                             Email = objFromGoogle.Email,
-                            UserName = objFromGoogle.Name.ToLower().Replace(" ", "") + "-" + Guid.NewGuid().ToString().Substring(1, 3),
+                            UserName = await UserNameAllocator.ResolveUserNameAsync(
+                                _userManager, objFromGoogle.Name.ToLower().Replace(" ", "")),
                             FirstName = objFromGoogle.Name.Split(" ").FirstOrDefault(),
                             LastName = objFromGoogle.Name.Split(" ")?[1],
                             EmailConfirmed = objFromGoogle.EmailVerified,
@@ -1340,7 +1342,7 @@ namespace assetlen.Service.DbServices
                             tenanData = newTenant.Entity;
 
                             // add sync Data
-                            await DatabaseSeeder.SeedSegmentsSupplierCategoriesTaxAsync(_context, _logger, seedData);
+                            await DatabaseSeeder.SeedTenantSettingsAsync(_context, _logger, seedData);
                             scope.Commit();
 
                         }

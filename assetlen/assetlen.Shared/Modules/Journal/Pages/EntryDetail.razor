@@ -97,9 +97,12 @@ else
             </div>
         }
 
-        @if (entry.Images?.Any() == true)
+        @if (entry.Images?.Any() == true || entry.ImageCount > 0)
         {
-            <EntryPhotoPanel Images="entry.Images" />
+            <EntryPhotoPanel Images="entry.Images"
+                             TotalCount="entry.ImageCount"
+                             CanExpose="@(standing?.CanExposeToClient ?? false)"
+                             OnChanged="@(u => entry = u)" />
         }
 
         <section class="entry-detail__flags">
@@ -194,12 +197,31 @@ else
     private string? commentError;
     private string? projectName;
 
+    /// <summary>Per-project standing — decides whether the curation controls exist.</summary>
+    private ProjectAccessDto? standing;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadEntry();
+        await LoadStanding();
         await LoadProjectName();
         await LoadFlags();
         await ConnectStream();
+    }
+
+    private async Task LoadStanding()
+    {
+        try
+        {
+            var resp = await _projectMembersApi.GetMyStanding(ProjectId);
+            if (resp.IsSuccessStatusCode) standing = resp.Content;
+        }
+        catch (Exception ex)
+        {
+            // Fail closed: no standing means no curation controls, which is the
+            // safe direction — the server would reject the call regardless.
+            Logger.LogWarning(ex, "Could not resolve standing on {ProjectId}", ProjectId);
+        }
     }
 
     private async Task ConnectStream()

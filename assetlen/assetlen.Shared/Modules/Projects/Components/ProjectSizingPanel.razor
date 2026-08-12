@@ -1,0 +1,308 @@
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@inject ILogger<ProjectSizingPanel> Logger
+
+@*
+    Size and billing tier.
+
+    Assetlen bills per project by floor area, never per seat — adding the
+    plumber must never cost anything, or the roster stops being honest. Two
+    rules from assetlen.md §10.3 are visible here rather than buried: a tier
+    can only rise when a person says yes, and sub-projects roll up into the
+    parent rather than billing separately.
+*@
+
+<section class="sizing">
+    <header class="sizing__head">
+        <div>
+            <h3 class="sizing__title">Size &amp; billing</h3>
+            <p class="sizing__sub">Billed per project by floor area. Team size never changes the price.</p>
+        </div>
+        @if (!loading && sizing is not null)
+        {
+            <span class="sizing__tier sizing__tier--@sizing.Tier.ToString().ToLowerInvariant()">
+                @sizing.Tier
+            </span>
+        }
+    </header>
+
+    @if (loading)
+    {
+        <div class="al-shimmer sizing__ghost"></div>
+    }
+    else if (loadError)
+    {
+        <div class="sizing__error" role="alert">
+            Could not load sizing.
+            <button type="button" class="sizing__ghost-btn" @onclick="Load">Try again</button>
+        </div>
+    }
+    else if (sizing is not null)
+    {
+        @* A pending increase is the one thing on this panel that needs an
+           answer, so it sits above the numbers and cannot be scrolled past. *@
+        @if (sizing.RequiresConfirmation)
+        {
+            <div class="sizing__pending" role="alert">
+                <div>
+                    <strong>This project has outgrown its tier.</strong>
+                    <p>
+                        The measured area puts it in <b>@sizing.PendingTier</b> (@sizing.PendingBand).
+                        It is still billing at <b>@sizing.Tier</b> and will not move until you accept.
+                    </p>
+                </div>
+                @if (CanManage)
+                {
+                    <button type="button" class="sizing__primary" @onclick="Confirm" disabled="@saving">
+                        @(saving ? "Applying…" : $"Accept {sizing.PendingTier}")
+                    </button>
+                }
+                else
+                {
+                    <span class="sizing__note">Only the project owner can accept this.</span>
+                }
+            </div>
+        }
+
+        <dl class="sizing__facts">
+            <div class="sizing__fact">
+                <dt>Billing band</dt>
+                <dd class="al-num">@(sizing.Band ?? "—")</dd>
+            </div>
+            <div class="sizing__fact">
+                <dt>Total area</dt>
+                <dd class="al-num">@FormatArea(sizing.TotalAreaSqm)</dd>
+            </div>
+            <div class="sizing__fact">
+                <dt>Source</dt>
+                <dd>@SourceLabel(sizing.Source)</dd>
+            </div>
+        </dl>
+
+        @if (sizing.BillableProjectId is not null && sizing.BillableProjectId != ProjectId)
+        {
+            <p class="sizing__rollup-note">
+                This is a sub-project. It bills through its parent — one engagement, one invoice.
+            </p>
+        }
+
+        @if (sizing.Contributions.Count > 1)
+        {
+            <div class="sizing__breakdown">
+                <h4 class="sizing__breakdown-title">Area roll-up</h4>
+                <ul class="sizing__breakdown-list">
+                    @foreach (var c in sizing.Contributions)
+                    {
+                        <li class="sizing__breakdown-row">
+                            <span class="sizing__breakdown-name">
+                                @c.ProjectName
+                                @if (c.IsParent)
+                                {
+                                    <span class="al-badge al-badge--neutral">Parent</span>
+                                }
+                            </span>
+                            <span class="al-num sizing__breakdown-area">@FormatArea(c.AreaSqm)</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (CanManage)
+        {
+            <div class="sizing__editor">
+                <label class="sizing__label" for="sizing-area">
+                    Gross internal floor area for this project
+                </label>
+                <div class="sizing__input-row">
+                    <div class="sizing__input-wrap">
+                        <input id="sizing-area" class="sizing__input al-num" type="number"
+                               min="0" step="1" inputmode="decimal" placeholder="0"
+                               @bind="areaInput" @bind:event="oninput" />
+                        <span class="sizing__unit">m²</span>
+                    </div>
+                    <button type="button" class="sizing__secondary" @onclick="SaveArea" disabled="@(saving || !Dirty)">
+                        @(saving ? "Saving…" : "Save area")
+                    </button>
+                </div>
+
+                @* Predict the consequence before the click, so the confirmation
+                   step is never a surprise. *@
+                @if (Dirty && PreviewTier is { } preview)
+                {
+                    <p class="sizing__preview @(preview > sizing.Tier ? "is-up" : "")">
+                        @if (preview > sizing.Tier)
+                        {
+                            <text>That would put this project in <b>@preview</b> — you will be asked to confirm before the bill changes.</text>
+                        }
+                        else if (preview < sizing.Tier)
+                        {
+                            <text>That moves this project down to <b>@preview</b>, applied straight away.</text>
+                        }
+                        else
+                        {
+                            <text>Stays in <b>@preview</b>.</text>
+                        }
+                    </p>
+                }
+
+                <p class="sizing__hint">
+                    Leave blank if you do not know it yet — an undeclared project bills at Small.
+                </p>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="sizing__error" role="alert">@error</div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>Owner or manager. Server re-checks; this only decides what is drawn.</summary>
+    [Parameter] public bool CanManage { get; set; }
+
+    /// <summary>Raised when the tier changes, so a parent header can restate it.</summary>
+    [Parameter] public EventCallback<ProjectSizingDto> OnChanged { get; set; }
+
+    private ProjectSizingDto? sizing;
+    private bool loading = true, loadError, saving;
+    private string? error;
+    private decimal? areaInput;
+    private decimal? loadedArea;
+
+    private bool Dirty => areaInput != loadedArea;
+
+    /// <summary>
+    /// Mirrors <c>ProjectSizingPolicy</c>, which is shared, so the preview and
+    /// the server agree by construction rather than by coincidence. Uses the
+    /// roll-up total minus this project's old area plus the typed one.
+    /// </summary>
+    private ProjectSizeTier? PreviewTier
+    {
+        get
+        {
+            if (sizing is null) return null;
+            var others = (sizing.TotalAreaSqm ?? 0) - (loadedArea ?? 0);
+            return ProjectSizingPolicy.TierFor(others + (areaInput ?? 0));
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        loadError = false;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectsRSApi.GetProjectSizing(ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                Adopt(resp.Content);
+            }
+            else
+            {
+                loadError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading sizing for {ProjectId}", ProjectId);
+            loadError = true;
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Adopt(ProjectSizingDto dto)
+    {
+        sizing = dto;
+        loadedArea = dto.OwnAreaSqm;
+        areaInput = dto.OwnAreaSqm;
+    }
+
+    private async Task SaveArea()
+    {
+        saving = true;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectsRSApi.SetProjectArea(new ProjectAreaUpdateDto
+            {
+                ProjectId = ProjectId,
+                FloorAreaSqm = areaInput,
+                Source = ProjectSizeSource.Declared
+            });
+
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                Adopt(resp.Content);
+                await OnChanged.InvokeAsync(resp.Content);
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not save the area.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving area for {ProjectId}", ProjectId);
+            error = "Could not save the area.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Confirm()
+    {
+        saving = true;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectsRSApi.ConfirmProjectTier(ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                Adopt(resp.Content);
+                await OnChanged.InvokeAsync(resp.Content);
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not apply the new tier.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error confirming tier for {ProjectId}", ProjectId);
+            error = "Could not apply the new tier.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatArea(decimal? sqm) =>
+        sqm is null or <= 0 ? "Not declared" : $"{sqm.Value:N0} m²";
+
+    private static string SourceLabel(ProjectSizeSource source) => source switch
+    {
+        ProjectSizeSource.Declared => "Declared by the project owner",
+        ProjectSizeSource.DerivedFromDrawing => "Read from the drawings",
+        ProjectSizeSource.Manual => "Set manually",
+        _ => "Not declared"
+    };
+}

@@ -168,17 +168,24 @@ public class ProjectDAL : IProjectDAL
         try
         {
             // One-level nesting: a Sub-project's parent must itself be a root project.
+            string? ownerTenantId = null;
             if (!string.IsNullOrEmpty(dto.ParentProjectId))
             {
                 var parent = await _context.tbl_Projects_RS
                     .Where(p => p.Id == dto.ParentProjectId)
-                    .Select(p => new { p.Id, p.ParentProjectId })
+                    .Select(p => new { p.Id, p.ParentProjectId, p.OwnerTenantId })
                     .FirstOrDefaultAsync();
                 if (parent is null)
                     return ServiceResult<ProjectDto>.Failure(new NotFoundException("Parent project not found."));
                 if (!string.IsNullOrEmpty(parent.ParentProjectId))
                     return ServiceResult<ProjectDto>.Failure(new BadRequestException(
                         "Sub-projects cannot be nested. The selected parent is already a Sub-project."));
+
+                // A guest wing belongs to whoever owns the house, not to the
+                // contractor who happened to add it. It also bills through the
+                // parent, so a differing owner here would split one engagement
+                // across two accounts.
+                ownerTenantId = parent.OwnerTenantId;
             }
 
             // Sub-projects don't get a separate free-quota slot — they share their parent's subscription.
@@ -199,6 +206,9 @@ public class ProjectDAL : IProjectDAL
                 InvestorId = investorId,
                 ProjectManagerId = dto.ProjectManagerId,
                 ParentProjectId = dto.ParentProjectId,
+                // Null on a root project: the DbContext stamps the creating
+                // account. A sub-project inherits its parent's owner.
+                OwnerTenantId = ownerTenantId,
                 Currency = dto.Currency,
                 IsFirstFreeProject = isFirstFree,
                 IsSubscriptionActive = isFirstFree || isSubProject,
@@ -207,6 +217,51 @@ public class ProjectDAL : IProjectDAL
 
             _context.tbl_Projects_RS.Add(project);
             await _context.SaveChangesAsync();
+
+            // Seat the creator. A root project must never exist without a
+            // mediator: the mediator is the only person who can expose Site Log
+            // material to the client side, so a project with none would leave
+            // the client silently dark. The developer holds the seat until they
+            // delegate it — assetlen.md D5, "Peter appoints the mediator".
+            //
+            // Sub-projects are deliberately not seated: ProjectAccessService
+            // resolves membership parent-aware, so a second row would be a
+            // duplicate that can drift out of step with the parent's roster.
+            if (!isSubProject)
+            {
+                _context.tbl_ProjectMembers.Add(new tbl_ProjectMember
+                {
+                    ProjectId = project.Id,
+                    UserId = investorId,
+                    Specialization = ProjectMemberSpecialization.ClientOwner,
+                    Side = ProjectSide.Client,
+                    IsMediator = true,
+                    IsActive = true,
+                    JoinedAt = DateTime.UtcNow,
+                    AssignedById = investorId
+                });
+
+                // A project manager named at creation joins the delivery side
+                // but does NOT get the mediator seat. Appointing a mediator is
+                // a deliberate act with one accountable name on it (§10.1); it
+                // should not happen as a side effect of filling in a field.
+                if (!string.IsNullOrEmpty(dto.ProjectManagerId) && dto.ProjectManagerId != investorId)
+                {
+                    _context.tbl_ProjectMembers.Add(new tbl_ProjectMember
+                    {
+                        ProjectId = project.Id,
+                        UserId = dto.ProjectManagerId,
+                        Specialization = ProjectMemberSpecialization.Lead,
+                        Side = ProjectSide.Contractor,
+                        IsMediator = false,
+                        IsActive = true,
+                        JoinedAt = DateTime.UtcNow,
+                        AssignedById = investorId
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+            }
 
             // Create stages if provided
             if (dto.Stages?.Any() == true)

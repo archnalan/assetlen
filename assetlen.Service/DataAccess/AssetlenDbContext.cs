@@ -492,11 +492,24 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
                     entity.Property("LastModifiedBy").CurrentValue = _tenantProvider.GetUserId();
                 }
 
+                // A new project records its owning account explicitly. Every row
+                // that later hangs off this project reads OwnerTenantId back
+                // through ResolveOwningTenantId, so a null here would silently
+                // send those rows to whichever tenant happened to write them —
+                // the exact failure the resolver exists to prevent. ProjectDAL
+                // sets it (a sub-project inherits its parent's owner); this is
+                // the backstop for every other insertion path.
+                if (entity.Entity is tbl_Project newProject
+                    && string.IsNullOrEmpty(newProject.OwnerTenantId))
+                {
+                    newProject.OwnerTenantId = _tenantProvider.GetTenantId();
+                }
+
                 // Set TenantId if exists, is string, and is null.
                 //
                 // Project-scoped rows are stamped with the PROJECT'S OWNER, not
                 // with whoever is writing. Peter owns the project (assetlen.md D1)
-                // and contractors are guests in it � once one human can belong to
+                // and contractors are guests in it — once one human can belong to
                 // several accounts, stamping from the writer's claim would put a
                 // guest's comment in the guest's own tenant, where the global
                 // filter hides it from the owner. The row would simply vanish.
@@ -550,7 +563,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
                 //
                 // Project-scoped rows are stamped with the PROJECT'S OWNER, not
                 // with whoever is writing. Peter owns the project (assetlen.md D1)
-                // and contractors are guests in it � once one human can belong to
+                // and contractors are guests in it — once one human can belong to
                 // several accounts, stamping from the writer's claim would put a
                 // guest's comment in the guest's own tenant, where the global
                 // filter hides it from the owner. The row would simply vanish.

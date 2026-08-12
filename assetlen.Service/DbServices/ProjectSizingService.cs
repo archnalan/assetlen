@@ -40,7 +40,13 @@ public class ProjectSizingService : IProjectSizingService
             if (!await _access.CanReadAsync(project, userId, ct))
                 return Fail(new ForbiddenException("Access denied."));
 
-            return ServiceResult<ProjectSizingDto>.Success(await BuildAsync(project, ct));
+            // Resolve to the billing project first. Reading a guest wing must
+            // report the parent's tier and the whole roll-up — it is one
+            // engagement, and answering from the sub-project alone showed a
+            // 140 m² wing billing as its own Small project.
+            var billable = await BillableParentAsync(project, ct);
+            return ServiceResult<ProjectSizingDto>.Success(
+                await BuildAsync(billable, ct, subject: project));
         }
         catch (Exception ex)
         {
@@ -80,7 +86,7 @@ public class ProjectSizingService : IProjectSizingService
             var billable = await ApplyTierAsync(project, ct);
             await _context.SaveChangesAsync(ct);
 
-            return ServiceResult<ProjectSizingDto>.Success(await BuildAsync(billable, ct, subjectId: project.Id));
+            return ServiceResult<ProjectSizingDto>.Success(await BuildAsync(billable, ct, subject: project));
         }
         catch (Exception ex)
         {
@@ -139,7 +145,7 @@ public class ProjectSizingService : IProjectSizingService
             var billable = await ApplyTierAsync(project, ct);
             await _context.SaveChangesAsync(ct);
 
-            return ServiceResult<ProjectSizingDto>.Success(await BuildAsync(billable, ct, subjectId: project.Id));
+            return ServiceResult<ProjectSizingDto>.Success(await BuildAsync(billable, ct, subject: project));
         }
         catch (Exception ex)
         {
@@ -205,7 +211,15 @@ public class ProjectSizingService : IProjectSizingService
         return total <= 0 ? null : total;
     }
 
-    private async Task<ProjectSizingDto> BuildAsync(tbl_Project billable, CancellationToken ct, string? subjectId = null)
+    /// <param name="billable">The project that bills — the top-level parent.</param>
+    /// <param name="subject">
+    /// The project actually being viewed, when that is a sub-project. Its own
+    /// area is what an editor may change, so <c>OwnAreaSqm</c> must describe the
+    /// subject and never the parent; reporting the parent's figure would show
+    /// the guest wing's editor the house's area and invite them to overwrite it.
+    /// </param>
+    private async Task<ProjectSizingDto> BuildAsync(
+        tbl_Project billable, CancellationToken ct, tbl_Project? subject = null)
     {
         var total = await TotalAreaAsync(billable, ct);
         var measured = ProjectSizingPolicy.TierFor(total);
@@ -233,9 +247,9 @@ public class ProjectSizingService : IProjectSizingService
 
         return new ProjectSizingDto
         {
-            ProjectId = subjectId ?? billable.Id,
+            ProjectId = subject?.Id ?? billable.Id,
             BillableProjectId = billable.Id,
-            OwnAreaSqm = billable.FloorAreaSqm,
+            OwnAreaSqm = (subject ?? billable).FloorAreaSqm,
             TotalAreaSqm = total,
             Tier = billable.SizeTier,
             Source = billable.SizeSource,

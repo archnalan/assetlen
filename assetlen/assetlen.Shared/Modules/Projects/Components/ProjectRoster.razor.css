@@ -1,0 +1,450 @@
+/* ProjectRoster — the two-sided membership screen.
+   Every colour, radius and duration comes from a token, so light and dark
+   follow the theme with no per-mode rules of their own. */
+
+.roster {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-5);
+}
+
+/* ── The mediator seat ───────────────────────────────────────────────
+   Deliberately the first and heaviest block on the page: it is the one
+   fact a reader must not have to hunt for. */
+
+.roster__seat {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-left: 3px solid var(--al-accent);
+    border-radius: var(--al-radius);
+    padding: var(--al-space-4);
+}
+
+.roster__seat-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    margin-bottom: var(--al-space-3);
+}
+
+.roster__seat-title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+    margin: 0;
+}
+
+.roster__seat-sub {
+    margin: var(--al-space-1) 0 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    max-width: 46ch;
+}
+
+.roster__seat-ghost {
+    height: 64px;
+    border-radius: var(--al-radius-sm);
+}
+
+.roster__seat-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.roster__seat-card {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3);
+    background: var(--al-accent-soft);
+    border-radius: var(--al-radius-sm);
+}
+
+.roster__seat-identity { flex: 1 1 auto; min-width: 0; }
+
+/* An absent mediator is not a neutral empty state — it means the client
+   side has gone dark, so it reads as an alarm. */
+.roster__alarm {
+    padding: var(--al-space-3);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+    font-size: var(--al-font-size-sm);
+}
+
+.roster__alarm strong { display: block; }
+
+/* ── Add ─────────────────────────────────────────────────────────── */
+
+.roster__add-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3) var(--al-space-4);
+    width: 100%;
+    justify-content: center;
+    background: transparent;
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius);
+    color: var(--al-text-muted);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    cursor: pointer;
+    transition: border-color var(--al-transition), color var(--al-transition);
+}
+
+.roster__add-trigger:hover {
+    border-color: var(--al-accent);
+    color: var(--al-accent);
+}
+
+.roster__form {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    padding: var(--al-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.roster__form-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--al-space-1);
+}
+
+.roster__form-title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-base);
+    margin: 0;
+}
+
+.roster__form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--al-space-3);
+}
+
+.roster__seg {
+    display: inline-flex;
+    padding: 2px;
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-pill);
+    align-self: flex-start;
+    margin-bottom: var(--al-space-1);
+}
+
+.roster__seg-btn {
+    border: 0;
+    background: transparent;
+    padding: var(--al-space-1) var(--al-space-3);
+    border-radius: var(--al-radius-pill);
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text-muted);
+    cursor: pointer;
+    transition: background var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.roster__seg-btn.is-active {
+    background: var(--al-bg-elevated);
+    color: var(--al-text);
+}
+
+.roster__label {
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text-muted);
+}
+
+.roster__optional {
+    font-weight: var(--al-weight-regular);
+    color: var(--al-text-subtle);
+}
+
+.roster__input {
+    width: 100%;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    color: var(--al-text);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    transition: border-color var(--al-transition-fast);
+}
+
+.roster__input:focus-visible {
+    outline: none;
+    border-color: var(--al-accent);
+}
+
+.roster__hint,
+.roster__hint-inline {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    margin: 0;
+}
+
+.roster__hint-inline { font-style: normal; }
+
+.roster__check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+    margin-top: var(--al-space-1);
+    cursor: pointer;
+}
+
+.roster__primary {
+    align-self: flex-start;
+    margin-top: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-5);
+    background: var(--al-accent);
+    color: var(--al-text-inverse);
+    border: 0;
+    border-radius: var(--al-radius-sm);
+    font-family: inherit;
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    cursor: pointer;
+    transition: opacity var(--al-transition-fast);
+}
+
+.roster__primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.roster__primary:hover:not(:disabled) { opacity: 0.9; }
+
+/* ── The two sides ───────────────────────────────────────────────── */
+
+.roster__sides {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--al-space-4);
+}
+
+.roster__side {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    padding: var(--al-space-4);
+    min-width: 0;
+}
+
+/* The two sides are told apart by a hairline of colour, not by a fill —
+   a filled panel would compete with the media the app exists to show. */
+.roster__side[data-side="client"]     { border-top: 2px solid var(--al-blueprint); }
+.roster__side[data-side="contractor"] { border-top: 2px solid var(--al-accent); }
+
+.roster__side-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--al-space-2);
+}
+
+.roster__side-title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-base);
+    margin: 0;
+}
+
+.roster__count {
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-subtle);
+}
+
+.roster__side-blurb {
+    margin: var(--al-space-1) 0 var(--al-space-3);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.roster__side-empty {
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    margin: 0;
+}
+
+.roster__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-1);
+}
+
+.roster__row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3) var(--al-space-2);
+    border-radius: var(--al-radius-sm);
+    border-top: 1px solid var(--al-border);
+    transition: background var(--al-transition-fast);
+}
+
+.roster__row:first-child { border-top: 0; }
+.roster__row:hover { background: var(--al-surface-2); }
+.roster__row.is-mediator { background: var(--al-accent-soft); }
+
+.roster__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--al-radius-pill);
+    display: grid;
+    place-items: center;
+    background: var(--al-surface-2);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+
+.roster__avatar--lg { width: 44px; height: 44px; font-size: var(--al-font-size-sm); }
+
+.roster__avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.roster__avatar[data-side="client"]     { box-shadow: inset 0 0 0 1.5px var(--al-blueprint); }
+.roster__avatar[data-side="contractor"] { box-shadow: inset 0 0 0 1.5px var(--al-accent); }
+
+.roster__identity { min-width: 0; }
+
+.roster__name {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+}
+
+.roster__pill { flex: 0 0 auto; }
+
+.roster__meta,
+.roster__email {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.roster__email { color: var(--al-text-subtle); }
+
+.roster__dot { margin: 0 var(--al-space-1); color: var(--al-text-subtle); }
+
+.roster__actions {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-1);
+    margin-top: var(--al-space-2);
+}
+
+.roster__icon-btn,
+.roster__ghost-btn {
+    background: transparent;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-xs);
+    padding: var(--al-space-1) var(--al-space-2);
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.roster__icon-btn:hover:not(:disabled),
+.roster__ghost-btn:hover:not(:disabled) {
+    border-color: var(--al-border-strong);
+    color: var(--al-text);
+}
+
+.roster__icon-btn--danger:hover:not(:disabled) {
+    border-color: var(--al-danger);
+    color: var(--al-danger);
+}
+
+.roster__icon-btn:disabled,
+.roster__ghost-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.roster__row-ghost {
+    height: 56px;
+    border-radius: var(--al-radius-sm);
+    margin-bottom: var(--al-space-2);
+}
+
+/* ── Former members ─────────────────────────────────────────────── */
+
+.roster__former-toggle {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.roster__former-list {
+    list-style: none;
+    margin: var(--al-space-3) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.roster__former-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--al-space-2);
+    opacity: 0.65;
+}
+
+.roster__error {
+    margin-top: var(--al-space-3);
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────
+   Below 760px the two columns stack. Their coloured top rules are what
+   keeps the sides distinguishable once they are no longer side by side. */
+
+@media (max-width: 760px) {
+    .roster__sides,
+    .roster__form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .roster__seat-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .roster__actions > * { flex: 1 1 auto; text-align: center; }
+}

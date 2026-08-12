@@ -87,6 +87,12 @@ public interface IProjectMemberDAL
     Task<ServiceResult<ProjectMemberDto>> AddMember(ProjectMemberCreateDto dto, string actingUserId);
     Task<ServiceResult<List<ProjectMemberDto>>> GetMembersByProject(string projectId, string actingUserId);
     Task<ServiceResult<bool>> DeactivateMember(string memberId, string actingUserId);
+
+    /// <summary>Change a member's side, mediator seat, specialization or title.</summary>
+    Task<ServiceResult<ProjectMemberDto>> UpdateMember(ProjectMemberUpdateDto dto, string actingUserId);
+
+    /// <summary>The caller's own standing, so the UI renders the right surface.</summary>
+    Task<ServiceResult<ProjectAccessDto>> GetMyStanding(string projectId, string actingUserId);
 }
 
 public interface IFlagDAL

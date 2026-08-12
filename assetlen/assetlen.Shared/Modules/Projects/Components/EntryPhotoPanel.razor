@@ -1,12 +1,63 @@
 @using assetlen.Shared.Components.Media
+@using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@inject ILogger<EntryPhotoPanel> Logger
+
+@*
+    The frames on one Site Log entry, and — for a mediator — the gesture that
+    puts some of them in front of the client.
+
+    Nalan posts thirteen to eighteen frames in a batch. Forwarding all of them
+    is what WhatsApp already does and is the thing Assetlen exists to replace,
+    so exposure is per frame and defaults to crew-only. The denominator stays
+    visible to the client side on purpose: being told the feed is curated is
+    what makes the curation acceptable.
+*@
 
 @if (Images is { Count: > 0 })
 {
     var ordered = Images.OrderBy(i => i.DisplayOrder).ToList();
     var active = ordered[Math.Clamp(activeIndex, 0, ordered.Count - 1)];
+    var exposedCount = ordered.Count(i => i.Channel == Channel.Client);
 
     <div class="entry-photos">
+
+        @if (CanExpose)
+        {
+            <div class="entry-photos__bar">
+                <span class="entry-photos__tally al-num">
+                    <b>@exposedCount</b> of @ordered.Count shown to the client
+                </span>
+
+                @if (!curating)
+                {
+                    <button type="button" class="entry-photos__bar-btn" @onclick="StartCurating">
+                        Choose what they see
+                    </button>
+                }
+                else
+                {
+                    <div class="entry-photos__bar-actions">
+                        <span class="entry-photos__selected al-num">@selected.Count selected</span>
+                        <button type="button" class="entry-photos__bar-btn"
+                                disabled="@(saving || selected.Count == 0)"
+                                @onclick="() => ApplySelection(Channel.Client)">
+                            Show to client
+                        </button>
+                        <button type="button" class="entry-photos__bar-btn"
+                                disabled="@(saving || selected.Count == 0)"
+                                @onclick="() => ApplySelection(Channel.Crew)">
+                            Withdraw
+                        </button>
+                        <button type="button" class="entry-photos__bar-btn entry-photos__bar-btn--quiet"
+                                disabled="@saving" @onclick="StopCurating">
+                            Done
+                        </button>
+                    </div>
+                }
+            </div>
+        }
+
         <button type="button"
                 class="entry-photos__hero"
                 @onclick="() => OpenLightbox(activeIndex)"
@@ -23,26 +74,60 @@
             {
                 <span class="entry-photos__hero-counter al-num">@(activeIndex + 1) / @ordered.Count</span>
             }
+            @if (CanExpose && active.Channel == Channel.Client)
+            {
+                <span class="entry-photos__hero-state">Client</span>
+            }
         </button>
 
         @if (ordered.Count > 1)
         {
-            <div class="entry-photos__strip" role="tablist">
+            <div class="entry-photos__strip" role="@(curating ? "group" : "tablist")">
                 @for (var i = 0; i < ordered.Count; i++)
                 {
                     var idx = i;
+                    var img = ordered[idx];
+                    var isSelected = selected.Contains(img.Id!);
+                    var isExposed = img.Channel == Channel.Client;
+
                     <button type="button"
-                            role="tab"
-                            class="entry-photos__thumb @(idx == activeIndex ? "is-active" : "")"
-                            aria-selected="@(idx == activeIndex)"
-                            aria-label="@($"Photo {idx + 1}")"
-                            @onclick="() => activeIndex = idx">
-                        <img src="@(ordered[idx].ThumbnailUrl ?? ordered[idx].ImageUrl)"
-                             alt=""
-                             loading="lazy" />
+                            role="@(curating ? "checkbox" : "tab")"
+                            class="entry-photos__thumb @(!curating && idx == activeIndex ? "is-active" : "") @(curating && isSelected ? "is-selected" : "") @(CanExpose && isExposed ? "is-exposed" : "")"
+                            aria-selected="@(curating ? null : (bool?)(idx == activeIndex))"
+                            aria-checked="@(curating ? (bool?)isSelected : null)"
+                            aria-label="@ThumbLabel(idx, isExposed)"
+                            disabled="@saving"
+                            @onclick="() => OnThumbClick(idx, img)">
+                        <img src="@(img.ThumbnailUrl ?? img.ImageUrl)" alt="" loading="lazy" />
+                        @if (curating)
+                        {
+                            <span class="entry-photos__check" aria-hidden="true">
+                                @if (isSelected)
+                                {
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M20 6 9 17l-5-5" />
+                                    </svg>
+                                }
+                            </span>
+                        }
                     </button>
                 }
             </div>
+        }
+
+        @* The denominator. A client-side reader is told the feed is filtered
+           rather than being left to assume it is complete. *@
+        @if (!CanExpose && TotalCount > ordered.Count)
+        {
+            <p class="entry-photos__note">
+                Showing @ordered.Count of @TotalCount frames. The rest is internal site record.
+            </p>
+        }
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="entry-photos__error" role="alert">@error</p>
         }
     </div>
 
@@ -50,16 +135,119 @@
                    StartIndex="lightboxStart"
                    Images="@(ordered.Select(i => new PhotoLightbox.LightboxImage(i.ImageUrl ?? string.Empty, i.Caption)).ToList())" />
 }
+else if (TotalCount > 0)
+{
+    @* Every frame on this entry is crew-only. Saying so beats rendering
+       nothing, which reads as "the contractor posted no photos". *@
+    <p class="entry-photos__note">
+        @TotalCount frame@(TotalCount > 1 ? "s" : "") on this entry, none released to the client side yet.
+    </p>
+}
 
 @code {
     [Parameter, EditorRequired] public List<ProgressImageDto> Images { get; set; } = new();
 
+    /// <summary>
+    /// True total on the entry, including frames this reader cannot see.
+    /// Defaults to the visible count so callers that have not been updated
+    /// simply show no denominator rather than a wrong one.
+    /// </summary>
+    [Parameter] public int TotalCount { get; set; }
+
+    /// <summary>Mediator, owner or manager. The server re-checks every call.</summary>
+    [Parameter] public bool CanExpose { get; set; }
+
+    /// <summary>Fires with the refreshed entry after frames are exposed or withdrawn.</summary>
+    [Parameter] public EventCallback<ProgressUpdateDto> OnChanged { get; set; }
+
     private int activeIndex;
-    private bool lightboxOpen;
+    private bool lightboxOpen, curating, saving;
     private int lightboxStart;
+    private string? error;
+    private readonly HashSet<string> selected = new();
+
+    protected override void OnParametersSet()
+    {
+        if (TotalCount < Images.Count) TotalCount = Images.Count;
+    }
+
+    private void StartCurating()
+    {
+        curating = true;
+        selected.Clear();
+    }
+
+    private void StopCurating()
+    {
+        curating = false;
+        selected.Clear();
+        error = null;
+    }
+
+    private void OnThumbClick(int idx, ProgressImageDto img)
+    {
+        if (!curating)
+        {
+            activeIndex = idx;
+            return;
+        }
+
+        if (string.IsNullOrEmpty(img.Id)) return;
+        if (!selected.Add(img.Id)) selected.Remove(img.Id);
+    }
+
+    private async Task ApplySelection(Channel channel)
+    {
+        if (selected.Count == 0) return;
+        saving = true;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await _progressApi.SetImageChannel(new ProgressImageExposureDto
+            {
+                ImageIds = selected.ToList(),
+                Channel = channel
+            });
+
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                // The server returns the whole entry: exposure changes what the
+                // entry itself reports, so trusting a local patch here would
+                // drift from what any other reader is shown.
+                Images = resp.Content.Images;
+                TotalCount = resp.Content.ImageCount;
+                activeIndex = 0;
+                selected.Clear();
+                await OnChanged.InvokeAsync(resp.Content);
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not change what the client sees.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error changing frame exposure");
+            error = "Could not change what the client sees.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private string ThumbLabel(int idx, bool isExposed)
+    {
+        var n = idx + 1;
+        if (!curating) return $"Photo {n}";
+        return isExposed ? $"Photo {n}, currently shown to the client" : $"Photo {n}, internal only";
+    }
 
     private void OpenLightbox(int from)
     {
+        if (curating) return;
         lightboxStart = from;
         lightboxOpen = true;
     }

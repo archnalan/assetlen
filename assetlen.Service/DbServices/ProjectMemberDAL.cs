@@ -49,10 +49,18 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (project is null)
                 return ServiceResult<ProjectMemberDto>.Failure(new NotFoundException("Project not found."));
 
+            // The side defaults from the specialization but is stored
+            // explicitly — an architect or engineer sits on whichever side
+            // retained them, and that varies per project.
+            var side = dto.Side ?? ProjectSideDefaults.For(dto.Specialization);
+            var isMediator = dto.IsMediator ?? ProjectSideDefaults.MediatesByDefault(dto.Specialization);
+
             // Routed through the single access authority — a private ownership
             // test here is the A1 bug reappearing under a different name.
-            if (!await _access.CanManageAsync(project, actingUserId))
-                return ServiceResult<ProjectMemberDto>.Failure(new ForbiddenException("Only the project owner or manager can add members."));
+            var access = await _access.ResolveAsync(project, actingUserId);
+            var refusal = CheckMayStaff(access, side, isMediator);
+            if (refusal is not null)
+                return ServiceResult<ProjectMemberDto>.Failure(refusal);
 
             AppUser? user = null;
             if (!isUnregisteredParty)
@@ -64,12 +72,6 @@ public class ProjectMemberDAL : IProjectMemberDAL
                 if (user is null)
                     return ServiceResult<ProjectMemberDto>.Failure(new NotFoundException("User not found."));
             }
-
-            // The side defaults from the specialization but is stored
-            // explicitly — an architect or engineer sits on whichever side
-            // retained them, and that varies per project.
-            var side = dto.Side ?? ProjectSideDefaults.For(dto.Specialization);
-            var isMediator = dto.IsMediator ?? ProjectSideDefaults.MediatesByDefault(dto.Specialization);
 
             // Reactivate an existing membership instead of duplicating.
             var existing = user is null
@@ -123,6 +125,39 @@ public class ProjectMemberDAL : IProjectMemberDAL
             _logger.LogError(ex, "Error adding project member");
             return ServiceResult<ProjectMemberDto>.Failure(new ServerErrorException(ex.Message));
         }
+    }
+
+    /// <summary>
+    /// Who may put someone on the roster, and on which side.
+    /// <para>
+    /// Owner and manager may do anything. A <b>mediator may staff their own
+    /// side</b> and only their own side — assetlen.md D5: Peter appoints the
+    /// mediator, the mediator staffs the delivery side. Without this the
+    /// architect could not add his own foreman, and Peter would be back to
+    /// hiring the subcontractors himself, which is the arrangement the product
+    /// exists to end.
+    /// </para>
+    /// <para>
+    /// Appointing another mediator is never delegated. It is the one decision
+    /// that changes whose name is accountable for what crosses (§10.1), and it
+    /// belongs to the person who owns the project.
+    /// </para>
+    /// Returns an exception to fail with, or null when the action is allowed.
+    /// </summary>
+    private static Exception? CheckMayStaff(ProjectAccess access, ProjectSide targetSide, bool appointingMediator)
+    {
+        if (access.CanManage) return null;
+
+        if (!access.IsMediator)
+            return new ForbiddenException("Only the project owner, a manager or a mediator can change the roster.");
+
+        if (appointingMediator)
+            return new ForbiddenException("Only the project owner can appoint a mediator.");
+
+        if (access.Side != targetSide)
+            return new ForbiddenException("A mediator can only staff their own side of the project.");
+
+        return null;
     }
 
     /// <summary>
@@ -196,8 +231,17 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (member is null)
                 return ServiceResult<bool>.Failure(new NotFoundException("Member not found."));
 
-            if (!await _access.CanManageAsync(member.Project, actingUserId))
-                return ServiceResult<bool>.Failure(new ForbiddenException("Only the project owner or manager can remove members."));
+            // A mediator may remove people from their own side — the same
+            // authority that let them add them. Removing a mediator is not
+            // delegated; see CheckMayStaff.
+            var access = await _access.ResolveAsync(member.Project, actingUserId);
+            var refusal = CheckMayStaff(access, member.Side, appointingMediator: false);
+            if (refusal is not null)
+                return ServiceResult<bool>.Failure(refusal);
+
+            if (member.IsMediator && !access.CanManage)
+                return ServiceResult<bool>.Failure(new ForbiddenException(
+                    "Only the project owner can stand a mediator down."));
 
             // Standing down the last mediator would leave nobody able to expose
             // anything, and the client side would silently go dark.
@@ -220,6 +264,107 @@ public class ProjectMemberDAL : IProjectMemberDAL
         {
             _logger.LogError(ex, "Error deactivating project member");
             return ServiceResult<bool>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
+    public async Task<ServiceResult<ProjectMemberDto>> UpdateMember(ProjectMemberUpdateDto dto, string actingUserId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(dto.MemberId))
+                return ServiceResult<ProjectMemberDto>.Failure(new BadRequestException("MemberId is required."));
+
+            var member = await _context.tbl_ProjectMembers
+                .Include(m => m.User)
+                .Include(m => m.AssignedBy)
+                .Include(m => m.Project)
+                    .ThenInclude(p => p!.ParentProject)
+                .FirstOrDefaultAsync(m => m.Id == dto.MemberId);
+            if (member is null)
+                return ServiceResult<ProjectMemberDto>.Failure(new NotFoundException("Member not found."));
+
+            // Both the side they are on now and the side they would land on
+            // must be within the caller's reach — otherwise a mediator could
+            // move one of their own people onto the client side, which is a way
+            // of writing the other party's roster.
+            var access = await _access.ResolveAsync(member.Project, actingUserId);
+            var appointing = dto.IsMediator == true && !member.IsMediator;
+            var refusal = CheckMayStaff(access, member.Side, appointing)
+                       ?? (dto.Side is { } moveTo ? CheckMayStaff(access, moveTo, appointing) : null);
+            if (refusal is not null)
+                return ServiceResult<ProjectMemberDto>.Failure(refusal);
+
+            // Standing a mediator down changes who is accountable, so it stays
+            // with the owner even though the person sits on the caller's side.
+            if (dto.IsMediator == false && member.IsMediator && !access.CanManage)
+                return ServiceResult<ProjectMemberDto>.Failure(new ForbiddenException(
+                    "Only the project owner can stand a mediator down."));
+
+            if (!member.IsActive)
+                return ServiceResult<ProjectMemberDto>.Failure(new BadRequestException(
+                    "This member has been removed from the project. Add them again to change their standing."));
+
+            // Appointing: the cap applies. Standing down: the project must keep
+            // at least one mediator, or nothing can ever be exposed again.
+            if (dto.IsMediator is not null && dto.IsMediator != member.IsMediator)
+            {
+                if (dto.IsMediator == true)
+                {
+                    var capCheck = await CheckMediatorCapAsync(member.ProjectId!, member.Id);
+                    if (capCheck is not null)
+                        return ServiceResult<ProjectMemberDto>.Failure(capCheck);
+                }
+                else
+                {
+                    var remaining = await _context.tbl_ProjectMembers
+                        .CountAsync(m => m.ProjectId == member.ProjectId
+                                      && m.IsMediator && m.IsActive && m.Id != member.Id);
+                    if (remaining == 0)
+                        return ServiceResult<ProjectMemberDto>.Failure(new ConflictException(
+                            "This is the project's only mediator. Appoint another before standing this one down."));
+                }
+
+                member.IsMediator = dto.IsMediator.Value;
+            }
+
+            if (dto.Side is not null) member.Side = dto.Side.Value;
+            if (dto.Specialization is not null) member.Specialization = dto.Specialization.Value;
+            if (dto.Title is not null) member.Title = string.IsNullOrWhiteSpace(dto.Title) ? null : dto.Title.Trim();
+
+            member.AssignedById = actingUserId;
+            await _context.SaveChangesAsync();
+
+            return ServiceResult<ProjectMemberDto>.Success(ToDto(member, member.User, member.AssignedBy));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating project member {MemberId}", dto.MemberId);
+            return ServiceResult<ProjectMemberDto>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
+    public async Task<ServiceResult<ProjectAccessDto>> GetMyStanding(string projectId, string actingUserId)
+    {
+        try
+        {
+            var access = await _access.ResolveAsync(projectId, actingUserId);
+            return ServiceResult<ProjectAccessDto>.Success(new ProjectAccessDto
+            {
+                ProjectId = projectId,
+                Level = access.Level,
+                Side = access.Side,
+                IsMediator = access.IsMediator,
+                CanRead = access.CanRead,
+                CanWrite = access.CanWrite,
+                CanManage = access.CanManage,
+                CanSeeSiteLog = access.CanSeeSiteLog,
+                CanExposeToClient = access.CanExposeToClient
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resolving standing on project {ProjectId}", projectId);
+            return ServiceResult<ProjectAccessDto>.Failure(new ServerErrorException(ex.Message));
         }
     }
 

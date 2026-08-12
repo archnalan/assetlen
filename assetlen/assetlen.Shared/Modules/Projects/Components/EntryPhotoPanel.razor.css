@@ -99,6 +99,130 @@
     box-shadow: 0 0 0 1px var(--al-accent);
 }
 
+/* ── Exposure and curation ───────────────────────────────────────────
+   Only a mediator ever sees these. Exposed frames carry a blueprint rule
+   along the bottom edge — readable at thumbnail size and distinct from
+   the terracotta "currently viewing" ring, which means something else. */
+
+.entry-photos__thumb.is-exposed::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: var(--al-blueprint);
+}
+
+.entry-photos__thumb { position: relative; }
+
+.entry-photos__thumb.is-selected {
+    border-color: var(--al-blueprint);
+    box-shadow: 0 0 0 2px var(--al-blueprint);
+}
+
+.entry-photos__thumb:disabled { opacity: 0.6; cursor: progress; }
+
+.entry-photos__check {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: var(--al-radius-xs);
+    display: grid;
+    place-items: center;
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    color: var(--al-blueprint);
+}
+
+.entry-photos__thumb.is-selected .entry-photos__check {
+    background: var(--al-blueprint);
+    border-color: var(--al-blueprint);
+    color: var(--al-text-inverse);
+}
+
+.entry-photos__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.entry-photos__tally b { color: var(--al-text); }
+
+.entry-photos__bar-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+}
+
+.entry-photos__selected { color: var(--al-text-subtle); }
+
+.entry-photos__bar-btn {
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-xs);
+    padding: var(--al-space-1) var(--al-space-2);
+    font-family: inherit;
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.entry-photos__bar-btn:hover:not(:disabled) {
+    border-color: var(--al-accent);
+    color: var(--al-accent);
+}
+
+.entry-photos__bar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.entry-photos__bar-btn--quiet {
+    background: transparent;
+    border-color: transparent;
+    color: var(--al-text-muted);
+}
+
+.entry-photos__hero-state {
+    position: absolute;
+    top: var(--al-space-2);
+    left: var(--al-space-2);
+    padding: 2px 8px;
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text-inverse);
+    background: var(--al-blueprint);
+    border-radius: var(--al-radius-pill);
+}
+
+.entry-photos__note {
+    margin: 0;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.entry-photos__error {
+    margin: 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-xs);
+}
+
 @media (max-width: 540px) {
     .entry-photos__thumb { width: 56px; }
+
+    .entry-photos__bar { flex-direction: column; align-items: stretch; }
+
+    .entry-photos__bar-actions > * { flex: 1 1 auto; text-align: center; }
 }

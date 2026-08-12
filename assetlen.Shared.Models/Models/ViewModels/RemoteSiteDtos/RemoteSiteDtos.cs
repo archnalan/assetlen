@@ -137,6 +137,61 @@ public class ProjectMemberCreateDto
     public string? Title { get; set; }
 }
 
+/// <summary>
+/// Change an existing member's standing. Every field is optional — null means
+/// "leave alone", so moving someone across sides does not silently reset their
+/// title or specialization.
+/// </summary>
+public class ProjectMemberUpdateDto
+{
+    [Required]
+    public string? MemberId { get; set; }
+
+    /// <summary>Move this person to the other side of the project.</summary>
+    public ProjectSide? Side { get; set; }
+
+    /// <summary>
+    /// Appoint or stand down. Appointing a third mediator is rejected with 409;
+    /// standing down the last one is rejected too, since nobody would be left
+    /// able to expose anything to the client.
+    /// </summary>
+    public bool? IsMediator { get; set; }
+
+    public ProjectMemberSpecialization? Specialization { get; set; }
+
+    [MaxLength(120)]
+    public string? Title { get; set; }
+}
+
+/// <summary>
+/// The caller's own standing on one project — the answer to "may I see the Site
+/// Log here, and may I put something in front of the client?"
+/// <para>
+/// Sent to the UI so it can render the right surface without re-deriving the
+/// rules. It is a mirror of the server's decision, never the decision itself:
+/// every endpoint re-resolves access regardless of what the client believes.
+/// </para>
+/// </summary>
+public class ProjectAccessDto
+{
+    public string? ProjectId { get; set; }
+    public ProjectAccessLevel Level { get; set; }
+
+    /// <summary>Null when the caller has no standing on this project at all.</summary>
+    public ProjectSide? Side { get; set; }
+
+    public bool IsMediator { get; set; }
+    public bool CanRead { get; set; }
+    public bool CanWrite { get; set; }
+    public bool CanManage { get; set; }
+
+    /// <summary>Contractor-side members and mediators only.</summary>
+    public bool CanSeeSiteLog { get; set; }
+
+    /// <summary>The exposure gate — mediator, owner or manager.</summary>
+    public bool CanExposeToClient { get; set; }
+}
+
 // ─── Stage DTOs ──────────────────────────────────────────────
 
 public class StageDto : BaseDto

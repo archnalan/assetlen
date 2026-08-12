@@ -454,6 +454,42 @@
     margin: 2px 0 0;
 }
 
+.project-page-header__badges {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+}
+
+/* Which side the viewer is on, on THIS project. Outlined rather than filled
+   so it reads as orientation, not as a status the reader must act on. The two
+   sides carry the same colours as the roster: blueprint for the client side,
+   terracotta for delivery. */
+.project-standing {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    padding: var(--al-space-1) var(--al-space-3);
+    border-radius: var(--al-radius-pill);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
+    border: 1px solid var(--al-border-strong);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+}
+
+.project-standing--client {
+    border-color: var(--al-blueprint);
+    color: var(--al-blueprint);
+}
+
+.project-standing--contractor {
+    border-color: var(--al-accent);
+    color: var(--al-accent);
+}
+
+.project-standing__sep { opacity: 0.5; }
+
 /* ─── Buttons ─────────────────────────────────────────────── */
 .project-btn {
     display: inline-flex;

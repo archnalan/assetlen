@@ -11,6 +11,32 @@ using System.ComponentModel.DataAnnotations;
 namespace assetlen.API.Controllers;
 
 /// <summary>
+/// The multipart body of <see cref="ArtifactsController.Upload"/>.
+/// <para>
+/// Lives in the API project, not in Shared.Models: <see cref="IFormFile"/> is
+/// an ASP.NET Core server type and Shared.Models is referenced by the WASM
+/// client, which must never take that dependency. The client sends the same
+/// three parts through Refit's <c>StreamPart</c>.
+/// </para>
+/// </summary>
+public class ArtifactUploadRequest
+{
+    /// <summary>The bytes. Part name <c>file</c>.</summary>
+    [Required]
+    public IFormFile? File { get; set; }
+
+    /// <summary>Which project owns the artifact. Access is resolved against it.</summary>
+    [Required]
+    public string? ProjectId { get; set; }
+
+    /// <summary>
+    /// When the photo was taken, if the caller knows — for a camera-roll import
+    /// the capture date is the fact that matters, not the upload date.
+    /// </summary>
+    public DateTime? CapturedAt { get; set; }
+}
+
+/// <summary>
 /// The canonical file store (assetlen.md Law 2) and the exposure gate.
 /// <para>
 /// Upload is <b>multipart</b>, not base64 — a JSON data-URI inflates bytes by a
@@ -39,24 +65,33 @@ public class ArtifactsController : ControllerBase
     /// <summary>
     /// Store a file. An identical hash returns the artifact that already exists
     /// with <c>WasDeduplicated</c> set — *"this is already Receipt R-014."*
+    /// <para>
+    /// The form fields arrive as one bound model rather than as loose
+    /// <c>[FromForm]</c> parameters: Swashbuckle cannot describe an action that
+    /// mixes a bare <see cref="IFormFile"/> parameter with sibling form
+    /// scalars, and threw on the whole document — every endpoint in the API
+    /// disappeared from /swagger/v1/swagger.json, not just this one. Wire names
+    /// are unchanged, so the multipart part names stay <c>file</c>,
+    /// <c>projectId</c>, <c>capturedAt</c>.
+    /// </para>
     /// </summary>
     [HttpPost]
     [RequestSizeLimit(MaxUploadBytes)]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ArtifactDto), 200)]
-    public async Task<ActionResult> Upload(
-        [FromForm][Required] IFormFile file,
-        [FromForm][Required] string projectId,
-        [FromForm] DateTime? capturedAt,
-        CancellationToken ct)
+    public async Task<ActionResult> Upload([FromForm] ArtifactUploadRequest request, CancellationToken ct)
     {
+        var file = request.File;
         if (file is null || file.Length == 0)
             return BadRequest("File is required.");
+        if (string.IsNullOrWhiteSpace(request.ProjectId))
+            return BadRequest("projectId is required.");
 
         var userId = _tenantProvider.GetUserId();
         await using var stream = file.OpenReadStream();
 
         var result = await _dal.IngestAsync(
-            stream, file.FileName, file.ContentType, projectId, userId, capturedAt, ct);
+            stream, file.FileName, file.ContentType, request.ProjectId, userId, request.CapturedAt, ct);
 
         if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
         return Ok(result.Data);

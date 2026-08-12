@@ -1,0 +1,578 @@
+@using assetlen.Shared.Models.Models.RemoteSite
+@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@inject ILogger<ProjectRoster> Logger
+
+@*
+    The two-sided roster.
+
+    A project has two principal parties and one accountable face between them.
+    That structure is the product, so the screen shows it literally: two
+    columns, the mediator seat above them, and every person visibly on one side
+    or the other. A flat member list would let the most important fact about a
+    person — which side they answer to — hide inside a dropdown.
+*@
+
+<div class="roster">
+
+    @* ── The mediator seat ───────────────────────────────────────────── *@
+    <section class="roster__seat">
+        <header class="roster__seat-head">
+            <div>
+                <h3 class="roster__seat-title">Accountable face</h3>
+                <p class="roster__seat-sub">
+                    The only person who can put site material in front of the client side.
+                    One, at most two.
+                </p>
+            </div>
+            @if (mediators.Count > 0)
+            {
+                <span class="al-badge al-badge--accent">@mediators.Count of @ProjectSideDefaults.MaxMediators</span>
+            }
+        </header>
+
+        @if (loading)
+        {
+            <div class="al-shimmer roster__seat-ghost"></div>
+        }
+        else if (mediators.Count == 0)
+        {
+            @* Never expected — the creator is seated at project create — but if
+               it happens the client side has gone silent and that must be loud. *@
+            <div class="roster__alarm">
+                <strong>No mediator on this project.</strong>
+                Nothing can reach the client side until someone is appointed.
+            </div>
+        }
+        else
+        {
+            <ul class="roster__seat-list">
+                @foreach (var m in mediators)
+                {
+                    <li class="roster__seat-card">
+                        <div class="roster__avatar roster__avatar--lg" data-side="@m.Side.ToString().ToLowerInvariant()">
+                            @if (!string.IsNullOrEmpty(m.UserProfilePicUrl))
+                            {
+                                <img src="@m.UserProfilePicUrl" alt="" loading="lazy" />
+                            }
+                            else
+                            {
+                                <span>@Initials(m)</span>
+                            }
+                        </div>
+                        <div class="roster__seat-identity">
+                            <div class="roster__name">@DisplayName(m)</div>
+                            <div class="roster__meta">
+                                @Humanise(m.Specialization)
+                                <span class="roster__dot" aria-hidden="true">·</span>
+                                @SideLabel(m.Side) side
+                            </div>
+                        </div>
+                        @if (CanManage)
+                        {
+                            <button type="button" class="roster__ghost-btn"
+                                    disabled="@(busyId == m.Id || mediators.Count < 2)"
+                                    title="@(mediators.Count < 2 ? "The last mediator cannot be stood down" : "Stand down")"
+                                    @onclick="() => SetMediator(m, false)">
+                                @(busyId == m.Id ? "Working…" : "Stand down")
+                            </button>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="roster__error" role="alert">@error</div>
+        }
+    </section>
+
+    @* ── Add ─────────────────────────────────────────────────────────── *@
+    @if (CanManage)
+    {
+        <section class="roster__add">
+            @if (!showAdd)
+            {
+                <button type="button" class="roster__add-trigger" @onclick="() => showAdd = true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                    Add someone to this project
+                </button>
+            }
+            else
+            {
+                <div class="roster__form">
+                    <div class="roster__form-head">
+                        <h4 class="roster__form-title">Add to project</h4>
+                        <button type="button" class="roster__ghost-btn" @onclick="CancelAdd" disabled="@saving">Cancel</button>
+                    </div>
+
+                    @* Off-platform parties are first-class. Most people named in a
+                       commitment — the tile supplier, the plumber — will never
+                       sign in, and a roster that cannot hold them pushes their
+                       names into free text where nothing can be held against them. *@
+                    <div class="roster__seg" role="tablist" aria-label="Kind of party">
+                        <button type="button" role="tab" aria-selected="@(!addOffPlatform)"
+                                class="roster__seg-btn @(addOffPlatform ? "" : "is-active")"
+                                @onclick="() => addOffPlatform = false">Has a login</button>
+                        <button type="button" role="tab" aria-selected="@addOffPlatform"
+                                class="roster__seg-btn @(addOffPlatform ? "is-active" : "")"
+                                @onclick="() => addOffPlatform = true">Off-platform party</button>
+                    </div>
+
+                    @if (addOffPlatform)
+                    {
+                        <label class="roster__label" for="roster-party">Party name</label>
+                        <input id="roster-party" class="roster__input" placeholder="e.g. Riverstone Tiling Ltd"
+                               @bind="addPartyName" @bind:event="oninput" />
+                        <p class="roster__hint">
+                            Attributable on commitments. They will never sign in and see nothing.
+                        </p>
+                    }
+                    else
+                    {
+                        <label class="roster__label" for="roster-email">Email</label>
+                        <input id="roster-email" class="roster__input" type="email" placeholder="name@example.com"
+                               @bind="addEmail" @bind:event="oninput" />
+                    }
+
+                    <div class="roster__form-grid">
+                        <div>
+                            <label class="roster__label" for="roster-side">Side</label>
+                            <select id="roster-side" class="roster__input" @bind="addSide">
+                                <option value="@ProjectSide.Client">Client side</option>
+                                <option value="@ProjectSide.Contractor">Delivery side</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="roster__label" for="roster-spec">Role on site</label>
+                            <select id="roster-spec" class="roster__input" @bind="addSpecialization">
+                                @foreach (var spec in Specializations)
+                                {
+                                    <option value="@spec">@Humanise(spec)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <label class="roster__label" for="roster-title">Title <span class="roster__optional">optional</span></label>
+                    <input id="roster-title" class="roster__input" placeholder="e.g. Day-shift photographer"
+                           @bind="addTitle" @bind:event="oninput" />
+
+                    <label class="roster__check">
+                        <input type="checkbox" @bind="addAsMediator" disabled="@(mediators.Count >= ProjectSideDefaults.MaxMediators)" />
+                        <span>
+                            Give them the mediator seat
+                            @if (mediators.Count >= ProjectSideDefaults.MaxMediators)
+                            {
+                                <em class="roster__hint-inline">— both seats are taken</em>
+                            }
+                        </span>
+                    </label>
+
+                    @if (!string.IsNullOrEmpty(addError))
+                    {
+                        <div class="roster__error" role="alert">@addError</div>
+                    }
+
+                    <button type="button" class="roster__primary" @onclick="Add" disabled="@(saving || !CanSubmitAdd)">
+                        @(saving ? "Adding…" : "Add to project")
+                    </button>
+                </div>
+            }
+        </section>
+    }
+
+    @* ── The two sides ───────────────────────────────────────────────── *@
+    @if (loading)
+    {
+        <div class="roster__sides">
+            @for (var i = 0; i < 2; i++)
+            {
+                <div class="roster__side">
+                    <div class="al-shimmer roster__row-ghost"></div>
+                    <div class="al-shimmer roster__row-ghost"></div>
+                </div>
+            }
+        </div>
+    }
+    else if (loadError)
+    {
+        <div class="roster__error" role="alert">
+            Could not load the roster.
+            <button type="button" class="roster__ghost-btn" @onclick="Load">Try again</button>
+        </div>
+    }
+    else
+    {
+        <div class="roster__sides">
+            @RenderSide(ProjectSide.Client, "Client side", "Funds the work. Sees only what the mediator exposes.")
+            @RenderSide(ProjectSide.Contractor, "Delivery side", "Builds the work. Posts to the Site Log unfiltered.")
+        </div>
+
+        @if (former.Count > 0)
+        {
+            <section class="roster__former">
+                <button type="button" class="roster__former-toggle" @onclick="() => showFormer = !showFormer"
+                        aria-expanded="@showFormer">
+                    @(showFormer ? "Hide" : "Show") @former.Count former member@(former.Count > 1 ? "s" : "")
+                </button>
+                @if (showFormer)
+                {
+                    @* Kept visible on purpose: a name that appears on an old
+                       commitment must still resolve to a person. *@
+                    <ul class="roster__former-list">
+                        @foreach (var m in former)
+                        {
+                            <li class="roster__former-row">
+                                <span class="roster__name">@DisplayName(m)</span>
+                                <span class="roster__meta">
+                                    @Humanise(m.Specialization) · left @(m.LeftAt?.ToString("MMM d, yyyy") ?? "—")
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the viewer may restructure the roster. Resolved server-side and
+    /// passed in; hiding a control is a courtesy, never the enforcement.
+    /// </summary>
+    [Parameter] public bool CanManage { get; set; }
+
+    /// <summary>Raised after any change, so the parent can refresh its own view.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<ProjectMemberDto> members = new();
+    private bool loading = true, loadError, saving, showAdd, showFormer, addOffPlatform, addAsMediator;
+    private string? error, addError, busyId;
+
+    private string addEmail = string.Empty;
+    private string addPartyName = string.Empty;
+    private string addTitle = string.Empty;
+    private ProjectSide addSide = ProjectSide.Contractor;
+    private ProjectMemberSpecialization addSpecialization = ProjectMemberSpecialization.Other;
+
+    private List<ProjectMemberDto> Active => members.Where(m => m.IsActive).ToList();
+    private List<ProjectMemberDto> mediators = new();
+    private List<ProjectMemberDto> former = new();
+
+    private bool CanSubmitAdd => addOffPlatform
+        ? !string.IsNullOrWhiteSpace(addPartyName)
+        : !string.IsNullOrWhiteSpace(addEmail);
+
+    // Ordered for a human reading a picker, not by enum value. Lead first
+    // because it is the commonest appointment; Other last because it is the
+    // fallback.
+    private static readonly ProjectMemberSpecialization[] Specializations =
+    {
+        ProjectMemberSpecialization.Lead,
+        ProjectMemberSpecialization.Architect,
+        ProjectMemberSpecialization.Engineer,
+        ProjectMemberSpecialization.Foreman,
+        ProjectMemberSpecialization.Subcontractor,
+        ProjectMemberSpecialization.Inspector,
+        ProjectMemberSpecialization.Photographer,
+        ProjectMemberSpecialization.ClientOwner,
+        ProjectMemberSpecialization.ClientRepresentative,
+        ProjectMemberSpecialization.Observer,
+        ProjectMemberSpecialization.Other
+    };
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        loadError = false;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectMembersApi.GetMembersByProject(ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                members = resp.Content;
+                Recompute();
+            }
+            else
+            {
+                loadError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading roster for {ProjectId}", ProjectId);
+            loadError = true;
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Recompute()
+    {
+        mediators = Active.Where(m => m.IsMediator).ToList();
+        former = members.Where(m => !m.IsActive).ToList();
+    }
+
+    private RenderFragment RenderSide(ProjectSide side, string title, string blurb) => __builder =>
+    {
+        var people = Active.Where(m => m.Side == side).ToList();
+
+        <section class="roster__side" data-side="@side.ToString().ToLowerInvariant()">
+            <header class="roster__side-head">
+                <h4 class="roster__side-title">@title</h4>
+                <span class="roster__count al-num">@people.Count</span>
+            </header>
+            <p class="roster__side-blurb">@blurb</p>
+
+            @if (people.Count == 0)
+            {
+                <p class="roster__side-empty">Nobody on this side yet.</p>
+            }
+            else
+            {
+                <ul class="roster__list">
+                    @foreach (var m in people)
+                    {
+                        <li class="roster__row @(m.IsMediator ? "is-mediator" : "")">
+                            <div class="roster__avatar" data-side="@side.ToString().ToLowerInvariant()">
+                                @if (!string.IsNullOrEmpty(m.UserProfilePicUrl))
+                                {
+                                    <img src="@m.UserProfilePicUrl" alt="" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <span>@Initials(m)</span>
+                                }
+                            </div>
+
+                            <div class="roster__identity">
+                                <div class="roster__name">
+                                    @DisplayName(m)
+                                    @if (m.IsMediator)
+                                    {
+                                        <span class="al-badge al-badge--accent roster__pill">Mediator</span>
+                                    }
+                                    @if (m.IsOffPlatform)
+                                    {
+                                        <span class="al-badge al-badge--neutral roster__pill">No login</span>
+                                    }
+                                </div>
+                                <div class="roster__meta">
+                                    @Humanise(m.Specialization)
+                                    @if (!string.IsNullOrWhiteSpace(m.Title))
+                                    {
+                                        <span class="roster__dot" aria-hidden="true">·</span>
+                                        @m.Title
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(m.UserEmail))
+                                {
+                                    <div class="roster__email">@m.UserEmail</div>
+                                }
+                            </div>
+
+                            @if (CanManage)
+                            {
+                                <div class="roster__actions">
+                                    <button type="button" class="roster__icon-btn"
+                                            disabled="@(busyId == m.Id)"
+                                            title="@(side == ProjectSide.Client ? "Move to delivery side" : "Move to client side")"
+                                            @onclick="() => Flip(m)">
+                                        @(side == ProjectSide.Client ? "Move right →" : "← Move left")
+                                    </button>
+                                    @if (!m.IsMediator)
+                                    {
+                                        <button type="button" class="roster__icon-btn"
+                                                disabled="@(busyId == m.Id || mediators.Count >= ProjectSideDefaults.MaxMediators || m.IsOffPlatform)"
+                                                title="@MediatorHint(m)"
+                                                @onclick="() => SetMediator(m, true)">
+                                            Make mediator
+                                        </button>
+                                    }
+                                    <button type="button" class="roster__icon-btn roster__icon-btn--danger"
+                                            disabled="@(busyId == m.Id)"
+                                            @onclick="() => Remove(m)">
+                                        Remove
+                                    </button>
+                                </div>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    };
+
+    private string MediatorHint(ProjectMemberDto m) =>
+        m.IsOffPlatform ? "An off-platform party cannot mediate — there is nobody to sign in and decide."
+        : mediators.Count >= ProjectSideDefaults.MaxMediators ? "Both mediator seats are taken."
+        : "Appoint as mediator";
+
+    private Task Flip(ProjectMemberDto m) => Apply(m, new ProjectMemberUpdateDto
+    {
+        MemberId = m.Id,
+        Side = m.Side == ProjectSide.Client ? ProjectSide.Contractor : ProjectSide.Client
+    });
+
+    private Task SetMediator(ProjectMemberDto m, bool value) => Apply(m, new ProjectMemberUpdateDto
+    {
+        MemberId = m.Id,
+        IsMediator = value
+    });
+
+    private async Task Apply(ProjectMemberDto m, ProjectMemberUpdateDto dto)
+    {
+        busyId = m.Id;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectMembersApi.UpdateMember(dto);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                var i = members.FindIndex(x => x.Id == m.Id);
+                if (i >= 0) members[i] = resp.Content;
+                Recompute();
+                await OnChanged.InvokeAsync();
+            }
+            else
+            {
+                // The cap and last-mediator rules are server-side; surface the
+                // server's sentence rather than inventing a local one.
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not apply that change.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating member {MemberId}", m.Id);
+            error = "Could not apply that change.";
+        }
+        finally
+        {
+            busyId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Remove(ProjectMemberDto m)
+    {
+        busyId = m.Id;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var resp = await _projectMembersApi.DeactivateMember(m.Id!);
+            if (resp.IsSuccessStatusCode)
+            {
+                await Load();
+                await OnChanged.InvokeAsync();
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not remove that member.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error removing member {MemberId}", m.Id);
+            error = "Could not remove that member.";
+        }
+        finally
+        {
+            busyId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Add()
+    {
+        if (!CanSubmitAdd) return;
+        saving = true;
+        addError = null;
+        StateHasChanged();
+        try
+        {
+            var dto = new ProjectMemberCreateDto
+            {
+                ProjectId = ProjectId,
+                UserEmail = addOffPlatform ? null : addEmail.Trim(),
+                PartyName = addOffPlatform ? addPartyName.Trim() : null,
+                Specialization = addSpecialization,
+                Side = addSide,
+                IsMediator = addAsMediator,
+                Title = string.IsNullOrWhiteSpace(addTitle) ? null : addTitle.Trim()
+            };
+
+            var resp = await _projectMembersApi.AddMember(dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                CancelAdd();
+                await Load();
+                await OnChanged.InvokeAsync();
+            }
+            else
+            {
+                addError = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not add that person.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error adding member to {ProjectId}", ProjectId);
+            addError = "Could not add that person.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelAdd()
+    {
+        showAdd = false;
+        addOffPlatform = false;
+        addAsMediator = false;
+        addEmail = string.Empty;
+        addPartyName = string.Empty;
+        addTitle = string.Empty;
+        addSide = ProjectSide.Contractor;
+        addSpecialization = ProjectMemberSpecialization.Other;
+        addError = null;
+    }
+
+    private static string DisplayName(ProjectMemberDto m) =>
+        m.UserFullName ?? m.PartyName ?? m.UserEmail ?? "Unnamed";
+
+    private static string SideLabel(ProjectSide side) =>
+        side == ProjectSide.Client ? "client" : "delivery";
+
+    private static string Initials(ProjectMemberDto m)
+    {
+        var name = DisplayName(m);
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0][..1].ToUpperInvariant();
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    /// <summary>PascalCase enum names are not English. "ClientRepresentative" reads as two words on screen.</summary>
+    private static string Humanise(ProjectMemberSpecialization spec) => spec switch
+    {
+        ProjectMemberSpecialization.Lead => "Project lead",
+        ProjectMemberSpecialization.ClientOwner => "Client / owner",
+        ProjectMemberSpecialization.ClientRepresentative => "Client representative",
+        ProjectMemberSpecialization.Subcontractor => "Subcontractor",
+        _ => spec.ToString()
+    };
+}

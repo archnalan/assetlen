@@ -1,22 +1,25 @@
-.flag-raise__form {
+.raise {
     display: flex;
     flex-direction: column;
-    gap: var(--al-space-2);
-    padding: var(--al-space-3);
-    background: var(--al-surface-2);
-    border-radius: var(--al-radius-sm);
+    gap: var(--al-space-4);
 }
 
-.flag-raise__row {
-    display: flex;
-    flex-direction: column;
-    gap: var(--al-space-1);
+.raise__row {
+    display: grid;
+    gap: var(--al-space-4);
+    grid-template-columns: minmax(0, 1fr);
 }
 
-.flag-raise__actions {
+@media (min-width: 640px) {
+    .raise__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.raise__field { min-width: 0; }
+
+.raise__actions {
     display: flex;
     justify-content: flex-end;
-    align-items: center;
-    gap: var(--al-space-3);
-    margin-top: var(--al-space-1);
+    gap: var(--al-space-2);
+    padding-top: var(--al-space-2);
+    border-top: 1px solid var(--al-border);
 }

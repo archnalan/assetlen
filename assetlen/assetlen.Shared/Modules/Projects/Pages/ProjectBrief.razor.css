@@ -1,0 +1,120 @@
+.brief__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    flex-wrap: wrap;
+    padding-bottom: var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.brief__day {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 8rem;
+}
+
+.brief__day-date {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-md);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.brief__rule { margin-bottom: var(--al-space-2); }
+
+/* ── A block is one piece of work ──────────────────────────────────────── */
+
+.brief__block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+    padding: var(--al-space-5) 0;
+    border-bottom: 1px solid var(--al-border);
+}
+
+.brief__block:last-child { border-bottom: 0; }
+
+.brief__block-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    flex-wrap: wrap;
+}
+
+.brief__block-title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: -0.02em;
+    margin-top: 2px;
+}
+
+.brief__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    max-width: 26rem;
+}
+
+.brief__progress .al-meter { flex: 1 1 auto; }
+
+.brief__progress-label {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+}
+
+.brief__entries {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+}
+
+.brief__entry {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding-left: var(--al-space-4);
+    border-left: 2px solid var(--al-border);
+}
+
+.brief__entry-text {
+    font-size: var(--al-font-size-base);
+    line-height: var(--al-leading-normal);
+    color: var(--al-text);
+    max-width: 66ch;
+}
+
+.brief__entry-main:hover .brief__entry-text { color: var(--al-accent); }
+
+.brief__entry-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+    margin-top: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Three frames, side by side, same size. A same-vantage-point trio is the
+   comparison that reads; a wall of thumbnails is the thing being replaced. */
+.brief__frames {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+    gap: var(--al-space-2);
+    max-width: 34rem;
+}
+
+.brief__frame { border: 1px solid var(--al-border); }
+
+.brief__frame img { transition: transform var(--al-transition-slow); }
+.brief__frame:hover img { transform: scale(1.03); }
+
+.brief__frames-note {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}

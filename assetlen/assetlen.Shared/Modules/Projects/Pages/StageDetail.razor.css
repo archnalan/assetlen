@@ -1,0 +1,22 @@
+.stage__section {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--al-space-6);
+}
+
+.stage__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    max-width: 34rem;
+}
+
+.stage__progress .al-meter { flex: 1 1 auto; }
+
+.stage__progress-label {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+}
+
+.stage__stats { margin-top: var(--al-space-5); }

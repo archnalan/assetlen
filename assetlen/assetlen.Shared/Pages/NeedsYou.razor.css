@@ -1,0 +1,10 @@
+.needs__group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--al-space-6);
+}
+
+.needs__group:last-child { margin-bottom: 0; }
+
+/* ::deep because the svg carries the Icon component's scope attribute. */
+.needs__group ::deep .needs__icon { color: var(--al-accent); }

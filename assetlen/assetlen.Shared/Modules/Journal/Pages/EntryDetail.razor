@@ -1,238 +1,310 @@
 @page "/project/{ProjectId}/entry/{EntryId}"
-@implements IAsyncDisposable
-@using assetlen.Shared.Models.Models.RemoteSite
-@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
-@using static assetlen.Shared.Components.Navigation.Breadcrumbs
-@layout ProjectsLayout
 @attribute [Authorize]
-@inject NavigationManager Nav
-@inject ILogger<EntryDetail> Logger
+@implements IAsyncDisposable
+@inject ShellState Shell
 @inject IStreamHubService StreamHub
+@inject ILogger<EntryDetail> Logger
 
-<PageTitle>@(entry?.StageName ?? "Entry") — ASSETLEN</PageTitle>
+@*
+    One entry.
 
-@if (isLoading)
-{
-    <div class="project-skeleton project-skeleton-line" style="width:240px;height:24px;"></div>
-    <div class="project-skeleton project-skeleton-card project-mt-md" style="height:320px;"></div>
-}
-else if (entry is null)
-{
-    <div class="project-empty">
-        <h3 class="project-empty-title">Entry not found</h3>
-        <p class="project-empty-desc">This Site Journal entry may have been removed or you don't have access.</p>
-        <a class="project-btn project-btn-primary" href="@($"/project/{ProjectId}")">Back to project</a>
-    </div>
-}
-else
-{
-    <Breadcrumbs Items="BuildBreadcrumbs()" />
+    This is where curation actually happens, and it happens **per frame**. The
+    mediator picks three of eighteen rather than flipping a batch across — the
+    evidence for why is a single minute in which seventeen photographs were
+    posted and the reply, two hours later, was "nothing much changed".
 
-    <article class="entry-detail">
-        <header class="entry-detail__header">
-            <div class="entry-detail__author">
-                <div class="project-avatar-sm">@(entry.CreatedByName?[0])</div>
-                <div>
-                    <div class="entry-detail__author-name">@entry.CreatedByName</div>
-                    <div class="project-text-xs project-text-muted">
-                        @FormatTimeAgo(entry.DateTimeCreated) · @(entry.StageName ?? "General")
+    A client-side reader sees the exposed subset and, deliberately, the true
+    denominator. Being told the feed is filtered is the developer's stated trust
+    condition; hiding the total would break it.
+*@
+
+<PageTitle>Entry — ASSETLEN</PageTitle>
+
+<div class="al-page">
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="This entry didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="log"
+                EmptyTitle="Entry not found"
+                EmptyBody="It may have been removed, or it may belong to the other side's record.">
+        <ChildContent>
+
+            <TitleBlock Eyebrow="@EyebrowText" Title="@TitleText" Subtitle="@entry!.Description">
+                <Meta>
+                    <div class="al-meta">
+                        <span class="al-label">Posted</span>
+                        <span class="al-meta__value">@Fmt.DateTimeFull(entry.DateTimeCreated)</span>
                     </div>
-                </div>
-            </div>
-            <div class="entry-detail__meta">
-                <span class="entry-channel-pill entry-channel-pill--@(entry.Channel.ToString().ToLowerInvariant())">
-                    @entry.Channel
-                </span>
-                @if (entry.ApprovalStatus.HasValue)
-                {
-                    <span class="entry-detail__approval entry-detail__approval--@(entry.ApprovalStatus.Value.ToString().ToLowerInvariant())">
-                        @entry.ApprovalStatus
+                    <div class="al-meta">
+                        <span class="al-label">By</span>
+                        <span class="al-meta__value">@AuthorLabel</span>
+                    </div>
+                </Meta>
+
+                <Below>
+                    @if (entry.HasIssues)
+                    {
+                        <span class="al-badge al-badge--warning"><Icon Name="alert" Size="11" /> Issue raised</span>
+                    }
+                    <span class="al-badge @(entry.Channel == Channel.Client ? "al-badge--client" : "al-badge--delivery")">
+                        @(entry.Channel == Channel.Client ? "Shared with the client" : "Site Log only")
                     </span>
-                }
-            </div>
-        </header>
-
-        <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="auth">
-            @if (entry.Channel == Channel.Crew)
-            {
-                <div class="entry-detail__promote">
-                    <div>
-                        <strong>Crew-only entry.</strong>
-                        <div class="project-text-xs project-text-muted">Publish to the Client channel to make it visible in the curated view.</div>
-                    </div>
-                    <button class="project-btn project-btn-primary project-btn-sm"
-                            @onclick="PromoteToClient" disabled="@savingPromote">
-                        @(savingPromote ? "Publishing…" : "Publish to Client")
-                    </button>
-                </div>
-            }
-            else
-            {
-                <div class="entry-detail__promote entry-detail__promote--published">
-                    <div>
-                        <strong>Published to Client channel.</strong>
-                        <div class="project-text-xs project-text-muted">Visible in the curated Client view.</div>
-                    </div>
-                    <button class="project-btn project-btn-link"
-                            @onclick="DemoteToCrew" disabled="@savingPromote">
-                        @(savingPromote ? "Reverting…" : "Revert to Crew")
-                    </button>
-                </div>
-            }
-        </AuthorizeView>
-
-        @if (!string.IsNullOrWhiteSpace(entry.Description))
-        {
-            <p class="entry-detail__desc">@entry.Description</p>
-        }
-
-        @if (entry.CompletionPercentage > 0)
-        {
-            <div class="entry-detail__completion">
-                <div class="project-progress-bar" style="height:8px;">
-                    <div class="project-progress-fill @GetProgressColor(entry.CompletionPercentage ?? 0)"
-                         style="width:@(Math.Min(entry.CompletionPercentage ?? 0, 100))%"></div>
-                </div>
-                <div class="project-text-xs project-text-muted project-mt-xs">@entry.CompletionPercentage% stage completion</div>
-            </div>
-        }
-
-        @if (entry.Images?.Any() == true || entry.ImageCount > 0)
-        {
-            <EntryPhotoPanel Images="entry.Images"
-                             TotalCount="entry.ImageCount"
-                             CanExpose="@(standing?.CanExposeToClient ?? false)"
-                             OnChanged="@(u => entry = u)" />
-        }
-
-        <section class="entry-detail__flags">
-            <header class="entry-detail__flags-header">
-                <h3 class="project-section-title">Issues</h3>
-                <FlagRaiseForm ProjectId="ProjectId" ProgressUpdateId="EntryId"
-                               StageId="entry.StageId"
-                               OnRaised="HandleFlagRaised" />
-            </header>
-
-            @if (entryFlags is null)
-            {
-                <div class="project-skeleton project-skeleton-card" style="height:80px;"></div>
-            }
-            else if (entryFlags.Count == 0)
-            {
-                <p class="project-text-sm project-text-muted">No issues raised against this entry.</p>
-            }
-            else
-            {
-                <div class="entry-detail__flags-list">
-                    @foreach (var f in entryFlags)
+                    @if (entry.CompletionPercentage is not null)
                     {
-                        <FlagCard Flag="f" OnChanged="HandleFlagChanged" />
+                        <span class="al-badge al-badge--neutral">@Fmt.Percent(entry.CompletionPercentage.Value) built</span>
                     }
-                </div>
-            }
-        </section>
+                    <a class="al-btn al-btn--link" href="@BackHref">
+                        <Icon Name="chevron-left" Size="14" /> Back
+                    </a>
+                </Below>
+            </TitleBlock>
 
-        <section class="entry-detail__comments">
-            <h3 class="project-section-title">
-                Conversation
-                @if (entry.Comments.Count > 0)
-                {
-                    <span class="project-text-sm project-text-muted">· @entry.Comments.Count</span>
-                }
-            </h3>
+            @* ── Frames ─────────────────────────────────────────────────── *@
+            @if (entry.ImageCount > 0)
+            {
+                <section class="entry__section">
+                    <div class="al-rule">
+                        <span class="al-label">Frames</span>
+                        @if (IsClientSide && entry.Images.Count < entry.ImageCount)
+                        {
+                            <span class="al-subtle entry__denominator">
+                                @entry.Images.Count of @entry.ImageCount shared with you
+                            </span>
+                        }
+                    </div>
 
-            @if (entry.Comments.Count == 0)
-            {
-                <p class="project-text-sm project-text-muted">No comments yet. Start the thread below.</p>
+                    <EntryPhotoPanel Images="entry.Images"
+                                     TotalCount="entry.ImageCount"
+                                     CanExpose="@(standing?.CanExposeToClient == true)"
+                                     OnChanged="OnEntryChanged" />
+                </section>
             }
-            else
+
+            @* ── Whole-entry exposure ───────────────────────────────────── *@
+            @if (standing?.CanExposeToClient == true)
             {
-                <ul class="entry-detail__comment-list">
-                    @foreach (var c in entry.Comments)
-                    {
-                        <li class="entry-detail__comment">
-                            <div class="project-avatar-sm">@(c.AuthorName?[0])</div>
-                            <div class="entry-detail__comment-body">
-                                <div class="entry-detail__comment-meta">
-                                    <span class="entry-detail__comment-author">@c.AuthorName</span>
-                                    <span class="project-text-xs project-text-muted">@FormatTimeAgo(c.DateTimeCreated)</span>
+                <section class="entry__section">
+                    <div class="al-sheet entry__curate">
+                        <div class="al-sheet__body">
+                            <div class="al-row al-row--between">
+                                <div class="entry__curate-copy">
+                                    <strong>@(entry.Channel == Channel.Client ? "This entry is on the client's brief" : "This entry is internal")</strong>
+                                    <span>
+                                        You control emphasis, not truth. Anything that moves money, moves a date
+                                        or changes an agreed spec reaches the client side regardless of this switch.
+                                    </span>
                                 </div>
-                                <p class="entry-detail__comment-text">@c.CommentText</p>
+
+                                <button type="button" class="al-btn al-btn--default"
+                                        disabled="@changingChannel" @onclick="ToggleChannelAsync">
+                                    @if (changingChannel)
+                                    {
+                                        <span class="al-spinner"></span>
+                                    }
+                                    else
+                                    {
+                                        <Icon Name="@(entry.Channel == Channel.Client ? "eye-off" : "eye")" Size="16" />
+                                    }
+                                    @(entry.Channel == Channel.Client ? "Withdraw from the brief" : "Put on the brief")
+                                </button>
                             </div>
-                        </li>
-                    }
-                </ul>
+                        </div>
+                    </div>
+                </section>
             }
 
-            <div class="entry-detail__compose">
-                <textarea class="project-input" rows="3"
-                          placeholder="Add a comment…"
-                          @bind="newComment" @bind:event="oninput"></textarea>
-                @if (!string.IsNullOrEmpty(commentError))
-                {
-                    <div class="project-form-error">@commentError</div>
-                }
-                <div class="entry-detail__compose-actions">
-                    <button class="project-btn project-btn-primary project-btn-sm"
-                            @onclick="PostComment"
-                            disabled="@(savingComment || string.IsNullOrWhiteSpace(newComment))">
-                        @(savingComment ? "Posting…" : "Post comment")
-                    </button>
+            @* ── Questions raised here ──────────────────────────────────── *@
+            <section class="entry__section">
+                <div class="al-rule">
+                    <span class="al-label">Questions on this entry</span>
+                    @if (standing?.CanWrite == true && !raising)
+                    {
+                        <button type="button" class="al-btn al-btn--link" @onclick="() => raising = true">
+                            Raise one
+                        </button>
+                    }
                 </div>
-            </div>
-        </section>
-    </article>
-}
+
+                @if (raising)
+                {
+                    <div class="al-sheet entry__raise">
+                        <div class="al-sheet__body">
+                            <FlagRaiseForm ProjectId="@ProjectId"
+                                           ProgressUpdateId="@EntryId"
+                                           StageId="@entry.StageId"
+                                           OnRaised="OnQuestionRaised"
+                                           OnCancel="() => raising = false" />
+                        </div>
+                    </div>
+                }
+
+                @if (questions.Count == 0 && !raising)
+                {
+                    <p class="entry__none">Nothing has been queried on this entry.</p>
+                }
+                else
+                {
+                    <div class="al-stack">
+                        @foreach (var flag in questions)
+                        {
+                            <FlagCard Flag="flag" OnChanged="OnQuestionChanged" />
+                        }
+                    </div>
+                }
+            </section>
+
+            @* ── Discussion ─────────────────────────────────────────────── *@
+            <section class="entry__section">
+                <div class="al-rule"><span class="al-label">On the record</span></div>
+
+                @if (entry.Comments.Count == 0)
+                {
+                    <p class="entry__none">
+                        Nothing said here yet. A remark on this entry stays attached to it — which is the
+                        difference between an answer and a message that dissolves.
+                    </p>
+                }
+                else
+                {
+                    <div class="entry__comments">
+                        @foreach (var comment in entry.Comments.OrderBy(c => c.DateTimeCreated))
+                        {
+                            <article class="entry__comment">
+                                <span class="al-avatar al-avatar--sm">
+                                    @Fmt.Initials(null, null, comment.AuthorName)
+                                </span>
+                                <div class="entry__comment-body">
+                                    <div class="entry__comment-head">
+                                        <strong>@(comment.AuthorName ?? "Someone")</strong>
+                                        <span class="al-subtle">@Fmt.Ago(comment.DateTimeCreated)</span>
+                                    </div>
+                                    <p>@comment.CommentText</p>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (standing?.CanWrite == true)
+                {
+                    <div class="entry__composer">
+                        <textarea class="al-textarea" rows="2" maxlength="2000"
+                                  placeholder="Add a remark. It stays attached to this entry."
+                                  @bind="newComment" @bind:event="oninput"></textarea>
+
+                        @if (!string.IsNullOrEmpty(commentError))
+                        {
+                            <span class="al-field__error">@commentError</span>
+                        }
+
+                        <div class="al-row al-row--end">
+                            <button type="button" class="al-btn al-btn--primary"
+                                    disabled="@(postingComment || string.IsNullOrWhiteSpace(newComment))"
+                                    @onclick="PostCommentAsync">
+                                @if (postingComment)
+                                {
+                                    <span class="al-spinner"></span>
+                                }
+                                else
+                                {
+                                    <Icon Name="send" Size="15" />
+                                }
+                                Post
+                            </button>
+                        </div>
+                    </div>
+                }
+            </section>
+
+        </ChildContent>
+    </StateBlock>
+</div>
 
 @code {
     [Parameter] public string ProjectId { get; set; } = "";
     [Parameter] public string EntryId { get; set; } = "";
 
     private ProgressUpdateDto? entry;
-    private List<FlagDto>? entryFlags;
-    private bool isLoading = true;
-    private bool savingPromote;
-    private bool savingComment;
-    private string newComment = string.Empty;
-    private string? commentError;
-    private string? projectName;
-
-    /// <summary>Per-project standing — decides whether the curation controls exist.</summary>
     private ProjectAccessDto? standing;
+    private List<FlagDto> questions = new();
+
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private bool changingChannel;
+    private bool postingComment;
+    private bool raising;
+    private string newComment = "";
+    private string? commentError;
+    private string? mediatorName;
+    private bool joinedStream;
+
+    private bool IsClientSide => standing?.Side == ProjectSide.Client;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadEntry();
-        await LoadStanding();
-        await LoadProjectName();
-        await LoadFlags();
-        await ConnectStream();
+        await LoadAsync();
+        await ConnectStreamAsync();
     }
 
-    private async Task LoadStanding()
+    private async Task LoadAsync()
     {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
         try
         {
-            var resp = await _projectMembersApi.GetMyStanding(ProjectId);
-            if (resp.IsSuccessStatusCode) standing = resp.Content;
+            var entryTask = _progressApi.GetProgressUpdate(EntryId);
+            var standingTask = _projectMembersApi.GetMyStanding(ProjectId);
+            var flagsTask = _flagsApi.GetFlagsByEntry(EntryId);
+            var membersTask = _projectMembersApi.GetMembersByProject(ProjectId);
+
+            await Task.WhenAll(entryTask, standingTask, flagsTask, membersTask);
+
+            if (!entryTask.Result.IsSuccessStatusCode || entryTask.Result.Content is null)
+            {
+                // A Crew entry answers 404 rather than 403 to a client-side
+                // reader — a refusal would confirm the Site Log exists.
+                phase = (int)entryTask.Result.StatusCode is 404 or 403 ? LoadPhase.Empty : LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(entryTask.Result);
+                return;
+            }
+
+            entry = entryTask.Result.Content;
+
+            // Fail closed: no standing means no curation controls. The server
+            // would reject the call anyway; this only keeps the UI honest.
+            standing = standingTask.Result.IsSuccessStatusCode ? standingTask.Result.Content : null;
+
+            questions = flagsTask.Result.IsSuccessStatusCode ? flagsTask.Result.Content ?? new() : new();
+
+            mediatorName = membersTask.Result.IsSuccessStatusCode
+                ? membersTask.Result.Content?.FirstOrDefault(m => m.IsMediator && m.IsActive)?.UserFullName
+                : null;
+
+            phase = LoadPhase.Ready;
         }
         catch (Exception ex)
         {
-            // Fail closed: no standing means no curation controls, which is the
-            // safe direction — the server would reject the call regardless.
-            Logger.LogWarning(ex, "Could not resolve standing on {ProjectId}", ProjectId);
+            Logger.LogError(ex, "Entry {EntryId} failed to load", EntryId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
         }
+        finally { StateHasChanged(); }
     }
 
-    private async Task ConnectStream()
+    private async Task ConnectStreamAsync()
     {
         try
         {
             StreamHub.StreamCommentReceived += OnStreamComment;
             await StreamHub.JoinStreamAsync(EntryId);
+            joinedStream = true;
         }
         catch (Exception ex)
         {
+            // Live updates are a convenience; the page is complete without them.
             Logger.LogWarning(ex, "Could not join stream {EntryId}", EntryId);
         }
     }
@@ -240,8 +312,11 @@ else
     private void OnStreamComment(StreamCommentEvent evt)
     {
         if (evt.StreamId != EntryId || evt.Comment is null || entry is null) return;
-        // Skip if we already have this comment (our own post arrives via REST too).
+
+        // Our own post arrives twice — once from the REST call, once from the
+        // hub — and appending both duplicates it on screen.
         if (entry.Comments.Any(c => c.Id == evt.Comment.Id)) return;
+
         entry.Comments.Add(evt.Comment);
         InvokeAsync(StateHasChanged);
     }
@@ -249,130 +324,120 @@ else
     public async ValueTask DisposeAsync()
     {
         StreamHub.StreamCommentReceived -= OnStreamComment;
-        try { await StreamHub.LeaveStreamAsync(EntryId); } catch { /* ignore on teardown */ }
+        if (!joinedStream) return;
+        try { await StreamHub.LeaveStreamAsync(EntryId); } catch { /* teardown */ }
     }
 
-    private async Task LoadFlags()
+    private void OnEntryChanged(ProgressUpdateDto updated)
     {
-        try
-        {
-            var resp = await _flagsApi.GetFlagsByEntry(EntryId);
-            if (resp.IsSuccessStatusCode) entryFlags = resp.Content;
-            else entryFlags = new();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error loading entry flags");
-            entryFlags = new();
-        }
-    }
-
-    private void HandleFlagRaised(FlagDto flag)
-    {
-        entryFlags ??= new();
-        entryFlags.Insert(0, flag);
-    }
-
-    private void HandleFlagChanged(FlagDto flag)
-    {
-        if (entryFlags is null) return;
-        var i = entryFlags.FindIndex(f => f.Id == flag.Id);
-        if (i >= 0) entryFlags[i] = flag;
-    }
-
-    private async Task LoadEntry()
-    {
-        isLoading = true;
-        try
-        {
-            var resp = await _progressApi.GetProgressUpdate(EntryId);
-            if (resp.IsSuccessStatusCode) entry = resp.Content;
-            else Logger.LogError("Failed loading entry: {Err}", _apiResponseHandler.GetApiErrorMessage(resp));
-        }
-        catch (Exception ex) { Logger.LogError(ex, "Error loading entry"); }
-        finally { isLoading = false; }
-    }
-
-    private async Task LoadProjectName()
-    {
-        try
-        {
-            var resp = await _projectsRSApi.GetProjectById(ProjectId);
-            if (resp.IsSuccessStatusCode) projectName = resp.Content?.ProjectName;
-        }
-        catch { /* breadcrumb falls back to "Project" */ }
-    }
-
-    private IEnumerable<BreadcrumbItem> BuildBreadcrumbs()
-    {
-        yield return new BreadcrumbItem("Portfolio", "/portfolio");
-        yield return new BreadcrumbItem(projectName ?? "Project", $"/project/{ProjectId}");
-        yield return new BreadcrumbItem("Site Journal", $"/project/{ProjectId}");
-        yield return new BreadcrumbItem(entry?.DateTimeCreated?.ToString("MMM dd") ?? "Entry");
-    }
-
-    private Task PromoteToClient() => UpdateChannel(Channel.Client);
-    private Task DemoteToCrew() => UpdateChannel(Channel.Crew);
-
-    private async Task UpdateChannel(Channel target)
-    {
-        if (entry is null || savingPromote) return;
-        savingPromote = true;
+        entry = updated;
         StateHasChanged();
-        try
-        {
-            var resp = await _progressApi.SetChannel(entry.Id!, target);
-            if (resp.IsSuccessStatusCode && resp.Content is not null)
-            {
-                entry = resp.Content;
-            }
-        }
-        catch (Exception ex) { Logger.LogError(ex, "Error changing channel"); }
-        finally { savingPromote = false; StateHasChanged(); }
     }
 
-    private async Task PostComment()
+    private async Task ToggleChannelAsync()
     {
-        if (entry is null || string.IsNullOrWhiteSpace(newComment)) return;
-        savingComment = true;
-        commentError = null;
+        if (entry is null || changingChannel) return;
+
+        changingChannel = true;
         StateHasChanged();
+
         try
         {
-            var dto = new ProgressCommentCreateDto
+            var target = entry.Channel == Channel.Client ? Channel.Crew : Channel.Client;
+            var response = await _progressApi.SetChannel(entry.Id!, target);
+
+            if (response.IsSuccessStatusCode && response.Content is not null)
             {
-                ProgressUpdateId = entry.Id,
-                CommentText = newComment.Trim()
-            };
-            var resp = await _progressApi.AddComment(dto);
-            if (resp.IsSuccessStatusCode && resp.Content is not null)
-            {
-                entry.Comments.Add(resp.Content);
-                newComment = string.Empty;
+                entry = response.Content;
+                ToastService.ShowSuccess(target == Channel.Client
+                    ? "On the client's brief."
+                    : "Withdrawn from the brief.");
             }
             else
             {
-                commentError = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not post comment.";
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response));
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error posting comment");
-            commentError = "Could not post comment.";
+            Logger.LogError(ex, "Could not change channel on {EntryId}", EntryId);
+            ToastService.ShowError("Could not change who sees this entry.");
         }
-        finally { savingComment = false; StateHasChanged(); }
+        finally
+        {
+            changingChannel = false;
+            StateHasChanged();
+        }
     }
 
-    private static string GetProgressColor(decimal pct) =>
-        pct >= 75 ? "green" : pct >= 40 ? "yellow" : "";
-
-    private static string FormatTimeAgo(DateTime? date)
+    private void OnQuestionRaised(FlagDto flag)
     {
-        if (!date.HasValue) return "—";
-        var diff = DateTime.UtcNow - date.Value;
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
-        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
-        return date.Value.ToString("MMM dd");
+        raising = false;
+        questions.Insert(0, flag);
+        StateHasChanged();
     }
+
+    private void OnQuestionChanged(FlagDto flag)
+    {
+        var i = questions.FindIndex(f => f.Id == flag.Id);
+        if (i >= 0) questions[i] = flag;
+        StateHasChanged();
+    }
+
+    private async Task PostCommentAsync()
+    {
+        if (entry is null || string.IsNullOrWhiteSpace(newComment)) return;
+
+        postingComment = true;
+        commentError = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _progressApi.AddComment(new ProgressCommentCreateDto
+            {
+                ProgressUpdateId = entry.Id,
+                CommentText = newComment.Trim()
+            });
+
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                if (!entry.Comments.Any(c => c.Id == response.Content.Id))
+                    entry.Comments.Add(response.Content);
+
+                newComment = "";
+            }
+            else
+            {
+                commentError = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not post that.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not post comment on {EntryId}", EntryId);
+            commentError = "Could not post that.";
+        }
+        finally
+        {
+            postingComment = false;
+            StateHasChanged();
+        }
+    }
+
+    private string EyebrowText => entry?.StageName is { Length: > 0 } stage ? stage : "Site Log";
+
+    private string TitleText => Fmt.Date(entry?.DateTimeCreated);
+
+    /// <summary>
+    /// One accountable face: a client-side reader sees the mediator's name on
+    /// whatever crossed, whoever actually captured it (§10.1). The delivery side
+    /// keeps true authorship, which is their own defensible record.
+    /// </summary>
+    private string AuthorLabel => IsClientSide
+        ? mediatorName ?? "the delivery side"
+        : entry?.CreatedByName ?? "—";
+
+    private string BackHref => standing?.CanSeeSiteLog == true
+        ? $"/project/{ProjectId}/log"
+        : $"/project/{ProjectId}/brief";
 }

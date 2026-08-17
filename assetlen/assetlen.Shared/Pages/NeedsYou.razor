@@ -1,0 +1,203 @@
+@page "/needs-you"
+@attribute [Authorize]
+@inject ILogger<NeedsYou> Logger
+
+@*
+    Everything waiting on the person reading, across every project.
+
+    *"I have to go somewhere to find decisions I owe"* is listed as a failure
+    condition in [Peter.md](Peter.md). This is the somewhere, and it is one tap
+    from every screen — the deliberate answer to that.
+
+    Ordered by deadline, soonest first, with anything already overdue at the
+    top. Undated items sit last: an idea nobody is waiting on must never be
+    allowed to nag (Law 4).
+*@
+
+<PageTitle>Needs you — ASSETLEN</PageTitle>
+
+<div class="al-page">
+
+    <TitleBlock Eyebrow="Across all your projects"
+                Title="Needs you"
+                Subtitle="Decisions you owe, and money waiting to be acknowledged.">
+        <Meta>
+            <div class="al-meta">
+                <span class="al-label">Waiting</span>
+                <span class="al-meta__value">@items.Count</span>
+            </div>
+            <div class="al-meta">
+                <span class="al-label">Overdue</span>
+                <span class="al-meta__value">@items.Count(i => i.IsOverdue)</span>
+            </div>
+        </Meta>
+    </TitleBlock>
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="This didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="check-circle"
+                EmptyTitle="Nothing is waiting on you"
+                EmptyBody="When a choice blocks work, costs money or moves a date, it appears here with its by-when and what it holds up.">
+        <ChildContent>
+
+            @foreach (var group in items.GroupBy(i => i.ProjectName))
+            {
+                <section class="needs__group">
+                    <div class="al-rule">
+                        <span class="al-label">@group.Key</span>
+                    </div>
+
+                    <div class="al-sheet al-sheet--ticked">
+                        <div class="al-register">
+                            @foreach (var item in group)
+                            {
+                                <a class="al-register__row al-register__row--needs-you" href="@item.Href">
+                                    <Icon Name="@item.Icon" Size="18" Class="needs__icon" />
+                                    <span class="al-register__main">
+                                        <span class="al-register__title">@item.Title</span>
+                                        <span class="al-register__sub">
+                                            @if (item.Detail is not null)
+                                            {
+                                                <span>@item.Detail</span>
+                                            }
+                                            @if (item.Consequence is not null)
+                                            {
+                                                <span>@item.Consequence</span>
+                                            }
+                                        </span>
+                                    </span>
+                                    <span class="al-register__end">
+                                        <span class="al-badge @item.BadgeClass">@item.DueLabel</span>
+                                        <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                    </span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+
+        </ChildContent>
+    </StateBlock>
+</div>
+
+@code {
+    private readonly List<Item> items = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        items.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.GetPortfolioDashboard();
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+
+            var me = _sd.CurrentUser?.Id;
+
+            var projects = response.Content.Projects
+                .Concat(response.Content.Projects.SelectMany(p => p.SubProjects))
+                .ToList();
+
+            foreach (var project in projects)
+            {
+                try
+                {
+                    var flags = await _flagsApi.GetFlagsByProject(project.Id, FlagStatus.Open);
+                    if (!flags.IsSuccessStatusCode || flags.Content is null) continue;
+
+                    foreach (var flag in flags.Content.Where(f => f.AssignedToId == me))
+                    {
+                        items.Add(new Item(
+                            flag.Title ?? "Open question",
+                            project.ProjectName,
+                            flag.StageName,
+                            Trim(flag.Description),
+                            $"/project/{project.Id}/register#{flag.Id}",
+                            "decision",
+                            flag.DueDate));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Could not read questions on {ProjectId}", project.Id);
+                }
+            }
+
+            if (_sd.CurrentUser?.RolesDto?.CanSeeFinancials == true)
+            {
+                try
+                {
+                    var pending = await _fundingApi.GetPendingConfirmations();
+                    if (pending.IsSuccessStatusCode && pending.Content is not null)
+                    {
+                        foreach (var entry in pending.Content)
+                        {
+                            items.Add(new Item(
+                                $"Confirm {Fmt.Money(entry.Amount)} on {entry.StageName ?? "this project"}",
+                                entry.ProjectName ?? "—",
+                                $"Recorded {Fmt.Date(entry.PaymentDate)}",
+                                entry.Notes,
+                                $"/project/{entry.ProjectId}/money",
+                                "money",
+                                null));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Could not read pending confirmations");
+                }
+            }
+
+            items.Sort((a, b) => (a.Due ?? DateTime.MaxValue).CompareTo(b.Due ?? DateTime.MaxValue));
+            phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Needs-you failed to load");
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    /// <summary>The consequence line is what makes a deadline real; one sentence of it is enough here.</summary>
+    private static string? Trim(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var clean = text.Trim();
+        return clean.Length <= 90 ? clean : clean[..87].TrimEnd() + "…";
+    }
+
+    private sealed record Item(
+        string Title, string ProjectName, string? Detail, string? Consequence,
+        string Href, string Icon, DateTime? Due)
+    {
+        public bool IsOverdue => Due is not null && Due.Value.Date < DateTime.Now.Date;
+
+        public string DueLabel => Due is null
+            ? "No deadline"
+            : IsOverdue ? "Overdue" : $"By {Fmt.DateShort(Due)}";
+
+        public string BadgeClass => Due is null
+            ? "al-badge--neutral"
+            : IsOverdue ? "al-badge--danger"
+            : (Due.Value - DateTime.Now).TotalDays <= 7 ? "al-badge--warning"
+            : "al-badge--neutral";
+    }
+}

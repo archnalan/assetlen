@@ -1,0 +1,79 @@
+.dev {
+    margin-top: var(--al-space-6);
+    padding-top: var(--al-space-2);
+}
+
+.dev__note {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    line-height: var(--al-leading-snug);
+    margin-bottom: var(--al-space-3);
+}
+
+.dev__grid {
+    display: grid;
+    gap: var(--al-space-2);
+    grid-template-columns: 1fr;
+}
+
+.dev__card {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    width: 100%;
+    padding: var(--al-space-3);
+    text-align: left;
+    background: var(--al-surface);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    transition: border-color var(--al-transition-fast), background-color var(--al-transition-fast);
+}
+
+.dev__card:hover:not(:disabled) {
+    border-color: var(--al-accent-line);
+    background: var(--al-surface-2);
+}
+
+.dev__card:disabled { opacity: 0.6; }
+
+.dev__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.dev__card-name {
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+}
+
+.dev__card-role {
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    color: var(--al-accent);
+}
+
+.dev__card-note {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    line-height: var(--al-leading-snug);
+}
+
+.dev__card-go { color: var(--al-text-subtle); }
+
+.dev__card-spin {
+    width: 16px;
+    height: 16px;
+    color: var(--al-accent);
+}
+
+.dev__status {
+    margin-top: var(--al-space-3);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}

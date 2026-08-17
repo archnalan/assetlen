@@ -141,10 +141,19 @@ public class ProjectDAL : IProjectDAL
                 }
             }
 
+            // Counts are of ENGAGEMENTS, not rows.
+            //
+            // A sub-project is part of its parent — it enlarges the parent's
+            // billable area rather than becoming a second invoice (assetlen.md
+            // §10.3 rule 1). Counting it separately told the developer he was
+            // running two projects when he was running one house with a guest
+            // wing, and that miscount is what the whole home screen was
+            // designed around. Money and completion still roll up across
+            // everything, because the wing's stages really are funded work.
             var summary = new PortfolioSummaryDto
             {
                 TotalCapitalDeployed = cards.Sum(c => c.TotalFunded),
-                ActiveProjectsCount = cards.Count(c => c.Status == ProjectStatus.Active),
+                ActiveProjectsCount = topLevel.Count(c => c.Status == ProjectStatus.Active),
                 ProjectsAtRiskCount = cards.Count(c => c.RiskLevel == RiskLevel.Red),
                 TotalPortfolioCompletion = cards.Count > 0
                     ? Math.Round(cards.Average(c => c.CompletedPercentage), 1)

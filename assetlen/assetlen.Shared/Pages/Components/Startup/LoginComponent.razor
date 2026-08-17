@@ -6,107 +6,86 @@
 @using assetlen.Shared.Models.statics
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Linq
-@using System.Security.Claims
 @inject CustomAuthStateProvider _custAuth
 @inject ISD _sd
 @page "/login"
-@layout EmptyLayout
+@layout AuthLayout
 @inject ILogger<LoginComponent> _logger
 @inject IConfiguration _config
 @inject IStorageService _storageService
+@inject ShellState Shell
 
-<div class="al-login">
-    <!-- Left: Brand panel — folio feel with the blueprint mark from the splash -->
-    <aside class="al-login__brand">
-        <div class="al-login__brand-top">
-            <div class="al-login__wordmark">ASSETLEN</div>
-            <div class="al-login__brand-meta">Real-estate project management</div>
+<PageTitle>Sign in — ASSETLEN</PageTitle>
+
+<div class="auth">
+
+    @* ── Left: the claim. On mobile this collapses to a single band so the
+         form is the first thing under the thumb. ─────────────────────────── *@
+    <aside class="auth__aside">
+        <div class="auth__aside-top">
+            <a href="/" class="auth__brand">
+                <BrandMark Size="26" />
+                <span class="auth__wordmark">ASSETLEN</span>
+            </a>
+            <span class="al-label auth__sheetno">DWG AL-001</span>
         </div>
 
-        <div class="al-login__brand-stage">
-            <svg class="al-login__mark" viewBox="0 0 200 200" fill="none" aria-hidden="true">
-                <g class="al-login__mark-grid">
-                    <line x1="0" y1="40" x2="200" y2="40" />
-                    <line x1="0" y1="80" x2="200" y2="80" />
-                    <line x1="0" y1="120" x2="200" y2="120" />
-                    <line x1="0" y1="160" x2="200" y2="160" />
-                    <line x1="40" y1="0" x2="40" y2="200" />
-                    <line x1="80" y1="0" x2="80" y2="200" />
-                    <line x1="120" y1="0" x2="120" y2="200" />
-                    <line x1="160" y1="0" x2="160" y2="200" />
-                </g>
-                <g class="al-login__mark-plot">
-                    <line x1="30" y1="40" x2="170" y2="40" />
-                    <line x1="170" y1="40" x2="170" y2="160" />
-                    <line x1="170" y1="160" x2="30" y2="160" />
-                    <line x1="30" y1="160" x2="30" y2="40" />
-                    <polyline points="30,100 100,100 100,40" />
-                    <polyline points="100,100 170,100" />
-                    <path d="M 100 100 A 18 18 0 0 1 118 118" />
-                </g>
-                <circle class="al-login__mark-ring" cx="100" cy="100" r="14" />
-                <circle class="al-login__mark-dot" cx="100" cy="100" r="3.4" />
-            </svg>
+        <div class="auth__aside-stage al-gridded">
+            <span class="al-eyebrow auth__eyebrow">Remote asset monitoring</span>
 
-            <h1 class="al-login__claim">
-                Deliver the work, <br>
-                not the dashboard.
+            <h1 class="auth__claim">
+                WhatsApp stores messages.<br />
+                Construction runs on <em>commitments</em>.
             </h1>
-            <p class="al-login__lede">
-                A photo-first folio for contractors, project managers, and the clients who want to see what's actually
-                happening on site — without the noise.
+
+            <p class="auth__lede">
+                Assetlen turns a stream you cannot search into a register you own —
+                what was agreed, who agreed it, when, and the evidence.
             </p>
 
-            <ul class="al-login__features">
+            <ul class="auth__points">
                 <li>
-                    <span class="al-login__feature-dot" aria-hidden="true"></span>
+                    <span class="auth__point-no">01</span>
                     <div>
-                        <strong>Site Journal</strong>
-                        <span>Daily photo entries with crew or client visibility, baked in.</span>
+                        <strong>Hold a promise against reality</strong>
+                        <span>The quote, the photo, the spec and the receipt on one line — not four scrolls apart.</span>
                     </div>
                 </li>
                 <li>
-                    <span class="al-login__feature-dot" aria-hidden="true"></span>
+                    <span class="auth__point-no">02</span>
                     <div>
-                        <strong>Live Timeline</strong>
-                        <span>Planned vs actual, every stage, every revision — no spreadsheet edits.</span>
+                        <strong>Funded, claimed, cleared</strong>
+                        <span>Per stage, with the evidence attached. No reconciliation meeting required.</span>
                     </div>
                 </li>
                 <li>
-                    <span class="al-login__feature-dot" aria-hidden="true"></span>
+                    <span class="auth__point-no">03</span>
                     <div>
-                        <strong>Curated client view</strong>
-                        <span>Publish what's ready. The internal channel stays private by default.</span>
+                        <strong>It works when the site is silent</strong>
+                        <span>Forward an export, a photo or an email. The record assembles itself.</span>
                     </div>
                 </li>
             </ul>
         </div>
 
-        <footer class="al-login__brand-foot">
-            <span class="al-num">dwg AL-001</span>
-            <span class="al-login__brand-spec">© ASSETLEN</span>
+        <footer class="auth__aside-foot">
+            <span class="al-label">The agreement belongs to whoever paid for it</span>
         </footer>
     </aside>
 
-    <!-- Right: Auth panel -->
-    <section class="al-login__panel">
-        <div class="al-login__panel-inner">
-            <header class="al-login__panel-head">
-                <a href="/" class="al-login__panel-back" aria-label="Back to landing">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                </a>
-                <div class="al-login__panel-brand">ASSETLEN</div>
-            </header>
+    @* ── Right: the form ────────────────────────────────────────────────── *@
+    <section class="auth__panel">
+        <div class="auth__panel-inner">
+
+            <div class="auth__panel-brand">
+                <BrandMark Size="26" />
+                <span class="auth__wordmark">ASSETLEN</span>
+            </div>
 
             @if (!string.IsNullOrEmpty(statics.startUpErrorMessage))
             {
-                <div class="al-login__alert al-login__alert--error" role="alert">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                        <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
+                <div class="al-alert al-alert--error" role="alert">
+                    <Icon Name="alert" Size="18" />
                     <span>@statics.startUpErrorMessage</span>
                 </div>
             }
@@ -127,24 +106,21 @@
                 }
                 else if (forgotPasswordStep == ForgotPasswordStep.EmailSent)
                 {
-                    <div class="al-login__title-wrap">
-                        <h2 class="al-login__title">Check your inbox</h2>
-                        <p class="al-login__subtitle">We've sent reset instructions to <strong>@resetIdentifier</strong>.</p>
+                    <header class="auth__head">
+                        <span class="al-eyebrow">Password reset</span>
+                        <h2 class="auth__title">Check your inbox</h2>
+                        <p class="auth__sub">Reset instructions are on their way to <strong>@resetIdentifier</strong>.</p>
+                    </header>
+
+                    <div class="auth__notice">
+                        <Icon Name="mail" Size="30" />
+                        <p>It can take a minute to arrive. Check spam if it doesn't show up.</p>
                     </div>
-                    <div class="al-login__sent">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="44" height="44" aria-hidden="true">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                            <polyline points="22,6 12,13 2,6" />
-                        </svg>
-                        <p>It can take a minute to arrive. Check your spam folder if it doesn't show up.</p>
-                        <button type="button" class="al-login__btn al-login__btn--ghost"
-                                @onclick="() => { showForgotPassword = false; forgotPasswordStep = ForgotPasswordStep.InitialRequest; }">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <polyline points="15 18 9 12 15 6" />
-                            </svg>
-                            Back to sign in
-                        </button>
-                    </div>
+
+                    <button type="button" class="al-btn al-btn--default al-btn--block"
+                            @onclick="() => { showForgotPassword = false; forgotPasswordStep = ForgotPasswordStep.InitialRequest; }">
+                        <Icon Name="chevron-left" Size="16" /> Back to sign in
+                    </button>
                 }
                 else if (forgotPasswordStep == ForgotPasswordStep.PhoneVerification)
                 {
@@ -163,17 +139,18 @@
             }
             else if (!showSignup)
             {
-                <div class="al-login__title-wrap">
-                    <h2 class="al-login__title">Welcome back</h2>
-                    <p class="al-login__subtitle">Sign in to continue to your projects.</p>
-                </div>
+                <header class="auth__head">
+                    <span class="al-eyebrow">Sign in</span>
+                    <h2 class="auth__title">Open your projects</h2>
+                    <p class="auth__sub">One login, every account you belong to.</p>
+                </header>
 
                 <LoginForm LoginDto="_loginDto" HandleLogin="HandleLogin" EditContext="editContext" isLoading="loading"
                            ClearErrors="OnErrorsClear" OnForgotPassword="ShowForgotPassword" />
 
-                <div class="al-login__divider"><span>or</span></div>
+                <div class="auth__or"><span>or</span></div>
 
-                <button type="button" class="al-login__btn al-login__btn--ghost" disabled="@loading"
+                <button type="button" class="al-btn al-btn--default al-btn--block" disabled="@loading"
                         @onclick="SignInWithGoogle">
                     <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
                         <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
@@ -184,17 +161,20 @@
                     Continue with Google
                 </button>
 
-                <p class="al-login__switch">
+                <p class="auth__switch">
                     New to ASSETLEN?
-                    <button type="button" class="al-login__link" @onclick="() => showSignup = true">Create an account</button>
+                    <button type="button" class="al-btn al-btn--link" @onclick="() => showSignup = true">Create an account</button>
                 </p>
+
+                <DevSignIn OnSignedIn="AfterAuthenticated" />
             }
             else
             {
-                <div class="al-login__title-wrap">
-                    <h2 class="al-login__title">Create your account</h2>
-                    <p class="al-login__subtitle">Choose how you'd like to sign up — the rest takes 30 seconds.</p>
-                </div>
+                <header class="auth__head">
+                    <span class="al-eyebrow">Create account</span>
+                    <h2 class="auth__title">Start your register</h2>
+                    <p class="auth__sub">The projects belong to your account. Contractors are invited in.</p>
+                </header>
 
                 <SignupForm OnSignupComplete="OnSignupComplete" OnBackToLogin="() => showSignup = false"
                             OnSignupWithGoogle="HandleLoginWithGoogle" />
@@ -220,31 +200,27 @@
     private bool showSignup = false;
     private bool showVerification = false;
     private bool showForgotPassword = false;
-    private string unverifiedUserId = string.Empty;
     private string unverifiedEmail = string.Empty;
 
-    // Forgot password flow
     private ForgotPasswordStep forgotPasswordStep = ForgotPasswordStep.InitialRequest;
     private string resetIdentifier = "";
     private string? resetToken = null;
     private string? verificationCode = null;
 
-    private enum ForgotPasswordStep
-    {
-        InitialRequest,
-        EmailSent,
-        PhoneVerification,
-        ResetPassword
-    }
+    private enum ForgotPasswordStep { InitialRequest, EmailSent, PhoneVerification, ResetPassword }
 
     protected override async Task OnInitializedAsync()
     {
         editContext = new EditContext(_loginDto);
         messageStore = new ValidationMessageStore(editContext);
 
+        // A stale session in storage means the shell would bounce straight back
+        // here with the same broken token. Landing on /login is a decision to
+        // start over.
+        Shell.Clear();
+
         var uri = _nav.ToAbsoluteUri(_nav.Uri);
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-
         var code = query["code"];
 
         if (!string.IsNullOrEmpty(code))
@@ -261,6 +237,21 @@
         }
     }
 
+    /// <summary>
+    /// The single place a successful authentication lands, whatever produced it
+    /// — the form, Google, or a development persona. Roles are hydrated before
+    /// navigation so the shell never renders a moment of "signed in as nobody".
+    /// </summary>
+    private async Task AfterAuthenticated(LoginResponseDto response)
+    {
+        var userObj = await _custAuth.GetAuthenticatedUser(response);
+        await _custAuth.MarkUserAsAuthenticated(response);
+        userObj.RolesDto = await GetRolesForUserById(userObj.Id);
+        _sd.SetUser(userObj);
+
+        _nav.NavigateTo(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+    }
+
     private async Task HandleGoogleLoginCallback(string code)
     {
         var verifier = await _localStorage.GetItemAsync<string>("pkce_verifier");
@@ -268,35 +259,29 @@
         var result = await _auth.ExternalLoginCallback(new GoogleAuthRequestDto { CodeVerifier = verifier, Code = code });
         await _localStorage.RemoveItemAsync("pkce_verifier");
 
-        if (result.IsSuccessStatusCode)
+        if (result.IsSuccessStatusCode && result.Content is not null)
         {
-            var userObj = await _custAuth.GetAuthenticatedUser(result.Content);
-            await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(result.Content);
-            userObj.RolesDto = await GetRolesForUserById(userObj.Id);
-            _sd.SetUser(userObj);
-
-            _nav.NavigateTo(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+            await AfterAuthenticated(result.Content);
         }
     }
 
     private async Task<UserRolesDto?> GetRolesForUserById(string userId)
     {
-        if (!string.IsNullOrEmpty(userId))
-        {
-            loading = true;
-            var rolesTask = await _auth.GetRolesForUserByUserId(userId);
-            loading = false;
+        if (string.IsNullOrEmpty(userId)) return null;
 
-            if (rolesTask.IsSuccessStatusCode)
-            {
-                return rolesTask.Content;
-            }
-            else if ((int)rolesTask.StatusCode < 500)
-            {
-                ToastService.ShowError(JsonConvert.DeserializeObject<JToken>(rolesTask.Error.Content)?["message"]?.ToString());
-            }
-            else ToastService.ShowError("Unknown error occurred. Please contact Admin");
+        var rolesTask = await _auth.GetRolesForUserByUserId(userId);
+
+        if (rolesTask.IsSuccessStatusCode) return rolesTask.Content;
+
+        if ((int)rolesTask.StatusCode < 500)
+        {
+            ToastService.ShowError(JsonConvert.DeserializeObject<JToken>(rolesTask.Error?.Content ?? "{}")?["message"]?.ToString());
         }
+        else
+        {
+            ToastService.ShowError("Unknown error occurred. Please contact your administrator.");
+        }
+
         return null;
     }
 
@@ -313,46 +298,32 @@
             var result = await _auth.Login(_loginDto);
             loading = false;
 
-            if (result.IsSuccessStatusCode)
+            if (result.IsSuccessStatusCode && result.Content is not null)
             {
-                var userObj = await _custAuth.GetAuthenticatedUser(result.Content);
-                await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(result.Content);
-                userObj.RolesDto = await GetRolesForUserById(userObj.Id);
-                _sd.SetUser(userObj);
-
-                _nav.NavigateTo(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+                await AfterAuthenticated(result.Content);
+                return;
             }
+
+            ClearErrors();
+            var error = result.Error?.Content;
+
+            if (string.IsNullOrEmpty(error)) { SetError("Invalid credentials"); }
             else
             {
-                ClearErrors();
-                var error = result.Error?.Content;
-                if (!string.IsNullOrEmpty(error))
+                try
                 {
-                    try
-                    {
-                        var errors = JsonConvert.DeserializeObject<JToken>(error);
-                        string message = errors?["message"]?.ToString() ?? "Invalid credentials";
+                    var errors = JsonConvert.DeserializeObject<JToken>(error);
+                    var message = errors?["message"]?.ToString() ?? "Invalid credentials";
 
-                        if (message.Contains("verify your email", StringComparison.OrdinalIgnoreCase) ||
-                            message.Contains("verify your phone", StringComparison.OrdinalIgnoreCase))
-                        {
-                            unverifiedEmail = _loginDto.Email;
-                            await ShowVerificationForm();
-                        }
-                        else
-                        {
-                            SetError(message);
-                        }
-                    }
-                    catch
+                    if (message.Contains("verify your email", StringComparison.OrdinalIgnoreCase) ||
+                        message.Contains("verify your phone", StringComparison.OrdinalIgnoreCase))
                     {
-                        SetError("Invalid credentials");
+                        unverifiedEmail = _loginDto.Email;
+                        showVerification = true;
                     }
+                    else SetError(message);
                 }
-                else
-                {
-                    SetError("Invalid credentials");
-                }
+                catch { SetError("Invalid credentials"); }
             }
 
             await InvokeAsync(StateHasChanged);
@@ -361,15 +332,8 @@
         {
             loading = false;
             _logger.LogError(ex, "Error during login");
-            ToastService.ShowError($"Login error: {ex.Message}");
+            ToastService.ShowError($"Sign-in failed: {ex.Message}");
         }
-    }
-
-    private async Task ShowVerificationForm()
-    {
-        unverifiedEmail = _loginDto.Email;
-        showVerification = true;
-        StateHasChanged();
     }
 
     private void OnVerificationComplete()
@@ -399,10 +363,7 @@
             _logger.LogError(ex, "Error during Google sign-in");
             ToastService.ShowError("Google sign-in failed. Please try again.");
         }
-        finally
-        {
-            loading = false;
-        }
+        finally { loading = false; }
     }
 
     private async Task HandleLoginWithGoogle()
@@ -416,38 +377,22 @@
         var redirectUri = Uri.EscapeDataString(_nav.BaseUri + "login");
         var scope = Uri.EscapeDataString("openid email profile");
 
-        var url =
-            $"https://accounts.google.com/o/oauth2/v2/auth" +
-            $"?client_id={clientId}" +
-            $"&redirect_uri={redirectUri}" +
-            $"&response_type=code" +
-            $"&scope={scope}" +
-            $"&code_challenge={challenge}" +
-            $"&code_challenge_method=S256";
-
-        _nav.NavigateTo(url, true);
+        _nav.NavigateTo(
+            "https://accounts.google.com/o/oauth2/v2/auth" +
+            $"?client_id={clientId}&redirect_uri={redirectUri}&response_type=code" +
+            $"&scope={scope}&code_challenge={challenge}&code_challenge_method=S256", true);
     }
 
-    string GenerateCodeVerifier()
-    {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        return Base64UrlEncode(bytes);
-    }
+    private static string GenerateCodeVerifier() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
 
-    string GenerateCodeChallenge(string verifier)
+    private static string GenerateCodeChallenge(string verifier)
     {
         using var sha256 = SHA256.Create();
-        var hash = sha256.ComputeHash(Encoding.ASCII.GetBytes(verifier));
-        return Base64UrlEncode(hash);
+        return Base64UrlEncode(sha256.ComputeHash(Encoding.ASCII.GetBytes(verifier)));
     }
 
-    string Base64UrlEncode(byte[] bytes)
-    {
-        return Convert.ToBase64String(bytes)
-            .Replace("+", "-")
-            .Replace("/", "_")
-            .Replace("=", "");
-    }
+    private static string Base64UrlEncode(byte[] bytes)
+        => Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
 
     private void SetError(string error)
     {
@@ -485,9 +430,9 @@
         StateHasChanged();
     }
 
-    private void HandlePhoneVerified(string token)
+    private void HandlePhoneVerified(string tokenValue)
     {
-        resetToken = token;
+        resetToken = tokenValue;
         forgotPasswordStep = ForgotPasswordStep.ResetPassword;
         StateHasChanged();
     }

@@ -1,0 +1,329 @@
+@*
+    The one application shell.
+
+    There used to be two — MainLayout (a Fluent header plus a recursive
+    accordion sidebar built for a point-of-sale back office) and ProjectsLayout
+    (a second top bar with its own brand and its own bottom nav). Two shells
+    means two answers to "where am I", and the reader who must never get lost is
+    the one paying the bill.
+
+    Mobile is the design target. Navigation is tucked into a drawer and summoned;
+    the bottom bar carries only destinations that exist for every role; the
+    contextual action floats above the content instead of moving around inside
+    the bar, because a centre button that changes meaning is how people get lost.
+*@
+
+@inherits LayoutComponentBase
+@implements IDisposable
+
+@using assetlen.Shared.Models.statics
+@inject ShellState Shell
+@inject CustomAuthStateProvider _custAuth
+@inject IJSRuntime JS
+
+<div class="shell">
+
+    @if (_state == ShellPhase.Booting)
+    {
+        <div class="shell__boot" role="status" aria-live="polite">
+            <BrandMark Size="34" Label="ASSETLEN" />
+            <span class="al-label">Opening your projects</span>
+        </div>
+    }
+    else if (_state == ShellPhase.Anonymous)
+    {
+        @* The router sent an unauthenticated reader here. Redirecting happens in
+           OnInitializedAsync; this is the frame they see for the one paint in
+           between, and it must not flash a broken chrome. *@
+        <div class="shell__boot">
+            <BrandMark Size="34" Label="ASSETLEN" />
+            <span class="al-label">Taking you to sign in</span>
+        </div>
+    }
+    else
+    {
+        <header class="shell__top">
+            <button type="button" class="al-iconbtn shell__menu" @onclick="Shell.ToggleDrawer"
+                    aria-label="Open navigation" aria-expanded="@Shell.DrawerOpen">
+                <Icon Name="menu" Size="20" />
+            </button>
+
+            <a href="/" class="shell__brand" aria-label="ASSETLEN home">
+                <BrandMark Size="24" />
+                <span class="shell__wordmark">ASSETLEN</span>
+            </a>
+
+            <div class="shell__crumbs">
+                <Breadcrumbs />
+            </div>
+
+            <div class="al-spacer"></div>
+
+            <a href="/search" class="al-iconbtn shell__search-btn" aria-label="Search">
+                <Icon Name="search" Size="20" />
+            </a>
+
+            <button type="button" class="al-iconbtn shell__theme" @onclick="CycleTheme"
+                    aria-label="@ThemeLabel" title="@ThemeLabel">
+                <Icon Name="@(Shell.Theme == "dark" ? "moon" : "sun")" Size="19" />
+            </button>
+
+            <div class="shell__account">
+                <button type="button" class="shell__avatar-btn" @onclick="ToggleAccount"
+                        aria-haspopup="menu" aria-expanded="@_accountOpen" aria-label="Account">
+                    <span class="al-avatar @SideAvatarClass">@Initials</span>
+                </button>
+
+                @if (_accountOpen)
+                {
+                    <div class="shell__menu-pop" role="menu">
+                        <div class="shell__menu-head">
+                            <div class="shell__menu-name">@DisplayName</div>
+                            <div class="shell__menu-mail al-truncate">@_sd.CurrentUser?.Email</div>
+                            <span class="al-badge @RoleBadgeClass">@RoleLabel</span>
+                        </div>
+                        <div class="al-divider"></div>
+                        <a href="/account" class="shell__menu-item" role="menuitem" @onclick="CloseAccount">
+                            <Icon Name="person" Size="16" /> Profile
+                        </a>
+                        <button type="button" class="shell__menu-item" role="menuitem" @onclick="HandleLogout">
+                            <Icon Name="logout" Size="16" /> Sign out
+                        </button>
+                    </div>
+                }
+            </div>
+        </header>
+
+        @* On mobile the trail moves below the bar — at 360px a bar carrying a
+           brand, a trail and three controls leaves the trail two characters wide. *@
+        <div class="shell__crumbbar">
+            <Breadcrumbs />
+        </div>
+
+        <div class="shell__body">
+            <NavRail />
+
+            <main class="shell__main" id="main">
+                @Body
+            </main>
+        </div>
+
+        <BottomBar />
+
+        @if (Shell.DrawerOpen)
+        {
+            <div class="al-scrim shell__scrim" @onclick="Shell.CloseDrawer"></div>
+            <NavRail InDrawer="true" />
+        }
+
+        @if (_accountOpen)
+        {
+            <div class="shell__click-away" @onclick="CloseAccount"></div>
+        }
+    }
+</div>
+
+<ToastHost />
+<RouteTracker />
+
+<div id="blazor-error-ui">
+    Something on this page didn't load.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss" onclick="this.closest('#blazor-error-ui').style.display='none'">Dismiss</a>
+</div>
+
+@code {
+    private enum ShellPhase { Booting, Anonymous, Ready }
+
+    private ShellPhase _state = ShellPhase.Booting;
+    private bool _accountOpen;
+
+    protected override void OnInitialized()
+    {
+        Shell.OnChange += Refresh;
+        _sd.OnUserUpdated += Refresh;
+        _nav.LocationChanged += OnLocationChanged;
+    }
+
+    public void Dispose()
+    {
+        Shell.OnChange -= Refresh;
+        _sd.OnUserUpdated -= Refresh;
+        _nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
+    {
+        Shell.CloseDrawer();
+        _accountOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var relative = _nav.ToBaseRelativePath(_nav.Uri);
+
+        var token = await _storageService.GetItemAsync<LoginResponseDto>(StorageKeys.SessionState);
+        if (token is not null)
+        {
+            await _custAuth.MarkUserAsAuthenticated(token);
+        }
+
+        var authState = await _custAuth.GetAuthenticationStateAsync();
+
+        if (authState?.User?.Identity?.IsAuthenticated != true)
+        {
+            _state = ShellPhase.Anonymous;
+            var target = string.IsNullOrEmpty(relative) ? "login" : $"login?returnUrl=/{relative}";
+            _nav.NavigateTo(target, replace: true);
+            return;
+        }
+
+        var user = await _custAuth.GetAuthenticatedUser(token!);
+        _sd.SetUser(user);
+        await _userSession.RestoreUserRolesAsync();
+
+        // No role gate here. The old shell required IsTenantAdmin to render at
+        // all, which locked out every Client and every Crew member — the second
+        // principal and the whole delivery side could sign in and then see a
+        // permission wall. Authorisation belongs on routes and on the server.
+        _state = ShellPhase.Ready;
+
+        await LoadThemeAsync();
+        await LoadProjectsAsync();
+    }
+
+    /// <summary>
+    /// The rail, the switcher and the breadcrumbs all need project names, and
+    /// none of them should each fetch their own copy.
+    /// </summary>
+    private async Task LoadProjectsAsync()
+    {
+        try
+        {
+            var response = await _projectsRSApi.GetPortfolioDashboard();
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                Shell.SetProjects(response.Content.Projects);
+            }
+        }
+        catch
+        {
+            // The chrome degrades to ids-free generic labels rather than
+            // blocking the page behind a failed sidebar fetch.
+        }
+    }
+
+    // ── Theme ───────────────────────────────────────────────────────────────
+
+    private async Task LoadThemeAsync()
+    {
+        var saved = await _storageService.GetItemAsync<string>("al-theme");
+        Shell.SetTheme(string.IsNullOrWhiteSpace(saved) ? null : saved);
+        await ApplyThemeAsync();
+    }
+
+    private async Task CycleTheme()
+    {
+        // Three states, in the order a reader expects: system → light → dark.
+        var next = Shell.Theme switch
+        {
+            null    => "light",
+            "light" => "dark",
+            _       => null
+        };
+
+        Shell.SetTheme(next);
+
+        if (next is null) await _storageService.RemoveItemAsync("al-theme");
+        else await _storageService.SetItemAsync("al-theme", next);
+
+        await ApplyThemeAsync();
+    }
+
+    private async Task ApplyThemeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("assetlenTheme.apply", Shell.Theme);
+        }
+        catch
+        {
+            // Pre-render or a missing script: the OS preference still governs.
+        }
+    }
+
+    private string ThemeLabel => Shell.Theme switch
+    {
+        "light" => "Light theme — switch to dark",
+        "dark"  => "Dark theme — follow system",
+        _       => "Following system theme — switch to light"
+    };
+
+    // ── Account ─────────────────────────────────────────────────────────────
+
+    private void ToggleAccount() => _accountOpen = !_accountOpen;
+    private void CloseAccount() => _accountOpen = false;
+
+    private string DisplayName
+    {
+        get
+        {
+            var u = _sd.CurrentUser;
+            if (u is null) return "Signed in";
+            var name = u.FullName;
+            if (!string.IsNullOrWhiteSpace(name)) return name!;
+            return $"{u.FirstName} {u.LastName}".Trim() is { Length: > 0 } n ? n : (u.Email ?? "Signed in");
+        }
+    }
+
+    private string Initials
+    {
+        get
+        {
+            var u = _sd.CurrentUser;
+            if (u is null) return "–";
+            var a = u.FirstName?.Trim();
+            var b = u.LastName?.Trim();
+            var initials = $"{(a is { Length: > 0 } ? a[0].ToString() : "")}{(b is { Length: > 0 } ? b[0].ToString() : "")}";
+            if (!string.IsNullOrEmpty(initials)) return initials.ToUpperInvariant();
+            return (u.Email ?? "?")[..1].ToUpperInvariant();
+        }
+    }
+
+    private bool IsClientSide => _sd.CurrentUser?.RolesDto?.IsExternal == true;
+
+    private string SideAvatarClass => IsClientSide ? "al-avatar--client" : "al-avatar--delivery";
+    private string RoleBadgeClass => IsClientSide ? "al-badge--client" : "al-badge--delivery";
+
+    /// <summary>
+    /// The four names the vision uses (assetlen.md §8), mapped from the six-role
+    /// enum that has not been collapsed yet. Nobody should read "Contractor" on
+    /// the account that funds the work.
+    /// </summary>
+    private string RoleLabel
+    {
+        get
+        {
+            var r = _sd.CurrentUser?.RolesDto;
+            if (r is null) return "Signed in";
+            if (r.SystemAdmin) return "Platform";
+            if (r.Contractor) return "Developer";
+            if (r.Manager) return "Mediator";
+            if (r.Client) return "Representative";
+            if (r.Crew) return "Delivery";
+            return "Observer";
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        _accountOpen = false;
+        Shell.Clear();
+        _sd.RemoveUser();
+        await _custAuth.MarkUserAsLoggedOut();
+        _nav.NavigateTo("/login", forceLoad: true);
+    }
+}

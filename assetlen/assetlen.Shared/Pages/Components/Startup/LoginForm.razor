@@ -2,69 +2,50 @@
 @inject ILogger<LoginForm> _logger
 
 <EditForm EditContext="@EditContext" OnValidSubmit="HandleFormSubmit" class="lf">
-    <div class="lf__field">
-        <label class="lf__label" for="lf-email">Email or username</label>
-        <div class="lf__input-wrap">
-            <svg class="lf__input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-            </svg>
-            <input id="lf-email" class="lf__input" type="text" autocomplete="username"
-                   placeholder="you@studio.com"
+
+    <div class="al-field">
+        <label class="al-label" for="lf-email">Email or username</label>
+        <div class="al-inputwrap">
+            <Icon Name="person" Size="16" />
+            <input id="lf-email" class="al-input" type="text" autocomplete="username"
+                   placeholder="you@example.com"
                    @bind-value="LoginDto.Email" @bind-value:event="oninput" />
         </div>
     </div>
 
-    <div class="lf__field">
+    <div class="al-field">
         <div class="lf__label-row">
-            <label class="lf__label" for="lf-password">Password</label>
+            <label class="al-label" for="lf-password">Password</label>
             @if (OnForgotPassword.HasDelegate)
             {
-                <button type="button" class="lf__forgot" @onclick="OnForgotPassword">Forgot?</button>
+                <button type="button" class="al-btn al-btn--link lf__forgot" @onclick="OnForgotPassword">Forgot?</button>
             }
         </div>
-        <div class="lf__input-wrap">
-            <svg class="lf__input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            <input id="lf-password" class="lf__input" type="@(showPassword ? "text" : "password")"
+        <div class="al-inputwrap">
+            <Icon Name="lock" Size="16" />
+            <input id="lf-password" class="al-input lf__password" type="@(showPassword ? "text" : "password")"
                    autocomplete="current-password"
                    placeholder="••••••••"
                    @bind-value="LoginDto.Password" @bind-value:event="oninput"
-                   @onkeydown="@(e => HandleKeyDown(e))" />
-            <button type="button" class="lf__reveal" @onclick="() => showPassword = !showPassword"
+                   @onkeydown="HandleKeyDown" />
+            <button type="button" class="al-iconbtn al-iconbtn--sm lf__reveal"
+                    @onclick="() => showPassword = !showPassword"
                     aria-label="@(showPassword ? "Hide password" : "Show password")">
-                @if (showPassword)
-                {
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.55 18.55 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.45 18.45 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                }
-                else
-                {
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                    </svg>
-                }
+                <Icon Name="@(showPassword ? "eye-off" : "eye")" Size="16" />
             </button>
         </div>
     </div>
 
-    <button type="submit" class="lf__submit" disabled="@isLoading">
+    <button type="submit" class="al-btn al-btn--primary al-btn--lg al-btn--block" disabled="@isLoading">
         @if (isLoading)
         {
-            <span class="lf__spinner" aria-hidden="true"></span>
-            <text>Signing in…</text>
+            <span class="al-spinner" aria-hidden="true"></span>
+            <span>Signing in…</span>
         }
         else
         {
-            <text>Sign in</text>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-            </svg>
+            <span>Sign in</span>
+            <Icon Name="arrow-right" Size="16" />
         }
     </button>
 
@@ -95,10 +76,11 @@
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter")
-        {
-            await Task.Delay(50);
-            await HandleFormSubmit();
-        }
+        if (e.Key != "Enter") return;
+
+        // The bound value lands on the next tick; submitting immediately posts
+        // the password minus its last character.
+        await Task.Delay(50);
+        await HandleFormSubmit();
     }
 }

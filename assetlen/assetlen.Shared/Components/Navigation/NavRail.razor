@@ -1,0 +1,156 @@
+@*
+    One navigation component, two presentations: a permanent rail from 900px up,
+    and the contents of the summoned drawer below it. Writing it twice is how
+    the two old shells drifted apart.
+
+    The rail lists projects by name, with sub-projects indented under their
+    parent — because a guest wing is part of a residence, and a flat list of
+    "projects" was the mistake that turned one engagement into nine.
+*@
+
+@implements IDisposable
+@inject ShellState Shell
+@inject NavigationManager Nav
+
+<nav class="rail @(InDrawer ? "rail--drawer" : "rail--fixed")" aria-label="Projects and sections">
+
+    @if (InDrawer)
+    {
+        <div class="rail__head">
+            <a href="/" class="rail__brand">
+                <BrandMark Size="22" />
+                <span class="rail__wordmark">ASSETLEN</span>
+            </a>
+            <button type="button" class="al-iconbtn" @onclick="Shell.CloseDrawer" aria-label="Close navigation">
+                <Icon Name="close" Size="20" />
+            </button>
+        </div>
+    }
+
+    <div class="rail__scroll">
+        <ul class="rail__list">
+            <li>
+                <a href="/" class="rail__link @Active("/", exact: true)">
+                    <Icon Name="grid" Size="18" />
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="/needs-you" class="rail__link @Active("/needs-you")">
+                    <Icon Name="decision" Size="18" />
+                    <span>Needs you</span>
+                </a>
+            </li>
+            <li>
+                <a href="/search" class="rail__link @Active("/search")">
+                    <Icon Name="search" Size="18" />
+                    <span>Search</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="rail__section">
+            <span class="al-label">Your projects</span>
+        </div>
+
+        @if (!Shell.ProjectsLoaded)
+        {
+            <div class="rail__loading" aria-hidden="true">
+                @for (var i = 0; i < 3; i++)
+                {
+                    <div class="al-shimmer rail__ghost"></div>
+                }
+            </div>
+        }
+        else if (Shell.Roots.Count == 0)
+        {
+            <p class="rail__empty">No projects yet.</p>
+        }
+        else
+        {
+            <ul class="rail__list">
+                @foreach (var project in Shell.Roots)
+                {
+                    <li>
+                        <a href="/project/@project.Id" class="rail__link @Active($"/project/{project.Id}")">
+                            <Icon Name="project" Size="18" />
+                            <span class="al-truncate">@project.Name</span>
+                        </a>
+
+                        @if (project.Children.Count > 0)
+                        {
+                            <ul class="rail__list rail__list--nested">
+                                @foreach (var child in project.Children)
+                                {
+                                    <li>
+                                        <a href="/project/@child.Id" class="rail__link rail__link--nested @Active($"/project/{child.Id}")">
+                                            <Icon Name="wing" Size="16" />
+                                            <span class="al-truncate">@child.Name</span>
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (CanCreateProject)
+        {
+            <div class="rail__foot-action">
+                <a href="/project/create" class="rail__link rail__link--muted">
+                    <Icon Name="plus" Size="18" />
+                    <span>New project</span>
+                </a>
+            </div>
+        }
+    </div>
+
+    <div class="rail__foot">
+        <span class="al-label">@FootNote</span>
+    </div>
+</nav>
+
+@code {
+    /// <summary>True when rendered inside the mobile drawer rather than as the permanent rail.</summary>
+    [Parameter] public bool InDrawer { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Shell.OnChange += Refresh;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    public void Dispose()
+    {
+        Shell.OnChange -= Refresh;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
+        => InvokeAsync(StateHasChanged);
+
+    private string Active(string href, bool exact = false)
+    {
+        var path = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.TrimEnd('/');
+        var target = href.TrimEnd('/');
+
+        if (exact) return path.Equals(target, StringComparison.OrdinalIgnoreCase) || (target.Length == 0 && path.Length == 0)
+            ? "is-active" : "";
+
+        return path.Equals(target, StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(target + "/", StringComparison.OrdinalIgnoreCase)
+            ? "is-active" : "";
+    }
+
+    // Only the account owner creates projects. The delivery side is invited in
+    // and can be replaced without the record moving (assetlen.md D1).
+    private bool CanCreateProject => _sd.CurrentUser?.RolesDto is { } r && (r.Contractor || r.Manager || r.SystemAdmin);
+
+    private string FootNote => _sd.CurrentUser?.RolesDto?.IsExternal == true
+        ? "Client side"
+        : "Delivery side";
+}

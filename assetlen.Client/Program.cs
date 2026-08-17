@@ -2,24 +2,17 @@ using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.FluentUI.AspNetCore.Components;
 using assetlen.Client;
 using assetlen.Shared.Apicalls;
 using assetlen.Shared.Layout;
 using assetlen.Shared.Services;
 using assetlen.Shared.statics;
 using assetlen.Client.Services;
-using assetlen.Client.Services;
 using Refit;
-using Syncfusion.Blazor;
-
-
-var currentPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
 var baseAddressApi = new Uri("https://localhost:7264");
 //var baseAddressApi = new Uri("http://localhost:5140");
 //var baseAddressApi = new Uri("https://api.assetlen.com");
-
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -27,11 +20,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
-
 builder.Services.AddCascadingAuthenticationState();
-// Add device-specific services used by the assetlen.Shared project
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
-builder.Services.AddFluentUIComponents();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 builder.Services.AddBlazoredLocalStorage();
@@ -49,12 +39,17 @@ builder.Services.AddScoped<CustomAuthStateProvider>();
 builder.Services.AddScoped<IStorageService, StorageServiceWeb>();
 builder.Services.AddSingleton<BlazorNavigationService>();
 builder.Services.AddSingleton<NavigatorService>();
-builder.Services.AddSingleton<Microsoft.FluentUI.AspNetCore.Components.DialogService>();
 builder.Services.AddSingleton<IApiResponseHandler, ApiResponseHandler>();
 builder.Services.AddSingleton<ISD, SD>();
 builder.Services.AddScoped<IUserSessionService, UserSessionService>();
-builder.Services.AddSyncfusionBlazor();
 builder.Services.AddSingleton<IAppCloser, AppCloser>();
+
+// ── ASSETLEN chrome ──
+// Toasts and shell state are the product's own. The Fluent UI toast and dialog
+// providers they replace pulled a second design system into every page, and the
+// two never agreed on a colour, a radius or a motion curve.
+builder.Services.AddScoped<IToastService, ToastService>();
+builder.Services.AddScoped<ShellState>();
 
 // One registration helper — every ASSETLEN API client is registered the same way.
 void AddApi<T>() where T : class => builder.Services
@@ -79,6 +74,10 @@ AddApi<IBudgetApi>();
 AddApi<IArtifactsApi>();
 AddApi<IIngestApi>();
 
+// Development demo world. The endpoint behind this answers 404 on any host that
+// is not Development, so registering it everywhere costs nothing.
+AddApi<IDevApi>();
+
 builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
     sp.GetRequiredService<IStorageService>(),
     sp.GetRequiredService<ILogger<StreamHubService>>(),
@@ -92,12 +91,15 @@ builder.Services.AddScoped<ICustomFileSaver, FileSaverWeb>();
 // browser a blob.
 builder.Services.AddScoped<IArtifactDownloadService, ArtifactDownloadService>();
 builder.Services.AddScoped<IPrintService, PrintServiceWeb>();
-builder.Services.AddScoped<NavigationService>();
 builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();
-
 
 builder.Services.AddSingleton<IFolderPickerService, FolderPickerService>();
 
-Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjHTQxAR8/V1JGaF5cXGpCf1FpRmJGdld5fUVHYVZUTXxaS00DNHVRdkdlWX5fdXRRQ2JZVUd+VkVWYEs=");
+var host = builder.Build();
 
-await builder.Build().RunAsync();
+// The persona quick-sign-in renders off this. Read from the host environment
+// rather than from a compile-time symbol so a Release build served by a
+// Development host still offers it.
+host.Services.GetRequiredService<GlobalContext>().IsDevelopment = builder.HostEnvironment.IsDevelopment();
+
+await host.RunAsync();

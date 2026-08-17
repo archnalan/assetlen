@@ -1,161 +1,185 @@
 @page "/project/{ProjectId}/add-funding"
-@using assetlen.Shared.Models.Models.RemoteSite
-@using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
-@using static assetlen.Shared.Components.Navigation.Breadcrumbs
-@layout ProjectsLayout
-@attribute [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}")]
+@attribute [Authorize]
 @inject NavigationManager Nav
 @inject ILogger<AddFunding> Logger
 
-<PageTitle>Record Deposit — ASSETLEN</PageTitle>
+@*
+    Record that a stage was funded.
 
-<Breadcrumbs Items="@BuildBreadcrumbs()" />
+    **Assetlen never holds or moves money.** Funds on the real project moved
+    through three named agents, two banks, mobile money and a third party's
+    account — rails this product could not see if it tried. So this screen
+    records a fact about a transfer that happened at the bank, and the value of
+    the record is that the other side then acknowledges it. That acknowledgement
+    is what the reconciliation meeting was standing in for.
+*@
 
-<div class="project-page-header">
-    <div>
-        <h1 class="project-page-title">Record Deposit</h1>
-        <p class="project-page-subtitle">Track a capital payment to your project</p>
+<PageTitle>Record a release — ASSETLEN</PageTitle>
+
+<div class="al-page al-page--reading">
+
+    <TitleBlock Eyebrow="Stages &amp; money" Title="Record a release"
+                Subtitle="A release you have already made at the bank. The other side confirms receipt here.">
+        <Actions>
+            <a class="al-btn al-btn--quiet" href="/project/@ProjectId/money">Cancel</a>
+        </Actions>
+    </TitleBlock>
+
+    <div class="al-alert al-alert--info">
+        <Icon Name="info" Size="18" />
+        <span>
+            Assetlen records that a stage was funded. It never holds or moves money — the transfer
+            happens at your bank, exactly as it does now.
+        </span>
     </div>
-</div>
 
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="project-alert project-alert-error project-mt-md">@errorMessage</div>
-}
+    <div class="funding">
 
-<div class="project-card project-mt-md">
-    <div class="project-card-body">
-        <!-- Stage Selection -->
-        <div class="project-form-group">
-            <label class="project-label">Allocate to Stage *</label>
-            @if (stages == null)
+        <div class="al-field">
+            <label class="al-label" for="fund-stage">Against which stage</label>
+            <select id="fund-stage" class="al-select" @bind="model.StageId">
+                <option value="">Project-wide</option>
+                @foreach (var stage in stages)
+                {
+                    <option value="@stage.Id">@stage.DisplayOrder.ToString("D2") — @stage.StageName</option>
+                }
+            </select>
+            @if (SelectedStage is { } selected)
             {
-                <div class="project-skeleton project-skeleton-line" style="height:40px;"></div>
+                <span class="al-field__hint">
+                    Budget @Fmt.Money(selected.BudgetAmount ?? 0, currency).
+                    Released so far @Fmt.Money(ReleasedOn(selected.Id), currency).
+                </span>
             }
-            else
+        </div>
+
+        <div class="al-field">
+            <label class="al-label" for="fund-amount">Amount (@currency)</label>
+            <input id="fund-amount" class="al-input al-input--money" type="number" min="0" step="1000"
+                   placeholder="0"
+                   @bind="model.Amount" @bind:event="oninput" />
+            @if (model.Amount > 0)
             {
-                <select class="project-input" @bind="model.StageId">
-                    <option value="">Select a stage...</option>
-                    @foreach (var stage in stages)
-                    {
-                        <option value="@stage.Id">@stage.StageName — Budget: @((stage.BudgetAmount ?? 0).ToString("N0"))</option>
-                    }
-                </select>
+                <span class="al-field__hint">@Fmt.Money(model.Amount, currency)</span>
             }
         </div>
 
-        <!-- Amount -->
-        <div class="project-form-group">
-            <label class="project-label">Amount *</label>
-            <input class="project-input" type="number" step="any" @bind="model.Amount" placeholder="0" />
+        <div class="al-field">
+            <label class="al-label" for="fund-date">Date sent</label>
+            <input id="fund-date" class="al-input" type="date" @bind="paymentDate" />
         </div>
 
-        <!-- Payment Date -->
-        <div class="project-form-group">
-            <label class="project-label">Payment Date *</label>
-            <input class="project-input" type="date" @bind="model.PaymentDate" />
+        <div class="al-field">
+            <label class="al-label" for="fund-note">What it covers</label>
+            <textarea id="fund-note" class="al-textarea" rows="2" maxlength="500"
+                      placeholder="e.g. Retaining wall, second release — materials and labour to the north run."
+                      @bind="model.Notes" @bind:event="oninput"></textarea>
+            <span class="al-field__hint">
+                A line here is what stops the next reconciliation turning into "too many stages combined".
+            </span>
         </div>
 
-        <!-- Notes -->
-        <div class="project-form-group">
-            <label class="project-label">Notes</label>
-            <textarea class="project-input project-textarea" @bind="model.Notes" rows="2"
-                      placeholder="e.g. Bank transfer ref #12345, Mobile Money, etc."></textarea>
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="al-alert al-alert--error" role="alert">
+                <Icon Name="error" Size="18" />
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <div class="funding__actions">
+            <a class="al-btn al-btn--quiet" href="/project/@ProjectId/money">Cancel</a>
+            <button type="button" class="al-btn al-btn--primary al-btn--lg"
+                    disabled="@(saving || model.Amount <= 0)" @onclick="SubmitAsync">
+                @if (saving)
+                {
+                    <span class="al-spinner"></span><span>Recording…</span>
+                }
+                else
+                {
+                    <span>Record release</span>
+                }
+            </button>
         </div>
     </div>
-</div>
-
-<div class="project-card project-mt-sm">
-    <div class="project-card-body" style="text-align:center;">
-        <div class="project-text-xs project-text-muted">
-            Your project manager will need to confirm this deposit once materials are received.
-        </div>
-    </div>
-</div>
-
-<div class="project-form-actions project-mt-md project-mb-lg">
-    <a href="/project/@ProjectId" class="project-btn project-btn-secondary">Cancel</a>
-    <button class="project-btn project-btn-primary" @onclick="SubmitFunding" disabled="@(isSaving || !CanSubmit)">
-        @if (isSaving)
-        {
-            <span class="project-spinner"></span>
-            <text>Recording...</text>
-        }
-        else
-        {
-            <text>Record Deposit</text>
-        }
-    </button>
 </div>
 
 @code {
     [Parameter] public string ProjectId { get; set; } = "";
 
-    private FundingEntryCreateDto model = new()
-    {
-        PaymentDate = DateTime.Today
-    };
-
-    private List<StageDto>? stages;
-    private string? projectName;
-    private bool isSaving;
+    private readonly FundingEntryCreateDto model = new();
+    private DateTime paymentDate = DateTime.Now.Date;
+    private List<StageDto> stages = new();
+    private List<FundingEntryDto> existing = new();
+    private string currency = "UGX";
+    private bool saving;
     private string? errorMessage;
 
-    private IEnumerable<BreadcrumbItem> BuildBreadcrumbs()
-    {
-        yield return new BreadcrumbItem("Portfolio", "/portfolio");
-        yield return new BreadcrumbItem(projectName ?? "Project", $"/project/{ProjectId}");
-        yield return new BreadcrumbItem("Record deposit");
-    }
-
-    private bool CanSubmit =>
-        !string.IsNullOrWhiteSpace(model.StageId) && model.Amount > 0;
+    private StageDto? SelectedStage => stages.FirstOrDefault(s => s.Id == model.StageId);
 
     protected override async Task OnInitializedAsync()
     {
         model.ProjectId = ProjectId;
+
         try
         {
-            var resp = await _stagesApi.GetStagesByProjectId(ProjectId);
-            if (resp.IsSuccessStatusCode)
-                stages = resp.Content;
+            var stagesTask = _stagesApi.GetStagesByProjectId(ProjectId);
+            var projectTask = _projectsRSApi.GetProjectById(ProjectId);
+            var fundingTask = _fundingApi.GetFundingByProject(ProjectId);
+
+            await Task.WhenAll(stagesTask, projectTask, fundingTask);
+
+            if (stagesTask.Result.IsSuccessStatusCode)
+                stages = (stagesTask.Result.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList();
+
+            if (projectTask.Result.IsSuccessStatusCode)
+                currency = projectTask.Result.Content?.Currency ?? "UGX";
+
+            if (fundingTask.Result.IsSuccessStatusCode)
+                existing = fundingTask.Result.Content ?? new();
         }
-        catch (Exception ex) { Logger.LogError(ex, "Error loading stages"); }
-        try
+        catch (Exception ex)
         {
-            var pResp = await _projectsRSApi.GetProjectById(ProjectId);
-            if (pResp.IsSuccessStatusCode) projectName = pResp.Content?.ProjectName;
+            Logger.LogError(ex, "Could not preload funding context for {ProjectId}", ProjectId);
         }
-        catch { /* breadcrumb falls back to "Project" */ }
     }
 
-    private async Task SubmitFunding()
+    /// <summary>What has already gone out against a stage. Shown while typing so a double release is visible before it is made.</summary>
+    private decimal ReleasedOn(string stageId)
+        => existing.Where(f => f.StageId == stageId && f.Status != FundingStatus.Rejected).Sum(f => f.Amount);
+
+    private async Task SubmitAsync()
     {
-        if (isSaving || !CanSubmit) return;
-        isSaving = true;
+        if (saving || model.Amount <= 0) return;
+
+        saving = true;
         errorMessage = null;
         StateHasChanged();
 
         try
         {
-            var resp = await _fundingApi.AddFundingEntry(model);
-            if (resp.IsSuccessStatusCode)
+            model.PaymentDate = DateTime.SpecifyKind(paymentDate, DateTimeKind.Utc);
+            if (string.IsNullOrEmpty(model.StageId)) model.StageId = null;
+
+            var response = await _fundingApi.AddFundingEntry(model);
+
+            if (response.IsSuccessStatusCode)
             {
-                Nav.NavigateTo($"/project/{ProjectId}?tab=funding");
+                ToastService.ShowSuccess($"{Fmt.Money(model.Amount, currency)} recorded. It shows as awaiting confirmation until the other side acknowledges it.");
+                Nav.NavigateTo($"/project/{ProjectId}/money");
+                return;
             }
-            else
-            {
-                errorMessage = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Failed to record deposit.";
-            }
+
+            errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not record that release.";
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error recording deposit");
-            errorMessage = "An unexpected error occurred.";
+            Logger.LogError(ex, "Could not record funding on {ProjectId}", ProjectId);
+            errorMessage = "Could not record that release. Nothing has been changed.";
         }
         finally
         {
-            isSaving = false;
+            saving = false;
             StateHasChanged();
         }
     }

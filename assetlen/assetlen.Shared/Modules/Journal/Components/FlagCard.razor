@@ -35,20 +35,20 @@
         <div class="flag-card__nudge">
             @if (Flag.LastNudgeAt.HasValue)
             {
-                <span class="project-text-xs project-text-muted">
+                <span class="al-subtle">
                     Last nudged @FormatTimeAgo(Flag.LastNudgeAt.Value)
                 </span>
             }
             else
             {
-                <span class="project-text-xs project-text-muted">Not nudged yet</span>
+                <span class="al-subtle">Not nudged yet</span>
             }
         </div>
     }
     else if (Flag.Status == FlagStatus.Resolved)
     {
         <div class="flag-card__nudge">
-            <span class="project-text-xs" style="color:var(--al-success);">
+            <span class="al-subtle" style="color:var(--al-success);">
                 ✓ Resolved
                 @if (Flag.ResolvedDate.HasValue) { <text> @FormatTimeAgo(Flag.ResolvedDate.Value)</text> }
                 @if (!string.IsNullOrEmpty(Flag.ResolvedByName)) { <text> by @Flag.ResolvedByName</text> }
@@ -61,7 +61,7 @@
         {
             <div class="flag-card__actions">
                 <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="ngAuth">
-                    <button class="project-btn project-btn-link"
+                    <button class="al-btn al-btn--link"
                             @onclick="Nudge" disabled="@busy">
                         @(busy && busyAction == "nudge" ? "Nudging…" : "Nudge")
                     </button>
@@ -69,13 +69,13 @@
                 @if (Flag.Status == FlagStatus.Open)
                 {
                     <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="ipAuth">
-                        <button class="project-btn project-btn-link"
+                        <button class="al-btn al-btn--link"
                                 @onclick="MarkInProgress" disabled="@busy">
                             @(busy && busyAction == "inprogress" ? "Saving…" : "Mark in progress")
                         </button>
                     </AuthorizeView>
                 }
-                <button class="project-btn project-btn-primary project-btn-sm"
+                <button class="al-btn al-btn--primary al-btn--sm"
                         @onclick="Resolve" disabled="@busy">
                     @(busy && busyAction == "resolve" ? "Resolving…" : "Resolve")
                 </button>

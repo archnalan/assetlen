@@ -2,7 +2,6 @@
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
-using Syncfusion.Licensing;
 
 namespace assetlen.Client.Services
 {

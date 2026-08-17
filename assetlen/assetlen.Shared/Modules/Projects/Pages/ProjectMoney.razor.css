@@ -1,0 +1,51 @@
+.money__bar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    margin-top: var(--al-space-5);
+}
+
+.money__swatch--cleared { background: var(--al-success); }
+.money__swatch--claimed { background: var(--al-accent); }
+.money__swatch--rest    { background: var(--al-surface-3); }
+
+.money__stage {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    min-width: 12rem;
+}
+
+.money__stage:hover .money__stage-name { color: var(--al-accent); }
+
+.money__stage-no {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--al-text-subtle);
+    padding-top: 2px;
+}
+
+.money__stage-name {
+    display: block;
+    font-weight: var(--al-weight-medium);
+    transition: color var(--al-transition-fast);
+}
+
+.money__stage-note {
+    display: block;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+/* Released beyond budget is not an error state, but it must be visible without
+   the reader doing the subtraction. */
+.money__over { color: var(--al-danger); }
+
+.money__footnote {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    max-width: 60ch;
+    padding-top: var(--al-space-3);
+    border-top: 1px solid var(--al-border);
+}

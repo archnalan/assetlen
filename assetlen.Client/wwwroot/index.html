@@ -3,424 +3,301 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#fafaf7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#15171a" media="(prefers-color-scheme: dark)" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#131518" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="WhatsApp stores messages. Construction runs on commitments. Assetlen turns a stream you cannot search into a register you own." />
     <title>ASSETLEN</title>
     <base href="/" />
 
-    <!-- Icons. SVG is preferred by browsers that support it; the .ico carries
-         pixel-grid 16/32/48 masters for tabs, bookmarks and Explorer. -->
-    <link rel="icon" href="favicon.ico" sizes="32x32" />
+    <!-- Icons. All generated from one geometry by tools/make-icons.mjs, which is
+         the same geometry BrandMark.razor draws — so the tab, the home screen
+         and the header can never drift apart. SVG is preferred where supported;
+         the .ico carries pixel-grid 16/32/48 masters. -->
+    <link rel="icon" href="favicon.ico" sizes="48x48" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
 
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/app.css" />
-    <link href="assetlen.Client.styles.css" rel="stylesheet" />
-    <link rel="stylesheet" href="_content/assetlen.Shared/bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="_content/assetlen.Shared/app.css" />
-    <link rel="stylesheet" href="_content/assetlen.Shared/projects.css" />
-    <link href="_content/Syncfusion.Blazor/styles/bootstrap5.css" rel="stylesheet" />
-    <script src="https://cdn.syncfusion.com/blazor/32.1.23/syncfusion-blazor.min.js" type="text/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" type="text/javascript"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <script src="scripts.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <link rel="stylesheet" href="_content/Radzen.Blazor/css/default-base.css">
-    <script src="/js/pdf-libs/jspdf.umd.min.js"></script>
-    <script src="/js/pdf-libs/html2canvas.min.js"></script>
-    <script src="_content/Blazored.LocalStorage/Blazored.LocalStorage.js"></script>
-    <script src="customJavascript.js"></script>
+    <!-- Fonts. Fraunces carries the display voice, Inter the body; both are
+         preconnected because the first paint after the splash uses them. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- The design system, then Blazor's scoped-CSS bundle. Nothing else.
+         Bootstrap, Syncfusion, Radzen and the Fluent UI stylesheet used to load
+         here; none of them are rendered by a single component any more, and
+         between them they were four competing opinions about what a button is. -->
+    <link rel="stylesheet" href="_content/assetlen.Shared/app.css" />
+    <link href="assetlen.Client.styles.css" rel="stylesheet" />
+
+    <script src="customJavascript.js"></script>
+    <script src="_content/Blazored.LocalStorage/Blazored.LocalStorage.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <style>
-        /* =========================================================
-           ASSETLEN — bootstrap splash
-           Shown only until the Blazor WASM bundle takes over.
-           The tokens here MIRROR --al-* from app.css so the splash
-           is consistent before the main bundle's tokens load.
-           ========================================================= */
+        /* ═════════════════════════════════════════════════════════════════
+           Bootstrap splash — shown only until the WASM bundle takes over.
+
+           It mirrors the --al-* tokens rather than importing them, because
+           app.css has not necessarily arrived yet and a splash that flashes
+           the wrong ground is worse than no splash. The mark drawn here is
+           the same set square the app draws, traced in as it loads.
+           ═════════════════════════════════════════════════════════════════ */
         :root {
-            --splash-bg: #fafaf7;
-            --splash-bg-elevated: #ffffff;
-            --splash-text: #1a1d21;
-            --splash-text-muted: #6b6f76;
-            --splash-text-subtle: #9ca0a7;
-            --splash-border: rgba(26, 29, 33, 0.08);
-            --splash-border-strong: rgba(26, 29, 33, 0.14);
-            --splash-accent: #c2542a;
-            --splash-blueprint: #2f5d8c;
-            --splash-blueprint-soft: #dde7f1;
-            --splash-ease: cubic-bezier(0.2, 0, 0, 1);
-            --splash-font-display: "Fraunces", "Inter Tight", "Segoe UI Variable", "Segoe UI", serif;
-            --splash-font-body: "Inter", "Segoe UI Variable", "Segoe UI", sans-serif;
+            --sp-bg: #f6f5f1;
+            --sp-text: #16191c;
+            --sp-muted: #63676e;
+            --sp-subtle: #8f949c;
+            --sp-border: rgba(22, 25, 28, 0.10);
+            --sp-accent: #c2542a;
+            --sp-ease: cubic-bezier(0.2, 0, 0, 1);
+            --sp-display: "Fraunces", "Inter Tight", "Segoe UI Variable", Georgia, serif;
+            --sp-body: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
         }
 
         @media (prefers-color-scheme: dark) {
-            :root {
-                --splash-bg: #15171a;
-                --splash-bg-elevated: #1c1f23;
-                --splash-text: #f0eee8;
-                --splash-text-muted: #a5a8af;
-                --splash-text-subtle: #6e7178;
-                --splash-border: rgba(255, 255, 255, 0.08);
-                --splash-border-strong: rgba(255, 255, 255, 0.14);
-                --splash-accent: #d66948;
-                --splash-blueprint: #5288c0;
-                --splash-blueprint-soft: #1f3550;
+            :root:not([data-theme="light"]) {
+                --sp-bg: #131518;
+                --sp-text: #eeece6;
+                --sp-muted: #a3a7af;
+                --sp-subtle: #6d727a;
+                --sp-border: rgba(255, 255, 255, 0.09);
+                --sp-accent: #dd7a58;
             }
+        }
+
+        :root[data-theme="dark"] {
+            --sp-bg: #131518;
+            --sp-text: #eeece6;
+            --sp-muted: #a3a7af;
+            --sp-subtle: #6d727a;
+            --sp-border: rgba(255, 255, 255, 0.09);
+            --sp-accent: #dd7a58;
         }
 
         html, body {
             margin: 0;
             padding: 0;
-            background: var(--splash-bg);
-            color: var(--splash-text);
-            font-family: var(--splash-font-body);
+            background: var(--sp-bg);
+            color: var(--sp-text);
+            font-family: var(--sp-body);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            text-rendering: optimizeLegibility;
         }
 
-        #app {
-            min-height: 100vh;
-        }
+        #app { min-height: 100dvh; }
 
-        /* Hide the splash once Blazor's root component has rendered. */
-        body:has([b-blazor-ssr-end]) .al-splash,
-        body.al-ready .al-splash {
+        body.al-ready .splash {
             opacity: 0;
             pointer-events: none;
-            transition: opacity 240ms var(--splash-ease);
+            transition: opacity 260ms var(--sp-ease);
         }
 
-        .al-splash {
+        .splash {
             position: fixed;
             inset: 0;
+            z-index: 1;
             display: flex;
             flex-direction: column;
-            background: var(--splash-bg);
-            z-index: 1;
+            background: var(--sp-bg);
         }
 
-        /* Hairline rule across the top — architectural reference */
-        .al-splash__rule {
-            height: 1px;
-            background: var(--splash-border);
-        }
+        .splash__rule { height: 1px; background: var(--sp-border); }
 
-        .al-splash__top {
+        .splash__top,
+        .splash__bottom {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 24px 32px;
             gap: 16px;
+            padding: 20px 24px;
         }
 
-        .al-splash__brand {
-            font-family: var(--splash-font-display);
-            font-size: 22px;
+        .splash__word {
+            font-family: var(--sp-display);
+            font-size: 15px;
             font-weight: 600;
-            letter-spacing: 0.04em;
-            color: var(--splash-text);
+            letter-spacing: 0.1em;
         }
 
-        .al-splash__meta {
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 0.08em;
+        .splash__spec {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
-            color: var(--splash-text-subtle);
+            color: var(--sp-subtle);
             font-variant-numeric: tabular-nums;
         }
 
-        .al-splash__stage {
+        .splash__stage {
             flex: 1 1 auto;
             display: grid;
-            grid-template-columns: minmax(0, 1fr);
             place-items: center;
             padding: 24px;
             min-height: 0;
         }
 
-        .al-splash__panel {
-            width: 100%;
-            max-width: 560px;
+        .splash__panel {
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
+            max-width: 30rem;
         }
 
-        /* Blueprint plot — SVG is animated by stroke-dashoffset */
-        .al-blueprint {
-            width: 100%;
-            max-width: 320px;
-            height: auto;
-            aspect-ratio: 1 / 1;
-            margin-bottom: 28px;
-        }
+        /* The mark, traced. Each stroke draws itself, then the node lands. */
+        .splash__mark { width: 84px; height: 84px; margin-bottom: 26px; }
 
-        .al-bp-grid line {
-            stroke: var(--splash-border);
-            stroke-width: 0.5;
-        }
-
-        .al-bp-plot line,
-        .al-bp-plot polyline,
-        .al-bp-plot path {
+        .splash__mark path,
+        .splash__mark line {
             fill: none;
-            stroke: var(--splash-blueprint);
-            stroke-width: 1.4;
-            stroke-linejoin: round;
+            stroke: var(--sp-text);
             stroke-linecap: round;
-            stroke-dasharray: 600;
-            stroke-dashoffset: 600;
-            animation: al-trace 2.4s var(--splash-ease) forwards;
+            stroke-linejoin: round;
+            stroke-dasharray: 60;
+            stroke-dashoffset: 60;
+            animation: splash-trace 1s var(--sp-ease) forwards;
         }
 
-        .al-bp-plot line:nth-child(1)     { animation-delay: 0ms; }
-        .al-bp-plot line:nth-child(2)     { animation-delay: 80ms; }
-        .al-bp-plot line:nth-child(3)     { animation-delay: 160ms; }
-        .al-bp-plot line:nth-child(4)     { animation-delay: 240ms; }
-        .al-bp-plot polyline:nth-of-type(1)  { animation-delay: 360ms; }
-        .al-bp-plot polyline:nth-of-type(2)  { animation-delay: 480ms; }
-        .al-bp-plot path:nth-of-type(1)      { animation-delay: 640ms; }
+        .splash__mark line { opacity: 0.55; animation-delay: 480ms; }
 
-        /* Compass dot — the focal point */
-        .al-bp-dot {
-            fill: var(--splash-accent);
+        .splash__mark circle {
+            fill: var(--sp-accent);
             opacity: 0;
-            animation: al-fade-in 480ms var(--splash-ease) 1100ms forwards;
+            animation: splash-land 420ms var(--sp-ease) 820ms forwards;
         }
 
-        .al-bp-dot-ring {
-            fill: none;
-            stroke: var(--splash-accent);
-            stroke-width: 1.2;
-            opacity: 0;
-            transform-origin: 50% 50%;
-            animation: al-pulse-ring 2.4s ease-out 1300ms infinite;
-        }
+        @keyframes splash-trace { to { stroke-dashoffset: 0; } }
+        @keyframes splash-land  { to { opacity: 1; } }
 
-        @keyframes al-trace {
-            to { stroke-dashoffset: 0; }
-        }
-
-        @keyframes al-fade-in {
-            to { opacity: 1; }
-        }
-
-        @keyframes al-pulse-ring {
-            0%   { opacity: 0.6; transform: scale(0.6); }
-            70%  { opacity: 0;   transform: scale(1.8); }
-            100% { opacity: 0;   transform: scale(1.8); }
-        }
-
-        .al-splash__name {
-            font-family: var(--splash-font-display);
-            font-size: 44px;
+        .splash__claim {
+            font-family: var(--sp-display);
+            font-size: 22px;
             font-weight: 600;
-            letter-spacing: -0.01em;
-            color: var(--splash-text);
+            letter-spacing: -0.02em;
+            line-height: 1.25;
             margin: 0;
-            line-height: 1.1;
         }
 
-        .al-splash__tagline {
-            margin: 12px 0 28px;
-            font-size: 15px;
+        .splash__lede {
+            margin: 10px 0 26px;
+            font-size: 14px;
             line-height: 1.6;
-            color: var(--splash-text-muted);
-            max-width: 36ch;
+            color: var(--sp-muted);
+            max-width: 34ch;
         }
 
-        /* Determinate-feeling progress that's actually loop-animated.
-           Hairline rule with a terracotta sweep — calm not busy. */
-        .al-splash__progress {
-            width: 100%;
-            max-width: 280px;
+        .splash__progress {
+            width: min(240px, 60vw);
             height: 2px;
-            background: var(--splash-border);
+            background: var(--sp-border);
             border-radius: 1px;
             overflow: hidden;
             position: relative;
         }
 
-        .al-splash__progress::after {
+        .splash__progress::after {
             content: "";
             position: absolute;
             inset: 0;
-            background: var(--splash-accent);
+            background: var(--sp-accent);
             transform-origin: left center;
-            animation: al-progress 1.8s var(--splash-ease) infinite;
+            animation: splash-sweep 1.6s var(--sp-ease) infinite;
         }
 
-        @keyframes al-progress {
-            0%   { transform: translateX(-100%) scaleX(0.3); }
+        @keyframes splash-sweep {
+            0%   { transform: translateX(-100%) scaleX(0.35); }
             50%  { transform: translateX(0%)    scaleX(0.6); }
-            100% { transform: translateX(120%)  scaleX(0.3); }
+            100% { transform: translateX(120%)  scaleX(0.35); }
         }
 
-        .al-splash__status {
+        .splash__status {
             margin-top: 14px;
-            font-size: 12px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--splash-text-subtle);
-            font-variant-numeric: tabular-nums;
-        }
-
-        .al-splash__bottom {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 20px 32px;
-            gap: 16px;
             font-size: 11px;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
-            color: var(--splash-text-subtle);
+            color: var(--sp-subtle);
         }
 
-        .al-splash__bottom-spec {
-            display: inline-flex;
-            align-items: baseline;
-            gap: 6px;
-            font-variant-numeric: tabular-nums;
+        @media (max-width: 520px) {
+            .splash__top, .splash__bottom { padding: 16px 18px; }
+            .splash__claim { font-size: 19px; }
+            .splash__mark { width: 68px; height: 68px; margin-bottom: 20px; }
         }
 
-        .al-splash__bottom-spec b {
-            color: var(--splash-text-muted);
-            font-weight: 600;
+        @media (prefers-reduced-motion: reduce) {
+            .splash__mark path,
+            .splash__mark line { stroke-dashoffset: 0; animation: none; }
+            .splash__mark circle { opacity: 1; animation: none; }
+            .splash__progress::after { animation: none; transform: scaleX(0.5); }
         }
 
-        @media (max-width: 540px) {
-            .al-splash__top { padding: 18px 20px; }
-            .al-splash__bottom { padding: 16px 20px; flex-wrap: wrap; }
-            .al-splash__name { font-size: 32px; }
-            .al-splash__tagline { font-size: 14px; }
-            .al-blueprint { max-width: 240px; margin-bottom: 20px; }
-        }
-
-        /* ─── Blazor error UI — calm, not catastrophic ──────────── */
-
+        /* Blazor's own error surface, in the product's voice. */
         #blazor-error-ui {
             display: none;
             position: fixed;
-            inset: auto 24px 24px 24px;
-            max-width: 480px;
+            inset: auto 20px 20px 20px;
+            max-width: 30rem;
             margin-left: auto;
-            background: var(--splash-bg-elevated);
-            border: 1px solid var(--splash-border-strong);
-            border-left: 3px solid var(--splash-accent);
-            border-radius: 10px;
-            padding: 16px 20px;
-            box-shadow: 0 8px 24px rgba(26, 29, 33, 0.10);
-            color: var(--splash-text);
+            background: var(--sp-bg);
+            border: 1px solid var(--sp-border);
+            border-left: 3px solid var(--sp-accent);
+            border-radius: 6px;
+            padding: 14px 18px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+            color: var(--sp-text);
             font-size: 14px;
-            line-height: 1.5;
             z-index: 9999;
         }
 
         #blazor-error-ui .reload,
         #blazor-error-ui .dismiss {
-            color: var(--splash-accent);
+            color: var(--sp-accent);
             text-decoration: none;
             font-weight: 600;
             font-size: 13px;
             margin-right: 12px;
             cursor: pointer;
         }
-
-        #blazor-error-ui .reload:hover,
-        #blazor-error-ui .dismiss:hover {
-            text-decoration: underline;
-        }
-
-        .blazor-error-boundary {
-            background: var(--splash-bg-elevated);
-            border: 1px solid var(--splash-border-strong);
-            border-left: 3px solid var(--splash-accent);
-            border-radius: 10px;
-            color: var(--splash-text);
-            padding: 16px 20px;
-            margin: 16px;
-        }
-
-        .blazor-error-boundary::before {
-            content: "Something didn't load. ";
-            font-weight: 600;
-        }
     </style>
 </head>
 
 <body>
     <div id="app">
-        <!-- ASSETLEN bootstrap splash — replaced by the Blazor root once the WASM bundle is live. -->
-        <div class="al-splash" aria-hidden="true">
-            <div class="al-splash__top">
-                <div class="al-splash__brand">ASSETLEN</div>
-                <div class="al-splash__meta">Architectural folio · v1.0</div>
+        <div class="splash" aria-hidden="true">
+            <div class="splash__top">
+                <span class="splash__word">ASSETLEN</span>
+                <span class="splash__spec">DWG AL-001</span>
             </div>
-            <div class="al-splash__rule"></div>
+            <div class="splash__rule"></div>
 
-            <div class="al-splash__stage">
-                <div class="al-splash__panel">
-                    <!-- Animated blueprint — a hairline grid behind a traced floor plan -->
-                    <svg class="al-blueprint" viewBox="0 0 200 200" fill="none" role="img" aria-label="ASSETLEN architectural mark">
-                        <!-- Background grid (static) -->
-                        <g class="al-bp-grid">
-                            <line x1="0"   y1="40"  x2="200" y2="40" />
-                            <line x1="0"   y1="80"  x2="200" y2="80" />
-                            <line x1="0"   y1="120" x2="200" y2="120" />
-                            <line x1="0"   y1="160" x2="200" y2="160" />
-                            <line x1="40"  y1="0"   x2="40"  y2="200" />
-                            <line x1="80"  y1="0"   x2="80"  y2="200" />
-                            <line x1="120" y1="0"   x2="120" y2="200" />
-                            <line x1="160" y1="0"   x2="160" y2="200" />
-                        </g>
-
-                        <!-- Plot: an abstract floor plan traced in sequence -->
-                        <g class="al-bp-plot">
-                            <!-- Outer envelope (drawn first, edge by edge) -->
-                            <line x1="30"  y1="40"  x2="170" y2="40" />
-                            <line x1="170" y1="40"  x2="170" y2="160" />
-                            <line x1="170" y1="160" x2="30"  y2="160" />
-                            <line x1="30"  y1="160" x2="30"  y2="40" />
-
-                            <!-- Interior partitions -->
-                            <polyline points="30,100 100,100 100,40" />
-                            <polyline points="100,100 170,100" />
-
-                            <!-- A door swing / arc -->
-                            <path d="M 100 100 A 18 18 0 0 1 118 118" />
-                        </g>
-
-                        <!-- Compass dot (accent) -->
-                        <circle class="al-bp-dot-ring" cx="100" cy="100" r="14" />
-                        <circle class="al-bp-dot" cx="100" cy="100" r="3.4" />
+            <div class="splash__stage">
+                <div class="splash__panel">
+                    <svg class="splash__mark" viewBox="0 0 24 24" role="img" aria-label="ASSETLEN">
+                        <path d="M3.2 20.2 12 3.8l8.8 16.4" stroke-width="2" />
+                        <line x1="6.9" y1="14.6" x2="17.1" y2="14.6" stroke-width="1.9" />
+                        <circle cx="12" cy="4.2" r="2.1" />
                     </svg>
 
-                    <h1 class="al-splash__name">ASSETLEN</h1>
-                    <p class="al-splash__tagline">
-                        Real-estate project management — built for contractors who want to deliver the work, not the dashboard.
+                    <h1 class="splash__claim">
+                        WhatsApp stores messages.<br />
+                        Construction runs on commitments.
+                    </h1>
+                    <p class="splash__lede">
+                        A register you own — what was agreed, who agreed it, when, and the evidence.
                     </p>
 
-                    <div class="al-splash__progress" role="progressbar" aria-label="Loading application"></div>
-                    <div class="al-splash__status">
-                        <span id="al-splash-status-text">Loading workspace</span>
-                    </div>
+                    <div class="splash__progress" role="progressbar" aria-label="Loading"></div>
+                    <div class="splash__status"><span id="splash-status">Opening the register</span></div>
                 </div>
             </div>
 
-            <div class="al-splash__rule"></div>
-            <div class="al-splash__bottom">
-                <span class="al-splash__bottom-spec"><b>scale</b> mobile · tablet · desktop</span>
-                <span class="al-splash__bottom-spec"><b>dwg</b> AL-001</span>
+            <div class="splash__rule"></div>
+            <div class="splash__bottom">
+                <span class="splash__spec">scale · mobile / tablet / desktop</span>
+                <span class="splash__spec">rev 2</span>
             </div>
         </div>
     </div>
@@ -432,40 +309,39 @@
     </div>
 
     <script src="_framework/blazor.webassembly.js"></script>
-    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
-    <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Mark the splash for removal once the Blazor root has mounted.
-        // The CSS hides .al-splash when body.al-ready is set; this keeps
-        // the splash a layout sibling instead of a child of #app, so the
-        // transition out doesn't fight Blazor's hydration.
+        // Retire the splash once Blazor's root has actually rendered something.
+        // Watching #app's children rather than using a timer means a slow first
+        // load never shows a bare page, and a fast one never lingers.
         (function () {
-            var statusEl = document.getElementById('al-splash-status-text');
-            var statuses = ['Loading workspace', 'Composing layout', 'Tracing baselines', 'Almost there'];
+            var statuses = ["Opening the register", "Resolving your projects", "Setting out the sheet"];
+            var el = document.getElementById("splash-status");
             var i = 0;
-            var t = setInterval(function () {
+            var tick = setInterval(function () {
                 i = (i + 1) % statuses.length;
-                if (statusEl) statusEl.textContent = statuses[i];
-            }, 1800);
+                if (el) el.textContent = statuses[i];
+            }, 1700);
 
-            // When Blazor renders into #app the splash is no longer the only child.
-            var app = document.getElementById('app');
+            var app = document.getElementById("app");
             if (!app) return;
+
             var observer = new MutationObserver(function () {
-                var hasBlazorContent = Array.from(app.children).some(function (child) {
-                    return !child.classList || !child.classList.contains('al-splash');
+                var rendered = Array.prototype.some.call(app.children, function (child) {
+                    return !child.classList || !child.classList.contains("splash");
                 });
-                if (hasBlazorContent) {
-                    document.body.classList.add('al-ready');
-                    clearInterval(t);
-                    observer.disconnect();
-                    setTimeout(function () {
-                        var splash = document.querySelector('.al-splash');
-                        if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-                    }, 320);
-                }
+                if (!rendered) return;
+
+                document.body.classList.add("al-ready");
+                clearInterval(tick);
+                observer.disconnect();
+
+                setTimeout(function () {
+                    var splash = document.querySelector(".splash");
+                    if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+                }, 300);
             });
-            observer.observe(app, { childList: true, subtree: false });
+
+            observer.observe(app, { childList: true });
         })();
     </script>
 </body>

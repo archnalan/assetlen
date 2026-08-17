@@ -1,0 +1,40 @@
+@*
+    The ASSETLEN mark.
+
+    A set square standing on a datum: two strokes rising to an apex, a level
+    line struck through them, and a single terracotta node at the apex — the
+    point where a commitment is fixed. It reads as an "A", as a gable, and as a
+    drawing instrument, and it survives being 16px in a browser tab, which is
+    the only size test that actually matters.
+
+    The same geometry is the favicon, the app icon and the splash mark, so the
+    product is recognisable before a single pixel of content has loaded.
+*@
+
+<svg class="brandmark @Class"
+     width="@Size" height="@Size"
+     viewBox="0 0 24 24"
+     fill="none"
+     role="@(Label is null ? null : "img")"
+     aria-hidden="@(Label is null ? "true" : "false")"
+     focusable="false">
+    @if (Label is not null)
+    {
+        <title>@Label</title>
+    }
+    <path d="M3.2 20.2 12 3.8l8.8 16.4"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    @* Geometry is shared with tools/make-icons.mjs, which rasterises this exact
+       mark to the favicon and app-icon set. Change one, change both. *@
+    <line x1="6.9" y1="14.6" x2="17.1" y2="14.6"
+          stroke="currentColor" stroke-width="1.9" stroke-linecap="round" opacity="0.55" />
+    <circle cx="12" cy="4.2" r="2.1" class="brandmark__node" />
+</svg>
+
+@code {
+    [Parameter] public int Size { get; set; } = 24;
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Set only where the mark is the sole label; null keeps it decorative next to a wordmark.</summary>
+    [Parameter] public string? Label { get; set; }
+}

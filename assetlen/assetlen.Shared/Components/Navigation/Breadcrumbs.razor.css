@@ -1,48 +1,67 @@
-.al-breadcrumbs {
-    font-family: var(--al-font-body);
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text-muted);
+/* The trail reads as drawing-sheet annotation: small, tracked, quiet — until
+   the segment you are on, which is the only one set in ink. */
+
+.crumbs {
+    min-width: 0;
     overflow-x: auto;
-    -ms-overflow-style: none;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
 }
 
-.al-breadcrumbs::-webkit-scrollbar {
-    display: none;
-}
+.crumbs::-webkit-scrollbar { display: none; }
 
-.al-breadcrumbs__list {
+.crumbs__list {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-1);
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0;
     white-space: nowrap;
 }
 
-.al-breadcrumbs__item {
+.crumbs__item {
     display: inline-flex;
     align-items: center;
+    gap: var(--al-space-1);
+    min-width: 0;
 }
 
-.al-breadcrumbs__link {
-    color: var(--al-text-muted);
-    text-decoration: none;
+.crumbs__link,
+.crumbs__current {
+    font-size: var(--al-font-size-xs);
+    letter-spacing: 0.02em;
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.crumbs__link {
+    color: var(--al-text-subtle);
+    padding: 2px var(--al-space-1);
+    border-radius: var(--al-radius-xs);
     transition: color var(--al-transition-fast);
 }
 
-.al-breadcrumbs__link:hover {
+.crumbs__link:hover {
     color: var(--al-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
-.al-breadcrumbs__current {
+.crumbs__current {
     color: var(--al-text);
     font-weight: var(--al-weight-medium);
+    padding: 2px var(--al-space-1);
 }
 
-.al-breadcrumbs__sep {
-    margin: 0 var(--al-space-2);
+.crumbs__sep {
     color: var(--al-text-subtle);
+    opacity: 0.6;
+}
+
+@media (max-width: 700px) {
+    .crumbs__link, .crumbs__current { max-width: 9rem; }
 }

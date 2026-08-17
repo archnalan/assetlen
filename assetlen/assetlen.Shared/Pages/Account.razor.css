@@ -1,0 +1,37 @@
+.account__grid {
+    display: grid;
+    gap: var(--al-space-4);
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 720px) {
+    .account__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.account__row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--al-space-3) 0;
+    border-bottom: 1px solid var(--al-border);
+}
+
+.account__row:last-child { border-bottom: 0; }
+
+.account__value {
+    font-size: var(--al-font-size-md);
+    overflow-wrap: anywhere;
+}
+
+.account__identity {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-4);
+    padding: var(--al-space-4);
+}
+
+.account__identity-name {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-lg);
+    font-weight: var(--al-weight-semibold);
+}

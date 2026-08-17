@@ -1,28 +1,94 @@
-@import '/_content/Microsoft.FluentUI.AspNetCore.Components/css/reboot.css';
+/* ═══════════════════════════════════════════════════════════════════════════
+   ASSETLEN — "Site & Folio" design system
+   ───────────────────────────────────────────────────────────────────────────
+   The reference is not a SaaS dashboard. It is two physical objects an
+   architect-developer already trusts:
 
-/* =============================================================
-   ASSETLEN — Design tokens
-   Single source of truth. Component .razor.css files must NOT
-   hard-code colors, fonts, radii, durations — always reach for
-   one of these tokens. See /CLAUDE.md for the full charter.
-   ============================================================= */
+     · the DRAWING SHEET — warm paper, hairline rules, a title block in the
+       corner, a drawing number, uppercase annotation set in small caps;
+     · the SITE RECORD BOOK — ruled registers, tabular figures, dates that
+       line up, a margin for the thing that needs answering.
+
+   Everything here is a token or a primitive. Component .razor.css files must
+   never write a literal colour, font, radius or duration. See /CLAUDE.md §2.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   1. RESET
+   Own reset — no framework reboot. Fluent's reboot.css used to be imported
+   here and it fought every rule below it.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+}
+
+body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, ol, ul, fieldset {
+    margin: 0;
+    padding: 0;
+}
+
+ul[class], ol[class] { list-style: none; }
+
+img, svg, video, canvas { display: block; max-width: 100%; }
+img { height: auto; }
+
+button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+}
+
+button { background: none; border: 0; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+table { border-collapse: collapse; border-spacing: 0; width: 100%; }
+
+fieldset { border: 0; }
+legend { padding: 0; }
+
+hr { border: 0; }
+
+[hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   2. TOKENS — structural (theme-independent)
+   ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
-    /* Type */
-    --al-font-display: "Fraunces", "Inter Tight", "Segoe UI Variable", "Segoe UI", serif;
-    --al-font-body: "Inter", "Segoe UI Variable", "Segoe UI", "Segoe UI", sans-serif;
-    --al-font-mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    /* ── Type stacks ─────────────────────────────────────────────────────── */
+    --al-font-display: "Fraunces", "Inter Tight", "Segoe UI Variable", "Segoe UI", Georgia, serif;
+    --al-font-body: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --al-font-mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
 
-    --al-font-size-xs: 0.75rem;
-    --al-font-size-sm: 0.875rem;
-    --al-font-size-base: 1rem;
-    --al-font-size-md: 1.125rem;
-    --al-font-size-lg: 1.375rem;
-    --al-font-size-xl: 1.75rem;
-    --al-font-size-2xl: 2.25rem;
+    /* ── Type scale — 1.25 ratio, clamped so 360px stays legible ─────────── */
+    --al-font-size-2xs: 0.6875rem;  /* 11 — annotation / spec labels        */
+    --al-font-size-xs: 0.75rem;     /* 12 — metadata, captions              */
+    --al-font-size-sm: 0.8125rem;   /* 13 — dense table text                */
+    --al-font-size-md: 0.875rem;    /* 14 — secondary body                  */
+    --al-font-size-base: 0.9375rem; /* 15 — body                            */
+    --al-font-size-lg: 1.0625rem;   /* 17 — lead body, card titles          */
+    --al-font-size-xl: 1.3125rem;   /* 21 — section headings                */
+    --al-font-size-2xl: 1.625rem;   /* 26 — page titles                     */
+    --al-font-size-3xl: 2.125rem;   /* 34 — hero figures                    */
+    --al-font-size-4xl: 2.75rem;    /* 44 — display                         */
 
-    --al-leading-tight: 1.2;
-    --al-leading-normal: 1.5;
+    --al-leading-tight: 1.15;
+    --al-leading-snug: 1.35;
+    --al-leading-normal: 1.55;
     --al-leading-relaxed: 1.7;
 
     --al-weight-regular: 400;
@@ -30,166 +96,261 @@
     --al-weight-semibold: 600;
     --al-weight-bold: 700;
 
-    /* Spacing — 4px grid */
-    --al-space-0: 0;
-    --al-space-1: 0.25rem;
-    --al-space-2: 0.5rem;
-    --al-space-3: 0.75rem;
-    --al-space-4: 1rem;
-    --al-space-5: 1.5rem;
-    --al-space-6: 2rem;
-    --al-space-7: 3rem;
-    --al-space-8: 4rem;
+    /* Annotation tracking — the drawing-sheet voice */
+    --al-tracking-wide: 0.08em;
+    --al-tracking-wider: 0.14em;
 
-    /* Radii */
-    --al-radius-xs: 4px;
-    --al-radius-sm: 6px;
-    --al-radius: 10px;
-    --al-radius-lg: 16px;
+    /* ── Spacing — 4px grid ──────────────────────────────────────────────── */
+    --al-space-0: 0;
+    --al-space-1: 0.25rem;   /*  4 */
+    --al-space-2: 0.5rem;    /*  8 */
+    --al-space-3: 0.75rem;   /* 12 */
+    --al-space-4: 1rem;      /* 16 */
+    --al-space-5: 1.5rem;    /* 24 */
+    --al-space-6: 2rem;      /* 32 */
+    --al-space-7: 3rem;      /* 48 */
+    --al-space-8: 4rem;      /* 64 */
+
+    /* ── Radii — restrained. Paper does not have big round corners. ──────── */
+    --al-radius-xs: 3px;
+    --al-radius-sm: 5px;
+    --al-radius: 8px;
+    --al-radius-lg: 14px;
     --al-radius-pill: 999px;
 
-    /* Aspect ratios — architectural, never square */
+    /* ── Aspect ratios — architectural work is never square ──────────────── */
     --al-aspect-card: 16 / 10;
     --al-aspect-thumb: 3 / 2;
     --al-aspect-hero: 21 / 9;
     --al-aspect-portrait: 4 / 5;
 
-    /* Motion — one curve, three speeds */
+    /* ── Motion — one curve, three speeds ────────────────────────────────── */
     --al-ease: cubic-bezier(0.2, 0, 0, 1);
+    --al-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --al-transition-fast: 120ms var(--al-ease);
     --al-transition: 180ms var(--al-ease);
     --al-transition-slow: 320ms var(--al-ease);
 
-    /* Layout */
-    --al-header-height: 3.5rem;
-    --al-sidenav-width: 16rem;
-    --al-content-max: 84rem;
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    --al-topbar-h: 3.5rem;       /* 56 */
+    --al-subbar-h: 2.75rem;      /* 44 — project tab strip                  */
+    --al-bottombar-h: 3.75rem;   /* 60 — mobile only                        */
+    --al-rail-w: 15rem;          /* 240 — desktop nav rail                  */
+    --al-rail-w-collapsed: 4rem; /* 64                                      */
+    --al-content-max: 82rem;
+    --al-reading-max: 46rem;
+    --al-safe-b: env(safe-area-inset-bottom, 0px);
+
+    /* ── Z layers — named, so nothing is invented at the call site ───────── */
+    --al-z-base: 1;
+    --al-z-sticky: 50;
+    --al-z-rail: 60;
+    --al-z-topbar: 70;
+    --al-z-scrim: 80;
+    --al-z-drawer: 90;
+    --al-z-modal: 100;
+    --al-z-toast: 120;
 }
 
-/* Light theme (default) */
+/* ───────────────────────────────────────────────────────────────────────────
+   3. TOKENS — colour
+   Light is the default and lives on bare :root so no colour is ever defined
+   only inside a media query.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 :root,
 [data-theme="light"] {
-    --al-bg: #fafaf7;
-    --al-bg-elevated: #ffffff;
+    color-scheme: light;
+
+    /* Ground — warm paper, not white */
+    --al-bg: #f6f5f1;
+    --al-bg-elevated: #fffefb;
     --al-surface: #ffffff;
-    --al-surface-2: #f4f3ee;
-    --al-surface-3: #ebe9e2;
+    --al-surface-2: #f1efe9;
+    --al-surface-3: #e7e4dc;
+    --al-surface-sunken: #eceae3;
 
-    --al-text: #1a1d21;
-    --al-text-muted: #6b6f76;
-    --al-text-subtle: #9ca0a7;
-    --al-text-inverse: #fafaf7;
+    /* Ink */
+    --al-text: #16191c;
+    --al-text-strong: #000000;
+    --al-text-muted: #63676e;
+    --al-text-subtle: #8f949c;
+    --al-text-inverse: #f7f6f2;
 
-    --al-border: rgba(26, 29, 33, 0.08);
-    --al-border-strong: rgba(26, 29, 33, 0.16);
-    --al-border-focus: rgba(194, 84, 42, 0.45);
+    /* Rules — hairlines carry this design, not shadows */
+    --al-border: rgba(22, 25, 28, 0.10);
+    --al-border-strong: rgba(22, 25, 28, 0.20);
+    --al-border-heavy: rgba(22, 25, 28, 0.34);
+    --al-border-focus: #c2542a;
 
+    /* Terracotta — the single action colour. Used sparingly. */
     --al-accent: #c2542a;
     --al-accent-hover: #a8451f;
-    --al-accent-soft: #f3dcd0;
+    --al-accent-press: #8e3915;
+    --al-accent-soft: #f7e3d8;
+    --al-accent-line: rgba(194, 84, 42, 0.32);
     --al-accent-contrast: #ffffff;
 
+    /* Blueprint — time, structure, schedule. Never an action. */
     --al-blueprint: #2f5d8c;
-    --al-blueprint-soft: #dde7f1;
+    --al-blueprint-soft: #dfe8f2;
+    --al-blueprint-line: rgba(47, 93, 140, 0.30);
 
-    --al-success: #4a7c3a;
-    --al-success-soft: #dfeed7;
-    --al-warning: #c69430;
-    --al-warning-soft: #f6e8c8;
-    --al-danger: #b54545;
-    --al-danger-soft: #f3d8d8;
+    /* Status */
+    --al-success: #3f6f31;
+    --al-success-soft: #e0eed8;
+    --al-warning: #a8781f;
+    --al-warning-soft: #f8ecd0;
+    --al-danger: #ab3d3d;
+    --al-danger-soft: #f6dcdc;
+    --al-info: #2f5d8c;
+    --al-info-soft: #dfe8f2;
 
-    --al-shadow-sm: 0 1px 2px rgba(26, 29, 33, 0.04);
-    --al-shadow: 0 8px 24px rgba(26, 29, 33, 0.10);
-    --al-shadow-lg: 0 24px 48px rgba(26, 29, 33, 0.16);
+    /* Side identity — who is speaking. A quiet, permanent orientation cue. */
+    --al-side-client: #6a4d8f;
+    --al-side-client-soft: #ece4f5;
+    --al-side-delivery: #2f5d8c;
+    --al-side-delivery-soft: #dfe8f2;
 
-    --al-shimmer-base: #ebe9e2;
-    --al-shimmer-highlight: rgba(255, 255, 255, 0.65);
+    /* Elevation — almost flat */
+    --al-shadow-xs: 0 1px 1px rgba(22, 25, 28, 0.04);
+    --al-shadow-sm: 0 1px 2px rgba(22, 25, 28, 0.06), 0 1px 1px rgba(22, 25, 28, 0.04);
+    --al-shadow: 0 6px 20px rgba(22, 25, 28, 0.10);
+    --al-shadow-lg: 0 20px 48px rgba(22, 25, 28, 0.18);
+
+    --al-shimmer-base: #e9e6df;
+    --al-shimmer-highlight: rgba(255, 255, 255, 0.75);
+
+    /* Blueprint grid overlay for empty stages and hero panels */
+    --al-grid-line: rgba(22, 25, 28, 0.055);
+    --al-scrim: rgba(22, 25, 28, 0.42);
 }
 
-/* Dark theme — first-class */
 [data-theme="dark"] {
-    --al-bg: #15171a;
-    --al-bg-elevated: #1c1f23;
-    --al-surface: #1f2227;
-    --al-surface-2: #272a30;
-    --al-surface-3: #2f333a;
+    color-scheme: dark;
 
-    --al-text: #f0eee8;
-    --al-text-muted: #a5a8af;
-    --al-text-subtle: #6e7178;
-    --al-text-inverse: #15171a;
+    --al-bg: #131518;
+    --al-bg-elevated: #1a1d21;
+    --al-surface: #1e2126;
+    --al-surface-2: #24272d;
+    --al-surface-3: #2d3138;
+    --al-surface-sunken: #101216;
 
-    --al-border: rgba(255, 255, 255, 0.08);
-    --al-border-strong: rgba(255, 255, 255, 0.14);
-    --al-border-focus: rgba(214, 105, 72, 0.55);
+    --al-text: #eeece6;
+    --al-text-strong: #ffffff;
+    --al-text-muted: #a3a7af;
+    --al-text-subtle: #6d727a;
+    --al-text-inverse: #131518;
 
-    --al-accent: #d66948;
-    --al-accent-hover: #e07a5b;
-    --al-accent-soft: #3a2620;
-    --al-accent-contrast: #15171a;
+    --al-border: rgba(255, 255, 255, 0.09);
+    --al-border-strong: rgba(255, 255, 255, 0.17);
+    --al-border-heavy: rgba(255, 255, 255, 0.30);
+    --al-border-focus: #dd7a58;
 
-    --al-blueprint: #5288c0;
-    --al-blueprint-soft: #1f3550;
+    --al-accent: #dd7a58;
+    --al-accent-hover: #e89272;
+    --al-accent-press: #f0a488;
+    --al-accent-soft: #3a2318;
+    --al-accent-line: rgba(221, 122, 88, 0.38);
+    --al-accent-contrast: #171213;
 
-    --al-success: #73a85e;
-    --al-success-soft: #1f3325;
-    --al-warning: #e0b34a;
-    --al-warning-soft: #3a2e16;
-    --al-danger: #d46060;
-    --al-danger-soft: #3a1f1f;
+    --al-blueprint: #6fa2d8;
+    --al-blueprint-soft: #1b2c3e;
+    --al-blueprint-line: rgba(111, 162, 216, 0.36);
 
-    --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
-    --al-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
-    --al-shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.55);
+    --al-success: #86bd70;
+    --al-success-soft: #1c2c19;
+    --al-warning: #e2b559;
+    --al-warning-soft: #302614;
+    --al-danger: #e07777;
+    --al-danger-soft: #351d1d;
+    --al-info: #6fa2d8;
+    --al-info-soft: #1b2c3e;
 
-    --al-shimmer-base: #272a30;
-    --al-shimmer-highlight: rgba(255, 255, 255, 0.06);
+    --al-side-client: #b39ad6;
+    --al-side-client-soft: #2a2137;
+    --al-side-delivery: #6fa2d8;
+    --al-side-delivery-soft: #1b2c3e;
+
+    --al-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.30);
+    --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36), 0 1px 1px rgba(0, 0, 0, 0.28);
+    --al-shadow: 0 6px 20px rgba(0, 0, 0, 0.46);
+    --al-shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.62);
+
+    --al-shimmer-base: #24272d;
+    --al-shimmer-highlight: rgba(255, 255, 255, 0.07);
+
+    --al-grid-line: rgba(255, 255, 255, 0.05);
+    --al-scrim: rgba(0, 0, 0, 0.62);
 }
 
-/* Respect OS preference when no explicit theme is set */
+/* OS preference when the user has made no explicit choice */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-        --al-bg: #15171a;
-        --al-bg-elevated: #1c1f23;
-        --al-surface: #1f2227;
-        --al-surface-2: #272a30;
-        --al-surface-3: #2f333a;
-        --al-text: #f0eee8;
-        --al-text-muted: #a5a8af;
-        --al-text-subtle: #6e7178;
-        --al-text-inverse: #15171a;
-        --al-border: rgba(255, 255, 255, 0.08);
-        --al-border-strong: rgba(255, 255, 255, 0.14);
-        --al-border-focus: rgba(214, 105, 72, 0.55);
-        --al-accent: #d66948;
-        --al-accent-hover: #e07a5b;
-        --al-accent-soft: #3a2620;
-        --al-accent-contrast: #15171a;
-        --al-blueprint: #5288c0;
-        --al-blueprint-soft: #1f3550;
-        --al-success: #73a85e;
-        --al-success-soft: #1f3325;
-        --al-warning: #e0b34a;
-        --al-warning-soft: #3a2e16;
-        --al-danger: #d46060;
-        --al-danger-soft: #3a1f1f;
-        --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
-        --al-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
-        --al-shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.55);
-        --al-shimmer-base: #272a30;
-        --al-shimmer-highlight: rgba(255, 255, 255, 0.06);
+        color-scheme: dark;
+
+        --al-bg: #131518;
+        --al-bg-elevated: #1a1d21;
+        --al-surface: #1e2126;
+        --al-surface-2: #24272d;
+        --al-surface-3: #2d3138;
+        --al-surface-sunken: #101216;
+
+        --al-text: #eeece6;
+        --al-text-strong: #ffffff;
+        --al-text-muted: #a3a7af;
+        --al-text-subtle: #6d727a;
+        --al-text-inverse: #131518;
+
+        --al-border: rgba(255, 255, 255, 0.09);
+        --al-border-strong: rgba(255, 255, 255, 0.17);
+        --al-border-heavy: rgba(255, 255, 255, 0.30);
+        --al-border-focus: #dd7a58;
+
+        --al-accent: #dd7a58;
+        --al-accent-hover: #e89272;
+        --al-accent-press: #f0a488;
+        --al-accent-soft: #3a2318;
+        --al-accent-line: rgba(221, 122, 88, 0.38);
+        --al-accent-contrast: #171213;
+
+        --al-blueprint: #6fa2d8;
+        --al-blueprint-soft: #1b2c3e;
+        --al-blueprint-line: rgba(111, 162, 216, 0.36);
+
+        --al-success: #86bd70;
+        --al-success-soft: #1c2c19;
+        --al-warning: #e2b559;
+        --al-warning-soft: #302614;
+        --al-danger: #e07777;
+        --al-danger-soft: #351d1d;
+        --al-info: #6fa2d8;
+        --al-info-soft: #1b2c3e;
+
+        --al-side-client: #b39ad6;
+        --al-side-client-soft: #2a2137;
+        --al-side-delivery: #6fa2d8;
+        --al-side-delivery-soft: #1b2c3e;
+
+        --al-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.30);
+        --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36), 0 1px 1px rgba(0, 0, 0, 0.28);
+        --al-shadow: 0 6px 20px rgba(0, 0, 0, 0.46);
+        --al-shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.62);
+
+        --al-shimmer-base: #24272d;
+        --al-shimmer-highlight: rgba(255, 255, 255, 0.07);
+
+        --al-grid-line: rgba(255, 255, 255, 0.05);
+        --al-scrim: rgba(0, 0, 0, 0.62);
     }
 }
 
-/* =============================================================
-   Base / reset
-   ============================================================= */
+/* ───────────────────────────────────────────────────────────────────────────
+   4. BASE TYPOGRAPHY
+   ─────────────────────────────────────────────────────────────────────────── */
 
 body {
-    margin: 0;
-    padding: 0;
-    min-height: 100vh;
+    min-height: 100dvh;
     background: var(--al-bg);
     color: var(--al-text);
     font-family: var(--al-font-body);
@@ -199,134 +360,988 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
 }
 
 h1, h2, h3, h4 {
     font-family: var(--al-font-display);
     font-weight: var(--al-weight-semibold);
     line-height: var(--al-leading-tight);
-    letter-spacing: -0.01em;
-    margin: 0;
+    letter-spacing: -0.015em;
+    color: var(--al-text);
+    font-optical-sizing: auto;
 }
 
 h1 { font-size: var(--al-font-size-2xl); }
 h2 { font-size: var(--al-font-size-xl); }
 h3 { font-size: var(--al-font-size-lg); }
-h4 { font-size: var(--al-font-size-md); }
+h4 { font-size: var(--al-font-size-base); }
+
+h5, h6 {
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: var(--al-tracking-wider);
+    text-transform: uppercase;
+    color: var(--al-text-subtle);
+}
+
+p { line-height: var(--al-leading-normal); }
 
 a {
-    color: var(--al-text);
+    color: inherit;
     text-decoration: none;
     transition: color var(--al-transition-fast);
 }
 
-a:hover {
-    color: var(--al-accent);
+strong, b { font-weight: var(--al-weight-semibold); }
+
+small { font-size: var(--al-font-size-xs); }
+
+code, kbd, samp {
+    font-family: var(--al-font-mono);
+    font-size: 0.9em;
 }
 
-a:focus-visible {
+:focus-visible {
     outline: 2px solid var(--al-border-focus);
     outline-offset: 2px;
     border-radius: var(--al-radius-xs);
 }
 
-/* Tabular figures for any element marked numeric */
-.al-num,
-table.al-numeric td,
-.al-money {
+::selection {
+    background: var(--al-accent-soft);
+    color: var(--al-text);
+}
+
+/* Numerals that must line up: money, dates, quantities, areas. */
+.al-num, .al-money, .al-date,
+table.al-register td,
+.al-tabular {
     font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum";
+    font-feature-settings: "tnum" 1;
 }
 
-/* =============================================================
-   App shell layout helpers
-   ============================================================= */
+/* ───────────────────────────────────────────────────────────────────────────
+   5. THE ANNOTATION VOICE
+   Small, uppercase, letter-spaced. This is the single most identifying mark
+   of the system — it is how a drawing labels things, and it is used for every
+   field label, section eyebrow and metadata key in the product.
+   ─────────────────────────────────────────────────────────────────────────── */
 
-.app-root {
-    min-height: 100vh;
+.al-label,
+.al-eyebrow {
+    display: block;
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: var(--al-tracking-wider);
+    text-transform: uppercase;
+    color: var(--al-text-subtle);
+    line-height: 1.4;
+}
+
+.al-eyebrow--accent { color: var(--al-accent); }
+.al-eyebrow--blueprint { color: var(--al-blueprint); }
+
+/* A rule with a label sitting on it — section divider used across registers */
+.al-rule {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    margin: var(--al-space-5) 0 var(--al-space-3);
+}
+
+.al-rule::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--al-border);
+}
+
+.al-rule > .al-label { flex: 0 0 auto; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   6. APP SHELL
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-shell {
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
-}
-
-.app-layout {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-}
-
-.app-body {
-    flex: 1 1 auto;
-    display: flex;
-    min-height: 0;
-}
-
-.body-content {
-    flex: 1 1 auto;
-    min-height: 0;
     background: var(--al-bg);
 }
 
-.body-display {
+.al-shell__body {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    width: 100%;
+}
+
+.al-shell__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(var(--al-bottombar-h) + var(--al-safe-b));
+}
+
+@media (min-width: 900px) {
+    .al-shell__main { padding-bottom: 0; }
+}
+
+/* The page canvas. Every route renders inside one. */
+.al-page {
+    width: 100%;
     max-width: var(--al-content-max);
     margin: 0 auto;
-    padding: var(--al-space-5) var(--al-space-5);
+    padding: var(--al-space-4) var(--al-space-4) var(--al-space-7);
 }
 
-.app-footer {
-    background: var(--al-bg-elevated);
+@media (min-width: 700px) {
+    .al-page { padding: var(--al-space-5) var(--al-space-5) var(--al-space-8); }
+}
+
+@media (min-width: 1100px) {
+    .al-page { padding: var(--al-space-6) var(--al-space-6) var(--al-space-8); }
+}
+
+.al-page--reading { max-width: var(--al-reading-max); }
+.al-page--flush { padding-left: 0; padding-right: 0; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   7. TITLE BLOCK
+   The signature of the system. Every page opens with one: an eyebrow, the
+   name in display serif, a supporting line, and — on the right — the meta
+   strip a drawing sheet would carry in its corner.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-titleblock {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--al-space-4);
+    padding-bottom: var(--al-space-4);
+    border-bottom: 1px solid var(--al-border-strong);
+    margin-bottom: var(--al-space-5);
+}
+
+.al-titleblock__main { min-width: 0; flex: 1 1 18rem; }
+
+.al-titleblock__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-2xl);
+    font-weight: var(--al-weight-semibold);
+    line-height: var(--al-leading-tight);
+    letter-spacing: -0.02em;
+    margin-top: var(--al-space-2);
+    overflow-wrap: anywhere;
+}
+
+@media (min-width: 700px) {
+    .al-titleblock__title { font-size: var(--al-font-size-3xl); }
+}
+
+.al-titleblock__sub {
+    margin-top: var(--al-space-2);
     color: var(--al-text-muted);
-    padding: var(--al-space-3) var(--al-space-5);
-    font-size: var(--al-font-size-xs);
-    border-top: 1px solid var(--al-border);
+    font-size: var(--al-font-size-md);
+    max-width: 56ch;
+}
+
+.al-titleblock__actions {
     display: flex;
     align-items: center;
-    gap: var(--al-space-3);
+    gap: var(--al-space-2);
+    flex-wrap: wrap;
 }
 
-.footer-spacer { flex: 1 1 auto; }
+/* The corner meta strip — pairs of label/value, mono figures */
+.al-titleblock__meta {
+    display: flex;
+    gap: var(--al-space-5);
+    flex-wrap: wrap;
+}
 
-/* =============================================================
-   Utility classes — promoted from per-component duplication
-   ============================================================= */
+.al-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
 
-.al-card {
+.al-meta__value {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--al-text);
+    letter-spacing: -0.01em;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   8. SHEET — the primary container
+   A sheet is paper: hairline border, no rounded-corner bubble, optional
+   registration ticks in the corners.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-sheet {
+    position: relative;
     background: var(--al-bg-elevated);
     border: 1px solid var(--al-border);
     border-radius: var(--al-radius);
-    overflow: hidden;
-    transition: border-color var(--al-transition), transform var(--al-transition);
+    box-shadow: var(--al-shadow-xs);
 }
 
-.al-card:hover {
-    border-color: var(--al-border-strong);
-}
+.al-sheet--flush { border-radius: 0; border-left: 0; border-right: 0; }
 
-.al-stack {
+.al-sheet__head {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
     gap: var(--al-space-3);
+    padding: var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
 }
+
+.al-sheet__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-lg);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: -0.01em;
+}
+
+.al-sheet__body { padding: var(--al-space-4); }
+.al-sheet__body--flush { padding: 0; }
+
+.al-sheet__foot {
+    padding: var(--al-space-3) var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+    background: var(--al-surface-2);
+    border-radius: 0 0 var(--al-radius) var(--al-radius);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+/* Registration ticks — four corner marks, the way a plot is aligned. */
+.al-sheet--ticked::before,
+.al-sheet--ticked::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    pointer-events: none;
+    border-color: var(--al-border-heavy);
+}
+
+.al-sheet--ticked::before {
+    top: -1px; left: -1px;
+    border-top: 2px solid; border-left: 2px solid;
+    border-top-left-radius: var(--al-radius);
+}
+
+.al-sheet--ticked::after {
+    bottom: -1px; right: -1px;
+    border-bottom: 2px solid; border-right: 2px solid;
+    border-bottom-right-radius: var(--al-radius);
+}
+
+/* Blueprint grid ground — used behind empty states and hero panels */
+.al-gridded {
+    background-image:
+        linear-gradient(to right, var(--al-grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--al-grid-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: center;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   9. LAYOUT UTILITIES
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-stack { display: flex; flex-direction: column; gap: var(--al-space-3); }
+.al-stack--tight { gap: var(--al-space-2); }
+.al-stack--loose { gap: var(--al-space-5); }
+.al-stack--section { gap: var(--al-space-6); }
 
 .al-row {
     display: flex;
-    flex-direction: row;
-    gap: var(--al-space-3);
     align-items: center;
+    gap: var(--al-space-3);
+    flex-wrap: wrap;
+}
+
+.al-row--tight { gap: var(--al-space-2); }
+.al-row--nowrap { flex-wrap: nowrap; }
+.al-row--between { justify-content: space-between; }
+.al-row--end { justify-content: flex-end; }
+.al-row--top { align-items: flex-start; }
+.al-row--baseline { align-items: baseline; }
+
+.al-spacer { flex: 1 1 auto; }
+
+.al-grid {
+    display: grid;
+    gap: var(--al-space-4);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+}
+
+.al-grid--wide {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+}
+
+.al-cols-2 { display: grid; gap: var(--al-space-4); grid-template-columns: 1fr; }
+@media (min-width: 800px) { .al-cols-2 { grid-template-columns: 1fr 1fr; } }
+
+.al-cols-main {
+    display: grid;
+    gap: var(--al-space-5);
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1000px) {
+    .al-cols-main { grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; }
 }
 
 .al-muted { color: var(--al-text-muted); }
 .al-subtle { color: var(--al-text-subtle); }
+.al-strong { color: var(--al-text-strong); font-weight: var(--al-weight-semibold); }
+.al-mono { font-family: var(--al-font-mono); font-variant-numeric: tabular-nums; }
+.al-nowrap { white-space: nowrap; }
+.al-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
-.al-divider {
-    height: 1px;
-    background: var(--al-border);
-    border: 0;
-    margin: var(--al-space-4) 0;
+.al-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-/* Ghost / shimmer placeholder for remote media loads */
+.al-divider { height: 1px; background: var(--al-border); border: 0; }
+
+.al-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.al-sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   10. BUTTONS
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--al-space-2);
+    min-height: 2.5rem;
+    padding: 0 var(--al-space-4);
+    border-radius: var(--al-radius-sm);
+    border: 1px solid transparent;
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-medium);
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--al-transition-fast),
+                border-color var(--al-transition-fast),
+                color var(--al-transition-fast),
+                transform var(--al-transition-fast);
+}
+
+.al-btn:active:not(:disabled) { transform: translateY(1px); }
+
+.al-btn:disabled,
+.al-btn[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+
+.al-btn svg { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+
+/* Primary — terracotta. One per screen region, ideally one per screen. */
+.al-btn--primary {
+    background: var(--al-accent);
+    color: var(--al-accent-contrast);
+    border-color: var(--al-accent);
+}
+
+.al-btn--primary:hover { background: var(--al-accent-hover); border-color: var(--al-accent-hover); }
+.al-btn--primary:active { background: var(--al-accent-press); }
+
+/* Default — outlined, the workhorse */
+.al-btn--default {
+    background: var(--al-surface);
+    color: var(--al-text);
+    border-color: var(--al-border-strong);
+}
+
+.al-btn--default:hover { border-color: var(--al-border-heavy); background: var(--al-surface-2); }
+
+/* Quiet — text only */
+.al-btn--quiet {
+    background: transparent;
+    color: var(--al-text-muted);
+    padding: 0 var(--al-space-2);
+}
+
+.al-btn--quiet:hover { color: var(--al-text); background: var(--al-surface-2); }
+
+/* Link — inline, underlined on hover */
+.al-btn--link {
+    background: none;
+    color: var(--al-accent);
+    min-height: auto;
+    padding: 0;
+    font-weight: var(--al-weight-medium);
+}
+
+.al-btn--link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.al-btn--danger {
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+    border-color: transparent;
+}
+
+.al-btn--danger:hover { border-color: var(--al-danger); }
+
+.al-btn--sm { min-height: 2rem; padding: 0 var(--al-space-3); font-size: var(--al-font-size-sm); }
+.al-btn--lg { min-height: 2.875rem; padding: 0 var(--al-space-5); font-size: var(--al-font-size-base); }
+.al-btn--block { width: 100%; }
+
+/* Icon-only — square, keeps the 44px touch target on mobile */
+.al-iconbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--al-radius-sm);
+    border: 1px solid transparent;
+    color: var(--al-text-muted);
+    background: transparent;
+    transition: background-color var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.al-iconbtn:hover { background: var(--al-surface-2); color: var(--al-text); }
+.al-iconbtn svg { width: 20px; height: 20px; }
+.al-iconbtn--bordered { border-color: var(--al-border-strong); background: var(--al-surface); }
+.al-iconbtn--sm { width: 2rem; height: 2rem; }
+.al-iconbtn--sm svg { width: 16px; height: 16px; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   11. FORM CONTROLS
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-field { display: flex; flex-direction: column; gap: var(--al-space-2); }
+
+.al-field__hint {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    line-height: var(--al-leading-snug);
+}
+
+.al-field__error {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-danger);
+    font-weight: var(--al-weight-medium);
+}
+
+.al-input,
+.al-select,
+.al-textarea {
+    width: 100%;
+    min-height: 2.625rem;
+    padding: 0 var(--al-space-3);
+    background: var(--al-surface);
+    color: var(--al-text);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-sm);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-base);
+    transition: border-color var(--al-transition-fast), box-shadow var(--al-transition-fast);
+    /* 16px on iOS or Safari zooms the viewport on focus */
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.al-textarea {
+    padding: var(--al-space-3);
+    min-height: 6rem;
+    line-height: var(--al-leading-normal);
+    resize: vertical;
+}
+
+.al-input::placeholder,
+.al-textarea::placeholder { color: var(--al-text-subtle); }
+
+.al-input:hover,
+.al-select:hover,
+.al-textarea:hover { border-color: var(--al-border-heavy); }
+
+.al-input:focus,
+.al-select:focus,
+.al-textarea:focus {
+    outline: none;
+    border-color: var(--al-accent);
+    box-shadow: 0 0 0 3px var(--al-accent-line);
+}
+
+.al-input[aria-invalid="true"],
+.al-input.is-invalid { border-color: var(--al-danger); }
+
+.al-input:disabled,
+.al-select:disabled,
+.al-textarea:disabled {
+    background: var(--al-surface-2);
+    color: var(--al-text-subtle);
+    cursor: not-allowed;
+}
+
+.al-input--money {
+    font-family: var(--al-font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.al-select {
+    padding-right: var(--al-space-6);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238f949c' stroke-width='2' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--al-space-3) center;
+    background-size: 16px;
+    cursor: pointer;
+}
+
+/* Input with a leading icon (search) */
+.al-inputwrap { position: relative; display: flex; align-items: center; width: 100%; }
+
+.al-inputwrap > svg {
+    position: absolute;
+    left: var(--al-space-3);
+    width: 16px; height: 16px;
+    color: var(--al-text-subtle);
+    pointer-events: none;
+}
+
+.al-inputwrap > .al-input { padding-left: calc(var(--al-space-3) * 2 + 16px); }
+
+@media (max-width: 700px) {
+    /* Prevent iOS focus zoom without changing the desktop rhythm */
+    .al-input, .al-select, .al-textarea { font-size: 16px; }
+}
+
+/* Checkbox / radio — hand-drawn feel, square for checks */
+.al-check {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    cursor: pointer;
+    font-size: var(--al-font-size-md);
+    line-height: var(--al-leading-snug);
+}
+
+.al-check input {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 0 0 auto;
+    width: 1.125rem; height: 1.125rem;
+    margin-top: 2px;
+    border: 1.5px solid var(--al-border-heavy);
+    border-radius: var(--al-radius-xs);
+    background: var(--al-surface);
+    transition: background-color var(--al-transition-fast), border-color var(--al-transition-fast);
+    cursor: pointer;
+}
+
+.al-check input[type="radio"] { border-radius: 50%; }
+
+.al-check input:checked {
+    background: var(--al-accent);
+    border-color: var(--al-accent);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    background-size: 78%;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.al-check input[type="radio"]:checked { background-image: none; box-shadow: inset 0 0 0 3px var(--al-surface); }
+
+/* Segmented control — the two-surface switch (Client / Delivery) */
+.al-segmented {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: var(--al-surface-2);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+}
+
+.al-segmented__item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-3);
+    border-radius: var(--al-radius-xs);
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+    transition: background-color var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.al-segmented__item:hover { color: var(--al-text); }
+
+.al-segmented__item[aria-selected="true"],
+.al-segmented__item.is-active {
+    background: var(--al-surface);
+    color: var(--al-text);
+    box-shadow: var(--al-shadow-xs);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   12. BADGES, CHIPS, PILLS
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    padding: 2px var(--al-space-2);
+    border-radius: var(--al-radius-xs);
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.al-badge svg { width: 11px; height: 11px; }
+
+.al-badge--neutral   { background: var(--al-surface-2); color: var(--al-text-muted); }
+.al-badge--success   { background: var(--al-success-soft); color: var(--al-success); }
+.al-badge--warning   { background: var(--al-warning-soft); color: var(--al-warning); }
+.al-badge--danger    { background: var(--al-danger-soft); color: var(--al-danger); }
+.al-badge--accent    { background: var(--al-accent-soft); color: var(--al-accent); }
+.al-badge--blueprint { background: var(--al-blueprint-soft); color: var(--al-blueprint); }
+.al-badge--client    { background: var(--al-side-client-soft); color: var(--al-side-client); }
+.al-badge--delivery  { background: var(--al-side-delivery-soft); color: var(--al-side-delivery); }
+
+/* Outline variant reads quieter inside dense registers */
+.al-badge--outline {
+    background: transparent;
+    border: 1px solid currentColor;
+    opacity: 0.85;
+}
+
+/* Dot marker for status without a whole badge */
+.al-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--al-text-subtle);
+    flex: 0 0 auto;
+}
+
+.al-dot--success { background: var(--al-success); }
+.al-dot--warning { background: var(--al-warning); }
+.al-dot--danger  { background: var(--al-danger); }
+.al-dot--accent  { background: var(--al-accent); }
+.al-dot--blueprint { background: var(--al-blueprint); }
+
+/* Chip — a removable / selectable token */
+.al-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-1) var(--al-space-3);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-pill);
+    background: var(--al-surface);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    transition: all var(--al-transition-fast);
+}
+
+.al-chip:hover { border-color: var(--al-border-heavy); color: var(--al-text); }
+
+.al-chip.is-active,
+.al-chip[aria-pressed="true"] {
+    background: var(--al-accent-soft);
+    border-color: var(--al-accent-line);
+    color: var(--al-accent);
+    font-weight: var(--al-weight-medium);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   13. REGISTER — the ruled list
+   The core data surface. Rows separated by hairlines, not boxed cards.
+   Every register row is a link target with a generous hit area.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-register { display: flex; flex-direction: column; }
+
+.al-register__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3) var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+    min-height: 3.25rem;
+    text-align: left;
+    width: 100%;
+    color: inherit;
+    transition: background-color var(--al-transition-fast);
+    position: relative;
+}
+
+.al-register__row:last-child { border-bottom: 0; }
+
+a.al-register__row:hover,
+button.al-register__row:hover { background: var(--al-surface-2); }
+
+/* The left gutter — an index number or a status dot, mono, fixed width */
+.al-register__index {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--al-text-subtle);
+    min-width: 1.75rem;
+}
+
+.al-register__main { min-width: 0; }
+
+.al-register__title {
+    font-size: var(--al-font-size-base);
+    font-weight: var(--al-weight-medium);
+    line-height: var(--al-leading-snug);
+    overflow-wrap: anywhere;
+}
+
+.al-register__sub {
+    margin-top: 2px;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+}
+
+.al-register__sub > * + *::before {
+    content: "·";
+    margin-right: var(--al-space-2);
+    color: var(--al-text-subtle);
+}
+
+.al-register__end {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    justify-self: end;
+    text-align: right;
+}
+
+.al-register__amount {
+    font-family: var(--al-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--al-font-size-md);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
+/* An accent left-edge on rows that need the reader */
+.al-register__row--needs-you {
+    box-shadow: inset 3px 0 0 var(--al-accent);
+    background: var(--al-accent-soft);
+}
+
+a.al-register__row--needs-you:hover { background: var(--al-accent-soft); filter: brightness(0.98); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   14. TABLES — for money, where columns must align
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+table.al-table { width: 100%; font-size: var(--al-font-size-md); }
+
+table.al-table th {
+    text-align: left;
+    padding: var(--al-space-2) var(--al-space-3);
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: var(--al-tracking-wider);
+    text-transform: uppercase;
+    color: var(--al-text-subtle);
+    border-bottom: 1px solid var(--al-border-strong);
+    white-space: nowrap;
+}
+
+table.al-table td {
+    padding: var(--al-space-3);
+    border-bottom: 1px solid var(--al-border);
+    vertical-align: top;
+}
+
+table.al-table tbody tr:last-child td { border-bottom: 0; }
+
+table.al-table .num,
+table.al-table th.num {
+    text-align: right;
+    font-family: var(--al-font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
+table.al-table tfoot td {
+    border-top: 2px solid var(--al-border-strong);
+    border-bottom: 0;
+    font-weight: var(--al-weight-semibold);
+    background: var(--al-surface-2);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   15. METERS — funded / claimed / cleared, the money bar
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-meter {
+    display: flex;
+    height: 6px;
+    border-radius: var(--al-radius-pill);
+    overflow: hidden;
+    background: var(--al-surface-3);
+}
+
+.al-meter__seg { height: 100%; transition: width var(--al-transition-slow); }
+.al-meter__seg--funded  { background: var(--al-blueprint); }
+.al-meter__seg--claimed { background: var(--al-accent); }
+.al-meter__seg--cleared { background: var(--al-success); }
+.al-meter__seg--spent   { background: var(--al-accent); }
+
+.al-meter--lg { height: 10px; }
+
+.al-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-3);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.al-legend__item { display: inline-flex; align-items: center; gap: var(--al-space-2); }
+
+.al-legend__swatch {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex: 0 0 auto;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   16. STAT — a single figure with its label. Never in a coloured tile.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-stat { display: flex; flex-direction: column; gap: var(--al-space-1); min-width: 0; }
+
+.al-stat__value {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-medium);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--al-text);
+}
+
+.al-stat__value--sm { font-size: var(--al-font-size-lg); }
+.al-stat__note { font-size: var(--al-font-size-xs); color: var(--al-text-muted); }
+
+.al-stat--danger  .al-stat__value { color: var(--al-danger); }
+.al-stat--success .al-stat__value { color: var(--al-success); }
+.al-stat--warning .al-stat__value { color: var(--al-warning); }
+
+/* A row of stats separated by vertical hairlines, like a title block */
+.al-statrow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--al-space-4);
+}
+
+@media (min-width: 700px) {
+    .al-statrow { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .al-statrow > * + * {
+        border-left: 1px solid var(--al-border);
+        padding-left: var(--al-space-4);
+    }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   17. MEDIA
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-media {
+    position: relative;
+    display: block;
+    width: 100%;
+    background: var(--al-surface-2);
+    overflow: hidden;
+    border-radius: var(--al-radius-sm);
+}
+
+.al-media--card { aspect-ratio: var(--al-aspect-card); }
+.al-media--thumb { aspect-ratio: var(--al-aspect-thumb); }
+.al-media--hero { aspect-ratio: var(--al-aspect-hero); }
+
+.al-media img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform var(--al-transition-slow), opacity var(--al-transition);
+}
+
+.al-media__scrim {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: var(--al-space-5) var(--al-space-3) var(--al-space-3);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+    color: #fff;
+}
+
+/* Frame counter overlay — "3 of 18 shared" */
+.al-media__tag {
+    position: absolute;
+    top: var(--al-space-2);
+    right: var(--al-space-2);
+    padding: 2px var(--al-space-2);
+    border-radius: var(--al-radius-xs);
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   18. LOADING / EMPTY / ERROR — first-class, per CLAUDE.md §4.2
+   ─────────────────────────────────────────────────────────────────────────── */
+
 .al-shimmer {
-    background: var(--al-shimmer-base);
+    background-color: var(--al-shimmer-base);
     background-image: linear-gradient(
         90deg,
         transparent 0%,
@@ -335,7 +1350,8 @@ table.al-numeric td,
     );
     background-size: 200% 100%;
     background-repeat: no-repeat;
-    animation: al-shimmer 1.4s ease-in-out infinite;
+    animation: al-shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--al-radius-xs);
 }
 
 @keyframes al-shimmer {
@@ -343,128 +1359,411 @@ table.al-numeric td,
     100% { background-position: -200% 0; }
 }
 
-/* Aspect-ratio ghost frames (matches --al-aspect-*) */
-.al-ghost-card    { aspect-ratio: var(--al-aspect-card); border-radius: var(--al-radius); }
-.al-ghost-thumb   { aspect-ratio: var(--al-aspect-thumb); border-radius: var(--al-radius-sm); }
-.al-ghost-hero    { aspect-ratio: var(--al-aspect-hero); border-radius: var(--al-radius-lg); }
+.al-ghost-line { height: 0.75rem; }
+.al-ghost-line--title { height: 1.25rem; width: 45%; }
+.al-ghost-line--short { width: 30%; }
+.al-ghost-card  { aspect-ratio: var(--al-aspect-card); border-radius: var(--al-radius); }
+.al-ghost-thumb { aspect-ratio: var(--al-aspect-thumb); border-radius: var(--al-radius-sm); }
+.al-ghost-row   { height: 3.25rem; border-radius: var(--al-radius-xs); }
 
-/* =============================================================
-   Status badges (Flag states, Timeline states)
-   ============================================================= */
-
-.al-badge {
-    display: inline-flex;
+.al-empty {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: var(--al-space-1);
-    padding: var(--al-space-1) var(--al-space-2);
-    border-radius: var(--al-radius-pill);
-    font-size: var(--al-font-size-xs);
-    font-weight: var(--al-weight-medium);
-    line-height: 1.2;
-    white-space: nowrap;
-}
-
-.al-badge--success { background: var(--al-success-soft); color: var(--al-success); }
-.al-badge--warning { background: var(--al-warning-soft); color: var(--al-warning); }
-.al-badge--danger  { background: var(--al-danger-soft); color: var(--al-danger); }
-.al-badge--accent  { background: var(--al-accent-soft); color: var(--al-accent); }
-.al-badge--blueprint { background: var(--al-blueprint-soft); color: var(--al-blueprint); }
-.al-badge--neutral { background: var(--al-surface-2); color: var(--al-text-muted); }
-
-/* =============================================================
-   Blazor error UI
-   ============================================================= */
-
-#blazor-error-ui {
-    background: var(--al-warning-soft);
-    color: var(--al-text);
-    border-top: 1px solid var(--al-warning);
-    bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
-    display: none;
-    left: 0;
-    padding: var(--al-space-3) var(--al-space-5);
-    position: fixed;
-    width: 100%;
-    z-index: 1000;
-}
-
-#blazor-error-ui .dismiss {
-    cursor: pointer;
-    position: absolute;
-    right: var(--al-space-3);
-    top: var(--al-space-2);
-}
-
-.blazor-error-boundary {
-    background: var(--al-danger);
-    color: var(--al-text-inverse);
-    padding: var(--al-space-4);
-    border-radius: var(--al-radius-sm);
-}
-
-.blazor-error-boundary::before {
-    content: "An error has occurred. ";
-    font-weight: var(--al-weight-semibold);
-}
-
-/* =============================================================
-   Loading progress (Blazor WASM bootstrap)
-   ============================================================= */
-
-.loading-progress {
-    position: relative;
-    display: block;
-    width: 8rem;
-    height: 8rem;
-    margin: 20vh auto 1rem auto;
-}
-
-.loading-progress circle {
-    fill: none;
-    stroke: var(--al-surface-2);
-    stroke-width: 0.6rem;
-    transform-origin: 50% 50%;
-    transform: rotate(-90deg);
-}
-
-.loading-progress circle:last-child {
-    stroke: var(--al-accent);
-    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
-    transition: stroke-dasharray 0.05s ease-in-out;
-}
-
-.loading-progress-text {
-    position: absolute;
     text-align: center;
-    font-weight: var(--al-weight-semibold);
-    inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+    gap: var(--al-space-3);
+    padding: var(--al-space-7) var(--al-space-4);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius);
     color: var(--al-text-muted);
 }
 
-.loading-progress-text:after {
-    content: var(--blazor-load-percentage-text, "Loading");
+.al-empty__icon {
+    width: 40px; height: 40px;
+    color: var(--al-text-subtle);
+    stroke-width: 1.25;
 }
 
-code {
-    font-family: var(--al-font-mono);
-    color: var(--al-accent);
+.al-empty__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-lg);
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+}
+
+.al-empty__body { max-width: 42ch; font-size: var(--al-font-size-md); }
+
+.al-alert {
+    display: flex;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3) var(--al-space-4);
+    border-radius: var(--al-radius-sm);
+    border: 1px solid var(--al-border);
+    border-left: 3px solid var(--al-text-subtle);
     background: var(--al-surface-2);
-    padding: 0.1em 0.35em;
-    border-radius: var(--al-radius-xs);
-    font-size: 0.9em;
+    font-size: var(--al-font-size-md);
+    line-height: var(--al-leading-snug);
+    color: var(--al-text);
 }
 
-/* =============================================================
-   Mobile-first responsive — components should work at 360px
-   ============================================================= */
+.al-alert svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 1px; }
 
-@media (max-width: 600px) {
-    .body-display {
-        padding: var(--al-space-3) var(--al-space-3);
-    }
+.al-alert--error   { border-left-color: var(--al-danger); background: var(--al-danger-soft); }
+.al-alert--warning { border-left-color: var(--al-warning); background: var(--al-warning-soft); }
+.al-alert--success { border-left-color: var(--al-success); background: var(--al-success-soft); }
+.al-alert--info    { border-left-color: var(--al-blueprint); background: var(--al-blueprint-soft); }
 
-    .app-body {
-        flex-direction: column !important;
+.al-alert__title { font-weight: var(--al-weight-semibold); display: block; margin-bottom: 2px; }
+
+/* Spinner — a traced arc, not a bouncing ball */
+.al-spinner {
+    width: 1em; height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: al-spin 620ms linear infinite;
+    flex: 0 0 auto;
+}
+
+@keyframes al-spin { to { transform: rotate(360deg); } }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   19. AVATAR
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem; height: 2rem;
+    border-radius: 50%;
+    background: var(--al-surface-3);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: 0.02em;
+    flex: 0 0 auto;
+    overflow: hidden;
+    text-transform: uppercase;
+}
+
+.al-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.al-avatar--sm { width: 1.5rem; height: 1.5rem; font-size: var(--al-font-size-2xs); }
+.al-avatar--lg { width: 2.75rem; height: 2.75rem; font-size: var(--al-font-size-md); }
+
+.al-avatar--client   { background: var(--al-side-client-soft); color: var(--al-side-client); }
+.al-avatar--delivery { background: var(--al-side-delivery-soft); color: var(--al-side-delivery); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   20. TOASTS
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-toasts {
+    position: fixed;
+    left: var(--al-space-4);
+    right: var(--al-space-4);
+    bottom: calc(var(--al-bottombar-h) + var(--al-safe-b) + var(--al-space-3));
+    z-index: var(--al-z-toast);
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+    pointer-events: none;
+}
+
+@media (min-width: 700px) {
+    .al-toasts {
+        left: auto;
+        right: var(--al-space-5);
+        bottom: var(--al-space-5);
+        width: min(24rem, calc(100vw - var(--al-space-6)));
     }
 }
+
+.al-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3) var(--al-space-4);
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-left: 3px solid var(--al-text-subtle);
+    border-radius: var(--al-radius-sm);
+    box-shadow: var(--al-shadow);
+    font-size: var(--al-font-size-md);
+    line-height: var(--al-leading-snug);
+    pointer-events: auto;
+    animation: al-toast-in 240ms var(--al-ease-out);
+}
+
+.al-toast--success { border-left-color: var(--al-success); }
+.al-toast--error   { border-left-color: var(--al-danger); }
+.al-toast--warning { border-left-color: var(--al-warning); }
+.al-toast--info    { border-left-color: var(--al-blueprint); }
+
+.al-toast__icon { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; }
+.al-toast--success .al-toast__icon { color: var(--al-success); }
+.al-toast--error   .al-toast__icon { color: var(--al-danger); }
+.al-toast--warning .al-toast__icon { color: var(--al-warning); }
+.al-toast--info    .al-toast__icon { color: var(--al-blueprint); }
+
+.al-toast__body { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.al-toast__close { flex: 0 0 auto; color: var(--al-text-subtle); line-height: 1; }
+.al-toast__close:hover { color: var(--al-text); }
+
+@keyframes al-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   21. SCRIM, DRAWER, DIALOG
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-scrim {
+    position: fixed;
+    inset: 0;
+    background: var(--al-scrim);
+    z-index: var(--al-z-scrim);
+    animation: al-fade-in var(--al-transition) both;
+    backdrop-filter: blur(2px);
+}
+
+@keyframes al-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.al-drawer {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: min(19rem, 86vw);
+    z-index: var(--al-z-drawer);
+    background: var(--al-bg-elevated);
+    border-right: 1px solid var(--al-border-strong);
+    display: flex;
+    flex-direction: column;
+    animation: al-drawer-in var(--al-transition-slow) var(--al-ease-out) both;
+    box-shadow: var(--al-shadow-lg);
+}
+
+@keyframes al-drawer-in {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(0); }
+}
+
+.al-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: var(--al-z-modal);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+}
+
+@media (min-width: 700px) {
+    .al-dialog { align-items: center; padding: var(--al-space-5); }
+}
+
+.al-dialog__panel {
+    width: 100%;
+    max-width: 34rem;
+    max-height: 88dvh;
+    overflow-y: auto;
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-lg) var(--al-radius-lg) 0 0;
+    box-shadow: var(--al-shadow-lg);
+    animation: al-sheet-up var(--al-transition-slow) var(--al-ease-out) both;
+}
+
+@media (min-width: 700px) {
+    .al-dialog__panel {
+        border-radius: var(--al-radius-lg);
+        animation: al-dialog-in var(--al-transition-slow) var(--al-ease-out) both;
+    }
+}
+
+@keyframes al-sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+@keyframes al-dialog-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* The grab handle on the mobile bottom sheet */
+.al-dialog__grip {
+    width: 2.25rem; height: 4px;
+    border-radius: var(--al-radius-pill);
+    background: var(--al-border-heavy);
+    margin: var(--al-space-3) auto 0;
+}
+
+@media (min-width: 700px) { .al-dialog__grip { display: none; } }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   22. TABS
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-tabs {
+    display: flex;
+    gap: var(--al-space-1);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--al-border);
+}
+
+.al-tabs::-webkit-scrollbar { display: none; }
+
+.al-tabs__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3) var(--al-space-3);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color var(--al-transition-fast), border-color var(--al-transition-fast);
+}
+
+.al-tabs__tab:hover { color: var(--al-text); }
+
+.al-tabs__tab.is-active,
+.al-tabs__tab[aria-selected="true"] {
+    color: var(--al-text);
+    border-bottom-color: var(--al-accent);
+}
+
+.al-tabs__tab svg { width: 16px; height: 16px; }
+
+.al-tabs__count {
+    padding: 0 5px;
+    border-radius: var(--al-radius-pill);
+    background: var(--al-surface-3);
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--al-text-muted);
+}
+
+.al-tabs__tab.is-active .al-tabs__count { background: var(--al-accent-soft); color: var(--al-accent); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   23. PROVENANCE STRIP — agreed → evidence → invoiced → cleared
+   The product's signature data ornament (assetlen.md §8).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-provenance {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    font-weight: var(--al-weight-semibold);
+}
+
+.al-provenance__step {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    padding: 2px var(--al-space-2);
+    color: var(--al-text-subtle);
+    white-space: nowrap;
+}
+
+.al-provenance__step.is-done { color: var(--al-text-muted); }
+.al-provenance__step.is-current { color: var(--al-accent); }
+
+.al-provenance__step + .al-provenance__step::before {
+    content: "";
+    width: 12px; height: 1px;
+    background: var(--al-border-strong);
+    margin-right: var(--al-space-2);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   24. AUTH SUB-FORMS
+   Shared by verification, forgot-password, phone-reset and reset-password.
+   These live here rather than in a .razor.css because four components render
+   them: the last time this vocabulary sat in one component's scoped file, CSS
+   isolation never applied it to the other three and all of them rendered
+   unstyled for weeks without anybody noticing.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.authform { display: flex; flex-direction: column; gap: var(--al-space-5); }
+
+.authform__head { display: flex; flex-direction: column; gap: var(--al-space-2); }
+
+.authform__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: -0.02em;
+}
+
+.authform__sub { font-size: var(--al-font-size-md); color: var(--al-text-muted); }
+
+.authform__body { display: flex; flex-direction: column; gap: var(--al-space-4); }
+
+/* A one-time code is read back digit by digit, so it gets mono and wide tracking. */
+.authform__code {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-xl);
+    letter-spacing: 0.3em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   25. BLAZOR ERROR UI
+   ─────────────────────────────────────────────────────────────────────────── */
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    inset: auto var(--al-space-4) var(--al-space-4) var(--al-space-4);
+    max-width: 30rem;
+    margin-left: auto;
+    z-index: var(--al-z-toast);
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-left: 3px solid var(--al-accent);
+    border-radius: var(--al-radius-sm);
+    box-shadow: var(--al-shadow);
+    padding: var(--al-space-3) var(--al-space-4);
+    font-size: var(--al-font-size-md);
+    color: var(--al-text);
+}
+
+#blazor-error-ui .reload,
+#blazor-error-ui .dismiss {
+    color: var(--al-accent);
+    font-weight: var(--al-weight-semibold);
+    font-size: var(--al-font-size-sm);
+    margin-right: var(--al-space-3);
+    cursor: pointer;
+}
+
+.blazor-error-boundary {
+    background: var(--al-danger-soft);
+    border: 1px solid var(--al-danger);
+    border-radius: var(--al-radius-sm);
+    color: var(--al-text);
+    padding: var(--al-space-4);
+    margin: var(--al-space-4);
+}
+
+.blazor-error-boundary::before {
+    content: "Something on this page didn't load. ";
+    font-weight: var(--al-weight-semibold);
+}
+
+/* Blazor WASM boot progress (kept for the framework's own markup) */
+.loading-progress { display: none; }
+.loading-progress-text { display: none; }

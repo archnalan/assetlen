@@ -8,8 +8,7 @@
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.JSInterop
-@using Syncfusion.Blazor.Buttons
-@using Syncfusion.Blazor.Grids
+@using assetlen.Shared.Models
 @using assetlen.Shared.Models.ViewModels
 @using assetlen.Shared.Layout
 @using assetlen.Shared.Modules.Projects
@@ -18,17 +17,13 @@
 @using assetlen.Shared.Modules.Documents.Components
 @using assetlen.Shared.Modules.Ingest.Components
 @using assetlen.Shared.Modules.Identity.Components
-@using assetlen.Shared.Modules.Timeline.Components
 @using assetlen.Shared.Modules.Finance.Components
 @using assetlen.Shared.Components.Navigation
 @using assetlen.Shared.Components.Media
+@using assetlen.Shared.Components.UI
 @using assetlen.Shared.Services
-@using Microsoft.FluentUI.AspNetCore.Components
 @using assetlen.Shared.Pages.Components
 @using assetlen.Shared.Models.Models.ViewModels.Users
-@using Syncfusion.Blazor
-@using Syncfusion.Blazor.DropDowns
-@using Syncfusion.Blazor.Data
 @using System.ComponentModel
 @using System.Dynamic
 @using Newtonsoft.Json.Linq
@@ -39,7 +34,6 @@
 @using Microsoft.AspNetCore.Http
 @using assetlen.Shared.Models.Models.ViewModels
 @using assetlen.Shared.Apicalls
-@using assetlen.Shared.Models
 @using System.Diagnostics
 @using System.Text.Json
 @using System.Globalization
@@ -78,7 +72,6 @@
 @inject ICustomFileSaver _fileSaver
 @inject AuthenticationStateProvider _authStateProvider
 @inject IApiResponseHandler _apiResponseHandler
-@inject IDialogService DialogService
 @inject ISD _sd
 @inject IUserSessionService _userSession
 @inject IStorageService _storageService

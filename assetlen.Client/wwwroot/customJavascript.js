@@ -1352,3 +1352,55 @@ window.collapseNavbar = function () {
         console.error('Error collapsing navbar:', error);
     }
 };
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ASSETLEN theme
+
+   Three states, matching the CSS in app.css:
+     null    → follow the operating system (no attribute on <html>)
+     "light" → data-theme="light"
+     "dark"  → data-theme="dark"
+
+   The <meta name="theme-color"> pair is updated alongside so the phone's
+   browser chrome matches the page instead of sitting a shade off it.
+   ───────────────────────────────────────────────────────────────────────── */
+window.assetlenTheme = {
+  apply: function (theme) {
+    var root = document.documentElement;
+
+    if (theme === "light" || theme === "dark") {
+      root.setAttribute("data-theme", theme);
+    } else {
+      root.removeAttribute("data-theme");
+    }
+
+    var dark =
+      theme === "dark" ||
+      (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+    var meta = document.querySelector('meta[name="theme-color"]:not([media])');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "theme-color");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", dark ? "#131518" : "#f6f5f1");
+  },
+};
+
+/* Apply the stored choice before Blazor boots, so the splash and the first
+   paint are already in the right theme rather than flashing white. */
+(function () {
+  try {
+    var stored = window.localStorage.getItem("al-theme");
+    if (stored) {
+      // Blazored.LocalStorage stores strings JSON-quoted.
+      var value = stored.replace(/^"|"$/g, "");
+      if (value === "light" || value === "dark") {
+        document.documentElement.setAttribute("data-theme", value);
+      }
+    }
+  } catch (e) {
+    /* private mode, or storage disabled — the OS preference still governs */
+  }
+})();

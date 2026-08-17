@@ -1,0 +1,309 @@
+@page "/project/{ProjectId}/stage/{StageId}"
+@attribute [Authorize]
+@inject ILogger<StageDetail> Logger
+
+@*
+    One stage.
+
+    A stage is the funded unit of work — the thing the developer pays for up
+    front and the thing everything else hangs off. This page puts its money, its
+    open questions and its evidence on one screen, because those three together
+    are the answer to "is this stage finished and should I release the rest".
+*@
+
+<PageTitle>Stage — ASSETLEN</PageTitle>
+
+<div class="al-page">
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="This stage didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="stage"
+                EmptyTitle="Stage not found"
+                EmptyBody="It may have been removed, or the link may be out of date.">
+        <ChildContent>
+
+            <TitleBlock Eyebrow="@($"Stage {stage!.DisplayOrder:D2}")"
+                        Title="@(stage.StageName ?? "Stage")"
+                        Subtitle="@stage.Description">
+                <Meta>
+                    <div class="al-meta">
+                        <span class="al-label">Started</span>
+                        <span class="al-meta__value">@Fmt.Date(stage.StartDate)</span>
+                    </div>
+                    <div class="al-meta">
+                        <span class="al-label">Due</span>
+                        <span class="al-meta__value">@Fmt.Date(stage.ExpectedEndDate)</span>
+                    </div>
+                    @if (ShowMoney)
+                    {
+                        <div class="al-meta">
+                            <span class="al-label">Budget</span>
+                            <span class="al-meta__value">@Fmt.Money(stage.BudgetAmount ?? 0, currency)</span>
+                        </div>
+                    }
+                </Meta>
+
+                <Below>
+                    <span class="al-badge @StageBadge(stage.Status)">@StatusLabel(stage.Status)</span>
+                    <a class="al-btn al-btn--link" href="/project/@ProjectId">
+                        <Icon Name="chevron-left" Size="14" /> All stages
+                    </a>
+                </Below>
+            </TitleBlock>
+
+            @* ── Where it stands ─────────────────────────────────────── *@
+            <section class="stage__section">
+                <div class="stage__progress">
+                    <div class="al-meter al-meter--lg">
+                        <span class="al-meter__seg al-meter__seg--cleared"
+                              style="width:@(Math.Clamp(stage.CompletionPercentage ?? 0, 0, 100))%"></span>
+                    </div>
+                    <span class="al-num stage__progress-label">@Fmt.Percent(stage.CompletionPercentage ?? 0) built</span>
+                </div>
+
+                @if (ShowMoney)
+                {
+                    <div class="al-statrow stage__stats">
+                        <div class="al-stat">
+                            <span class="al-label">Budget</span>
+                            <span class="al-stat__value">@Fmt.Money(stage.BudgetAmount ?? 0, currency)</span>
+                        </div>
+                        <div class="al-stat">
+                            <span class="al-label">Released</span>
+                            <span class="al-stat__value">@Fmt.Money(Released, currency)</span>
+                            <span class="al-stat__note">@funding.Count @(funding.Count == 1 ? "release" : "releases")</span>
+                        </div>
+                        <div class="al-stat">
+                            <span class="al-label">Still to come</span>
+                            <span class="al-stat__value">@Fmt.Money((stage.BudgetAmount ?? 0) - Released, currency)</span>
+                        </div>
+                        <div class="al-stat @(Unconfirmed > 0 ? "al-stat--warning" : "")">
+                            <span class="al-label">Unconfirmed</span>
+                            <span class="al-stat__value">@Fmt.Money(Unconfirmed, currency)</span>
+                        </div>
+                    </div>
+                }
+            </section>
+
+            @* ── Open questions on this stage ────────────────────────── *@
+            @if (questions.Count > 0)
+            {
+                <section class="stage__section">
+                    <div class="al-rule"><span class="al-label">Open on this stage</span></div>
+
+                    <div class="al-sheet">
+                        <div class="al-register">
+                            @foreach (var flag in questions)
+                            {
+                                <a class="al-register__row" href="/project/@ProjectId/register#@flag.Id">
+                                    <span class="al-dot @(flag.Severity >= FlagSeverity.High ? "al-dot--danger" : "al-dot--warning")"></span>
+                                    <span class="al-register__main">
+                                        <span class="al-register__title">@flag.Title</span>
+                                        <span class="al-register__sub">
+                                            <span>With @(flag.AssignedToName ?? "the other side")</span>
+                                        </span>
+                                    </span>
+                                    <span class="al-register__end">
+                                        @if (flag.DueDate is not null)
+                                        {
+                                            <span class="al-badge al-badge--warning">By @Fmt.DateShort(flag.DueDate)</span>
+                                        }
+                                        <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                    </span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+
+            @* ── Evidence ────────────────────────────────────────────── *@
+            <section class="stage__section">
+                <div class="al-rule">
+                    <span class="al-label">Evidence</span>
+                    @if (canCapture)
+                    {
+                        <a class="al-btn al-btn--link" href="/project/@ProjectId/capture?stageId=@StageId">Capture here</a>
+                    }
+                </div>
+
+                @if (entries.Count == 0)
+                {
+                    <div class="al-empty">
+                        <Icon Name="camera" Size="40" Class="al-empty__icon" Weight="1.25" />
+                        <h3 class="al-empty__title">Nothing captured against this stage</h3>
+                        <p class="al-empty__body">
+                            Evidence attached to the stage is what lets a claim be approved without a phone call.
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <div class="al-sheet">
+                        <div class="al-register">
+                            @foreach (var entry in entries)
+                            {
+                                <a class="al-register__row" href="/project/@ProjectId/entry/@entry.Id">
+                                    <span class="al-register__index">@Fmt.DateShort(entry.DateTimeCreated)</span>
+                                    <span class="al-register__main">
+                                        <span class="al-register__title al-clamp-2">@entry.Description</span>
+                                        <span class="al-register__sub">
+                                            @if (!string.IsNullOrEmpty(entry.CreatedByName))
+                                            {
+                                                <span>@entry.CreatedByName</span>
+                                            }
+                                            @if (entry.ImageCount > 0)
+                                            {
+                                                <span>@entry.ImageCount @(entry.ImageCount == 1 ? "frame" : "frames")</span>
+                                            }
+                                        </span>
+                                    </span>
+                                    <span class="al-register__end">
+                                        @if (entry.HasIssues)
+                                        {
+                                            <span class="al-badge al-badge--warning">Issue</span>
+                                        }
+                                        <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                    </span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+            </section>
+
+            @* ── Releases against this stage ─────────────────────────── *@
+            @if (ShowMoney && funding.Count > 0)
+            {
+                <section class="stage__section">
+                    <div class="al-rule"><span class="al-label">Releases</span></div>
+
+                    <div class="al-sheet">
+                        <div class="al-register">
+                            @foreach (var entry in funding)
+                            {
+                                <div class="al-register__row">
+                                    <span class="al-register__index">@Fmt.DateShort(entry.PaymentDate)</span>
+                                    <span class="al-register__main">
+                                        <span class="al-register__title">@(entry.Notes ?? "Release")</span>
+                                        <span class="al-register__sub">
+                                            @if (!string.IsNullOrEmpty(entry.PaidByName))
+                                            {
+                                                <span>from @entry.PaidByName</span>
+                                            }
+                                        </span>
+                                    </span>
+                                    <span class="al-register__end">
+                                        <span class="al-register__amount">@Fmt.Amount(entry.Amount)</span>
+                                        <span class="al-badge @(entry.Status == FundingStatus.Confirmed ? "al-badge--success" : "al-badge--warning")">
+                                            @(entry.Status == FundingStatus.Confirmed ? "Confirmed" : "Awaiting")
+                                        </span>
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+
+        </ChildContent>
+    </StateBlock>
+</div>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+    [Parameter] public string StageId { get; set; } = "";
+
+    private StageDto? stage;
+    private List<ProgressUpdateDto> entries = new();
+    private List<FundingEntryDto> funding = new();
+    private List<FlagDto> questions = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string currency = "UGX";
+    private bool canCapture;
+    private string? loadedKey;
+
+    private bool ShowMoney => _sd.CurrentUser?.RolesDto?.CanSeeFinancials == true;
+
+    private decimal Released => funding.Where(f => f.Status != FundingStatus.Rejected).Sum(f => f.Amount);
+    private decimal Unconfirmed => funding.Where(f => f.Status == FundingStatus.Pending).Sum(f => f.Amount);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}/{StageId}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var stageTask = _stagesApi.GetStageById(StageId);
+            var entriesTask = _progressApi.GetProgressUpdates(ProjectId, StageId, 0, 20);
+            var standingTask = _projectMembersApi.GetMyStanding(ProjectId);
+
+            await Task.WhenAll(stageTask, entriesTask, standingTask);
+
+            if (!stageTask.Result.IsSuccessStatusCode || stageTask.Result.Content is null)
+            {
+                phase = (int)stageTask.Result.StatusCode is 404 or 403 ? LoadPhase.Empty : LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(stageTask.Result);
+                return;
+            }
+
+            stage = stageTask.Result.Content;
+            entries = entriesTask.Result.IsSuccessStatusCode
+                ? entriesTask.Result.Content?.Data ?? new()
+                : new();
+
+            var standing = standingTask.Result.IsSuccessStatusCode ? standingTask.Result.Content : null;
+            canCapture = standing?.CanSeeSiteLog == true && standing.CanWrite;
+
+            // Money and questions are secondary; neither should take the page
+            // down, and money is not fetched at all where it is not visible.
+            if (ShowMoney)
+            {
+                var fundingResponse = await _fundingApi.GetFundingByStage(StageId);
+                funding = fundingResponse.IsSuccessStatusCode
+                    ? (fundingResponse.Content ?? new()).OrderByDescending(f => f.PaymentDate).ToList()
+                    : new();
+            }
+
+            var flagsResponse = await _flagsApi.GetFlagsByProject(ProjectId, FlagStatus.Open);
+            questions = flagsResponse.IsSuccessStatusCode
+                ? (flagsResponse.Content ?? new()).Where(f => f.StageId == StageId).ToList()
+                : new();
+
+            phase = LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Stage {StageId} failed to load", StageId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private static string StatusLabel(StageStatus status) => status switch
+    {
+        StageStatus.Completed => "Completed",
+        StageStatus.InProgress => "In progress",
+        _ => "Not started"
+    };
+
+    private static string StageBadge(StageStatus status) => status switch
+    {
+        StageStatus.Completed => "al-badge--success",
+        StageStatus.InProgress => "al-badge--accent",
+        _ => "al-badge--neutral"
+    };
+}

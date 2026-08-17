@@ -1,0 +1,22 @@
+@*
+    The chrome-free layout: sign-in, sign-up, password reset, and anything else
+    that runs before there is an account to render a shell around.
+
+    It carries the toast host — a failed sign-in has to be able to say so — and
+    nothing else.
+*@
+
+@inherits LayoutComponentBase
+
+<div class="authlayout">
+    @Body
+</div>
+
+<ToastHost />
+<RouteTracker />
+
+<div id="blazor-error-ui">
+    Something on this page didn't load.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss" onclick="this.closest('#blazor-error-ui').style.display='none'">Dismiss</a>
+</div>

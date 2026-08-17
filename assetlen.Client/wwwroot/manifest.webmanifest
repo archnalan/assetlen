@@ -1,32 +1,35 @@
 {
   "name": "ASSETLEN",
   "short_name": "ASSETLEN",
-  "description": "Real-estate project management — hold a past commitment against present reality.",
+  "description": "WhatsApp stores messages. Construction runs on commitments. Assetlen turns a stream you cannot search into a register you own.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#fafaf7",
-  "theme_color": "#fafaf7",
+  "background_color": "#f6f5f1",
+  "theme_color": "#f6f5f1",
+  "categories": ["business", "productivity"],
   "icons": [
+    { "src": "favicon-32.png", "sizes": "32x32", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "name": "Needs you",
+      "short_name": "Needs you",
+      "description": "Decisions you owe, across every project",
+      "url": "/needs-you",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "name": "Search",
+      "short_name": "Search",
+      "description": "Find a commitment, a stage or a photograph",
+      "url": "/search",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

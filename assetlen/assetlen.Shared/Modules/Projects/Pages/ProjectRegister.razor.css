@@ -1,0 +1,100 @@
+.register__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    flex-wrap: wrap;
+}
+
+.register__raise { margin-top: var(--al-space-4); }
+
+.register__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: var(--al-space-4);
+}
+
+.register__item-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    flex-wrap: wrap;
+}
+
+.register__item-lead {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    min-width: 0;
+}
+
+.register__item-lead > .al-dot { margin-top: 8px; }
+
+.register__item-title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-lg);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: -0.01em;
+    line-height: var(--al-leading-snug);
+}
+
+.register__item-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    margin-top: 2px;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.register__item-sub > * + *::before {
+    content: "·";
+    margin-right: var(--al-space-2);
+    color: var(--al-text-subtle);
+}
+
+.register__item-badges {
+    display: flex;
+    gap: var(--al-space-2);
+    flex-wrap: wrap;
+}
+
+.register__item-body {
+    font-size: var(--al-font-size-md);
+    line-height: var(--al-leading-normal);
+    color: var(--al-text-muted);
+    max-width: 72ch;
+}
+
+.register__prov {
+    padding: var(--al-space-2) 0;
+    border-top: 1px solid var(--al-border);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.register__item-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    flex-wrap: wrap;
+}
+
+.register__item-owner {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.register__resolved { font-size: var(--al-font-size-xs); }
+
+.register__note {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    max-width: 64ch;
+    padding-top: var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+    line-height: var(--al-leading-relaxed);
+}

@@ -1,0 +1,38 @@
+@page "/project/{ProjectId}/documents"
+@attribute [Authorize]
+
+@*
+    The drawing register.
+
+    One rule, and it is the reason this exists: **the current revision is
+    pinned, and a superseded one is archived rather than deleted.** On 23
+    November the contractor wrote *"sori about that, my latest drawing still had
+    it like that"* — he had built to a superseded sheet. A register that
+    overwrites cannot prevent that; one that supersedes can.
+*@
+
+<PageTitle>Drawings — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="documents" Eyebrow="Drawing register"
+             Subtitle="Current revision on top. Superseded issues stay downloadable — never deleted." Context="ctx">
+
+    @if (ctx.IsClientSide && !ctx.IsMediator)
+    {
+        <div class="al-alert al-alert--info">
+            <Icon Name="info" Size="18" />
+            <span>
+                You see drawings that have been issued to your side. An unissued working sheet is not
+                hidden from you as a matter of policy — it is simply not finished being drawn.
+            </span>
+        </div>
+    }
+
+    <DocumentRegister ProjectId="@ProjectId"
+                      CanWrite="ctx.CanWrite"
+                      CanExpose="ctx.CanExposeToClient" />
+
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+}

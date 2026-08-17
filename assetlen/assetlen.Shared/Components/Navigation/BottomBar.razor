@@ -1,0 +1,56 @@
+@*
+    Mobile destination bar. Four fixed destinations, identical for every role
+    and on every screen.
+
+    Deliberately no contextual centre button. The previous shell put "capture"
+    there inside a project and "new project" everywhere else, so the same
+    position did two different things depending on where you were — which is
+    precisely how a reader stops trusting a bar. Contextual work is a floating
+    action instead (PageAction), anchored above this bar and clearly labelled.
+*@
+
+@implements IDisposable
+@inject NavigationManager Nav
+
+<nav class="bottombar" aria-label="Primary">
+    <a href="/" class="bottombar__item @Active("/", exact: true)">
+        <Icon Name="grid" Size="21" />
+        <span>Home</span>
+    </a>
+    <a href="/needs-you" class="bottombar__item @Active("/needs-you")">
+        <Icon Name="decision" Size="21" />
+        <span>Needs you</span>
+    </a>
+    <a href="/search" class="bottombar__item @Active("/search")">
+        <Icon Name="search" Size="21" />
+        <span>Search</span>
+    </a>
+    <button type="button" class="bottombar__item" @onclick="OpenMenu">
+        <Icon Name="menu" Size="21" />
+        <span>Menu</span>
+    </button>
+</nav>
+
+@code {
+    [Inject] private ShellState Shell { get; set; } = default!;
+
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
+    private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
+        => InvokeAsync(StateHasChanged);
+
+    private void OpenMenu() => Shell.ToggleDrawer();
+
+    private string Active(string href, bool exact = false)
+    {
+        var path = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.TrimEnd('/');
+        var target = href.TrimEnd('/');
+
+        if (exact) return path.Equals(target, StringComparison.OrdinalIgnoreCase) ? "is-active" : "";
+
+        return path.Equals(target, StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(target + "/", StringComparison.OrdinalIgnoreCase)
+            ? "is-active" : "";
+    }
+}

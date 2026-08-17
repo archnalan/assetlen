@@ -1,0 +1,120 @@
+@page "/account"
+@attribute [Authorize]
+
+@*
+    Who you are signed in as, and which account you are acting in.
+
+    One human, one login, many accounts (assetlen.md §10.2): the architect works
+    for several developers and appears as a guest in each. The account is the
+    boundary, so the switcher belongs here rather than buried in a settings tree.
+*@
+
+<PageTitle>Account — ASSETLEN</PageTitle>
+
+<div class="al-page al-page--reading">
+
+    <TitleBlock Eyebrow="Signed in" Title="@DisplayName" Subtitle="@RoleSentence">
+        <Actions>
+            <button type="button" class="al-btn al-btn--default" @onclick="SignOutAsync">
+                <Icon Name="logout" Size="16" /> Sign out
+            </button>
+        </Actions>
+    </TitleBlock>
+
+    <section>
+        <div class="al-sheet al-sheet--ticked">
+            <div class="account__identity">
+                <span class="al-avatar al-avatar--lg @(IsClientSide ? "al-avatar--client" : "al-avatar--delivery")">
+                    @Fmt.Initials(_sd.CurrentUser?.FirstName, _sd.CurrentUser?.LastName, _sd.CurrentUser?.Email)
+                </span>
+                <div>
+                    <div class="account__identity-name">@DisplayName</div>
+                    <span class="al-badge @(IsClientSide ? "al-badge--client" : "al-badge--delivery")">@RoleLabel</span>
+                </div>
+            </div>
+
+            <div class="al-sheet__body">
+                <div class="account__grid">
+                    <div class="account__row">
+                        <span class="al-label">Email</span>
+                        <span class="account__value">@(_sd.CurrentUser?.Email ?? "—")</span>
+                    </div>
+                    <div class="account__row">
+                        <span class="al-label">Username</span>
+                        <span class="account__value">@(_sd.CurrentUser?.UseName ?? "—")</span>
+                    </div>
+                    <div class="account__row">
+                        <span class="al-label">Phone</span>
+                        <span class="account__value">@(_sd.CurrentUser?.PhoneNumber ?? "Not set")</span>
+                    </div>
+                    <div class="account__row">
+                        <span class="al-label">Active account</span>
+                        <span class="account__value">@(_sd.CurrentUser?.TenantId ?? "—")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="al-rule"><span class="al-label">Your accounts</span></div>
+
+        <div class="al-alert al-alert--info">
+            <Icon Name="info" Size="18" />
+            <span>
+                One login, many accounts. A project belongs to the developer who created it; you appear
+                in theirs as a guest, and being removed from one changes nothing in another.
+            </span>
+        </div>
+
+        <TenantSwitcher RedirectTo="/" />
+    </section>
+
+</div>
+
+@code {
+    [Inject] private CustomAuthStateProvider _custAuth { get; set; } = default!;
+    [Inject] private ShellState Shell { get; set; } = default!;
+
+    private bool IsClientSide => _sd.CurrentUser?.RolesDto?.IsExternal == true;
+
+    private string DisplayName
+    {
+        get
+        {
+            var user = _sd.CurrentUser;
+            if (user is null) return "Signed in";
+            if (!string.IsNullOrWhiteSpace(user.FullName)) return user.FullName!;
+            var joined = $"{user.FirstName} {user.LastName}".Trim();
+            return joined.Length > 0 ? joined : user.Email ?? "Signed in";
+        }
+    }
+
+    /// <summary>The four names the vision uses, mapped from the six-role enum still in the schema.</summary>
+    private string RoleLabel => _sd.CurrentUser?.RolesDto switch
+    {
+        { SystemAdmin: true } => "Platform",
+        { Contractor: true } => "Developer",
+        { Manager: true } => "Mediator",
+        { Client: true } => "Representative",
+        { Crew: true } => "Delivery",
+        _ => "Observer"
+    };
+
+    private string RoleSentence => _sd.CurrentUser?.RolesDto switch
+    {
+        { Contractor: true } => "You own the projects in this account. Contractors are invited in and can be replaced without the record moving.",
+        { Manager: true } => "You mediate. Everything that crosses to the client side carries your name, whoever produced it.",
+        { Client: true } => "You are on the client side. You see the brief and the commitments on your projects.",
+        { Crew: true } => "You are on the delivery side. You capture into the Site Log; money is not part of your seat.",
+        _ => "Read-only access to the projects you have been invited to."
+    };
+
+    private async Task SignOutAsync()
+    {
+        Shell.Clear();
+        _sd.RemoveUser();
+        await _custAuth.MarkUserAsLoggedOut();
+        _nav.NavigateTo("/login", forceLoad: true);
+    }
+}

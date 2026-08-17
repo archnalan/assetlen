@@ -1,0 +1,306 @@
+@page "/project/{ProjectId}/capture"
+@page "/project/{ProjectId}/progress/add"
+@attribute [Authorize]
+@inject NavigationManager Nav
+@inject ILogger<CaptureEntry> Logger
+
+@*
+    Capture.
+
+    The one rule here is that capture must be **dumber than WhatsApp**. Anything
+    that adds a tap causes churn straight back to the chat, so:
+
+      · the stage is preselected when you arrive from a stage;
+      · captions are optional and there are no required fields beyond the stage
+        and a line of text;
+      · the picker is multi-select by default, because real capture is thirteen
+        to eighteen frames dumped from the camera roll at 22:00, not one shot
+        taken in the moment.
+
+    Everything clever — extraction, grouping, the brief — runs *after* this
+    screen, never during it.
+*@
+
+<PageTitle>Capture — ASSETLEN</PageTitle>
+
+<div class="al-page al-page--reading">
+
+    <TitleBlock Eyebrow="Site Log" Title="Capture"
+                Subtitle="Pick the stage, add a line, attach what you shot. Nothing else is required.">
+        <Actions>
+            <a class="al-btn al-btn--quiet" href="/project/@ProjectId/log">Cancel</a>
+        </Actions>
+    </TitleBlock>
+
+    @if (loadFailed)
+    {
+        <div class="al-alert al-alert--error" role="alert">
+            <Icon Name="error" Size="18" />
+            <div>
+                <strong class="al-alert__title">Stages didn't load</strong>
+                <span>You can still write an entry, but it will not be attached to a stage.</span>
+            </div>
+        </div>
+    }
+
+    <div class="capture">
+
+        <div class="al-field">
+            <label class="al-label" for="cap-stage">Against which stage</label>
+            <select id="cap-stage" class="al-select" @bind="model.StageId">
+                <option value="">Choose a stage…</option>
+                @foreach (var stage in stages)
+                {
+                    <option value="@stage.Id">@stage.DisplayOrder.ToString("D2") — @stage.StageName</option>
+                }
+            </select>
+            <span class="al-field__hint">Nothing floats. Every frame hangs off a funded piece of work.</span>
+        </div>
+
+        <div class="al-field">
+            <label class="al-label" for="cap-note">What happened</label>
+            <textarea id="cap-note" class="al-textarea" rows="3" maxlength="2000"
+                      placeholder="One line is enough. &quot;Second lift formwork struck, face is clean.&quot;"
+                      @bind="model.Description" @bind:event="oninput"></textarea>
+        </div>
+
+        <div class="al-field">
+            <label class="al-label" for="cap-pct">Where the stage stands now</label>
+            <div class="capture__pct">
+                <input id="cap-pct" class="capture__range" type="range" min="0" max="100" step="5"
+                       value="@((int)(model.CompletionPercentage ?? 0))"
+                       @oninput="OnPercentChanged" />
+                <span class="capture__pct-value al-num">@Fmt.Percent(model.CompletionPercentage ?? 0)</span>
+            </div>
+        </div>
+
+        <div class="al-field">
+            <span class="al-label">Frames</span>
+
+            <label class="capture__drop">
+                <InputFile OnChange="OnFilesSelected" multiple accept="image/*" class="capture__file" />
+                <Icon Name="camera" Size="26" />
+                <span class="capture__drop-title">Add photographs</span>
+                <span class="capture__drop-note">
+                    Up to @MaxImages at a time. Select the whole set from the camera roll — assigning
+                    them one by one is the thing that makes people go back to WhatsApp.
+                </span>
+            </label>
+
+            @if (model.Images.Count > 0)
+            {
+                <div class="capture__frames">
+                    @for (var i = 0; i < model.Images.Count; i++)
+                    {
+                        var idx = i;
+                        var image = model.Images[idx];
+                        <figure class="capture__frame">
+                            <img src="@image.PreviewUrl" alt="@image.FileName" />
+                            <button type="button" class="capture__frame-remove" @onclick="() => RemoveImage(idx)"
+                                    aria-label="Remove @image.FileName">
+                                <Icon Name="close" Size="14" />
+                            </button>
+                            <figcaption>
+                                <input class="al-input al-input--caption" maxlength="300"
+                                       placeholder="Caption (optional)"
+                                       @bind="image.Caption" @bind:event="oninput" />
+                            </figcaption>
+                        </figure>
+                    }
+                </div>
+
+                <span class="al-field__hint">@model.Images.Count of @MaxImages attached.</span>
+            }
+        </div>
+
+        <div class="al-field">
+            <span class="al-label">Who sees this</span>
+            <div class="al-segmented" role="group">
+                <button type="button" class="al-segmented__item @(model.Channel == Channel.Crew ? "is-active" : "")"
+                        aria-selected="@(model.Channel == Channel.Crew)"
+                        @onclick="() => model.Channel = Channel.Crew">
+                    <Icon Name="eye-off" Size="14" /> Site Log only
+                </button>
+                <button type="button" class="al-segmented__item @(model.Channel == Channel.Client ? "is-active" : "")"
+                        aria-selected="@(model.Channel == Channel.Client)"
+                        @onclick="() => model.Channel = Channel.Client">
+                    <Icon Name="eye" Size="14" /> Also to the client
+                </button>
+            </div>
+            <span class="al-field__hint">
+                Site Log is the default and stays the default. Individual frames can be exposed later
+                from the entry — three of eighteen, rather than the whole batch.
+            </span>
+        </div>
+
+        <div class="al-check-wrap">
+            <label class="al-check">
+                <input type="checkbox" @bind="model.HasIssues" />
+                <span>
+                    <strong>Something is wrong here.</strong>
+                    Marks the entry so it surfaces on the stage and in the log's issue filter.
+                </span>
+            </label>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="al-alert al-alert--error" role="alert">
+                <Icon Name="error" Size="18" />
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <div class="capture__actions">
+            <a class="al-btn al-btn--quiet" href="/project/@ProjectId/log">Cancel</a>
+            <button type="button" class="al-btn al-btn--primary al-btn--lg"
+                    disabled="@(saving || !CanSubmit)" @onclick="SubmitAsync">
+                @if (saving)
+                {
+                    <span class="al-spinner"></span><span>Posting…</span>
+                }
+                else
+                {
+                    <Icon Name="check" Size="16" /><span>Post to the Site Log</span>
+                }
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    /// <summary>Preselects the stage when arriving from one, so capture is one tap shorter.</summary>
+    [SupplyParameterFromQuery] public string? stageId { get; set; }
+
+    private const int MaxImages = 12;
+    private const long MaxBytesPerImage = 8 * 1024 * 1024;
+
+    private readonly ProgressUpdateCreateDto model = new();
+    private List<StageDto> stages = new();
+    private bool saving;
+    private bool loadFailed;
+    private string? errorMessage;
+
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(model.StageId) &&
+        !string.IsNullOrWhiteSpace(model.Description);
+
+    protected override async Task OnInitializedAsync()
+    {
+        model.ProjectId = ProjectId;
+        model.Channel = Channel.Crew;   // fail-closed
+        model.StageId = stageId;
+
+        try
+        {
+            var response = await _stagesApi.GetStagesByProjectId(ProjectId);
+
+            if (response.IsSuccessStatusCode)
+            {
+                stages = (response.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList();
+
+                // With one stage in flight there is no choice to make; pick it.
+                var live = stages.Where(s => s.Status == StageStatus.InProgress).ToList();
+                if (string.IsNullOrEmpty(model.StageId) && live.Count == 1)
+                    model.StageId = live[0].Id;
+            }
+            else
+            {
+                loadFailed = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not load stages for capture on {ProjectId}", ProjectId);
+            loadFailed = true;
+        }
+    }
+
+    private void OnPercentChanged(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var value))
+            model.CompletionPercentage = value;
+    }
+
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        var remaining = MaxImages - model.Images.Count;
+        if (remaining <= 0)
+        {
+            ToastService.ShowWarning($"That's the maximum of {MaxImages} frames in one entry.");
+            return;
+        }
+
+        foreach (var file in e.GetMultipleFiles(remaining))
+        {
+            try
+            {
+                // Resize in the browser. A modern phone photograph is 4–8 MB and
+                // a base64 payload inflates it by a third; twelve of those on a
+                // site connection is a failed post, not a slow one.
+                var resized = await file.RequestImageFileAsync(file.ContentType, 1600, 1600);
+
+                using var stream = new MemoryStream();
+                await resized.OpenReadStream(MaxBytesPerImage).CopyToAsync(stream);
+                var base64 = Convert.ToBase64String(stream.ToArray());
+
+                model.Images.Add(new ProgressImageUploadDto
+                {
+                    FileName = file.Name,
+                    ContentType = file.ContentType,
+                    Base64Image = base64,
+                    PreviewUrl = $"data:{file.ContentType};base64,{base64}",
+                    DisplayOrder = model.Images.Count + 1
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Could not read {FileName}", file.Name);
+                ToastService.ShowError($"Could not read {file.Name}.");
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private void RemoveImage(int index)
+    {
+        model.Images.RemoveAt(index);
+        for (var i = 0; i < model.Images.Count; i++) model.Images[i].DisplayOrder = i + 1;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (saving || !CanSubmit) return;
+
+        saving = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _progressApi.AddProgressUpdate(model);
+
+            if (response.IsSuccessStatusCode)
+            {
+                ToastService.ShowSuccess("Posted to the Site Log.");
+                Nav.NavigateTo($"/project/{ProjectId}/log");
+                return;
+            }
+
+            errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not post that entry.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not post capture on {ProjectId}", ProjectId);
+            errorMessage = "Could not post that entry. Nothing has been lost — try again.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+}

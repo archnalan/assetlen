@@ -1,0 +1,19 @@
+.titleblock__below {
+    margin-top: var(--al-space-3);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+}
+
+.titleblock__aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    flex: 0 0 auto;
+}
+
+@media (min-width: 800px) {
+    .titleblock__aside { align-items: flex-end; }
+}

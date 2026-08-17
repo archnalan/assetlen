@@ -1,0 +1,139 @@
+@*
+    Development-only quick sign-in.
+
+    Four personas, one tap each, so every review of a change can be done from
+    all four vantage points instead of only from whichever account happened to
+    be logged in. The two sides of a project are the whole design problem here
+    — a screen that is right for Peter and wrong for Nalan looks fine if you
+    only ever open it as Peter.
+
+    Renders nothing outside Development, and the server refuses to seed outside
+    Development too, so the gate does not depend on the client telling the truth.
+*@
+
+@using assetlen.Shared.Models.Models
+@inject GlobalContext _globalCtx
+@inject IDevApi _devApi
+
+@if (_globalCtx.IsDevelopment)
+{
+    <div class="dev">
+        <div class="al-rule">
+            <span class="al-label">Development sign-in</span>
+        </div>
+
+        <p class="dev__note">
+            Four seats on <strong>Kira Residence</strong> — the demo project shaped from the
+            evidence thread: one residence, one guest wing beneath it, and everything
+            else a stage.
+        </p>
+
+        <div class="dev__grid">
+            @foreach (var persona in Personas)
+            {
+                <button type="button" class="dev__card" disabled="@busy"
+                        @onclick="() => SignInAs(persona)">
+                    <span class="al-avatar @persona.AvatarClass">@persona.Initials</span>
+                    <span class="dev__card-body">
+                        <span class="dev__card-name">@persona.Name</span>
+                        <span class="dev__card-role">@persona.Role</span>
+                        <span class="dev__card-note">@persona.Note</span>
+                    </span>
+                    @if (busy && busyEmail == persona.Email)
+                    {
+                        <span class="al-spinner dev__card-spin"></span>
+                    }
+                    else
+                    {
+                        <Icon Name="arrow-right" Size="16" Class="dev__card-go" />
+                    }
+                </button>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(status))
+        {
+            <p class="dev__status">@status</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<LoginResponseDto> OnSignedIn { get; set; }
+
+    private bool busy;
+    private string? busyEmail;
+    private string? status;
+
+    private sealed record Persona(
+        string Name, string Email, string Role, string Note,
+        string Initials, string AvatarClass);
+
+    // Passwords match DevSeedService on the server. Both are Development-only.
+    private const string DevPassword = "Assetlen#2026";
+
+    private static readonly Persona[] Personas =
+    [
+        new("Peter Ssembatya", "peter@assetlen.dev", "Developer — buys, owns the account",
+            "Funds stages, abroad most of the build, reads one page a day.", "PS", "al-avatar--client"),
+
+        new("Dinah Ssembatya", "dinah@assetlen.dev", "Representative — client side",
+            "Local. Owns every finish decision, and reverses them.", "DS", "al-avatar--client"),
+
+        new("Nalan Kaggwa", "nalan@assetlen.dev", "Mediator — architect-contractor",
+            "Designs and builds. The single accountable name on everything that crosses.", "NK", "al-avatar--delivery"),
+
+        new("Musa Opio", "musa@assetlen.dev", "Delivery — site foreman",
+            "Captures against a deliverable. Sees the Site Log, never the money.", "MO", "al-avatar--delivery")
+    ];
+
+    private async Task SignInAs(Persona persona)
+    {
+        busy = true;
+        busyEmail = persona.Email;
+        status = null;
+        StateHasChanged();
+
+        try
+        {
+            var login = new UserLogin { Email = persona.Email, Password = DevPassword };
+            var result = await _auth.Login(login);
+
+            // First run on a fresh database: the personas do not exist yet.
+            // Seed, then retry once. Seeding is idempotent, so a second tap
+            // costs a round trip and changes nothing.
+            if (!result.IsSuccessStatusCode)
+            {
+                status = "Setting up the demo project…";
+                StateHasChanged();
+
+                var seed = await _devApi.SeedDemo();
+                if (!seed.IsSuccessStatusCode)
+                {
+                    status = "The API refused to seed. Is it running in Development?";
+                    return;
+                }
+
+                result = await _auth.Login(login);
+            }
+
+            if (result.IsSuccessStatusCode && result.Content is not null)
+            {
+                await OnSignedIn.InvokeAsync(result.Content);
+                return;
+            }
+
+            status = "Could not sign in as this persona. Check the API log.";
+        }
+        catch (Exception ex)
+        {
+            status = $"Could not reach the API: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+            busyEmail = null;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,21 +1,405 @@
 @page "/"
-@inject IFormFactor FormFactor
+@attribute [Authorize]
+@implements IDisposable
+@inject ShellState Shell
+@inject ILogger<Home> Logger
 
-<PageTitle>ASSETLEN</PageTitle>
+@*
+    One home, three readings.
 
-<div class="al-home">
-    <div class="al-home__brand">ASSETLEN</div>
-    <p class="al-home__tagline">Real estate project management.</p>
-    <div class="al-home__cta">
-        <a href="/portfolio" class="al-home__btn al-home__btn--primary">Open Portfolio</a>
-        <a href="/pm" class="al-home__btn">Manager dashboard</a>
-    </div>
-    <p class="al-home__meta al-muted al-num">
-        Running on <em>@factor</em> · <em>@platform</em>
-    </p>
+    The old build had two landing pages — a portfolio for the owner and a
+    separate manager dashboard — which meant the same facts were assembled
+    twice and diverged. There is one home. What changes per reader is
+    *emphasis*, exactly as the Client Brief changes emphasis over one set of
+    facts (assetlen.md §5): the funder leads with money and decisions owed, the
+    representative with choices she owes, the delivery side with what is open on
+    site. Nobody gets a different truth.
+
+    Order is deliberate and is the same for everyone: what needs you, then what
+    you own, then what moved. Peter opens this for under a minute
+    ([Peter.md](Peter.md), "the daily loop"), so the thing he must act on cannot
+    be below a grid of cards.
+*@
+
+<PageTitle>Your projects — ASSETLEN</PageTitle>
+
+<div class="al-page">
+
+    <TitleBlock Eyebrow="@Eyebrow" Title="@Title" Subtitle="@Subtitle">
+        <Meta>
+            <div class="al-meta">
+                <span class="al-label">Projects</span>
+                <span class="al-meta__value">@(portfolio?.Projects.Count ?? 0)</span>
+            </div>
+            @if (ShowMoney)
+            {
+                <div class="al-meta">
+                    <span class="al-label">Committed</span>
+                    <span class="al-meta__value">@Fmt.MoneyShort(portfolio?.TotalCapitalDeployed ?? 0)</span>
+                </div>
+            }
+            <div class="al-meta">
+                <span class="al-label">Today</span>
+                <span class="al-meta__value">@Fmt.Date(DateTime.Now)</span>
+            </div>
+        </Meta>
+
+        <Actions>
+            @if (CanCreateProject)
+            {
+                <a href="/project/create" class="al-btn al-btn--default">
+                    <Icon Name="plus" Size="16" /> New project
+                </a>
+            }
+        </Actions>
+    </TitleBlock>
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="Your projects didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="project"
+                EmptyTitle="No projects yet"
+                EmptyBody="A project holds the stages you fund, the drawings you approve and the record of what was agreed. Create one, then invite whoever is building it.">
+        <Loading>
+            <div class="home__ghosts">
+                <div class="al-shimmer al-ghost-row"></div>
+                <div class="al-grid">
+                    <div class="al-shimmer al-ghost-card"></div>
+                    <div class="al-shimmer al-ghost-card"></div>
+                </div>
+            </div>
+        </Loading>
+
+        <ChildContent>
+
+            @* ── 1. What needs you ─────────────────────────────────────── *@
+            @if (needsYou.Count > 0)
+            {
+                <section class="home__section">
+                    <div class="al-rule">
+                        <span class="al-label">Needs you</span>
+                    </div>
+
+                    <div class="al-sheet al-sheet--ticked">
+                        <div class="al-register">
+                            @foreach (var item in needsYou.Take(4))
+                            {
+                                <a class="al-register__row al-register__row--needs-you" href="@item.Href">
+                                    <Icon Name="@item.Icon" Size="18" Class="home__need-icon" />
+                                    <span class="al-register__main">
+                                        <span class="al-register__title">@item.Title</span>
+                                        <span class="al-register__sub">
+                                            <span>@item.ProjectName</span>
+                                            @if (item.Detail is not null)
+                                            {
+                                                <span>@item.Detail</span>
+                                            }
+                                        </span>
+                                    </span>
+                                    <span class="al-register__end">
+                                        @if (item.DueLabel is not null)
+                                        {
+                                            <span class="al-badge @item.DueBadgeClass">@item.DueLabel</span>
+                                        }
+                                        <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                    </span>
+                                </a>
+                            }
+                        </div>
+
+                        @if (needsYou.Count > 4)
+                        {
+                            <div class="al-sheet__foot">
+                                <a class="al-btn al-btn--link" href="/needs-you">
+                                    @(needsYou.Count - 4) more waiting on you
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+
+            @* ── 2. The projects ───────────────────────────────────────── *@
+            <section class="home__section">
+                <div class="al-rule">
+                    <span class="al-label">Your projects</span>
+                </div>
+
+                <div class="al-grid al-grid--wide">
+                    @foreach (var project in portfolio!.Projects)
+                    {
+                        <ProjectCard Project="project" ShowMoney="ShowMoney" />
+                    }
+                </div>
+            </section>
+
+            @* ── 3. What moved ─────────────────────────────────────────── *@
+            <section class="home__section">
+                <div class="al-rule">
+                    <span class="al-label">What moved</span>
+                </div>
+
+                @if (recent.Count == 0)
+                {
+                    <div class="al-empty">
+                        <Icon Name="camera" Size="40" Class="al-empty__icon" Weight="1.25" />
+                        <h3 class="al-empty__title">Nothing posted yet</h3>
+                        <p class="al-empty__body">
+                            @(IsClientSide
+                                ? "When work is captured against a stage you funded, it lands here — and in the daily brief, whether or not anyone remembers to send it."
+                                : "Capture against a stage and it appears here for everyone on this side.")
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <div class="al-sheet">
+                        <div class="al-register">
+                            @foreach (var entry in recent)
+                            {
+                                <a class="al-register__row" href="/project/@entry.ProjectId/entry/@entry.Id">
+                                    <span class="al-register__index">@Fmt.DateShort(entry.DateTimeCreated)</span>
+                                    <span class="al-register__main">
+                                        <span class="al-register__title al-clamp-2">@entry.Description</span>
+                                        <span class="al-register__sub">
+                                            <span>@ProjectNameFor(entry.ProjectId)</span>
+                                            @if (!string.IsNullOrEmpty(entry.StageName))
+                                            {
+                                                <span>@entry.StageName</span>
+                                            }
+                                            @if (entry.ImageCount > 0)
+                                            {
+                                                <span>@entry.ImageCount @(entry.ImageCount == 1 ? "frame" : "frames")</span>
+                                            }
+                                        </span>
+                                    </span>
+                                    <span class="al-register__end">
+                                        @if (entry.HasIssues)
+                                        {
+                                            <span class="al-badge al-badge--warning">Issue</span>
+                                        }
+                                        <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                    </span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+            </section>
+
+        </ChildContent>
+    </StateBlock>
 </div>
 
 @code {
-    private string factor => FormFactor.GetFormFactor();
-    private string platform => FormFactor.GetPlatform();
+    private PortfolioSummaryDto? portfolio;
+    private readonly List<NeedsYouItem> needsYou = new();
+    private readonly List<ProgressUpdateDto> recent = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+
+    protected override void OnInitialized() => _sd.OnUserUpdated += Refresh;
+    public void Dispose() => _sd.OnUserUpdated -= Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        needsYou.Clear();
+        recent.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.GetPortfolioDashboard();
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+
+            portfolio = response.Content;
+            Shell.SetProjects(portfolio.Projects);
+
+            if (portfolio.Projects.Count == 0)
+            {
+                phase = LoadPhase.Empty;
+                return;
+            }
+
+            phase = LoadPhase.Ready;
+            StateHasChanged();
+
+            // The two secondary bands are additive: the page is usable the
+            // moment the projects render, and neither of these can hold it up
+            // or take it down.
+            await Task.WhenAll(LoadNeedsYouAsync(), LoadRecentAsync());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Home failed to load");
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Decisions owed and money awaiting confirmation, across every project.
+    /// <para>
+    /// Until the commitment model lands (plan.md P4) an open Flag is the closest
+    /// the schema has to "a decision Peter owes", so this reads Flags assigned
+    /// to the signed-in user plus their own unconfirmed funding.
+    /// </para>
+    /// </summary>
+    private async Task LoadNeedsYouAsync()
+    {
+        var me = _sd.CurrentUser?.Id;
+
+        foreach (var project in AllProjects())
+        {
+            try
+            {
+                var flags = await _flagsApi.GetFlagsByProject(project.Id, FlagStatus.Open);
+                if (!flags.IsSuccessStatusCode || flags.Content is null) continue;
+
+                foreach (var flag in flags.Content.Where(f => f.AssignedToId == me))
+                {
+                    needsYou.Add(new NeedsYouItem(
+                        Title: flag.Title ?? "Open question",
+                        ProjectName: project.ProjectName,
+                        Detail: flag.StageName,
+                        Href: $"/project/{project.Id}/register",
+                        Icon: "decision",
+                        Due: flag.DueDate));
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not read open questions for {ProjectId}", project.Id);
+            }
+        }
+
+        if (ShowMoney)
+        {
+            try
+            {
+                var pending = await _fundingApi.GetPendingConfirmations();
+                if (pending.IsSuccessStatusCode && pending.Content is not null)
+                {
+                    foreach (var entry in pending.Content)
+                    {
+                        needsYou.Add(new NeedsYouItem(
+                            Title: $"Confirm {Fmt.Money(entry.Amount)} on {entry.StageName ?? "a stage"}",
+                            ProjectName: entry.ProjectName ?? "—",
+                            Detail: $"Recorded {Fmt.Date(entry.PaymentDate)}",
+                            Href: $"/project/{entry.ProjectId}/money",
+                            Icon: "money",
+                            Due: null));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not read pending funding confirmations");
+            }
+        }
+
+        // Soonest first, undated last — an item with a real deadline outranks
+        // one someone can sit on (Law 4: speak only when waiting costs something).
+        needsYou.Sort((a, b) => (a.Due ?? DateTime.MaxValue).CompareTo(b.Due ?? DateTime.MaxValue));
+
+        StateHasChanged();
+    }
+
+    private async Task LoadRecentAsync()
+    {
+        foreach (var project in AllProjects())
+        {
+            try
+            {
+                var page = await _progressApi.GetProgressUpdates(project.Id, null, 0, 4);
+                if (page.IsSuccessStatusCode && page.Content?.Data is not null)
+                    recent.AddRange(page.Content.Data);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not read recent activity for {ProjectId}", project.Id);
+            }
+        }
+
+        recent.Sort((a, b) => (b.DateTimeCreated ?? DateTime.MinValue).CompareTo(a.DateTimeCreated ?? DateTime.MinValue));
+        if (recent.Count > 6) recent.RemoveRange(6, recent.Count - 6);
+
+        StateHasChanged();
+    }
+
+    /// <summary>Top-level projects and their sub-projects, flattened. A guest wing has its own stages and its own activity.</summary>
+    private IEnumerable<ProjectCardDto> AllProjects()
+        => portfolio is null
+            ? Enumerable.Empty<ProjectCardDto>()
+            : portfolio.Projects.Concat(portfolio.Projects.SelectMany(p => p.SubProjects));
+
+    private string ProjectNameFor(string? projectId)
+        => Shell.Find(projectId)?.Name ?? "—";
+
+    // ── Emphasis per reader ────────────────────────────────────────────────
+
+    private UserRolesDto? Roles => _sd.CurrentUser?.RolesDto;
+    private bool IsClientSide => Roles?.IsExternal == true;
+
+    /// <summary>Crew and Guest have no financial visibility anywhere (CLAUDE.md §5.5).</summary>
+    private bool ShowMoney => Roles?.CanSeeFinancials == true;
+
+    private bool CanCreateProject => Roles is { } r && (r.Contractor || r.Manager || r.SystemAdmin);
+
+    private string Eyebrow
+    {
+        get
+        {
+            var name = _sd.CurrentUser?.FirstName;
+            return string.IsNullOrWhiteSpace(name) ? "Home" : $"Good day, {name}";
+        }
+    }
+
+    private string Title => Roles switch
+    {
+        { Contractor: true } => "Your projects",
+        { Client: true } => "Your projects",
+        _ => "Your work"
+    };
+
+    private string Subtitle => Roles switch
+    {
+        { Contractor: true } =>
+            "What needs a decision, what you have funded, and what moved since you last looked.",
+        { Client: true } =>
+            "The choices you owe, the specs you set, and what has been fitted since you last looked.",
+        { Manager: true } =>
+            "Everything crossing to the client side carries your name. Open questions first.",
+        _ =>
+            "What is open on site, and what has been captured against it."
+    };
+
+    private sealed record NeedsYouItem(
+        string Title, string ProjectName, string? Detail, string Href, string Icon, DateTime? Due)
+    {
+        public string? DueLabel => Due is null
+            ? null
+            : Due.Value.Date < DateTime.Now.Date ? "Overdue" : $"By {Fmt.DateShort(Due)}";
+
+        public string DueBadgeClass => Due is null
+            ? "al-badge--neutral"
+            : Due.Value.Date < DateTime.Now.Date ? "al-badge--danger"
+            : (Due.Value - DateTime.Now).TotalDays <= 7 ? "al-badge--warning"
+            : "al-badge--neutral";
+    }
 }

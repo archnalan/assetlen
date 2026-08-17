@@ -1,0 +1,84 @@
+@*
+    Loading, empty and error in one component, because CLAUDE.md §4.2 requires
+    all three from every fetching surface and a component that makes it easy to
+    render one and forget the others is how two of them go missing.
+
+    Usage:
+        <StateBlock Phase="phase" OnRetry="Load"
+                    EmptyIcon="camera"
+                    EmptyTitle="Nothing captured yet"
+                    EmptyBody="Frames posted against this stage will appear here."
+                    EmptyAction="@emptyAction">
+            <Loading>…skeleton…</Loading>
+            <ChildContent>…real content…</ChildContent>
+        </StateBlock>
+*@
+
+@if (Phase == LoadPhase.Loading)
+{
+    @if (Loading is not null)
+    {
+        @Loading
+    }
+    else
+    {
+        <div class="stateblock__ghosts" aria-hidden="true">
+            <div class="al-shimmer al-ghost-line al-ghost-line--title"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+        </div>
+    }
+}
+else if (Phase == LoadPhase.Error)
+{
+    <div class="al-alert al-alert--error" role="alert">
+        <Icon Name="error" Size="18" />
+        <div class="stateblock__error">
+            <strong class="al-alert__title">@(ErrorTitle ?? "That didn't load")</strong>
+            <span>@(ErrorMessage ?? "The server didn't answer. Nothing has been changed.")</span>
+            @if (OnRetry.HasDelegate)
+            {
+                <button type="button" class="al-btn al-btn--default al-btn--sm stateblock__retry"
+                        @onclick="() => OnRetry.InvokeAsync()">
+                    <Icon Name="refresh" Size="14" /> Try again
+                </button>
+            }
+        </div>
+    </div>
+}
+else if (Phase == LoadPhase.Empty)
+{
+    <div class="al-empty">
+        <Icon Name="@EmptyIcon" Size="40" Class="al-empty__icon" Weight="1.25" />
+        <h3 class="al-empty__title">@EmptyTitle</h3>
+        @if (!string.IsNullOrWhiteSpace(EmptyBody))
+        {
+            <p class="al-empty__body">@EmptyBody</p>
+        }
+        @if (EmptyAction is not null)
+        {
+            <div class="stateblock__empty-action">@EmptyAction</div>
+        }
+    </div>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public LoadPhase Phase { get; set; } = LoadPhase.Loading;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Loading { get; set; }
+
+    [Parameter] public string EmptyIcon { get; set; } = "list";
+    [Parameter] public string EmptyTitle { get; set; } = "Nothing here yet";
+    [Parameter] public string? EmptyBody { get; set; }
+    [Parameter] public RenderFragment? EmptyAction { get; set; }
+
+    [Parameter] public string? ErrorTitle { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+}

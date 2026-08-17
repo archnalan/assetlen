@@ -1,0 +1,11 @@
+.brandmark {
+    display: block;
+    flex: 0 0 auto;
+    color: var(--al-text);
+}
+
+/* The one fixed point on the mark. Terracotta everywhere, in both themes —
+   a logo that changes colour with the theme stops being a logo. */
+.brandmark__node {
+    fill: var(--al-accent);
+}

@@ -1,0 +1,193 @@
+.shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    background: var(--al-bg);
+}
+
+/* ── Boot / redirect frame ─────────────────────────────────────────────── */
+
+.shell__boot {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--al-space-4);
+    color: var(--al-text-subtle);
+}
+
+/* ── Top bar ───────────────────────────────────────────────────────────── */
+
+.shell__top {
+    position: sticky;
+    top: 0;
+    z-index: var(--al-z-topbar);
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    height: var(--al-topbar-h);
+    padding: 0 var(--al-space-3);
+    background: var(--al-bg-elevated);
+    border-bottom: 1px solid var(--al-border);
+}
+
+@media (min-width: 900px) {
+    .shell__top { padding: 0 var(--al-space-5); gap: var(--al-space-3); }
+}
+
+.shell__menu { display: inline-flex; }
+
+@media (min-width: 900px) {
+    /* The rail is permanent past this width, so the drawer trigger retires. */
+    .shell__menu { display: none; }
+}
+
+.shell__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-1);
+    border-radius: var(--al-radius-xs);
+    flex: 0 0 auto;
+}
+
+.shell__wordmark {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: 0.09em;
+    color: var(--al-text);
+}
+
+/* At 360px the wordmark and a breadcrumb cannot both survive. The mark stays,
+   the word goes — the mark is what makes the tab recognisable anyway. */
+@media (max-width: 420px) {
+    .shell__wordmark { display: none; }
+}
+
+.shell__crumbs { display: none; min-width: 0; }
+
+@media (min-width: 900px) {
+    .shell__crumbs {
+        display: block;
+        flex: 1 1 auto;
+        padding-left: var(--al-space-4);
+        margin-left: var(--al-space-2);
+        border-left: 1px solid var(--al-border);
+    }
+}
+
+.shell__crumbbar {
+    position: sticky;
+    top: var(--al-topbar-h);
+    z-index: calc(var(--al-z-topbar) - 1);
+    padding: var(--al-space-2) var(--al-space-4);
+    background: var(--al-bg);
+    border-bottom: 1px solid var(--al-border);
+}
+
+@media (min-width: 900px) {
+    .shell__crumbbar { display: none; }
+}
+
+.shell__search-btn { flex: 0 0 auto; }
+.shell__theme { flex: 0 0 auto; }
+
+/* ── Account ───────────────────────────────────────────────────────────── */
+
+.shell__account { position: relative; flex: 0 0 auto; }
+
+.shell__avatar-btn {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    transition: border-color var(--al-transition-fast);
+}
+
+.shell__avatar-btn:hover { border-color: var(--al-border-strong); }
+
+.shell__click-away {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--al-z-topbar) + 1);
+}
+
+.shell__menu-pop {
+    position: absolute;
+    top: calc(100% + var(--al-space-2));
+    right: 0;
+    z-index: calc(var(--al-z-topbar) + 2);
+    min-width: 15rem;
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius);
+    box-shadow: var(--al-shadow);
+    overflow: hidden;
+    animation: shell-pop var(--al-transition) var(--al-ease-out) both;
+}
+
+@keyframes shell-pop {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.shell__menu-head {
+    padding: var(--al-space-3) var(--al-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-1);
+    align-items: flex-start;
+}
+
+.shell__menu-name {
+    font-weight: var(--al-weight-semibold);
+    font-size: var(--al-font-size-md);
+}
+
+.shell__menu-mail {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    max-width: 13rem;
+}
+
+.shell__menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    width: 100%;
+    padding: var(--al-space-3) var(--al-space-4);
+    font-size: var(--al-font-size-md);
+    color: var(--al-text);
+    text-align: left;
+    transition: background-color var(--al-transition-fast);
+}
+
+.shell__menu-item:hover { background: var(--al-surface-2); }
+
+/* ── Body ──────────────────────────────────────────────────────────────── */
+
+.shell__body {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.shell__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-bottom: calc(var(--al-bottombar-h) + var(--al-safe-b));
+}
+
+@media (min-width: 900px) {
+    .shell__main { padding-bottom: 0; }
+}
+
+.shell__scrim { }
+
+@media (min-width: 900px) {
+    /* The drawer is a mobile affordance; past the rail breakpoint it cannot open. */
+    .shell__scrim { display: none; }
+}

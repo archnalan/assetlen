@@ -1,173 +1,45 @@
-/* LoginForm — scoped via Blazor CSS isolation. Tokens only. */
-
 .lf {
     display: flex;
     flex-direction: column;
-    gap: var(--al-space-3);
-}
-
-.lf__field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--al-space-1);
+    gap: var(--al-space-4);
 }
 
 .lf__label-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-}
-
-.lf__label {
-    font-size: var(--al-font-size-xs);
-    font-weight: var(--al-weight-semibold);
-    color: var(--al-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    gap: var(--al-space-3);
 }
 
 .lf__forgot {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    padding: 0;
-    font: inherit;
     font-size: var(--al-font-size-xs);
-    color: var(--al-accent);
-    cursor: pointer;
 }
 
-.lf__forgot:hover { text-decoration: underline; }
-
-.lf__input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.lf__input-icon {
-    position: absolute;
-    left: var(--al-space-3);
-    width: 16px;
-    height: 16px;
-    color: var(--al-text-subtle);
-    pointer-events: none;
-}
-
-.lf__input {
-    width: 100%;
-    padding: var(--al-space-3) var(--al-space-3) var(--al-space-3) calc(var(--al-space-3) + 24px);
-    font: inherit;
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text);
-    background: var(--al-surface);
-    border: 1px solid var(--al-border-strong);
-    border-radius: var(--al-radius-sm);
-    transition: border-color var(--al-transition-fast),
-                box-shadow var(--al-transition-fast);
-}
-
-.lf__input::placeholder { color: var(--al-text-subtle); }
-
-.lf__input:hover { border-color: var(--al-text-muted); }
-
-.lf__input:focus,
-.lf__input:focus-visible {
-    outline: none;
-    border-color: var(--al-accent);
-    box-shadow: 0 0 0 3px var(--al-accent-soft);
-}
+/* Leave room for the reveal button so a long password never runs under it. */
+.lf__password { padding-right: 2.75rem; }
 
 .lf__reveal {
     position: absolute;
-    right: var(--al-space-2);
-    width: 32px;
-    height: 32px;
-    background: transparent;
-    border: 0;
-    border-radius: var(--al-radius-sm);
-    color: var(--al-text-subtle);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: color var(--al-transition-fast), background var(--al-transition-fast);
+    right: var(--al-space-1);
 }
 
-.lf__reveal:hover {
-    color: var(--al-text);
-    background: var(--al-surface-2);
-}
-
-.lf__reveal svg { width: 16px; height: 16px; }
-
-.lf__submit {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--al-space-2);
-    width: 100%;
-    margin-top: var(--al-space-1);
-    padding: var(--al-space-3) var(--al-space-4);
-    font: inherit;
-    font-size: var(--al-font-size-sm);
-    font-weight: var(--al-weight-semibold);
-    background: var(--al-accent);
-    color: var(--al-accent-contrast);
-    border: 1px solid var(--al-accent);
-    border-radius: var(--al-radius-sm);
-    cursor: pointer;
-    transition: background var(--al-transition-fast),
-                border-color var(--al-transition-fast),
-                transform var(--al-transition-fast);
-}
-
-.lf__submit:hover:not(:disabled) {
-    background: var(--al-accent-hover);
-    border-color: var(--al-accent-hover);
-}
-
-.lf__submit:active:not(:disabled) {
-    transform: translateY(1px);
-}
-
-.lf__submit:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.lf__submit svg { width: 14px; height: 14px; }
-
-.lf__spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: var(--al-radius-pill);
-    animation: lf-spin 0.8s linear infinite;
-}
-
-@keyframes lf-spin {
-    to { transform: rotate(360deg); }
-}
-
-.lf__validation {
-    min-height: 1.25rem;
-    font-size: var(--al-font-size-sm);
-    color: var(--al-danger);
-}
-
+/* ValidationSummary renders a bare <ul>; give it the alert voice without
+   asking every form to wrap it. */
 .lf__validation ::deep ul {
     list-style: none;
     margin: 0;
-    padding: var(--al-space-2) var(--al-space-3);
-    background: var(--al-danger-soft);
+    padding: var(--al-space-3) var(--al-space-4);
     border-radius: var(--al-radius-sm);
+    border: 1px solid var(--al-danger);
+    border-left-width: 3px;
+    background: var(--al-danger-soft);
+    color: var(--al-text);
+    font-size: var(--al-font-size-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-1);
 }
 
-.lf__validation ::deep li {
-    color: var(--al-danger);
-    line-height: var(--al-leading-normal);
+.lf__validation ::deep ul:empty {
+    display: none;
 }

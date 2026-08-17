@@ -1,14 +1,19 @@
-/* AddFunding — scoped via Blazor CSS isolation.
+.funding {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-5);
+    margin-top: var(--al-space-5);
+}
 
-   Form chrome comes from the shared project-* vocabulary in
-   wwwroot/projects.css. See PortfolioDashboard.razor.css for why it is not
-   copied here.
+.funding__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+    padding-top: var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+}
 
-   Only what is local to recording a deposit belongs below. */
-
-/* Money. Tabular figures so an amount can be checked digit by digit against a
-   receipt — the whole point of the page is that this number is right. */
-.project-input[type="number"] {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum";
+@media (max-width: 560px) {
+    .funding__actions { flex-direction: column-reverse; }
+    .funding__actions > * { width: 100%; }
 }

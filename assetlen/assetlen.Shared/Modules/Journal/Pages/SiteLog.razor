@@ -1,0 +1,211 @@
+@page "/project/{ProjectId}/log"
+@attribute [Authorize]
+@inject ILogger<SiteLog> Logger
+
+@*
+    The Site Log — the complete, unsanitised operational record.
+
+    Delivery side and mediators only. The clerk posts here without judgement
+    about what the client wants; whatever intelligence Assetlen has runs *after*
+    capture, never during it. A client-side reader does not merely lack the
+    rows — they do not get the tab, because knowing the surface exists invites
+    the question the two-surface model is there to avoid.
+*@
+
+<PageTitle>Site Log — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="log" Eyebrow="Site Log"
+             Subtitle="Everything captured, in full. Nothing here is curated." Context="ctx">
+
+    @if (!ctx.CanSeeSiteLog)
+    {
+        <div class="al-empty">
+            <Icon Name="lock" Size="40" Class="al-empty__icon" Weight="1.25" />
+            <h3 class="al-empty__title">This surface is the delivery side's</h3>
+            <p class="al-empty__body">
+                The operational record is kept unsanitised so the people building can write down what
+                actually happened. What you see is the daily brief, and the facts that cannot be
+                withheld from it.
+            </p>
+            <a class="al-btn al-btn--primary" href="/project/@ProjectId/brief">Open the brief</a>
+        </div>
+    }
+    else
+    {
+        <div class="log__bar">
+            <div class="al-segmented" role="group" aria-label="Filter">
+                <button type="button" class="al-segmented__item @(filter == "all" ? "is-active" : "")"
+                        aria-selected="@(filter == "all")" @onclick='() => filter = "all"'>
+                    All <span class="al-tabs__count">@entries.Count</span>
+                </button>
+                <button type="button" class="al-segmented__item @(filter == "internal" ? "is-active" : "")"
+                        aria-selected="@(filter == "internal")" @onclick='() => filter = "internal"'>
+                    <Icon Name="eye-off" Size="14" /> Internal
+                    <span class="al-tabs__count">@entries.Count(e => e.Channel == Channel.Crew)</span>
+                </button>
+                <button type="button" class="al-segmented__item @(filter == "issues" ? "is-active" : "")"
+                        aria-selected="@(filter == "issues")" @onclick='() => filter = "issues"'>
+                    Issues <span class="al-tabs__count">@entries.Count(e => e.HasIssues)</span>
+                </button>
+            </div>
+
+            <span class="al-spacer"></span>
+
+            <a class="al-btn al-btn--primary" href="/project/@ProjectId/capture">
+                <Icon Name="camera" Size="16" /> Capture
+            </a>
+        </div>
+
+        <StateBlock Phase="phase" OnRetry="LoadAsync"
+                    ErrorTitle="The Site Log didn't load"
+                    ErrorMessage="@errorMessage"
+                    EmptyIcon="camera"
+                    EmptyTitle="Nothing captured yet"
+                    EmptyBody="Open the app, pick today's stage, shoot. No captions required, and no judgement about what the client wants.">
+            <ChildContent>
+                <div class="al-sheet">
+                    <div class="al-register">
+                        @foreach (var entry in Visible)
+                        {
+                            <a class="al-register__row" href="/project/@ProjectId/entry/@entry.Id">
+                                <span class="al-register__index">@Fmt.DateShort(entry.DateTimeCreated)</span>
+
+                                <span class="al-register__main">
+                                    <span class="al-register__title al-clamp-2">@entry.Description</span>
+                                    <span class="al-register__sub">
+                                        @if (!string.IsNullOrEmpty(entry.StageName))
+                                        {
+                                            <span>@entry.StageName</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(entry.CreatedByName))
+                                        {
+                                            <span>@entry.CreatedByName</span>
+                                        }
+                                        <span>@Fmt.DateTimeFull(entry.DateTimeCreated)</span>
+                                    </span>
+                                </span>
+
+                                <span class="al-register__end">
+                                    @if (entry.HasIssues)
+                                    {
+                                        <span class="al-badge al-badge--warning">Issue</span>
+                                    }
+                                    @if (entry.ImageCount > 0)
+                                    {
+                                        <span class="al-badge @(ExposedCount(entry) > 0 ? "al-badge--client" : "al-badge--delivery")">
+                                            @ExposedCount(entry) of @entry.ImageCount shared
+                                        </span>
+                                    }
+                                    <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                </span>
+                            </a>
+                        }
+                    </div>
+
+                    @if (hasMore)
+                    {
+                        <div class="al-sheet__foot">
+                            <button type="button" class="al-btn al-btn--link" disabled="@loadingMore" @onclick="LoadMoreAsync">
+                                @(loadingMore ? "Loading…" : "Load older entries")
+                            </button>
+                        </div>
+                    }
+                </div>
+            </ChildContent>
+        </StateBlock>
+    }
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private const int PageSize = 25;
+
+    private readonly List<ProgressUpdateDto> entries = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string filter = "all";
+    private bool hasMore;
+    private bool loadingMore;
+    private string? loadedId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        entries.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var response = await _progressApi.GetProgressUpdates(ProjectId, null, 0, PageSize);
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+
+            entries.AddRange(response.Content.Data ?? new());
+            hasMore = response.Content.IsNext;
+            phase = entries.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Site Log failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        loadingMore = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _progressApi.GetProgressUpdates(ProjectId, null, entries.Count, PageSize);
+
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                entries.AddRange(response.Content.Data ?? new());
+                hasMore = response.Content.IsNext;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not load more Site Log entries");
+            ToastService.ShowError("Could not load older entries.");
+        }
+        finally
+        {
+            loadingMore = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<ProgressUpdateDto> Visible => filter switch
+    {
+        "internal" => entries.Where(e => e.Channel == Channel.Crew).ToList(),
+        "issues" => entries.Where(e => e.HasIssues).ToList(),
+        _ => entries
+    };
+
+    /// <summary>
+    /// How many frames on this entry have crossed to the client. The mediator
+    /// needs "three of eighteen" visible at all times — batch exposure is what
+    /// produced seventeen photographs in one minute and "nothing much changed".
+    /// </summary>
+    private static int ExposedCount(ProgressUpdateDto entry)
+        => entry.Images.Count(i => i.Channel == Channel.Client);
+}

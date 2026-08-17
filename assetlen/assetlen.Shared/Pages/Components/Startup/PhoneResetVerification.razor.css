@@ -1,61 +1,10 @@
-/* PhoneResetVerification — scoped via Blazor CSS isolation. Tokens only.
+/* Layout for this form comes from the shared .authform vocabulary in app.css —
+   four components render it, so it is a utility, not a component style. This
+   file exists because every .razor must have its sibling (CLAUDE.md §4.1) and
+   owns only what is specific to this form. */
 
-   These rules were missing entirely. The class vocabulary below
-   (form-header / form-fields / field-group / error-message) used to be defined
-   in LoginComponent.razor.css, which styled nothing here: CSS isolation scopes
-   a rule to the component that owns the markup, so a parent's stylesheet never
-   reaches a child's elements. The login refactor then rewrote that file and the
-   orphaned rules went with it, leaving this form rendering unstyled.
-
-   ForgotPasswordForm and its siblings carry a deliberately parallel
-   copy. Isolation makes sharing impossible without promoting the vocabulary to
-   app.css, and an auth-form block is not a utility. */
-
-.form-header {
-    text-align: center;
-    margin-bottom: var(--al-space-2);
-}
-
-.form-header h2 {
-    font-family: var(--al-font-display);
-    font-size: var(--al-font-size-lg);
-    font-weight: var(--al-weight-semibold);
-    color: var(--al-text);
-    margin: 0 0 var(--al-space-2);
-}
-
-.form-header p {
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text-muted);
-    margin: 0;
-    max-width: 40ch;
-    margin-inline: auto;
-}
-
-.form-fields {
-    display: flex;
-    flex-direction: column;
-    gap: var(--al-space-3);
-}
-
-.field-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--al-space-1);
-}
-
-.field-group label {
+.authform ::deep .validation-message {
     font-size: var(--al-font-size-xs);
-    font-weight: var(--al-weight-semibold);
-    color: var(--al-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.error-message {
-    padding: var(--al-space-2) var(--al-space-3);
-    background: var(--al-danger-soft);
     color: var(--al-danger);
-    border-radius: var(--al-radius-sm);
-    font-size: var(--al-font-size-xs);
+    font-weight: var(--al-weight-medium);
 }

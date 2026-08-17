@@ -1,0 +1,32 @@
+@page "/project/{ProjectId}/settings"
+@attribute [Authorize]
+
+@*
+    Project settings — which today means the two things that change what this
+    project costs and where material can arrive from.
+
+    Area and tier come first because billing is per project by floor area, never
+    per seat (assetlen.md §10.3). Delivery-side members are free and uncapped
+    precisely so that adding a labourer never raises the developer's invoice.
+*@
+
+<PageTitle>Project settings — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="settings" Eyebrow="Settings"
+             Subtitle="What this project bills at, and where material can arrive from." Context="ctx">
+
+    <section>
+        <div class="al-rule"><span class="al-label">Size and billing</span></div>
+        <ProjectSizingPanel ProjectId="@ProjectId" CanManage="ctx.CanManage" />
+    </section>
+
+    <section>
+        <div class="al-rule"><span class="al-label">Budget lines</span></div>
+        <BudgetTab ProjectId="@ProjectId" />
+    </section>
+
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+}

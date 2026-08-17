@@ -5,77 +5,75 @@
 @inject IToastService ToastService
 @inject ILogger<EmailVerificationForm> _logger
 
-<div class="verification-container">
-    <div class="verification-header">
-        <FluentIcon Value="@(new Icons.Regular.Size24.MailAlert())" Color="Color.Accent" />
-        <h3>Verify your email</h3>
-        <p>We sent a verification code to <strong>@Email</strong></p>
-    </div>
+<div class="authform">
+    <header class="authform__head">
+        <span class="al-eyebrow">Verification</span>
+        <h2 class="authform__title">Verify your email</h2>
+        <p class="authform__sub">We sent a code to <strong>@Email</strong>.</p>
+    </header>
 
-    <EditForm Model="verificationDto" OnValidSubmit="HandleVerification" FormName="verification-form">
+    <EditForm Model="verificationDto" OnValidSubmit="HandleVerification" FormName="verification-form" class="authform__body">
         <DataAnnotationsValidator />
 
-        <div class="form-group">
-            <label class="form-label">
-                <FluentIcon Value="@(new Icons.Regular.Size16.Key())" />
-                Verification Code
-            </label>
-            <FluentTextField @bind-Value="verificationDto.Code"
-                             Placeholder="Enter 6-digit code"
-                             Autocomplete="off"
-                             MaxLength="6"
-                             Style="width: 100%;"
-                             Disabled="@isLoading" />
+        <div class="al-field">
+            <label class="al-label" for="ev-code">Verification code</label>
+            <input id="ev-code" class="al-input authform__code" type="text" inputmode="numeric"
+                   autocomplete="one-time-code" maxlength="6" placeholder="000000"
+                   disabled="@isLoading"
+                   @bind-value="verificationDto.Code" @bind-value:event="oninput" />
             <ValidationMessage For="@(() => verificationDto.Code)" />
         </div>
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom: 1rem;">
-                @errorMessage
-            </FluentMessageBar>
+            <div class="al-alert al-alert--error" role="alert">
+                <Icon Name="error" Size="18" />
+                <span>@errorMessage</span>
+            </div>
         }
 
         @if (!string.IsNullOrEmpty(successMessage))
         {
-            <FluentMessageBar Intent="MessageIntent.Success" Style="margin-bottom: 1rem;">
-                @successMessage
-            </FluentMessageBar>
+            <div class="al-alert al-alert--success" role="status">
+                <Icon Name="check-circle" Size="18" />
+                <span>@successMessage</span>
+            </div>
         }
 
-        <FluentButton Type="ButtonType.Submit"
-                      Appearance="Appearance.Accent"
-                      Loading="@isLoading"
-                      Disabled="@isLoading"
-                      Style="width: 100%; min-height: 2.5rem; margin-bottom: 0.75rem;">
-            <FluentIcon Value="@(new Icons.Regular.Size20.CheckmarkCircle())" Slot="start" />
-            Verify Code
-        </FluentButton>
+        <button type="submit" class="al-btn al-btn--primary al-btn--lg al-btn--block" disabled="@isLoading">
+            @if (isLoading)
+            {
+                <span class="al-spinner"></span><span>Verifying…</span>
+            }
+            else
+            {
+                <Icon Name="check-circle" Size="16" /><span>Verify code</span>
+            }
+        </button>
 
-        <FluentButton Type="ButtonType.Button"
-                      Appearance="Appearance.Outline"
-                      Loading="@isResending"
-                      Disabled="@(isResending || resendDisabled)"
-                      @onclick="HandleResendCode"
-                      Style="width: 100%; min-height: 2.5rem; margin-bottom: 0.75rem;">
-            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowSync())" Slot="start" />
+        <button type="button" class="al-btn al-btn--default al-btn--block"
+                disabled="@(isResending || resendDisabled)" @onclick="HandleResendCode">
+            @if (isResending)
+            {
+                <span class="al-spinner"></span>
+            }
+            else
+            {
+                <Icon Name="refresh" Size="16" />
+            }
             @if (resendDisabled)
             {
-                <span>Resend code in @remainingSeconds seconds</span>
+                <span>Resend in @remainingSeconds s</span>
             }
             else
             {
                 <span>Resend verification code</span>
             }
-        </FluentButton>
+        </button>
 
-        <FluentButton Type="ButtonType.Button"
-                      Appearance="Appearance.Lightweight"
-                      @onclick="OnBackToLogin"
-                      Style="width: 100%;">
-            <FluentIcon Value="@(new Icons.Regular.Size20.ArrowLeft())" Slot="start" />
-            Back to login
-        </FluentButton>
+        <button type="button" class="al-btn al-btn--quiet al-btn--block" @onclick="OnBackToLogin">
+            <Icon Name="chevron-left" Size="16" /> Back to sign in
+        </button>
     </EditForm>
 </div>
 

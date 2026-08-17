@@ -22,6 +22,17 @@ namespace assetlen.Shared.statics
         public string? DefaultFont { get; set; } = "montserrat";
         public List<ConfigurationDto>? ConfigSettings { get; set; } = new();
 
+        /// <summary>
+        /// Set once at start-up from the host environment. Gates the persona
+        /// quick-sign-in on the login page.
+        /// <para>
+        /// This is a convenience flag only. The seed endpoint behind those
+        /// buttons refuses to run outside a Development <em>server</em>, so a
+        /// tampered client gets a 404 rather than a demo tenant.
+        /// </para>
+        /// </summary>
+        public bool IsDevelopment { get; set; }
+
         private readonly IConfigurationsApi _configApi;
 
         public GlobalContext(IConfigurationsApi configApi)

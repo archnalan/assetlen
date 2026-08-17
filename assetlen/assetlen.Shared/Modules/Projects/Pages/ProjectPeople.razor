@@ -1,0 +1,41 @@
+@page "/project/{ProjectId}/people"
+@attribute [Authorize]
+
+@*
+    Who is on this project.
+
+    Three lists exist in the model and conflating them is the mistake to avoid
+    (assetlen.md §10.1): the **accountable face** (one name, on everything that
+    crosses), **true authorship** (delivery side only, never sanitised), and the
+    **access roster** — who holds a key, and nothing more.
+
+    This screen is the roster. It answers *"who has a login on my project"*,
+    which the account owner is entitled to know because he pays the bill and
+    carries the data. It does not answer *"who did what"*, and the two must
+    never be merged into one screen.
+*@
+
+<PageTitle>People — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="people" Eyebrow="Access roster"
+             Subtitle="Who holds a key to this project, and on which side." Context="ctx">
+
+    <div class="al-alert al-alert--info">
+        <Icon Name="shield" Size="18" />
+        <div>
+            <strong class="al-alert__title">This is the roster, not an activity log</strong>
+            <span>
+                Names and sides, nothing more. The mediator staffs the delivery side; the client side
+                belongs to the account owner alone. Everything that crosses to the client carries the
+                mediator's name, whoever produced it.
+            </span>
+        </div>
+    </div>
+
+    <ProjectRoster ProjectId="@ProjectId" CanManage="ctx.CanManage || ctx.IsMediator" />
+
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+}

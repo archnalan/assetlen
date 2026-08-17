@@ -2,35 +2,47 @@
 @inject IAuthorizationApi _auth
 @inject ILogger<PhoneResetVerification> _logger
 
-<div class="form-header">
-    <h2>Verify Your Phone</h2>
-    <p>Enter the 6-digit code sent to @PhoneNumber</p>
-</div>
+<div class="authform">
+    <header class="authform__head">
+        <span class="al-eyebrow">Password reset</span>
+        <h2 class="authform__title">Verify your phone</h2>
+        <p class="authform__sub">Enter the six-digit code sent to <strong>@PhoneNumber</strong>.</p>
+    </header>
 
-<div class="form-fields" style="margin-top: 1.5rem;">
-    <div class="field-group">
-        <label>Verification Code</label>
-        <FluentTextField @bind-Value="otp" Placeholder="000000" Style="width:100%;" Maxlength="6"
-                         Disabled="@isLoading" />
-    </div>
-
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="error-message" style="color: var(--error-color, #e53e3e); font-size: 14px; margin-top: 0.5rem;">
-            @errorMessage
+    <div class="authform__body">
+        <div class="al-field">
+            <label class="al-label" for="pr-otp">Verification code</label>
+            <input id="pr-otp" class="al-input authform__code" type="text" inputmode="numeric"
+                   autocomplete="one-time-code" maxlength="6" placeholder="000000"
+                   disabled="@isLoading"
+                   @bind-value="otp" @bind-value:event="oninput" />
         </div>
-    }
 
-    <FluentButton Appearance="Appearance.Accent" Style="width: 100%; min-height: 2.5rem; margin-top: 1rem;"
-                  OnClick="HandleVerify"                  Loading="@isLoading">
-        Verify Code
-    </FluentButton>
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="al-alert al-alert--error" role="alert">
+                <Icon Name="error" Size="18" />
+                <span>@errorMessage</span>
+            </div>
+        }
 
-    <FluentButton Appearance="Appearance.Outline" Style="width: 100%; min-height: 2.5rem; margin-top: 0.75rem;"
-                  OnClick="OnBackToForgot"                  Disabled="@isLoading">
-        <FluentIcon Value="@(new Icons.Regular.Size16.ArrowLeft())" Style="margin-right: 0.5rem;" />
-        Back
-    </FluentButton>
+        <button type="button" class="al-btn al-btn--primary al-btn--lg al-btn--block"
+                disabled="@isLoading" @onclick="HandleVerify">
+            @if (isLoading)
+            {
+                <span class="al-spinner"></span><span>Verifying…</span>
+            }
+            else
+            {
+                <span>Verify code</span>
+            }
+        </button>
+
+        <button type="button" class="al-btn al-btn--default al-btn--block"
+                disabled="@isLoading" @onclick="OnBackToForgot">
+            <Icon Name="chevron-left" Size="16" /> Back
+        </button>
+    </div>
 </div>
 
 @code {

@@ -4,12 +4,12 @@
 
 @if (loading)
 {
-    <div class="project-skeleton project-skeleton-card" style="height:120px;"></div>
-    <div class="project-skeleton project-skeleton-card project-mt-sm" style="height:200px;"></div>
+    <div class="al-shimmer" style="height:120px;"></div>
+    <div class="al-shimmer" style="height:200px;margin-top:var(--al-space-4);"></div>
 }
 else if (summary is null)
 {
-    <p class="project-text-sm project-text-muted">Budget unavailable for this project.</p>
+    <p class="al-muted">Budget unavailable for this project.</p>
 }
 else
 {
@@ -39,7 +39,7 @@ else
         {
             <div class="budget-summary__chart">
                 <div class="budget-summary__chart-header">
-                    <span class="project-text-xs project-text-muted">Spend by category</span>
+                    <span class="al-subtle">Spend by category</span>
                 </div>
                 @foreach (var cat in summary.PlannedByCategory.Keys.OrderBy(k => (int)k))
                 {
@@ -64,32 +64,32 @@ else
         <section class="budget-lines__add">
             @if (!showAddLine)
             {
-                <button class="project-btn project-btn-primary project-btn-sm"
+                <button class="al-btn al-btn--primary al-btn--sm"
                         @onclick="() => showAddLine = true">+ Add line item</button>
             }
             else
             {
                 <div class="budget-lines__add-form">
-                    <input class="project-input" placeholder="Title (e.g. 'Foundation concrete')"
+                    <input class="al-input" placeholder="Title (e.g. 'Foundation concrete')"
                            maxlength="200" @bind="newLineTitle" @bind:event="oninput" />
                     <div class="budget-lines__add-row">
-                        <select class="project-input" @bind="newLineCategory">
+                        <select class="al-select" @bind="newLineCategory">
                             @foreach (var c in Enum.GetValues<BudgetCategory>())
                             {
                                 <option value="@c">@c</option>
                             }
                         </select>
-                        <input class="project-input" type="number" min="0" step="0.01"
+                        <input class="al-input" type="number" min="0" step="0.01"
                                placeholder="Planned amount" @bind="newLineAmount" />
                     </div>
                     @if (!string.IsNullOrEmpty(lineError))
                     {
-                        <div class="project-form-error">@lineError</div>
+                        <div class="al-field__error">@lineError</div>
                     }
                     <div class="budget-lines__add-actions">
-                        <button class="project-btn project-btn-link"
+                        <button class="al-btn al-btn--link"
                                 @onclick="CancelAddLine" disabled="@savingLine">Cancel</button>
-                        <button class="project-btn project-btn-primary"
+                        <button class="al-btn al-btn--primary"
                                 @onclick="SaveLine"
                                 disabled="@(savingLine || string.IsNullOrWhiteSpace(newLineTitle))">
                             @(savingLine ? "Adding…" : "Add line item")
@@ -102,7 +102,7 @@ else
 
     @if (summary.LineItems.Count == 0)
     {
-        <p class="project-text-sm project-text-muted project-mt-md">No budget line items yet. Break this project's spend into categories above.</p>
+        <p class="al-muted">No budget line items yet. Break this project's spend into categories above.</p>
     }
     else
     {
@@ -142,7 +142,7 @@ else
                         <div class="budget-line__body">
                             @if (loadingReceiptsFor == line.Id)
                             {
-                                <div class="project-skeleton project-skeleton-card" style="height:60px;"></div>
+                                <div class="al-shimmer" style="height:60px;"></div>
                             }
                             else if (receipts.TryGetValue(line.Id!, out var rs) && rs.Count > 0)
                             {
@@ -152,7 +152,7 @@ else
                                         <li class="budget-receipts__row">
                                             <div>
                                                 <div class="budget-receipts__amount al-num">@FormatCurrency(r.Amount)</div>
-                                                <div class="project-text-xs project-text-muted">
+                                                <div class="al-subtle">
                                                     @(r.PaymentDate?.ToString("MMM dd, yyyy") ?? "—")
                                                     @if (!string.IsNullOrEmpty(r.VendorName))
                                                     {
@@ -162,10 +162,10 @@ else
                                             </div>
                                             @if (!string.IsNullOrEmpty(r.Notes))
                                             {
-                                                <div class="project-text-xs">@r.Notes</div>
+                                                <div class="al-subtle">@r.Notes</div>
                                             }
                                             <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="rauth">
-                                                <button class="project-btn project-btn-link"
+                                                <button class="al-btn al-btn--link"
                                                         @onclick="() => DeleteReceipt(line.Id!, r.Id!)"
                                                         disabled="@(deletingReceiptId == r.Id)">
                                                     @(deletingReceiptId == r.Id ? "Removing…" : "Remove")
@@ -177,19 +177,19 @@ else
                             }
                             else
                             {
-                                <p class="project-text-xs project-text-muted">No receipts yet on this line.</p>
+                                <p class="al-subtle">No receipts yet on this line.</p>
                             }
 
                             <AuthorizeView Roles="@($"{UserRoles.Contractor},{UserRoles.Manager}")" Context="rauth">
                                 <div class="budget-receipts__add">
-                                    <input class="project-input" type="number" min="0" step="0.01"
+                                    <input class="al-input" type="number" min="0" step="0.01"
                                            placeholder="Amount"
                                            @bind="receiptInput.Amount" />
-                                    <input class="project-input" placeholder="Vendor (optional)"
+                                    <input class="al-input" placeholder="Vendor (optional)"
                                            @bind="receiptInput.Vendor" />
-                                    <input class="project-input" type="date"
+                                    <input class="al-input" type="date"
                                            @bind="receiptInput.Date" />
-                                    <button class="project-btn project-btn-primary project-btn-sm"
+                                    <button class="al-btn al-btn--primary al-btn--sm"
                                             @onclick="() => SaveReceipt(line.Id!)"
                                             disabled="@(savingReceipt || receiptInput.Amount <= 0)">
                                         @(savingReceipt ? "Saving…" : "Record receipt")

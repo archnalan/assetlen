@@ -173,6 +173,11 @@ builder.Services.AddScoped<IArtifactDAL, ArtifactDAL>();
 // Writes through the artifact store above, so it registers after it.
 builder.Services.AddScoped<IIngestDAL, IngestDAL>();
 
+// ── Development demo world ──
+// Registered unconditionally so the container is identical in every
+// environment; DevController is what refuses to run it outside Development.
+builder.Services.AddScoped<IDevSeedService, DevSeedService>();
+
 builder.Services.AddSignalR();
 builder.Services.AddIdentity<AppUser, IdentityRole>
             (options =>

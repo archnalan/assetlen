@@ -1,0 +1,5 @@
+.authlayout {
+    min-height: 100dvh;
+    background: var(--al-bg);
+    color: var(--al-text);
+}

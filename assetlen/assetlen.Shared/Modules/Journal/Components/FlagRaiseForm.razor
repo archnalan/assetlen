@@ -1,53 +1,124 @@
+@*
+    Raise a question against a project.
+
+    Three fields carry the weight and none of them are optional in practice:
+    **who owes the answer**, **by when**, and **what it holds up**. A question
+    without those is a message, and a message dissolves — which is the failure
+    this product exists to fix. The form therefore asks for them up front rather
+    than leaving them to be chased later.
+*@
+
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
 @inject ILogger<FlagRaiseForm> Logger
 
-<div class="flag-raise">
-    @if (!showForm)
-    {
-        <button class="project-btn project-btn-primary project-btn-sm"
-                @onclick="() => showForm = true">
-            + Raise issue
-        </button>
-    }
-    else
-    {
-        <div class="flag-raise__form">
-            <input class="project-input"
-                   placeholder="Title (e.g. 'Wrong tile pattern in master bath')"
-                   maxlength="200"
-                   @bind="title" @bind:event="oninput" />
+<div class="raise">
 
-            <textarea class="project-input" rows="3"
-                      placeholder="What's the issue? Add detail so it's actionable."
-                      maxlength="2000"
-                      @bind="description" @bind:event="oninput"></textarea>
+    <div class="al-field">
+        <label class="al-label" for="raise-title">Question</label>
+        <input id="raise-title" class="al-input" maxlength="200"
+               placeholder="e.g. Burglar-bar design needed or the fabricator stops"
+               @bind="title" @bind:event="oninput" />
+    </div>
 
-            <div class="flag-raise__row">
-                <label class="project-text-xs project-text-muted">Severity</label>
-                <select class="project-input" @bind="severity">
-                    @foreach (var s in Enum.GetValues<FlagSeverity>())
+    <div class="al-field">
+        <label class="al-label" for="raise-body">What it holds up</label>
+        <textarea id="raise-body" class="al-textarea" rows="3" maxlength="2000"
+                  placeholder="The consequence, plainly. This is what makes a deadline real rather than a nag."
+                  @bind="description" @bind:event="oninput"></textarea>
+    </div>
+
+    <div class="raise__row">
+        @if (stages.Count > 0)
+        {
+            <div class="al-field raise__field">
+                <label class="al-label" for="raise-stage">Against which stage</label>
+                <select id="raise-stage" class="al-select" @bind="stageId">
+                    <option value="">Not stage-specific</option>
+                    @foreach (var stage in stages)
                     {
-                        <option value="@s">@s</option>
+                        <option value="@stage.Id">@stage.StageName</option>
                     }
                 </select>
             </div>
+        }
 
-            @if (!string.IsNullOrEmpty(error))
-            {
-                <div class="project-form-error">@error</div>
-            }
+        <div class="al-field raise__field">
+            <label class="al-label" for="raise-owner">Who owes the answer</label>
+            <select id="raise-owner" class="al-select" @bind="assignedToId">
+                <option value="">Nobody yet</option>
+                @foreach (var member in Answerable)
+                {
+                    <option value="@member.UserId">@member.UserFullName — @SideLabel(member)</option>
+                }
+            </select>
+        </div>
+    </div>
 
-            <div class="flag-raise__actions">
-                <button class="project-btn project-btn-link" @onclick="Cancel" disabled="@saving">Cancel</button>
-                <button class="project-btn project-btn-primary"
-                        @onclick="Save"
-                        disabled="@(saving || string.IsNullOrWhiteSpace(title))">
-                    @(saving ? "Raising…" : "Raise issue")
+    <div class="raise__row">
+        <div class="al-field raise__field">
+            <label class="al-label" for="raise-due">Answer by</label>
+            <input id="raise-due" class="al-input" type="date" @bind="dueDate" />
+            <span class="al-field__hint">Leave blank if nothing is waiting on it.</span>
+        </div>
+
+        <div class="al-field raise__field">
+            <label class="al-label" for="raise-severity">Severity</label>
+            <select id="raise-severity" class="al-select" @bind="severity">
+                @foreach (var s in Enum.GetValues<FlagSeverity>())
+                {
+                    <option value="@s">@Fmt.Humanise(s.ToString())</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (CanChooseChannel)
+    {
+        <div class="al-field">
+            <span class="al-label">Who sees this</span>
+            <div class="al-segmented" role="group">
+                <button type="button" class="al-segmented__item @(channel == Channel.Client ? "is-active" : "")"
+                        aria-selected="@(channel == Channel.Client)" @onclick="() => channel = Channel.Client">
+                    <Icon Name="people" Size="14" /> Both sides
+                </button>
+                <button type="button" class="al-segmented__item @(channel == Channel.Crew ? "is-active" : "")"
+                        aria-selected="@(channel == Channel.Crew)" @onclick="() => channel = Channel.Crew">
+                    <Icon Name="eye-off" Size="14" /> Delivery side only
                 </button>
             </div>
+            <span class="al-field__hint">
+                Anything that moves money, moves a date or changes an agreed spec reaches the client
+                side regardless — emphasis is controllable, those facts are not.
+            </span>
         </div>
     }
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="al-alert al-alert--error" role="alert">
+            <Icon Name="error" Size="18" />
+            <span>@error</span>
+        </div>
+    }
+
+    <div class="raise__actions">
+        @if (OnCancel.HasDelegate)
+        {
+            <button type="button" class="al-btn al-btn--quiet" disabled="@saving" @onclick="OnCancel">Cancel</button>
+        }
+        <button type="button" class="al-btn al-btn--primary"
+                disabled="@(saving || string.IsNullOrWhiteSpace(title))" @onclick="SaveAsync">
+            @if (saving)
+            {
+                <span class="al-spinner"></span><span>Raising…</span>
+            }
+            else
+            {
+                <span>Raise question</span>
+            }
+        </button>
+    </div>
 </div>
 
 @code {
@@ -55,60 +126,112 @@
     [Parameter] public string? ProgressUpdateId { get; set; }
     [Parameter] public string? StageId { get; set; }
     [Parameter] public EventCallback<FlagDto> OnRaised { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
 
-    private bool showForm;
-    private bool saving;
-    private string title = string.Empty;
-    private string description = string.Empty;
+    private string title = "";
+    private string description = "";
+    private string stageId = "";
+    private string assignedToId = "";
+    private DateTime? dueDate;
     private FlagSeverity severity = FlagSeverity.Medium;
+    private Channel channel = Channel.Client;
+    private bool saving;
     private string? error;
 
-    private void Cancel()
+    private List<StageDto> stages = new();
+    private List<ProjectMemberDto> members = new();
+
+    protected override async Task OnInitializedAsync()
     {
-        showForm = false;
-        title = string.Empty;
-        description = string.Empty;
-        severity = FlagSeverity.Medium;
-        error = null;
+        stageId = StageId ?? "";
+
+        // Both lists are conveniences; the form still submits without them.
+        try
+        {
+            var stagesTask = _stagesApi.GetStagesByProjectId(ProjectId);
+            var membersTask = _projectMembersApi.GetMembersByProject(ProjectId);
+            await Task.WhenAll(stagesTask, membersTask);
+
+            if (stagesTask.Result.IsSuccessStatusCode)
+                stages = (stagesTask.Result.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList();
+
+            if (membersTask.Result.IsSuccessStatusCode)
+                members = membersTask.Result.Content ?? new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not preload stages or members for the raise form");
+        }
     }
 
-    private async Task Save()
+    /// <summary>
+    /// Only people who can actually sign in can owe an answer. An off-platform
+    /// party is nameable on a commitment but cannot be assigned a decision,
+    /// because nothing would ever tell them.
+    /// </summary>
+    private IEnumerable<ProjectMemberDto> Answerable
+        => members.Where(m => m.IsActive && !m.IsOffPlatform && !string.IsNullOrEmpty(m.UserFullName));
+
+    private static string SideLabel(ProjectMemberDto m)
+        => m.IsMediator ? "mediator" : m.Side == ProjectSide.Client ? "client side" : "delivery side";
+
+    /// <summary>A client-side member has no second surface to withhold anything into.</summary>
+    private bool CanChooseChannel => _sd.CurrentUser?.RolesDto?.IsExternal != true;
+
+    private async Task SaveAsync()
     {
         if (string.IsNullOrWhiteSpace(title)) return;
+
         saving = true;
         error = null;
         StateHasChanged();
+
         try
         {
             var dto = new FlagCreateDto
             {
                 ProjectId = ProjectId,
                 ProgressUpdateId = ProgressUpdateId,
-                StageId = StageId,
+                StageId = string.IsNullOrEmpty(stageId) ? null : stageId,
                 Title = title.Trim(),
                 Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
-                Severity = severity
+                Severity = severity,
+                Channel = channel,
+                AssignedToId = string.IsNullOrEmpty(assignedToId) ? null : assignedToId,
+                DueDate = dueDate is null ? null : DateTime.SpecifyKind(dueDate.Value, DateTimeKind.Utc)
             };
-            var resp = await _flagsApi.AddFlag(dto);
-            if (resp.IsSuccessStatusCode && resp.Content is not null)
+
+            var response = await _flagsApi.AddFlag(dto);
+
+            if (response.IsSuccessStatusCode && response.Content is not null)
             {
-                if (OnRaised.HasDelegate) await OnRaised.InvokeAsync(resp.Content);
-                Cancel();
+                Reset();
+                if (OnRaised.HasDelegate) await OnRaised.InvokeAsync(response.Content);
+                return;
             }
-            else
-            {
-                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "Could not raise issue.";
-            }
+
+            error = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not raise that question.";
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error raising flag");
-            error = "Could not raise issue.";
+            Logger.LogError(ex, "Error raising question on {ProjectId}", ProjectId);
+            error = "Could not raise that question.";
         }
         finally
         {
             saving = false;
             StateHasChanged();
         }
+    }
+
+    private void Reset()
+    {
+        title = "";
+        description = "";
+        assignedToId = "";
+        dueDate = null;
+        severity = FlagSeverity.Medium;
+        channel = Channel.Client;
+        error = null;
     }
 }

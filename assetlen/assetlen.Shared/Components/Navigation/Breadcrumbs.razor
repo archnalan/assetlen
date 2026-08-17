@@ -1,36 +1,139 @@
-@* Name-based breadcrumb trail. Each item carries a display Name and optional Href.
-   Example: Riverstone Heights / Guest Wing / Site Journal / 2026-05-21 *@
+@*
+    Name-based breadcrumbs (CLAUDE.md §3). Every segment is a real name and a
+    real link; an id never reaches the screen.
 
-<nav class="al-breadcrumbs" aria-label="Breadcrumb">
-    <ol class="al-breadcrumbs__list">
-        @if (Items is not null)
-        {
-            var arr = Items.ToList();
-            for (var i = 0; i < arr.Count; i++)
+    The trail is derived from the URL, not pushed by pages. A page that forgets
+    to push leaves the last page's trail on screen, and a trail that lies about
+    where you are is worse than no trail at all.
+*@
+@implements IDisposable
+@inject NavigationManager Nav
+@inject ShellState Shell
+
+@if (crumbs.Count > 1)
+{
+    <nav class="crumbs" aria-label="Breadcrumb">
+        <ol class="crumbs__list">
+            @for (var i = 0; i < crumbs.Count; i++)
             {
-                var item = arr[i];
-                var isLast = i == arr.Count - 1;
-                <li class="al-breadcrumbs__item">
-                    @if (!isLast && !string.IsNullOrEmpty(item.Href))
+                var crumb = crumbs[i];
+                var isLast = i == crumbs.Count - 1;
+
+                <li class="crumbs__item">
+                    @if (isLast)
                     {
-                        <a class="al-breadcrumbs__link" href="@item.Href">@item.Name</a>
+                        <span class="crumbs__current" aria-current="page">@crumb.Label</span>
                     }
                     else
                     {
-                        <span class="al-breadcrumbs__current" aria-current="@(isLast ? "page" : null)">@item.Name</span>
-                    }
-                    @if (!isLast)
-                    {
-                        <span class="al-breadcrumbs__sep" aria-hidden="true">/</span>
+                        <a class="crumbs__link" href="@crumb.Href">@crumb.Label</a>
+                        <Icon Name="chevron-right" Size="13" Class="crumbs__sep" />
                     }
                 </li>
             }
-        }
-    </ol>
-</nav>
+        </ol>
+    </nav>
+}
 
 @code {
-    public record BreadcrumbItem(string Name, string? Href = null);
+    private readonly List<Crumb> crumbs = new();
 
-    [Parameter, EditorRequired] public IEnumerable<BreadcrumbItem> Items { get; set; } = Array.Empty<BreadcrumbItem>();
+    private record Crumb(string Label, string Href);
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Shell.OnChange += OnShellChanged;
+        Build();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        Shell.OnChange -= OnShellChanged;
+    }
+
+    private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
+        => InvokeAsync(() => { Build(); StateHasChanged(); });
+
+    // A name can arrive after the first paint — the project loads, then the
+    // trail can stop saying "Project" and say what it is.
+    private void OnShellChanged() => InvokeAsync(() => { Build(); StateHasChanged(); });
+
+    private void Build()
+    {
+        crumbs.Clear();
+
+        var path = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
+        var seg = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (seg.Length == 0) return;
+
+        crumbs.Add(new Crumb("Projects", "/"));
+
+        if (!seg[0].Equals("project", StringComparison.OrdinalIgnoreCase))
+        {
+            crumbs.Add(new Crumb(TopLevelLabel(seg[0]), "/" + seg[0]));
+            return;
+        }
+
+        if (seg.Length < 2) return;
+
+        if (seg[1].Equals("create", StringComparison.OrdinalIgnoreCase))
+        {
+            crumbs.Add(new Crumb("New project", "/project/create"));
+            return;
+        }
+
+        var projectId = seg[1];
+        var project = Shell.Find(projectId);
+
+        // A sub-project sits under its parent, one level only. Peter's guest
+        // wing is part of the residence, and the trail has to say so — billing
+        // and area roll up to the parent (assetlen.md §10.3).
+        if (project?.ParentId is { } parentId && Shell.Find(parentId) is { } parent)
+        {
+            crumbs.Add(new Crumb(parent.Name, $"/project/{parent.Id}"));
+        }
+
+        crumbs.Add(new Crumb(project?.Name ?? "Project", $"/project/{projectId}"));
+
+        if (seg.Length < 3) return;
+
+        var section = seg[2].ToLowerInvariant();
+
+        if (section == "stage")
+        {
+            crumbs.Add(new Crumb("Stages", $"/project/{projectId}/money"));
+            if (seg.Length > 3) crumbs.Add(new Crumb("Stage", path));
+            return;
+        }
+
+        crumbs.Add(new Crumb(SectionLabel(section), $"/project/{projectId}/{section}"));
+    }
+
+    private static string TopLevelLabel(string segment) => segment.ToLowerInvariant() switch
+    {
+        "search"   => "Search",
+        "needs-you" => "Needs you",
+        "account"  => "Account",
+        _          => Humanise(segment)
+    };
+
+    private static string SectionLabel(string section) => section switch
+    {
+        "brief"     => "Daily brief",
+        "money"     => "Stages & money",
+        "register"  => "Commitments",
+        "documents" => "Drawings",
+        "history"   => "Ingested record",
+        "people"    => "Access roster",
+        "log"       => "Site Log",
+        "capture"   => "Capture",
+        "settings"  => "Project settings",
+        _           => Humanise(section)
+    };
+
+    private static string Humanise(string s)
+        => string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..].Replace('-', ' ');
 }

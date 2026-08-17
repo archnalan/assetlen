@@ -1,0 +1,8 @@
+/* All toast visuals are shared utilities in app.css (.al-toast*), because the
+   host renders them and nothing else may. This file exists so the component
+   keeps its required sibling and owns the one rule that is host-specific. */
+.al-toast__title {
+    display: block;
+    font-weight: var(--al-weight-semibold);
+    margin-bottom: 2px;
+}

@@ -1,52 +1,10 @@
-/* EmailVerificationForm — scoped via Blazor CSS isolation. Tokens only.
+/* Layout for this form comes from the shared .authform vocabulary in app.css —
+   four components render it, so it is a utility, not a component style. This
+   file exists because every .razor must have its sibling (CLAUDE.md §4.1) and
+   owns only what is specific to this form. */
 
-   Lifted out of an inline <style> block in the .razor. It reached for FluentUI
-   variables (--neutral-foreground-rest, --accent-fill-rest) which sit outside
-   the ASSETLEN palette, so this form drifted from the rest of the auth flow and
-   ignored the dark theme's contrast decisions. */
-
-.verification-container {
-    width: 100%;
-}
-
-.verification-header {
-    text-align: center;
-    margin-bottom: var(--al-space-6);
-}
-
-.verification-header h3 {
-    font-family: var(--al-font-display);
-    font-size: var(--al-font-size-lg);
-    font-weight: var(--al-weight-semibold);
-    color: var(--al-text);
-    margin: var(--al-space-3) 0 var(--al-space-2);
-}
-
-.verification-header p {
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text-muted);
-    margin: 0;
-}
-
-/* The address the code went to. Emphasised because the commonest failure here
-   is a typo in the address, not a mistyped code. */
-.verification-header strong {
-    color: var(--al-accent);
-    font-weight: var(--al-weight-semibold);
-}
-
-.form-group {
-    margin-bottom: var(--al-space-4);
-}
-
-.form-label {
-    display: flex;
-    align-items: center;
-    gap: var(--al-space-1);
+.authform ::deep .validation-message {
     font-size: var(--al-font-size-xs);
-    font-weight: var(--al-weight-semibold);
-    color: var(--al-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: var(--al-space-2);
+    color: var(--al-danger);
+    font-weight: var(--al-weight-medium);
 }

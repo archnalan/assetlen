@@ -1,0 +1,343 @@
+@page "/project/{ProjectId}"
+@attribute [Authorize]
+@inject ILogger<ProjectOverview> Logger
+
+@*
+    The project's front page: where it stands, what is open, and the way in to
+    everything else. It answers "is this on track and does it need me" without
+    scrolling, then offers the stage list — because Peter thinks in stages, not
+    in networks (assetlen.md §8, on why the Gantt chart was cut).
+*@
+
+<PageTitle>Project — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="overview" Eyebrow="Project" Context="ctx">
+
+    @* ── Position ──────────────────────────────────────────────────────── *@
+    <section>
+        <div class="al-statrow">
+            <div class="al-stat">
+                <span class="al-label">Built</span>
+                <span class="al-stat__value">@Fmt.Percent(ctx.Project.CompletedPercentage)</span>
+                <span class="al-stat__note">across @stages.Count @(stages.Count == 1 ? "stage" : "stages")</span>
+            </div>
+
+            @if (ShowMoney)
+            {
+                <div class="al-stat">
+                    <span class="al-label">Released</span>
+                    <span class="al-stat__value">@Fmt.MoneyShort(ctx.Project.TotalFunded, ctx.Currency)</span>
+                    <span class="al-stat__note">of @Fmt.MoneyShort(ctx.Project.TotalBudget ?? 0, ctx.Currency) budget</span>
+                </div>
+                <div class="al-stat">
+                    <span class="al-label">Not yet released</span>
+                    <span class="al-stat__value">@Fmt.MoneyShort(ctx.Project.TotalRemaining, ctx.Currency)</span>
+                    <span class="al-stat__note">on stages not yet funded</span>
+                </div>
+            }
+
+            <div class="al-stat @(openQuestions.Count > 0 ? "al-stat--warning" : "")">
+                <span class="al-label">Open questions</span>
+                <span class="al-stat__value">@openQuestions.Count</span>
+                <span class="al-stat__note">
+                    @(openQuestions.Count == 0 ? "nothing waiting" : "someone is waiting on an answer")
+                </span>
+            </div>
+        </div>
+    </section>
+
+    @* ── Dates ─────────────────────────────────────────────────────────── *@
+    @if (ctx.Project.RevisedCompletionDate is not null
+         && ctx.Project.RevisedCompletionDate != ctx.Project.ExpectedCompletionDate)
+    {
+        <div class="al-alert al-alert--warning">
+            <Icon Name="calendar" Size="18" />
+            <div>
+                <strong class="al-alert__title">The completion date has moved</strong>
+                <span>
+                    Agreed @Fmt.Date(ctx.Project.ExpectedCompletionDate),
+                    now @Fmt.Date(ctx.Project.RevisedCompletionDate).
+                </span>
+            </div>
+        </div>
+    }
+
+    @* ── Open questions ────────────────────────────────────────────────── *@
+    <section>
+        <div class="al-rule"><span class="al-label">Open questions</span></div>
+
+        <StateBlock Phase="questionsPhase" OnRetry="LoadAsync"
+                    ErrorTitle="Open questions didn't load"
+                    EmptyIcon="check-circle"
+                    EmptyTitle="Nothing is waiting on a decision"
+                    EmptyBody="When a choice blocks work or costs money, it appears here with a by-when and the consequence attached.">
+            <ChildContent>
+                <div class="al-sheet">
+                    <div class="al-register">
+                        @foreach (var flag in openQuestions)
+                        {
+                            <a class="al-register__row @(IsMine(flag) ? "al-register__row--needs-you" : "")"
+                               href="/project/@ProjectId/register#@flag.Id">
+                                <span class="al-dot @SeverityDot(flag.Severity)"></span>
+                                <span class="al-register__main">
+                                    <span class="al-register__title">@flag.Title</span>
+                                    <span class="al-register__sub">
+                                        @if (!string.IsNullOrEmpty(flag.StageName))
+                                        {
+                                            <span>@flag.StageName</span>
+                                        }
+                                        <span>@(IsMine(flag) ? "Yours to answer" : $"With {flag.AssignedToName ?? "the other side"}")</span>
+                                    </span>
+                                </span>
+                                <span class="al-register__end">
+                                    @if (flag.DueDate is not null)
+                                    {
+                                        <span class="al-badge @DueClass(flag.DueDate)">By @Fmt.DateShort(flag.DueDate)</span>
+                                    }
+                                    <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                </span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </ChildContent>
+        </StateBlock>
+    </section>
+
+    @* ── Stages ────────────────────────────────────────────────────────── *@
+    <section>
+        <div class="al-rule">
+            <span class="al-label">Stages</span>
+            <a class="al-btn al-btn--link" href="/project/@ProjectId/money">Money position</a>
+        </div>
+
+        <StateBlock Phase="stagesPhase" OnRetry="LoadAsync"
+                    ErrorTitle="Stages didn't load"
+                    EmptyIcon="stage"
+                    EmptyTitle="No stages yet"
+                    EmptyBody="A stage is a funded course of work holding five to eight deliverables. Everything captured hangs off one.">
+            <ChildContent>
+                <div class="al-sheet al-sheet--ticked">
+                    <div class="al-register">
+                        @foreach (var stage in stages)
+                        {
+                            <a class="al-register__row" href="/project/@ProjectId/stage/@stage.Id">
+                                <span class="al-register__index">@stage.DisplayOrder.ToString("D2")</span>
+                                <span class="al-register__main">
+                                    <span class="al-register__title">@stage.StageName</span>
+                                    <span class="al-register__sub">
+                                        <span>@StageStatusLabel(stage)</span>
+                                        @if (stage.ExpectedEndDate is not null)
+                                        {
+                                            <span>due @Fmt.DateShort(stage.ExpectedEndDate)</span>
+                                        }
+                                    </span>
+                                    <span class="overview__stage-meter">
+                                        <span class="al-meter">
+                                            <span class="al-meter__seg al-meter__seg--cleared"
+                                                  style="width:@(Clamp(stage.CompletionPercentage ?? 0))%"></span>
+                                        </span>
+                                    </span>
+                                </span>
+                                <span class="al-register__end">
+                                    @if (ShowMoney)
+                                    {
+                                        <span class="al-register__amount">@Fmt.MoneyShort(stage.BudgetAmount ?? 0, ctx.Currency)</span>
+                                    }
+                                    <span class="al-badge @StageBadgeClass(stage.Status)">@Fmt.Percent(stage.CompletionPercentage ?? 0)</span>
+                                    <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                </span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </ChildContent>
+        </StateBlock>
+    </section>
+
+    @* ── Sub-projects ──────────────────────────────────────────────────── *@
+    @if (ctx.Project.SubProjects.Count > 0)
+    {
+        <section>
+            <div class="al-rule"><span class="al-label">Sub-projects</span></div>
+
+            <div class="al-alert al-alert--info">
+                <Icon Name="info" Size="18" />
+                <span>
+                    A sub-project enlarges this project's floor area rather than becoming a second
+                    invoice. One engagement, one bill.
+                </span>
+            </div>
+
+            <div class="al-sheet overview__subs">
+                <div class="al-register">
+                    @foreach (var sub in ctx.Project.SubProjects)
+                    {
+                        <a class="al-register__row" href="/project/@sub.Id">
+                            <Icon Name="wing" Size="18" Class="al-subtle" />
+                            <span class="al-register__main">
+                                <span class="al-register__title">@sub.ProjectName</span>
+                                <span class="al-register__sub">
+                                    <span>@(sub.CurrentStageName ?? "Not started")</span>
+                                    <span>@Fmt.Percent(sub.CompletedPercentage) built</span>
+                                </span>
+                            </span>
+                            <span class="al-register__end">
+                                <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                            </span>
+                        </a>
+                    }
+                </div>
+            </div>
+        </section>
+    }
+
+    @* ── Ways in ───────────────────────────────────────────────────────── *@
+    <section>
+        <div class="al-rule"><span class="al-label">Go to</span></div>
+
+        <div class="overview__jumps">
+            <a class="overview__jump" href="/project/@ProjectId/brief">
+                <Icon Name="brief" Size="20" />
+                <span class="overview__jump-title">Daily brief</span>
+                <span class="overview__jump-note">One page, grouped by the work — not by posting order.</span>
+            </a>
+
+            @if (ShowMoney)
+            {
+                <a class="overview__jump" href="/project/@ProjectId/money">
+                    <Icon Name="money" Size="20" />
+                    <span class="overview__jump-title">Stages &amp; money</span>
+                    <span class="overview__jump-note">Funded, released and still to come, per stage.</span>
+                </a>
+            }
+
+            <a class="overview__jump" href="/project/@ProjectId/documents">
+                <Icon Name="drawing" Size="20" />
+                <span class="overview__jump-title">Drawings</span>
+                <span class="overview__jump-note">Current revision pinned; superseded archived, never deleted.</span>
+            </a>
+
+            @if (ctx.CanSeeSiteLog)
+            {
+                <a class="overview__jump" href="/project/@ProjectId/capture">
+                    <Icon Name="camera" Size="20" />
+                    <span class="overview__jump-title">Capture</span>
+                    <span class="overview__jump-note">Pick a stage, shoot. No captions required.</span>
+                </a>
+            }
+        </div>
+    </section>
+
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private List<StageDto> stages = new();
+    private List<FlagDto> openQuestions = new();
+    private LoadPhase stagesPhase = LoadPhase.Loading;
+    private LoadPhase questionsPhase = LoadPhase.Loading;
+    private string? loadedId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        stagesPhase = LoadPhase.Loading;
+        questionsPhase = LoadPhase.Loading;
+        StateHasChanged();
+
+        await Task.WhenAll(LoadStagesAsync(), LoadQuestionsAsync());
+    }
+
+    private async Task LoadStagesAsync()
+    {
+        try
+        {
+            var response = await _stagesApi.GetStagesByProjectId(ProjectId);
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                stagesPhase = LoadPhase.Error;
+                return;
+            }
+
+            stages = response.Content.OrderBy(s => s.DisplayOrder).ToList();
+            stagesPhase = stages.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Stages failed to load for {ProjectId}", ProjectId);
+            stagesPhase = LoadPhase.Error;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task LoadQuestionsAsync()
+    {
+        try
+        {
+            var response = await _flagsApi.GetFlagsByProject(ProjectId, FlagStatus.Open);
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                questionsPhase = LoadPhase.Error;
+                return;
+            }
+
+            // Mine first, then by deadline. Whoever is reading is only one of
+            // the two sides, and the question they owe is the one that matters.
+            openQuestions = response.Content
+                .OrderByDescending(IsMine)
+                .ThenBy(f => f.DueDate ?? DateTime.MaxValue)
+                .ToList();
+
+            questionsPhase = openQuestions.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Open questions failed to load for {ProjectId}", ProjectId);
+            questionsPhase = LoadPhase.Error;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private bool IsMine(FlagDto flag) => flag.AssignedToId == _sd.CurrentUser?.Id;
+
+    private bool ShowMoney => _sd.CurrentUser?.RolesDto?.CanSeeFinancials == true;
+
+    private static decimal Clamp(decimal v) => Math.Clamp(v, 0m, 100m);
+
+    private static string StageStatusLabel(StageDto s) => s.Status switch
+    {
+        StageStatus.Completed => $"Completed {Fmt.DateShort(s.ActualEndDate)}",
+        StageStatus.InProgress => "In progress",
+        _ => "Not started"
+    };
+
+    private static string StageBadgeClass(StageStatus status) => status switch
+    {
+        StageStatus.Completed => "al-badge--success",
+        StageStatus.InProgress => "al-badge--accent",
+        _ => "al-badge--neutral"
+    };
+
+    private static string SeverityDot(FlagSeverity severity) => severity switch
+    {
+        FlagSeverity.Critical or FlagSeverity.High => "al-dot--danger",
+        FlagSeverity.Medium => "al-dot--warning",
+        _ => ""
+    };
+
+    private static string DueClass(DateTime? due)
+        => due is null ? "al-badge--neutral"
+         : due.Value.Date < DateTime.Now.Date ? "al-badge--danger"
+         : (due.Value - DateTime.Now).TotalDays <= 7 ? "al-badge--warning"
+         : "al-badge--neutral";
+}

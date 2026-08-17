@@ -1,7 +1,6 @@
 ﻿using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.statics;
-using Microsoft.FluentUI.AspNetCore.Components;
 using static assetlen.Shared.Models.statics.statics;
 
 namespace assetlen.Shared.Services

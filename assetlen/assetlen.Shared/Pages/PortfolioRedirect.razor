@@ -1,0 +1,22 @@
+@page "/portfolio"
+@page "/pm"
+@attribute [Authorize]
+@inject NavigationManager Nav
+
+@*
+    Two old landing routes.
+
+    /portfolio was the owner's dashboard and /pm was a separate manager
+    dashboard. There is now one home that changes emphasis per reader, so both
+    forward to it rather than 404ing — these addresses are in browser histories,
+    bookmarks and at least one WhatsApp message.
+*@
+
+<div class="al-page al-page--reading">
+    <TitleBlock Eyebrow="Moved" Title="Taking you home"
+                Subtitle="The portfolio and the manager dashboard are now one screen." />
+</div>
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/", replace: true);
+}

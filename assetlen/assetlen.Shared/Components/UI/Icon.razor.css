@@ -1,0 +1,7 @@
+/* Icon renders bare SVG; sizing and colour come from the call site.
+   The only rule it owns is that it never introduces its own baseline gap. */
+.al-icon {
+    display: block;
+    flex: 0 0 auto;
+    color: inherit;
+}

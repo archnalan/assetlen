@@ -1,0 +1,3 @@
+/* The register itself is DocumentRegister; this page only frames it, so the
+   only rule it owns is the gap between the notice and the register. */
+.al-alert + ::deep .docreg { margin-top: var(--al-space-4); }

@@ -1,0 +1,46 @@
+@page "/project/{ProjectId}/history"
+@attribute [Authorize]
+
+@*
+    The front door, and the pile behind it.
+
+    Assetlen does not replace the conversation — it takes a copy of it
+    (assetlen.md D3). This is where a year of WhatsApp, a forwarded photo or an
+    emailed attachment gets in.
+
+    The raw record below is deliberately not a nicer chat client. The pile *is*
+    the problem; the readable surface is the daily brief. What this view is for
+    is confirming an import landed and finding the one message somebody needs to
+    see verbatim — including the fourteen that were edited and the ten that were
+    deleted, which is exactly why an immutable copy is worth having.
+*@
+
+<PageTitle>Ingested record — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="history" Eyebrow="Ingested record"
+             Subtitle="Bring a year of history in. Nothing here is edited after it lands." Context="ctx">
+
+    <ProjectImportPanel ProjectId="@ProjectId"
+                        CanWrite="ctx.CanWrite"
+                        CanManage="ctx.CanManage"
+                        OnImported="OnImported" />
+
+    <section>
+        <div class="al-rule"><span class="al-label">The raw record</span></div>
+        <IngestedThread @key="threadKey" ProjectId="@ProjectId" />
+    </section>
+
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private int threadKey;
+
+    /// <summary>
+    /// Changing the key remounts the thread so it refetches from page one.
+    /// Asking it to "refresh" would leave the old paging cursor in place and
+    /// the newly imported messages would appear to be missing.
+    /// </summary>
+    private void OnImported() => threadKey++;
+}

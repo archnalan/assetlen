@@ -1,105 +1,133 @@
+@*
+    A project on the home screen.
+
+    Media is the hero and the chrome recedes, but the card has to answer three
+    questions without being opened: how far through is it, what is happening
+    now, and are the sub-projects part of it. The third is why sub-projects are
+    rendered *inside* the parent card rather than as siblings in the grid — a
+    guest wing that looks like its own project is precisely the misreading that
+    turned one engagement into nine.
+*@
+
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
 @implements IDisposable
-@inject NavigationManager Nav
 
-<article class="project-card @(Project.SubProjects.Count > 0 ? "project-card--has-children" : "")"
-         @onclick="@(() => Nav.NavigateTo($"/project/{Project.Id}"))"
-         @onmouseenter="() => paused = true"
-         @onmouseleave="() => paused = false">
+<article class="pcard">
 
-    <div class="project-card__cover">
-        @if (RecentImages.Count > 0)
+    <a class="pcard__cover" href="/project/@Project.Id"
+       @onmouseenter="() => paused = true"
+       @onmouseleave="() => paused = false"
+       aria-label="@Project.ProjectName">
+
+        @if (Frames.Count > 0)
         {
-            @for (var i = 0; i < RecentImages.Count; i++)
+            @for (var i = 0; i < Frames.Count; i++)
             {
                 var idx = i;
-                <img class="project-card__cover-img @(idx == activeSlide ? "is-active" : "")"
-                     src="@RecentImages[idx]"
-                     alt="@Project.ProjectName"
-                     loading="@(idx == 0 ? "eager" : "lazy")" />
-            }
-
-            @if (RecentImages.Count > 1)
-            {
-                <div class="project-card__dots" @onclick:stopPropagation="true">
-                    @for (var i = 0; i < RecentImages.Count; i++)
-                    {
-                        var idx = i;
-                        <button type="button"
-                                class="project-card__dot @(idx == activeSlide ? "is-active" : "")"
-                                aria-label="@($"Slide {idx + 1}")"
-                                @onclick="() => GoTo(idx)"></button>
-                    }
-                </div>
+                <img class="pcard__frame @(idx == activeFrame ? "is-active" : "")"
+                     src="@Frames[idx]" alt=""
+                     loading="@(idx == 0 && Eager ? "eager" : "lazy")" />
             }
         }
         else
         {
-            <div class="project-card__cover-empty al-shimmer"></div>
-            <svg class="project-card__cover-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-                <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4M5 21V10.87M19 21V10.87"/>
-            </svg>
-        }
-
-        @if (Project.SubProjectCount > 0)
-        {
-            <span class="project-card__nest-badge" aria-label="Sub-projects">
-                @Project.SubProjectCount sub-project@(Project.SubProjectCount == 1 ? "" : "s")
-            </span>
-        }
-    </div>
-
-    <div class="project-card__body">
-        <header class="project-card__header">
-            <h3 class="project-card__title">@Project.ProjectName</h3>
-            <span class="al-badge @RiskBadgeClass">
-                <span class="project-card__risk-dot"></span>@Project.TimelineStatus
-            </span>
-        </header>
-
-        @if (!string.IsNullOrEmpty(Project.Location))
-        {
-            <div class="project-card__location al-subtle">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-                </svg>
-                @Project.Location
+            <div class="pcard__cover-blank al-gridded">
+                <Icon Name="project" Size="34" Weight="1" Class="pcard__cover-icon" />
             </div>
         }
 
-        <div class="project-card__metrics al-num">
-            <div class="project-card__metric">
-                <span class="project-card__metric-label">Funded</span>
-                <span class="project-card__metric-value">@Project.FundedPercentage%</span>
+        <div class="pcard__cover-scrim"></div>
+
+        <div class="pcard__cover-head">
+            <span class="al-badge @RiskBadgeClass">@Project.TimelineStatus</span>
+            @if (Project.SubProjectCount > 0)
+            {
+                <span class="al-badge al-badge--neutral pcard__nest">
+                    <Icon Name="wing" Size="11" />
+                    @Project.SubProjectCount sub-project@(Project.SubProjectCount == 1 ? "" : "s")
+                </span>
+            }
+        </div>
+
+        <div class="pcard__cover-foot">
+            <h3 class="pcard__title">@Project.ProjectName</h3>
+            @if (!string.IsNullOrEmpty(Project.Location))
+            {
+                <span class="pcard__location">
+                    <Icon Name="pin" Size="12" /> @Project.Location
+                </span>
+            }
+        </div>
+
+        @if (Frames.Count > 1)
+        {
+            <div class="pcard__dots">
+                @for (var i = 0; i < Frames.Count; i++)
+                {
+                    <span class="pcard__dot @(i == activeFrame ? "is-active" : "")"></span>
+                }
             </div>
-            <div class="project-card__metric">
-                <span class="project-card__metric-label">Completed</span>
-                <span class="project-card__metric-value">@Project.CompletedPercentage%</span>
+        }
+    </a>
+
+    <div class="pcard__body">
+
+        <div class="pcard__stage">
+            <span class="al-label">Now</span>
+            <span class="pcard__stage-name">@(Project.CurrentStageName ?? "Not started")</span>
+        </div>
+
+        <div class="pcard__meter">
+            <div class="al-meter">
+                <span class="al-meter__seg al-meter__seg--cleared"
+                      style="width:@(Clamp(Project.CompletedPercentage))%"></span>
+                <span class="al-meter__seg al-meter__seg--funded"
+                      style="width:@(Clamp(Math.Max(0, Project.FundedPercentage - Project.CompletedPercentage)))%"></span>
+            </div>
+            <div class="pcard__figures al-num">
+                <span><b>@Fmt.Percent(Project.CompletedPercentage)</b> built</span>
+                <span><b>@Fmt.Percent(Project.FundedPercentage)</b> funded</span>
             </div>
         </div>
 
-        <div class="project-card__progress">
-            <div class="project-card__progress-fill"
-                 style="width: @(Math.Min(Project.CompletedPercentage, 100))%;"></div>
-        </div>
+        @if (ShowMoney)
+        {
+            <div class="pcard__money">
+                <div class="al-stat">
+                    <span class="al-label">Budget</span>
+                    <span class="al-stat__value al-stat__value--sm">@Fmt.MoneyShort(Project.TotalBudget, Project.Currency)</span>
+                </div>
+                <div class="al-stat">
+                    <span class="al-label">Released</span>
+                    <span class="al-stat__value al-stat__value--sm">@Fmt.MoneyShort(Project.TotalFunded, Project.Currency)</span>
+                </div>
+            </div>
+        }
 
-        <footer class="project-card__footer">
-            <span class="al-badge al-badge--neutral">@Project.CurrentStageName</span>
-            <span class="al-subtle project-card__last-update">
-                @(Project.LastUpdateDate.HasValue ? FormatTimeAgo(Project.LastUpdateDate.Value) : "No updates")
+        <footer class="pcard__foot">
+            <span class="al-subtle">
+                @(Project.LastUpdateDate.HasValue ? $"Last posted {Fmt.Ago(Project.LastUpdateDate)}" : "Nothing posted yet")
             </span>
+            <a class="al-btn al-btn--link" href="/project/@Project.Id">
+                Open <Icon Name="arrow-right" Size="14" />
+            </a>
         </footer>
     </div>
 
     @if (Project.SubProjects.Count > 0)
     {
-        <ul class="project-card__children" @onclick:stopPropagation="true">
+        <ul class="pcard__children">
             @foreach (var sub in Project.SubProjects)
             {
-                <li class="project-card__child" @onclick="@(() => Nav.NavigateTo($"/project/{sub.Id}"))">
-                    <span class="project-card__child-name">@sub.ProjectName</span>
-                    <span class="al-subtle al-num">@sub.CompletedPercentage%</span>
+                <li>
+                    <a class="pcard__child" href="/project/@sub.Id">
+                        <Icon Name="wing" Size="15" />
+                        <span class="al-truncate">@sub.ProjectName</span>
+                        <span class="al-spacer"></span>
+                        <span class="al-subtle al-num">@Fmt.Percent(sub.CompletedPercentage)</span>
+                        <Icon Name="chevron-right" Size="14" Class="al-subtle" />
+                    </a>
                 </li>
             }
         </ul>
@@ -107,42 +135,47 @@
 
     @if (!Project.IsSubscriptionActive && Project.Status == ProjectStatus.Active)
     {
-        <div class="project-card__upgrade">Upgrade to continue managing this project.</div>
+        <div class="pcard__notice">
+            <Icon Name="alert" Size="15" />
+            <span>Billing is not active on this project.</span>
+        </div>
     }
 </article>
 
 @code {
     [Parameter, EditorRequired] public ProjectCardDto Project { get; set; } = default!;
 
-    private List<string> RecentImages =>
+    /// <summary>False for Crew and Guest, who have no financial visibility anywhere.</summary>
+    [Parameter] public bool ShowMoney { get; set; } = true;
+
+    /// <summary>Set on the first card only; everything below the fold lazy-loads.</summary>
+    [Parameter] public bool Eager { get; set; }
+
+    private int activeFrame;
+    private System.Threading.Timer? timer;
+    private bool paused;
+
+    private List<string> Frames =>
         Project.RecentImageUrls.Count > 0
             ? Project.RecentImageUrls
-            : (string.IsNullOrEmpty(Project.LatestImageUrl) ? new List<string>() : new() { Project.LatestImageUrl! });
-
-    private int activeSlide;
-    private System.Threading.Timer? slideTimer;
-    private bool paused;
+            : string.IsNullOrEmpty(Project.LatestImageUrl) ? new List<string>() : new() { Project.LatestImageUrl! };
 
     protected override void OnAfterRender(bool firstRender)
     {
-        if (firstRender && RecentImages.Count > 1)
-        {
-            slideTimer = new System.Threading.Timer(_ => Tick(), null, 5000, 5000);
-        }
+        // 5000ms dwell, per the motion spec. Pauses on hover so a reader can
+        // look at one frame without it sliding out from under them.
+        if (firstRender && Frames.Count > 1)
+            timer = new System.Threading.Timer(_ => Tick(), null, 5000, 5000);
     }
 
     private void Tick()
     {
-        if (paused || RecentImages.Count <= 1) return;
-        activeSlide = (activeSlide + 1) % RecentImages.Count;
+        if (paused || Frames.Count <= 1) return;
+        activeFrame = (activeFrame + 1) % Frames.Count;
         InvokeAsync(StateHasChanged);
     }
 
-    private void GoTo(int idx)
-    {
-        activeSlide = idx;
-        StateHasChanged();
-    }
+    private static decimal Clamp(decimal v) => Math.Clamp(v, 0m, 100m);
 
     private string RiskBadgeClass => Project.RiskLevel switch
     {
@@ -152,14 +185,5 @@
         _ => "al-badge--neutral"
     };
 
-    private static string FormatTimeAgo(DateTime date)
-    {
-        var diff = DateTime.UtcNow - date;
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
-        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
-        return date.ToString("MMM dd");
-    }
-
-    public void Dispose() => slideTimer?.Dispose();
+    public void Dispose() => timer?.Dispose();
 }

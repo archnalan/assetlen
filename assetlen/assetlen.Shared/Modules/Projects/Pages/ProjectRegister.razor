@@ -1,0 +1,344 @@
+@page "/project/{ProjectId}/register"
+@attribute [Authorize]
+@inject ILogger<ProjectRegister> Logger
+
+@*
+    The register.
+
+    Assetlen's one object is the Commitment — a spec, a price, a date, a
+    material or a choice, carrying who agreed, when, and the evidence. The full
+    model lands in P4; what exists today is the half of it that already has a
+    schema: the questions raised against this project and the state each is in.
+
+    That is deliberately not hidden behind a "coming soon" panel. A question
+    with a by-when and a consequence attached is the thing the developer's real
+    anxiety is about — *"burglar-bar design needed or the fabricator stops"* —
+    and it is worth a screen on its own before the price and material kinds join it.
+*@
+
+<PageTitle>Register — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="register" Eyebrow="Register"
+             Subtitle="What was asked, who owes the answer, and what it holds up." Context="ctx">
+
+    <div class="register__bar">
+        <div class="al-segmented" role="group" aria-label="Filter">
+            @foreach (var f in Filters)
+            {
+                <button type="button" class="al-segmented__item @(filter == f.Key ? "is-active" : "")"
+                        aria-selected="@(filter == f.Key)" @onclick="() => filter = f.Key">
+                    @f.Label
+                    @if (CountFor(f.Key) > 0)
+                    {
+                        <span class="al-tabs__count">@CountFor(f.Key)</span>
+                    }
+                </button>
+            }
+        </div>
+
+        <span class="al-spacer"></span>
+
+        @if (ctx.CanWrite)
+        {
+            <button type="button" class="al-btn al-btn--primary" @onclick="() => raising = true">
+                <Icon Name="plus" Size="16" /> Raise a question
+            </button>
+        }
+    </div>
+
+    @if (raising)
+    {
+        <div class="al-sheet register__raise">
+            <div class="al-sheet__head">
+                <h2 class="al-sheet__title">Raise a question</h2>
+                <button type="button" class="al-iconbtn" @onclick="() => raising = false" aria-label="Close">
+                    <Icon Name="close" Size="18" />
+                </button>
+            </div>
+            <div class="al-sheet__body">
+                <FlagRaiseForm ProjectId="@ProjectId" OnRaised="OnRaised" OnCancel="() => raising = false" />
+            </div>
+        </div>
+    }
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The register didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="commitment"
+                EmptyTitle="Nothing on the register"
+                EmptyBody="A question raised here keeps its answer attached to the item — so next month it is not the next thing to scroll for.">
+        <ChildContent>
+
+            @if (Visible.Count == 0)
+            {
+                <div class="al-empty">
+                    <Icon Name="check-circle" Size="40" Class="al-empty__icon" Weight="1.25" />
+                    <h3 class="al-empty__title">Nothing in this state</h3>
+                    <p class="al-empty__body">Try another filter — there are @items.Count items on this register.</p>
+                </div>
+            }
+            else
+            {
+                <div class="al-stack">
+                    @foreach (var flag in Visible)
+                    {
+                        <article class="al-sheet register__item" id="@flag.Id">
+                            <div class="register__item-head">
+                                <div class="register__item-lead">
+                                    <span class="al-dot @SeverityDot(flag.Severity)"></span>
+                                    <div>
+                                        <h3 class="register__item-title">@flag.Title</h3>
+                                        <div class="register__item-sub">
+                                            @if (!string.IsNullOrEmpty(flag.StageName))
+                                            {
+                                                <span>@flag.StageName</span>
+                                            }
+                                            <span>Raised @Fmt.Date(flag.DateTimeCreated) by @AttributedTo(ctx, flag.CreatedByName)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="register__item-badges">
+                                    <span class="al-badge @StateBadge(flag.Status)">@StateLabel(flag.Status)</span>
+                                    @if (flag.Channel == Channel.Crew)
+                                    {
+                                        <span class="al-badge al-badge--delivery" title="Delivery side only">
+                                            <Icon Name="eye-off" Size="11" /> Internal
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(flag.Description))
+                            {
+                                <p class="register__item-body">@flag.Description</p>
+                            }
+
+                            @* The provenance strip: where this item has got to. *@
+                            <div class="al-provenance register__prov">
+                                <span class="al-provenance__step @(flag.Status >= FlagStatus.Open ? "is-done" : "")">Raised</span>
+                                <span class="al-provenance__step @ProvClass(flag, FlagStatus.InProgress)">Being answered</span>
+                                <span class="al-provenance__step @ProvClass(flag, FlagStatus.Resolved)">Resolved</span>
+                            </div>
+
+                            <footer class="register__item-foot">
+                                <div class="register__item-owner">
+                                    <span class="al-avatar al-avatar--sm">
+                                        @Fmt.Initials(null, null, flag.AssignedToName ?? "?")
+                                    </span>
+                                    <span>
+                                        @(IsMine(flag) ? "Yours to answer" : $"With {flag.AssignedToName ?? "the other side"}")
+                                    </span>
+                                </div>
+
+                                <span class="al-spacer"></span>
+
+                                @if (flag.DueDate is not null && flag.Status != FlagStatus.Resolved)
+                                {
+                                    <span class="al-badge @DueClass(flag.DueDate)">
+                                        <Icon Name="clock" Size="11" />
+                                        @(flag.DueDate!.Value.Date < DateTime.Now.Date ? "Overdue" : $"By {Fmt.DateShort(flag.DueDate)}")
+                                    </span>
+                                }
+
+                                @if (flag.Status != FlagStatus.Resolved && ctx.CanWrite)
+                                {
+                                    <button type="button" class="al-btn al-btn--default al-btn--sm"
+                                            disabled="@(resolving == flag.Id)" @onclick="() => ResolveAsync(flag)">
+                                        @if (resolving == flag.Id)
+                                        {
+                                            <span class="al-spinner"></span>
+                                        }
+                                        else
+                                        {
+                                            <Icon Name="check" Size="14" />
+                                        }
+                                        Mark resolved
+                                    </button>
+                                }
+                                else if (flag.Status == FlagStatus.Resolved)
+                                {
+                                    <span class="al-subtle register__resolved">
+                                        Resolved @Fmt.Date(flag.ResolvedDate)
+                                        @if (!string.IsNullOrEmpty(flag.ResolvedByName))
+                                        {
+                                            <text> by @flag.ResolvedByName</text>
+                                        }
+                                    </span>
+                                }
+                            </footer>
+                        </article>
+                    }
+                </div>
+            }
+
+            <p class="register__note">
+                Prices, materials and dates join this register when the commitment model lands.
+                Until then they live on <a class="al-btn al-btn--link" href="/project/@ProjectId/money">Stages &amp; money</a>
+                and in the <a class="al-btn al-btn--link" href="/project/@ProjectId/documents">drawing register</a>.
+            </p>
+
+        </ChildContent>
+    </StateBlock>
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private List<FlagDto> items = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string filter = "open";
+    private bool raising;
+    private string? resolving;
+    private string? loadedId;
+
+    private static readonly (string Key, string Label)[] Filters =
+    [
+        ("mine", "Yours"), ("open", "Open"), ("resolved", "Resolved"), ("all", "All")
+    ];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _flagsApi.GetFlagsByProject(ProjectId);
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+
+            items = response.Content
+                .OrderBy(f => f.Status == FlagStatus.Resolved ? 1 : 0)
+                .ThenBy(f => f.DueDate ?? DateTime.MaxValue)
+                .ToList();
+
+            // Land on the filter that has something in it. Opening a register on
+            // an empty tab reads as "nothing here" when there is plenty.
+            if (items.Any(IsMine) && items.Any(f => IsMine(f) && f.Status != FlagStatus.Resolved))
+                filter = "mine";
+
+            phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Register failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task OnRaised()
+    {
+        raising = false;
+        await LoadAsync();
+        ToastService.ShowSuccess("Question raised. It stays on the register until it is answered.");
+    }
+
+    private async Task ResolveAsync(FlagDto flag)
+    {
+        resolving = flag.Id;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _flagsApi.ResolveFlag(flag.Id);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Resolution updates the item, not a message. That is the whole
+                // point: otherwise the answer becomes the next thing to scroll for.
+                await LoadAsync();
+                ToastService.ShowSuccess("Resolved. The answer now lives on the item.");
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not resolve {FlagId}", flag.Id);
+            ToastService.ShowError("Could not resolve that item.");
+        }
+        finally
+        {
+            resolving = null;
+            StateHasChanged();
+        }
+    }
+
+    private List<FlagDto> Visible => filter switch
+    {
+        "mine" => items.Where(f => IsMine(f) && f.Status != FlagStatus.Resolved).ToList(),
+        "open" => items.Where(f => f.Status is FlagStatus.Open or FlagStatus.InProgress).ToList(),
+        "resolved" => items.Where(f => f.Status == FlagStatus.Resolved).ToList(),
+        _ => items
+    };
+
+    private int CountFor(string key) => key switch
+    {
+        "mine" => items.Count(f => IsMine(f) && f.Status != FlagStatus.Resolved),
+        "open" => items.Count(f => f.Status is FlagStatus.Open or FlagStatus.InProgress),
+        "resolved" => items.Count(f => f.Status == FlagStatus.Resolved),
+        _ => items.Count
+    };
+
+    private bool IsMine(FlagDto flag) => flag.AssignedToId == _sd.CurrentUser?.Id;
+
+    /// <summary>
+    /// One accountable face: a client-side reader sees the mediator's name on
+    /// anything that crossed, whoever actually produced it (§10.1). Here the
+    /// author is already the person who raised it, so this only guards the case
+    /// where a delivery-side name would otherwise leak across.
+    /// </summary>
+    private static string AttributedTo(ProjectPageContext ctx, string? name)
+        => name ?? (ctx.IsClientSide ? "the delivery side" : "someone on this side");
+
+    private static string StateLabel(FlagStatus status) => status switch
+    {
+        FlagStatus.Open => "Query raised",
+        FlagStatus.InProgress => "Being answered",
+        FlagStatus.Resolved => "Resolved",
+        _ => "Archived"
+    };
+
+    private static string StateBadge(FlagStatus status) => status switch
+    {
+        FlagStatus.Open => "al-badge--accent",
+        FlagStatus.InProgress => "al-badge--blueprint",
+        FlagStatus.Resolved => "al-badge--success",
+        _ => "al-badge--neutral"
+    };
+
+    private static string ProvClass(FlagDto flag, FlagStatus step)
+        => flag.Status > step ? "is-done" : flag.Status == step ? "is-current" : "";
+
+    private static string SeverityDot(FlagSeverity severity) => severity switch
+    {
+        FlagSeverity.Critical or FlagSeverity.High => "al-dot--danger",
+        FlagSeverity.Medium => "al-dot--warning",
+        _ => ""
+    };
+
+    private static string DueClass(DateTime? due)
+        => due is null ? "al-badge--neutral"
+         : due.Value.Date < DateTime.Now.Date ? "al-badge--danger"
+         : (due.Value - DateTime.Now).TotalDays <= 7 ? "al-badge--warning"
+         : "al-badge--neutral";
+}

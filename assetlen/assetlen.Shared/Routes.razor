@@ -1,86 +1,29 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
-@inject IStorageService _storageService
-@inject NavigationManager _navigationManager
-@inject AuthenticationStateProvider _authStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
 
 <CascadingAuthenticationState>
-    <Router AppAssembly="typeof(Layout.MainLayout).Assembly" >
+    <Router AppAssembly="typeof(Layout.AppShell).Assembly">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="typeof(Layout.AppShell)">
                 <NotAuthorized>
-                    <div class="route-message">
-                        <h1 class="route-message__title">Sign in to continue</h1>
-                        <p class="route-message__body">
-                            This page belongs to a project. Sign in with the account
-                            that was invited to it.
-                        </p>
-                        <a class="route-message__action" href="/login">Go to sign in</a>
+                    <div class="al-page al-page--reading">
+                        <TitleBlock Eyebrow="Not signed in"
+                                    Title="This page belongs to a project"
+                                    Subtitle="Sign in with the account that was invited to it." />
+                        <a class="al-btn al-btn--primary" href="/login">Go to sign in</a>
                     </div>
                 </NotAuthorized>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="routeData" Selector="h1" />
         </Found>
         <NotFound>
-            <LayoutView Layout="@typeof(Layout.MainLayout)">
-                <div class="route-message">
-                    <h1 class="route-message__title">Nothing at this address</h1>
-                    <p class="route-message__body">
-                        The link may be out of date, or the project may have been renamed.
-                    </p>
-                    <a class="route-message__action" href="/portfolio">Back to your projects</a>
+            <LayoutView Layout="@typeof(Layout.AppShell)">
+                <div class="al-page al-page--reading">
+                    <TitleBlock Eyebrow="404"
+                                Title="Nothing at this address"
+                                Subtitle="The link may be out of date, or the project may have been renamed." />
+                    <a class="al-btn al-btn--primary" href="/">Back to your projects</a>
                 </div>
             </LayoutView>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>
-
-@* @code {
-    protected override async Task OnInitializedAsync()
-    {
-        // Save current URI before refresh
-        // await _storageService.SetItemAsync("previousUri", _navigationManager.Uri);
-    }
-
-    private async Task OnNavigateAsync(NavigationContext context)
-    {
-        var path = context.Path.ToLowerInvariant();
-        
-        await _storageService.SetItemAsync("previousUri", path);
-        // Clear token when navigating to /login
-        // if (path == "login")
-        // {
-        //     await _storageService.RemoveItemAsync("sessionState");
-        // }
-    }
-
-    // protected override async Task OnAfterRenderAsync(bool firstRender)
-    // {
-    //     if (firstRender)
-    //     {
-    //         var token = await _storageService.GetItemAsync<LoginResponseDto>("sessionState");
-    //         var relativeUri = _navigationManager.ToBaseRelativePath(_navigationManager.Uri);
-
-    //         // Handle token authentication
-    //         if (token is not null)
-    //         {
-    //             await ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(token);
-    //         }
-
-    //         // Handle root path redirection
-    //         if (string.IsNullOrEmpty(relativeUri))
-    //         {
-    //             _navigationManager.NavigateTo(token is not null ? "/dashboard" : "/login");
-    //         }
-    //         // Handle refresh scenario
-    //         // else if (token is not null)
-    //         // {
-    //         //     var previousUri = await _storageService.GetItemAsync<string>("previousUri");
-    //         //     if (!string.IsNullOrEmpty(previousUri) && previousUri != _navigationManager.Uri)
-    //         //     {
-    //         //         _navigationManager.NavigateTo(previousUri);
-    //         //     }
-    //         // }
-    //     }
-    // }
-} *@
-

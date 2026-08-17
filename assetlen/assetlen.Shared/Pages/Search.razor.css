@@ -1,0 +1,27 @@
+.search__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    max-width: 40rem;
+}
+
+.search__bar .al-inputwrap { flex: 1 1 auto; }
+
+.search__scope {
+    margin: var(--al-space-3) 0 var(--al-space-5);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    max-width: 60ch;
+}
+
+.search__group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--al-space-6);
+}
+
+.search__ghosts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}

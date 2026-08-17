@@ -1,0 +1,58 @@
+@*
+    The title block — the opening of every page.
+
+    Borrowed from the corner of a drawing sheet: an uppercase eyebrow naming
+    what kind of thing this is, the name itself in display serif, a supporting
+    line, and a meta strip on the right carrying the figures that identify the
+    sheet. It is the single device that makes ASSETLEN's pages recognisable as
+    one product rather than a set of screens.
+*@
+
+<div class="al-titleblock">
+    <div class="al-titleblock__main">
+        @if (!string.IsNullOrWhiteSpace(Eyebrow))
+        {
+            <span class="al-eyebrow">@Eyebrow</span>
+        }
+
+        <h1 class="al-titleblock__title">@Title</h1>
+
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="al-titleblock__sub">@Subtitle</p>
+        }
+
+        @if (Below is not null)
+        {
+            <div class="titleblock__below">@Below</div>
+        }
+    </div>
+
+    @if (Meta is not null || Actions is not null)
+    {
+        <div class="titleblock__aside">
+            @if (Meta is not null)
+            {
+                <div class="al-titleblock__meta">@Meta</div>
+            }
+            @if (Actions is not null)
+            {
+                <div class="al-titleblock__actions">@Actions</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+
+    /// <summary>Figures in the sheet corner — area, tier, dates, counts.</summary>
+    [Parameter] public RenderFragment? Meta { get; set; }
+
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>Badges or a tab strip that belong to the heading rather than the body.</summary>
+    [Parameter] public RenderFragment? Below { get; set; }
+}

@@ -1,429 +1,235 @@
-/* LoginComponent — scoped via Blazor CSS isolation.
-   All values flow through --al-* tokens from wwwroot/app.css.
-   Mobile-first; tested at 360 / 768 / 1280. Dark mode is automatic. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Sign-in — a folio cover and a form.
 
-.al-login {
-    min-height: 100vh;
+   The claim panel is not decoration: it states the thesis in the product's own
+   words, so someone opening a link from a WhatsApp message knows within one
+   sentence what this is. On mobile it collapses to a band and the form takes
+   the fold, because the phone visitor is almost always returning, not deciding.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.auth {
+    min-height: 100dvh;
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     background: var(--al-bg);
-    color: var(--al-text);
-    font-family: var(--al-font-body);
 }
 
-/* ─── Brand panel (left) ────────────────────────────── */
+@media (min-width: 1000px) {
+    .auth { grid-template-columns: 1.05fr 1fr; }
+}
 
-.al-login__brand {
-    position: relative;
+/* ── Claim panel ─────────────────────────────────────────────────────── */
+
+.auth__aside {
     display: flex;
     flex-direction: column;
-    padding: var(--al-space-6) var(--al-space-7);
-    background: var(--al-bg-elevated);
-    border-right: 1px solid var(--al-border);
-    overflow: hidden;
-}
-
-/* Subtle hairline grid as a folio backdrop */
-.al-login__brand::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(var(--al-border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--al-border) 1px, transparent 1px);
-    background-size: 40px 40px;
-    opacity: 0.5;
-    pointer-events: none;
-    mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
-    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
-}
-
-.al-login__brand > * {
-    position: relative;
-}
-
-.al-login__brand-top {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--al-space-4);
-    padding-bottom: var(--al-space-4);
+    background: var(--al-surface-2);
     border-bottom: 1px solid var(--al-border);
+    padding: var(--al-space-4);
+    gap: var(--al-space-4);
 }
 
-.al-login__wordmark {
+@media (min-width: 1000px) {
+    .auth__aside {
+        border-bottom: 0;
+        border-right: 1px solid var(--al-border);
+        padding: var(--al-space-6);
+        gap: var(--al-space-6);
+        min-height: 100dvh;
+    }
+}
+
+.auth__aside-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+.auth__brand { display: inline-flex; align-items: center; gap: var(--al-space-2); }
+
+.auth__wordmark {
     font-family: var(--al-font-display);
-    font-weight: 600;
     font-size: var(--al-font-size-lg);
-    letter-spacing: 0.05em;
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: 0.1em;
     color: var(--al-text);
 }
 
-.al-login__brand-meta {
-    font-size: var(--al-font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--al-text-subtle);
-}
+.auth__sheetno { color: var(--al-text-subtle); }
 
-.al-login__brand-stage {
+.auth__aside-stage {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: var(--al-space-6) 0;
-    max-width: 36rem;
+    gap: var(--al-space-4);
+    padding: var(--al-space-4) 0;
+    border-top: 1px solid var(--al-border);
+    border-bottom: 1px solid var(--al-border);
 }
 
-.al-login__mark {
-    width: 168px;
-    height: 168px;
-    margin-bottom: var(--al-space-5);
+@media (min-width: 1000px) {
+    .auth__aside-stage { padding: var(--al-space-6) var(--al-space-4); gap: var(--al-space-5); }
 }
 
-.al-login__mark-grid line {
-    stroke: var(--al-border);
-    stroke-width: 0.5;
-}
+.auth__eyebrow { color: var(--al-accent); }
 
-.al-login__mark-plot line,
-.al-login__mark-plot polyline,
-.al-login__mark-plot path {
-    fill: none;
-    stroke: var(--al-blueprint);
-    stroke-width: 1.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.al-login__mark-dot {
-    fill: var(--al-accent);
-}
-
-.al-login__mark-ring {
-    fill: none;
-    stroke: var(--al-accent);
-    stroke-width: 1.2;
-    opacity: 0.4;
-    transform-origin: 50% 50%;
-    animation: al-login-pulse 3.6s var(--al-ease) infinite;
-}
-
-@keyframes al-login-pulse {
-    0%, 100% { transform: scale(1); opacity: 0.35; }
-    50%      { transform: scale(1.2); opacity: 0.05; }
-}
-
-.al-login__claim {
-    margin: 0 0 var(--al-space-3);
+.auth__claim {
     font-family: var(--al-font-display);
-    font-size: var(--al-font-size-2xl);
-    line-height: 1.05;
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-semibold);
+    line-height: 1.2;
     letter-spacing: -0.02em;
     color: var(--al-text);
-    font-weight: 600;
+    max-width: 20ch;
 }
 
-.al-login__lede {
-    margin: 0 0 var(--al-space-5);
+@media (min-width: 1000px) {
+    .auth__claim { font-size: var(--al-font-size-3xl); }
+}
+
+.auth__claim em {
+    font-style: italic;
+    color: var(--al-accent);
+}
+
+.auth__lede {
     font-size: var(--al-font-size-md);
     line-height: var(--al-leading-relaxed);
     color: var(--al-text-muted);
-    max-width: 38ch;
+    max-width: 44ch;
 }
 
-.al-login__features {
+/* The three points read as numbered drawing notes, not as feature bullets. */
+.auth__points {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--al-space-3);
 }
 
-.al-login__features li {
-    display: grid;
-    grid-template-columns: 8px 1fr;
-    column-gap: var(--al-space-3);
+.auth__points li {
+    display: flex;
+    gap: var(--al-space-3);
     align-items: flex-start;
 }
 
-.al-login__feature-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--al-radius-pill);
-    background: var(--al-accent);
-    margin-top: 8px;
+.auth__point-no {
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-2xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--al-accent);
+    padding-top: 3px;
+    flex: 0 0 auto;
+    letter-spacing: 0.04em;
 }
 
-.al-login__features strong {
+.auth__points strong {
     display: block;
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text);
+    font-size: var(--al-font-size-md);
     font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
 }
 
-.al-login__features span {
+.auth__points span {
     display: block;
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text-muted);
-    line-height: var(--al-leading-normal);
-}
-
-.al-login__brand-foot {
-    margin-top: auto;
-    padding-top: var(--al-space-4);
-    border-top: 1px solid var(--al-border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     font-size: var(--al-font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--al-text-subtle);
+    line-height: var(--al-leading-snug);
+    color: var(--al-text-muted);
 }
 
-/* ─── Auth panel (right) ────────────────────────────── */
+/* Below 1000px the points are the first thing pushed off the fold. */
+@media (max-width: 999px) {
+    .auth__points { display: none; }
+    .auth__aside-stage { border-bottom: 0; }
+    .auth__aside-foot { display: none; }
+}
 
-.al-login__panel {
+.auth__aside-foot { color: var(--al-text-subtle); }
+
+/* ── Form panel ──────────────────────────────────────────────────────── */
+
+.auth__panel {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    padding: var(--al-space-6) var(--al-space-5);
+    padding: var(--al-space-5) var(--al-space-4) var(--al-space-8);
     background: var(--al-bg);
 }
 
-.al-login__panel-inner {
+@media (min-width: 1000px) {
+    .auth__panel { align-items: center; padding: var(--al-space-6); min-height: 100dvh; }
+}
+
+.auth__panel-inner {
     width: 100%;
-    max-width: 24rem;
+    max-width: 25rem;
     display: flex;
     flex-direction: column;
-    gap: var(--al-space-3);
+    gap: var(--al-space-4);
 }
 
-.al-login__panel-head {
+/* On wide screens the brand already stands in the claim panel. */
+.auth__panel-brand {
     display: flex;
     align-items: center;
-    gap: var(--al-space-3);
-    margin-bottom: var(--al-space-4);
-}
-
-.al-login__panel-back {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--al-radius-pill);
-    border: 1px solid var(--al-border-strong);
-    color: var(--al-text-muted);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    transition: border-color var(--al-transition-fast), color var(--al-transition-fast);
-}
-
-.al-login__panel-back svg { width: 14px; height: 14px; }
-
-.al-login__panel-back:hover {
-    border-color: var(--al-text-muted);
-    color: var(--al-text);
-}
-
-.al-login__panel-brand {
-    font-family: var(--al-font-display);
-    font-weight: 600;
-    font-size: var(--al-font-size-base);
-    letter-spacing: 0.06em;
-    color: var(--al-text);
-}
-
-.al-login__title-wrap {
-    margin-bottom: var(--al-space-2);
-}
-
-.al-login__title {
-    margin: 0 0 var(--al-space-1);
-    font-family: var(--al-font-display);
-    font-size: var(--al-font-size-xl);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--al-text);
-}
-
-.al-login__subtitle {
-    margin: 0;
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text-muted);
-    line-height: var(--al-leading-normal);
-}
-
-/* ─── Alert ─────────────────────────────────────────── */
-
-.al-login__alert {
-    display: flex;
-    align-items: flex-start;
     gap: var(--al-space-2);
-    padding: var(--al-space-2) var(--al-space-3);
-    border-radius: var(--al-radius-sm);
-    border: 1px solid transparent;
-    font-size: var(--al-font-size-sm);
-    line-height: var(--al-leading-normal);
 }
 
-.al-login__alert svg { flex: 0 0 auto; margin-top: 2px; }
+@media (min-width: 1000px) { .auth__panel-brand { display: none; } }
+@media (min-width: 1000px) { .auth__aside .auth__brand { display: inline-flex; } }
 
-.al-login__alert--error {
-    background: var(--al-danger-soft);
-    border-color: var(--al-danger);
-    color: var(--al-danger);
+.auth__head { display: flex; flex-direction: column; gap: var(--al-space-2); }
+
+.auth__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-2xl);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: -0.02em;
 }
 
-/* ─── Divider ───────────────────────────────────────── */
+.auth__sub {
+    font-size: var(--al-font-size-md);
+    color: var(--al-text-muted);
+}
 
-.al-login__divider {
+.auth__or {
     display: flex;
     align-items: center;
     gap: var(--al-space-3);
-    margin: var(--al-space-2) 0;
     color: var(--al-text-subtle);
     font-size: var(--al-font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
 }
 
-.al-login__divider::before,
-.al-login__divider::after {
+.auth__or::before,
+.auth__or::after {
     content: "";
     flex: 1 1 auto;
     height: 1px;
     background: var(--al-border);
 }
 
-/* ─── Buttons ───────────────────────────────────────── */
-
-.al-login__btn {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--al-space-2);
-    width: 100%;
-    padding: var(--al-space-3) var(--al-space-4);
-    font: inherit;
-    font-size: var(--al-font-size-sm);
-    font-weight: var(--al-weight-semibold);
-    border-radius: var(--al-radius-sm);
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: background var(--al-transition-fast),
-                border-color var(--al-transition-fast),
-                color var(--al-transition-fast);
-}
-
-.al-login__btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.al-login__btn svg { width: 14px; height: 14px; }
-
-.al-login__btn--ghost {
-    background: var(--al-surface);
-    border-color: var(--al-border-strong);
-    color: var(--al-text);
-}
-
-.al-login__btn--ghost:hover:not(:disabled) {
-    border-color: var(--al-text-muted);
-}
-
-/* ─── Switch + link ─────────────────────────────────── */
-
-.al-login__switch {
-    margin: var(--al-space-2) 0 0;
-    font-size: var(--al-font-size-sm);
+.auth__switch {
+    font-size: var(--al-font-size-md);
     color: var(--al-text-muted);
-    text-align: center;
+    display: flex;
+    gap: var(--al-space-2);
+    align-items: baseline;
+    flex-wrap: wrap;
 }
 
-.al-login__link {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    padding: 0 0 0 2px;
-    font: inherit;
-    font-weight: var(--al-weight-semibold);
-    color: var(--al-accent);
-    cursor: pointer;
-}
-
-.al-login__link:hover { text-decoration: underline; }
-
-/* ─── "Email sent" sub-view ────────────────────────── */
-
-.al-login__sent {
+.auth__notice {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--al-space-3);
-    padding: var(--al-space-5) var(--al-space-4);
-    background: var(--al-surface-2);
-    border-radius: var(--al-radius);
     text-align: center;
-}
-
-.al-login__sent svg {
-    color: var(--al-success);
-}
-
-.al-login__sent p {
-    margin: 0;
-    font-size: var(--al-font-size-sm);
+    padding: var(--al-space-5);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius);
     color: var(--al-text-muted);
-    line-height: var(--al-leading-normal);
-    max-width: 32ch;
-}
-
-/* ─── Mobile / narrow ───────────────────────────────── */
-
-@media (max-width: 880px) {
-    .al-login {
-        grid-template-columns: 1fr;
-        min-height: 100vh;
-    }
-
-    .al-login__brand {
-        padding: var(--al-space-5) var(--al-space-4);
-        border-right: 0;
-        border-bottom: 1px solid var(--al-border);
-    }
-
-    .al-login__brand-stage {
-        padding: var(--al-space-4) 0;
-        max-width: none;
-    }
-
-    .al-login__mark {
-        width: 96px;
-        height: 96px;
-        margin-bottom: var(--al-space-3);
-    }
-
-    .al-login__claim {
-        font-size: var(--al-font-size-xl);
-    }
-
-    .al-login__lede {
-        font-size: var(--al-font-size-sm);
-    }
-
-    .al-login__features { display: none; }
-    .al-login__brand-foot { display: none; }
-
-    .al-login__panel { padding: var(--al-space-5) var(--al-space-4); }
-}
-
-@media (max-width: 540px) {
-    .al-login__brand { padding: var(--al-space-4) var(--al-space-3); }
-    .al-login__panel { padding: var(--al-space-4) var(--al-space-3); }
-    .al-login__claim { font-size: var(--al-font-size-lg); }
+    font-size: var(--al-font-size-md);
 }

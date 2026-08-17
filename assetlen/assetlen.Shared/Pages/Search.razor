@@ -1,0 +1,324 @@
+@page "/search"
+@attribute [Authorize]
+@implements IDisposable
+@inject ShellState Shell
+@inject ILogger<Search> Logger
+
+@*
+    One search.
+
+    Peter's four searches — the promise document, the photo that proves a
+    promise, the material that was agreed, the sketch-and-ask — are one act:
+    holding a past commitment up against present reality. So results are
+    **grouped by what kind of thing they are**, never returned as a flat message
+    list, because a message list is what he already has and cannot read.
+
+    What this can reach today: projects, stages, Site Log entries and the
+    ingested record. What it cannot yet reach is text *inside* an image — the
+    receipt photographed and sent, which is the reason he scrolls. That needs
+    OCR on every artifact, and it is stated here rather than quietly missing,
+    because a search that silently fails to look somewhere is worse than one
+    that says where it looked.
+*@
+
+<PageTitle>Search — ASSETLEN</PageTitle>
+
+<div class="al-page">
+
+    <TitleBlock Eyebrow="Across your projects"
+                Title="Search"
+                Subtitle="What did I approve on the balustrade? Ask it the way you would say it." />
+
+    <div class="search__bar">
+        <div class="al-inputwrap">
+            <Icon Name="search" Size="16" />
+            <input class="al-input" type="search" autofocus
+                   placeholder="Balustrade, CEM II, retaining wall, receipt…"
+                   value="@term"
+                   @oninput="OnTermChanged"
+                   @onkeydown="OnKeyDown" />
+        </div>
+
+        <button type="button" class="al-btn al-btn--primary" disabled="@(searching || term.Length < 2)"
+                @onclick="RunAsync">
+            @if (searching)
+            {
+                <span class="al-spinner"></span>
+            }
+            Search
+        </button>
+    </div>
+
+    <p class="search__scope">
+        Looking in projects, stages, the Site Log and the ingested record.
+        Text inside photographs is not searchable yet.
+    </p>
+
+    @if (!hasRun)
+    {
+        <div class="al-empty">
+            <Icon Name="search" Size="40" Class="al-empty__icon" Weight="1.25" />
+            <h3 class="al-empty__title">Type what you remember</h3>
+            <p class="al-empty__body">
+                A word from the spec, a supplier's name, the stage it was on. Results come back
+                grouped by the thing they belong to, not in the order they were said.
+            </p>
+        </div>
+    }
+    else if (searching && Total == 0)
+    {
+        <div class="search__ghosts" aria-hidden="true">
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+        </div>
+    }
+    else if (Total == 0)
+    {
+        <div class="al-empty">
+            <Icon Name="search" Size="40" Class="al-empty__icon" Weight="1.25" />
+            <h3 class="al-empty__title">Nothing matched “@term”</h3>
+            <p class="al-empty__body">
+                Try a shorter word, or a supplier's name. If it only ever existed as a photograph of a
+                receipt, it will become findable when text inside images is indexed.
+            </p>
+        </div>
+    }
+    else
+    {
+        @if (projectHits.Count > 0)
+        {
+            <section class="search__group">
+                <div class="al-rule"><span class="al-label">Projects and stages</span></div>
+                <div class="al-sheet">
+                    <div class="al-register">
+                        @foreach (var hit in projectHits)
+                        {
+                            <a class="al-register__row" href="@hit.Href">
+                                <Icon Name="@hit.Icon" Size="18" Class="al-subtle" />
+                                <span class="al-register__main">
+                                    <span class="al-register__title">@hit.Title</span>
+                                    <span class="al-register__sub"><span>@hit.Context</span></span>
+                                </span>
+                                <span class="al-register__end">
+                                    <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                </span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+
+        @if (entryHits.Count > 0)
+        {
+            <section class="search__group">
+                <div class="al-rule"><span class="al-label">Site Log</span></div>
+                <div class="al-sheet">
+                    <div class="al-register">
+                        @foreach (var hit in entryHits)
+                        {
+                            <a class="al-register__row" href="@hit.Href">
+                                <span class="al-register__index">@hit.Stamp</span>
+                                <span class="al-register__main">
+                                    <span class="al-register__title al-clamp-2">@hit.Title</span>
+                                    <span class="al-register__sub"><span>@hit.Context</span></span>
+                                </span>
+                                <span class="al-register__end">
+                                    <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                </span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+
+        @if (messageHits.Count > 0)
+        {
+            <section class="search__group">
+                <div class="al-rule"><span class="al-label">Ingested record</span></div>
+                <div class="al-sheet">
+                    <div class="al-register">
+                        @foreach (var hit in messageHits)
+                        {
+                            <a class="al-register__row" href="@hit.Href">
+                                <span class="al-register__index">@hit.Stamp</span>
+                                <span class="al-register__main">
+                                    <span class="al-register__title al-clamp-2">@hit.Title</span>
+                                    <span class="al-register__sub"><span>@hit.Context</span></span>
+                                </span>
+                                <span class="al-register__end">
+                                    <Icon Name="chevron-right" Size="16" Class="al-subtle" />
+                                </span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private string term = "";
+    private bool searching;
+    private bool hasRun;
+    private CancellationTokenSource? debounce;
+
+    private readonly List<Hit> projectHits = new();
+    private readonly List<Hit> entryHits = new();
+    private readonly List<Hit> messageHits = new();
+
+    private int Total => projectHits.Count + entryHits.Count + messageHits.Count;
+
+    public void Dispose() => debounce?.Cancel();
+
+    private async Task OnTermChanged(ChangeEventArgs e)
+    {
+        term = e.Value?.ToString() ?? "";
+
+        // Debounced, because each keystroke otherwise fans out across every
+        // project — a phone on a site connection would spend the whole session
+        // cancelling its own requests.
+        debounce?.Cancel();
+        debounce = new CancellationTokenSource();
+        var token = debounce.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            if (!token.IsCancellationRequested && term.Trim().Length >= 2) await RunAsync();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && term.Trim().Length >= 2) await RunAsync();
+    }
+
+    private async Task RunAsync()
+    {
+        var needle = term.Trim();
+        if (needle.Length < 2) return;
+
+        searching = true;
+        hasRun = true;
+        projectHits.Clear();
+        entryHits.Clear();
+        messageHits.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var projects = Shell.Roots.SelectMany(r => new[] { r }.Concat(r.Children)).ToList();
+
+            foreach (var project in projects)
+            {
+                if (Contains(project.Name, needle))
+                {
+                    projectHits.Add(new Hit(project.Name, "Project", $"/project/{project.Id}", "project", null));
+                }
+
+                await SearchStagesAsync(project, needle);
+                await SearchEntriesAsync(project, needle);
+                await SearchIngestedAsync(project, needle);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Search failed for {Term}", needle);
+            ToastService.ShowError("Search could not complete.");
+        }
+        finally
+        {
+            searching = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SearchStagesAsync(ProjectRef project, string needle)
+    {
+        try
+        {
+            var response = await _stagesApi.GetStagesByProjectId(project.Id);
+            if (!response.IsSuccessStatusCode || response.Content is null) return;
+
+            foreach (var stage in response.Content
+                .Where(s => Contains(s.StageName, needle) || Contains(s.Description, needle)))
+            {
+                projectHits.Add(new Hit(
+                    stage.StageName ?? "Stage",
+                    $"Stage · {project.Name}",
+                    $"/project/{project.Id}/stage/{stage.Id}",
+                    "stage",
+                    null));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Stage search failed on {ProjectId}", project.Id);
+        }
+    }
+
+    private async Task SearchEntriesAsync(ProjectRef project, string needle)
+    {
+        try
+        {
+            var response = await _progressApi.GetProgressUpdates(project.Id, null, 0, 100);
+            if (!response.IsSuccessStatusCode || response.Content?.Data is null) return;
+
+            foreach (var entry in response.Content.Data.Where(e => Contains(e.Description, needle)))
+            {
+                entryHits.Add(new Hit(
+                    entry.Description ?? "",
+                    $"{project.Name}{(string.IsNullOrEmpty(entry.StageName) ? "" : " · " + entry.StageName)}",
+                    $"/project/{project.Id}/entry/{entry.Id}",
+                    "log",
+                    Fmt.DateShort(entry.DateTimeCreated)));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Entry search failed on {ProjectId}", project.Id);
+        }
+    }
+
+    private async Task SearchIngestedAsync(ProjectRef project, string needle)
+    {
+        try
+        {
+            // 404 here is the correct answer for a client-side reader: the
+            // ingested pile belongs to the side that imported it.
+            var response = await _ingestApi.GetMessages(new IngestedMessageQueryDto
+            {
+                ProjectId = project.Id,
+                Search = needle,
+                Take = 25
+            });
+
+            if (!response.IsSuccessStatusCode || response.Content?.Messages is null) return;
+
+            foreach (var message in response.Content.Messages)
+            {
+                messageHits.Add(new Hit(
+                    message.Body ?? message.MediaFileName ?? "(attachment)",
+                    $"{project.Name} · {message.ExternalAuthor ?? "unknown sender"}",
+                    $"/project/{project.Id}/history",
+                    "history",
+                    Fmt.DateShort(message.SentAt)));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Ingested search failed on {ProjectId}", project.Id);
+        }
+    }
+
+    private static bool Contains(string? haystack, string needle)
+        => !string.IsNullOrEmpty(haystack)
+           && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+    private sealed record Hit(string Title, string Context, string Href, string Icon, string? Stamp);
+}

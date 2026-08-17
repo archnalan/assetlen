@@ -1,0 +1,316 @@
+@page "/project/{ProjectId}/brief"
+@attribute [Authorize]
+@inject ILogger<ProjectBrief> Logger
+
+@*
+    The daily brief.
+
+    **Grouped by the work, never by posting order.** On 25 February the
+    contractor posted seventeen photographs inside one minute; two hours later
+    the developer replied *"Nothing much changed."* Seventeen frames in
+    chronological order communicated less than one same-vantage-point pair
+    would have. Chronology is what makes a chat unreadable, so this page does
+    not have a timeline in it.
+
+    It assembles itself. Nothing here waits for anybody to curate it, which is
+    Law 0: the brief has to publish whether or not the contractor logged in.
+*@
+
+<PageTitle>Daily brief — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="brief" Eyebrow="Daily brief"
+             Subtitle="Grouped by the work you are paying for — not by the order things were posted." Context="ctx">
+
+    @* ── Day picker ─────────────────────────────────────────────────────── *@
+    <div class="brief__bar">
+        <button type="button" class="al-iconbtn al-iconbtn--bordered" @onclick="() => ShiftDay(-1)"
+                aria-label="Previous day">
+            <Icon Name="chevron-left" Size="18" />
+        </button>
+
+        <div class="brief__day">
+            <span class="al-label">@RelativeDayLabel</span>
+            <span class="brief__day-date">@Fmt.Date(day)</span>
+        </div>
+
+        <button type="button" class="al-iconbtn al-iconbtn--bordered" @onclick="() => ShiftDay(1)"
+                disabled="@(day.Date >= DateTime.Now.Date)" aria-label="Next day">
+            <Icon Name="chevron-right" Size="18" />
+        </button>
+
+        <span class="al-spacer"></span>
+
+        <div class="al-segmented" role="group" aria-label="Window">
+            @foreach (var option in Windows)
+            {
+                <button type="button" class="al-segmented__item @(windowDays == option.Days ? "is-active" : "")"
+                        aria-selected="@(windowDays == option.Days)"
+                        @onclick="() => SetWindow(option.Days)">
+                    @option.Label
+                </button>
+            }
+        </div>
+    </div>
+
+    @* ── The trust condition, stated plainly once ───────────────────────── *@
+    @if (ctx.IsClientSide)
+    {
+        <div class="al-alert al-alert--info brief__rule">
+            <Icon Name="shield" Size="18" />
+            <div>
+                <strong class="al-alert__title">What you see, and what you don't</strong>
+                <span>
+                    You see anything that moves money, moves a date, changes an agreed spec, or that
+                    you owe a decision on — plus evidence on stages you funded. You do not see the
+                    ordinary volume of site life. @(MediatorName ?? "The mediator") controls emphasis.
+                    They do not control those facts.
+                </span>
+            </div>
+        </div>
+    }
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The brief didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="brief"
+                EmptyTitle="@EmptyTitle"
+                EmptyBody="Nothing was captured against a stage in this window. Widen it, or step back a day.">
+        <ChildContent>
+
+            @foreach (var block in blocks)
+            {
+                <section class="brief__block">
+                    <header class="brief__block-head">
+                        <div>
+                            <span class="al-label">@(block.StageStatus ?? "Stage")</span>
+                            <h2 class="brief__block-title">@block.StageName</h2>
+                        </div>
+                        @if (block.StageId is not null)
+                        {
+                            <a class="al-btn al-btn--link" href="/project/@ProjectId/stage/@block.StageId">
+                                Open stage <Icon Name="arrow-right" Size="14" />
+                            </a>
+                        }
+                    </header>
+
+                    @* One progress line per block, not one per post — the block
+                       says where the work stands, the entries say what changed. *@
+                    @if (block.Completion is not null)
+                    {
+                        <div class="brief__progress">
+                            <div class="al-meter">
+                                <span class="al-meter__seg al-meter__seg--cleared"
+                                      style="width:@(Math.Clamp(block.Completion.Value, 0, 100))%"></span>
+                            </div>
+                            <span class="al-num brief__progress-label">@Fmt.Percent(block.Completion.Value) built</span>
+                        </div>
+                    }
+
+                    <div class="brief__entries">
+                        @foreach (var entry in block.Entries)
+                        {
+                            <article class="brief__entry">
+                                <a class="brief__entry-main" href="/project/@ProjectId/entry/@entry.Id">
+                                    <p class="brief__entry-text">@entry.Description</p>
+                                    <span class="brief__entry-meta">
+                                        <span>@Fmt.DateTimeFull(entry.DateTimeCreated)</span>
+                                        @if (ctx.IsClientSide)
+                                        {
+                                            <span>@(MediatorName ?? entry.CreatedByName)</span>
+                                        }
+                                        else if (!string.IsNullOrEmpty(entry.CreatedByName))
+                                        {
+                                            <span>@entry.CreatedByName</span>
+                                        }
+                                        @if (entry.HasIssues)
+                                        {
+                                            <span class="al-badge al-badge--warning">Issue raised</span>
+                                        }
+                                    </span>
+                                </a>
+
+                                @if (entry.Images.Count > 0)
+                                {
+                                    <div class="brief__frames">
+                                        @foreach (var image in entry.Images.Take(3))
+                                        {
+                                            <a class="al-media al-media--thumb brief__frame"
+                                               href="/project/@ProjectId/entry/@entry.Id">
+                                                <img src="@(image.ThumbnailUrl ?? image.ImageUrl)" alt="" loading="lazy" />
+                                            </a>
+                                        }
+                                    </div>
+
+                                    @if (entry.ImageCount > entry.Images.Count)
+                                    {
+                                        <p class="brief__frames-note">
+                                            @entry.Images.Count of @entry.ImageCount frames shared with you.
+                                        </p>
+                                    }
+                                }
+                            </article>
+                        }
+                    </div>
+                </section>
+            }
+
+        </ChildContent>
+    </StateBlock>
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private DateTime day = DateTime.Now.Date;
+    private int windowDays = 1;
+    private List<StageDto> stages = new();
+    private List<BriefBlock> blocks = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? MediatorName;
+    private string? loadedId;
+
+    private static readonly (int Days, string Label)[] Windows =
+    [
+        (1, "Day"), (7, "Week"), (30, "Month")
+    ];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task ShiftDay(int delta)
+    {
+        var next = day.AddDays(delta);
+        if (next.Date > DateTime.Now.Date) return;
+        day = next;
+        await LoadAsync();
+    }
+
+    private async Task SetWindow(int days)
+    {
+        windowDays = days;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var stagesTask = _stagesApi.GetStagesByProjectId(ProjectId);
+
+            // The server has already filtered to what this reader may see, and
+            // exposed frames only. Pulling a generous page and grouping in the
+            // browser costs one round trip instead of one per stage.
+            var entriesTask = _progressApi.GetProgressUpdates(ProjectId, null, 0, 60);
+            var membersTask = _projectMembersApi.GetMembersByProject(ProjectId);
+
+            await Task.WhenAll(stagesTask, entriesTask, membersTask);
+
+            if (!entriesTask.Result.IsSuccessStatusCode)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(entriesTask.Result);
+                return;
+            }
+
+            stages = (stagesTask.Result.IsSuccessStatusCode ? stagesTask.Result.Content ?? new() : new())
+                .OrderBy(s => s.DisplayOrder).ToList();
+
+            // One accountable face. Everything a client-side reader sees is
+            // attributed to the mediator, whoever actually produced it (§10.1).
+            MediatorName = membersTask.Result.IsSuccessStatusCode
+                ? membersTask.Result.Content?
+                    .FirstOrDefault(m => m.IsMediator && m.IsActive)?
+                    .UserFullName
+                : null;
+
+            var from = day.Date.AddDays(-(windowDays - 1));
+            var to = day.Date.AddDays(1);
+
+            var entries = (entriesTask.Result.Content?.Data ?? new())
+                .Where(e => e.DateTimeCreated is { } d && d.ToLocalTime() >= from && d.ToLocalTime() < to)
+                .ToList();
+
+            Group(entries);
+            phase = blocks.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Brief failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    /// <summary>
+    /// Groups by stage and orders blocks the way the work is ordered, not the
+    /// way the posts arrived. Entries inside a block stay newest-first so the
+    /// current state of that piece of work is the first thing read.
+    /// </summary>
+    private void Group(List<ProgressUpdateDto> entries)
+    {
+        var byStage = entries
+            .GroupBy(e => e.StageId ?? "")
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.DateTimeCreated).ToList());
+
+        blocks = new List<BriefBlock>();
+
+        foreach (var stage in stages)
+        {
+            if (!byStage.TryGetValue(stage.Id, out var stageEntries)) continue;
+
+            blocks.Add(new BriefBlock(
+                StageId: stage.Id,
+                StageName: stage.StageName ?? "Stage",
+                StageStatus: StatusLabel(stage.Status),
+                Completion: stage.CompletionPercentage,
+                Entries: stageEntries));
+        }
+
+        // Anything captured without a stage still has to reach the reader. It
+        // goes last, named for what it is rather than hidden.
+        if (byStage.TryGetValue("", out var loose) && loose.Count > 0)
+        {
+            blocks.Add(new BriefBlock(null, "Not against a stage", null, null, loose));
+        }
+    }
+
+    private static string StatusLabel(StageStatus status) => status switch
+    {
+        StageStatus.Completed => "Completed",
+        StageStatus.InProgress => "In progress",
+        _ => "Not started"
+    };
+
+    private string RelativeDayLabel
+    {
+        get
+        {
+            var label = day.Date == DateTime.Now.Date ? "Today"
+                      : day.Date == DateTime.Now.Date.AddDays(-1) ? "Yesterday"
+                      : day.ToString("dddd");
+
+            return windowDays == 1 ? label : $"{windowDays} days to {label.ToLowerInvariant()}";
+        }
+    }
+
+    private string EmptyTitle => windowDays == 1
+        ? "Nothing was captured on this day"
+        : "Nothing was captured in this window";
+
+    private sealed record BriefBlock(
+        string? StageId,
+        string StageName,
+        string? StageStatus,
+        decimal? Completion,
+        List<ProgressUpdateDto> Entries);
+}

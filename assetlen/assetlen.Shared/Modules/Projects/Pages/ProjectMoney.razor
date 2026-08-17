@@ -1,0 +1,393 @@
+@page "/project/{ProjectId}/money"
+@attribute [Authorize]
+@inject ILogger<ProjectMoney> Logger
+
+@*
+    The stage money position.
+
+    This is the screen that exists because of one hour in the evidence thread:
+    *"That is confusing me. We need to go step by step. Too many stages combined.
+    I want to know if they were cleared or not."* — settled only by meeting in
+    person the next morning.
+
+    So the discipline here is: one row per stage, never combined, and four
+    columns that always mean the same thing —
+
+        funded    what the developer has released against this stage
+        budget    what the stage was priced at
+        balance   budget minus funded: what is still to come
+        state     whether the release has been acknowledged
+
+    Figures are exact and never abbreviated. A number somebody is reconciling
+    against a bank statement must not be rounded to "74M".
+*@
+
+<PageTitle>Stages &amp; money — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="money" Eyebrow="Stages &amp; money"
+             Subtitle="One row per stage. Nothing combined." Context="ctx">
+
+    @if (!CanSeeMoney)
+    {
+        <div class="al-empty">
+            <Icon Name="lock" Size="40" Class="al-empty__icon" Weight="1.25" />
+            <h3 class="al-empty__title">Money is not part of your seat</h3>
+            <p class="al-empty__body">
+                The delivery side captures work and raises claims; what has been released against a
+                stage is between the developer and the mediator.
+            </p>
+        </div>
+    }
+    else
+    {
+        <StateBlock Phase="phase" OnRetry="LoadAsync"
+                    ErrorTitle="The money position didn't load"
+                    ErrorMessage="@errorMessage"
+                    EmptyIcon="money"
+                    EmptyTitle="No stages to report on"
+                    EmptyBody="Add a stage and the funded-versus-budget position appears here.">
+            <ChildContent>
+
+                @* ── The whole-project position ─────────────────────────── *@
+                <section>
+                    <div class="al-statrow">
+                        <div class="al-stat">
+                            <span class="al-label">Budget</span>
+                            <span class="al-stat__value">@Fmt.Money(TotalBudget, ctx.Currency)</span>
+                            <span class="al-stat__note">across @rows.Count stages</span>
+                        </div>
+                        <div class="al-stat">
+                            <span class="al-label">Released</span>
+                            <span class="al-stat__value">@Fmt.Money(TotalFunded, ctx.Currency)</span>
+                            <span class="al-stat__note">@Fmt.Percent(FundedPercent) of budget</span>
+                        </div>
+                        <div class="al-stat">
+                            <span class="al-label">Still to come</span>
+                            <span class="al-stat__value">@Fmt.Money(TotalBudget - TotalFunded, ctx.Currency)</span>
+                            <span class="al-stat__note">not yet released</span>
+                        </div>
+                        <div class="al-stat @(TotalPending > 0 ? "al-stat--warning" : "")">
+                            <span class="al-label">Awaiting confirmation</span>
+                            <span class="al-stat__value">@Fmt.Money(TotalPending, ctx.Currency)</span>
+                            <span class="al-stat__note">
+                                @(TotalPending > 0 ? "recorded, not yet acknowledged" : "nothing outstanding")
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="money__bar">
+                        <div class="al-meter al-meter--lg">
+                            <span class="al-meter__seg al-meter__seg--cleared"
+                                  style="width:@(Pct(TotalConfirmed, TotalBudget))%"></span>
+                            <span class="al-meter__seg al-meter__seg--claimed"
+                                  style="width:@(Pct(TotalPending, TotalBudget))%"></span>
+                        </div>
+                        <div class="al-legend">
+                            <span class="al-legend__item">
+                                <span class="al-legend__swatch money__swatch--cleared"></span> Released and confirmed
+                            </span>
+                            <span class="al-legend__item">
+                                <span class="al-legend__swatch money__swatch--claimed"></span> Released, awaiting confirmation
+                            </span>
+                            <span class="al-legend__item">
+                                <span class="al-legend__swatch money__swatch--rest"></span> Not yet released
+                            </span>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── Per stage ──────────────────────────────────────────── *@
+                <section>
+                    <div class="al-rule">
+                        <span class="al-label">Stage by stage</span>
+                        @if (ctx.CanManage)
+                        {
+                            <a class="al-btn al-btn--link" href="/project/@ProjectId/add-funding">Record a release</a>
+                        }
+                    </div>
+
+                    <div class="al-sheet al-sheet--ticked">
+                        <div class="al-table-wrap">
+                            <table class="al-table">
+                                <thead>
+                                    <tr>
+                                        <th>Stage</th>
+                                        <th class="num">Budget</th>
+                                        <th class="num">Released</th>
+                                        <th class="num">Balance</th>
+                                        <th>State</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in rows)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <a class="money__stage" href="/project/@ProjectId/stage/@row.Stage.Id">
+                                                    <span class="money__stage-no">@row.Stage.DisplayOrder.ToString("D2")</span>
+                                                    <span>
+                                                        <span class="money__stage-name">@row.Stage.StageName</span>
+                                                        <span class="money__stage-note">@StageStatusLabel(row.Stage)</span>
+                                                    </span>
+                                                </a>
+                                            </td>
+                                            <td class="num">@Fmt.Amount(row.Budget)</td>
+                                            <td class="num">@Fmt.Amount(row.Funded)</td>
+                                            <td class="num @(row.Balance < 0 ? "money__over" : "")">@Fmt.Amount(row.Balance)</td>
+                                            <td>
+                                                @if (row.Pending > 0)
+                                                {
+                                                    <span class="al-badge al-badge--warning" title="@Fmt.Money(row.Pending, ctx.Currency) recorded but not acknowledged">
+                                                        @Fmt.MoneyShort(row.Pending, null) unconfirmed
+                                                    </span>
+                                                }
+                                                else if (row.Funded <= 0)
+                                                {
+                                                    <span class="al-badge al-badge--neutral">Not funded</span>
+                                                }
+                                                else if (row.Balance <= 0)
+                                                {
+                                                    <span class="al-badge al-badge--success">Fully released</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="al-badge al-badge--accent">Part released</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td>Total</td>
+                                        <td class="num">@Fmt.Amount(TotalBudget)</td>
+                                        <td class="num">@Fmt.Amount(TotalFunded)</td>
+                                        <td class="num">@Fmt.Amount(TotalBudget - TotalFunded)</td>
+                                        <td>@ctx.Currency</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── Every release, in order ────────────────────────────── *@
+                <section>
+                    <div class="al-rule"><span class="al-label">Releases</span></div>
+
+                    @if (funding.Count == 0)
+                    {
+                        <div class="al-empty">
+                            <Icon Name="money" Size="40" Class="al-empty__icon" Weight="1.25" />
+                            <h3 class="al-empty__title">Nothing released yet</h3>
+                            <p class="al-empty__body">
+                                Assetlen records that a stage was funded. The transfer itself happens at the bank —
+                                we never hold or move money.
+                            </p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="al-sheet">
+                            <div class="al-register">
+                                @foreach (var entry in funding)
+                                {
+                                    <div class="al-register__row @(entry.Status == FundingStatus.Pending ? "al-register__row--needs-you" : "")">
+                                        <span class="al-register__index">@Fmt.DateShort(entry.PaymentDate)</span>
+                                        <span class="al-register__main">
+                                            <span class="al-register__title">@(entry.StageName ?? "Project-wide")</span>
+                                            <span class="al-register__sub">
+                                                @if (!string.IsNullOrEmpty(entry.PaidByName))
+                                                {
+                                                    <span>from @entry.PaidByName</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(entry.Notes))
+                                                {
+                                                    <span>@entry.Notes</span>
+                                                }
+                                            </span>
+                                        </span>
+                                        <span class="al-register__end">
+                                            <span class="al-register__amount">@Fmt.Amount(entry.Amount)</span>
+                                            @if (entry.Status == FundingStatus.Confirmed)
+                                            {
+                                                <span class="al-badge al-badge--success" title="Acknowledged @Fmt.Date(entry.ConfirmationDate)">
+                                                    <Icon Name="check" Size="11" /> Confirmed
+                                                </span>
+                                            }
+                                            else if (entry.Status == FundingStatus.Rejected)
+                                            {
+                                                <span class="al-badge al-badge--danger">Disputed</span>
+                                            }
+                                            else if (ctx.CanWrite && !IsMyOwnPayment(entry))
+                                            {
+                                                <button type="button" class="al-btn al-btn--default al-btn--sm"
+                                                        disabled="@(confirming == entry.Id)"
+                                                        @onclick="() => ConfirmAsync(entry)">
+                                                    @if (confirming == entry.Id)
+                                                    {
+                                                        <span class="al-spinner"></span>
+                                                    }
+                                                    Confirm receipt
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <span class="al-badge al-badge--warning">Awaiting confirmation</span>
+                                            }
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </section>
+
+                <p class="money__footnote">
+                    Assetlen records that a stage was funded and released. It never holds or moves money —
+                    the transfer happens at the bank.
+                </p>
+
+            </ChildContent>
+        </StateBlock>
+    }
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+
+    private List<StageDto> stages = new();
+    private List<FundingEntryDto> funding = new();
+    private List<StageMoneyRow> rows = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? confirming;
+    private string? loadedId;
+
+    private bool CanSeeMoney => _sd.CurrentUser?.RolesDto?.CanSeeFinancials == true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        if (CanSeeMoney) await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var stagesTask = _stagesApi.GetStagesByProjectId(ProjectId);
+            var fundingTask = _fundingApi.GetFundingByProject(ProjectId);
+            await Task.WhenAll(stagesTask, fundingTask);
+
+            if (!stagesTask.Result.IsSuccessStatusCode)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(stagesTask.Result);
+                return;
+            }
+
+            stages = (stagesTask.Result.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList();
+
+            funding = (fundingTask.Result.IsSuccessStatusCode ? fundingTask.Result.Content ?? new() : new())
+                .OrderByDescending(f => f.PaymentDate ?? DateTime.MinValue)
+                .ToList();
+
+            Recompute();
+            phase = rows.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Money position failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    /// <summary>
+    /// Rolls releases up per stage.
+    /// <para>
+    /// Deliberately computed here from the raw entries rather than trusting
+    /// <c>StageDto.FundedAmount</c>: a pending release is money the developer
+    /// has sent and the other side has not acknowledged, and the difference
+    /// between those two states is the entire point of this screen.
+    /// </para>
+    /// </summary>
+    private void Recompute()
+    {
+        rows = stages.Select(stage =>
+        {
+            var forStage = funding.Where(f => f.StageId == stage.Id).ToList();
+            var confirmed = forStage.Where(f => f.Status == FundingStatus.Confirmed).Sum(f => f.Amount);
+            var pending = forStage.Where(f => f.Status == FundingStatus.Pending).Sum(f => f.Amount);
+
+            return new StageMoneyRow(stage, stage.BudgetAmount ?? 0, confirmed + pending, confirmed, pending);
+        }).ToList();
+    }
+
+    private async Task ConfirmAsync(FundingEntryDto entry)
+    {
+        confirming = entry.Id;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _fundingApi.ConfirmFunding(new FundingConfirmDto
+            {
+                FundingEntryId = entry.Id,
+                IsConfirmed = true
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                ToastService.ShowSuccess($"{Fmt.Money(entry.Amount)} confirmed against {entry.StageName ?? "the project"}.");
+                await LoadAsync();
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not confirm funding {FundingId}", entry.Id);
+            ToastService.ShowError("Could not confirm that release.");
+        }
+        finally
+        {
+            confirming = null;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>The payer does not confirm their own release — the point is acknowledgement by the other side.</summary>
+    private bool IsMyOwnPayment(FundingEntryDto entry) => entry.PaidById == _sd.CurrentUser?.Id;
+
+    private decimal TotalBudget => rows.Sum(r => r.Budget);
+    private decimal TotalFunded => rows.Sum(r => r.Funded);
+    private decimal TotalConfirmed => rows.Sum(r => r.Confirmed);
+    private decimal TotalPending => rows.Sum(r => r.Pending);
+    private decimal FundedPercent => TotalBudget <= 0 ? 0 : Math.Round(TotalFunded / TotalBudget * 100, 1);
+
+    private static decimal Pct(decimal part, decimal whole)
+        => whole <= 0 ? 0 : Math.Clamp(Math.Round(part / whole * 100, 2), 0, 100);
+
+    private static string StageStatusLabel(StageDto s) => s.Status switch
+    {
+        StageStatus.Completed => $"Completed {Fmt.DateShort(s.ActualEndDate)}",
+        StageStatus.InProgress => $"In progress · {Fmt.Percent(s.CompletionPercentage ?? 0)}",
+        _ => "Not started"
+    };
+
+    private sealed record StageMoneyRow(
+        StageDto Stage, decimal Budget, decimal Funded, decimal Confirmed, decimal Pending)
+    {
+        public decimal Balance => Budget - Funded;
+    }
+}

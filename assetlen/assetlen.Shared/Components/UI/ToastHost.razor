@@ -1,0 +1,57 @@
+@implements IDisposable
+@inject IToastService Toasts
+
+<div class="al-toasts" aria-live="polite" aria-atomic="false">
+    @foreach (var t in Toasts.Current)
+    {
+        <div class="al-toast al-toast--@t.Kind.ToString().ToLowerInvariant()" @key="t.Id" role="status">
+            <Icon Name="@IconFor(t.Kind)" Size="18" Class="al-toast__icon" />
+            <div class="al-toast__body">
+                @if (t.Title is not null)
+                {
+                    <strong class="al-toast__title">@t.Title</strong>
+                }
+                <span>@t.Message</span>
+            </div>
+            <button type="button" class="al-toast__close" aria-label="Dismiss"
+                    @onclick="() => Toasts.Dismiss(t.Id)">
+                <Icon Name="close" Size="15" />
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly HashSet<string> _timed = new();
+
+    protected override void OnInitialized() => Toasts.OnChange += Refresh;
+
+    public void Dispose() => Toasts.OnChange -= Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Auto-dismiss is scheduled once per toast, after it has rendered, so a
+        // re-render caused by an unrelated toast never restarts the clock.
+        foreach (var t in Toasts.Current.Where(t => t.DurationMs > 0 && !_timed.Contains(t.Id)).ToList())
+        {
+            _timed.Add(t.Id);
+            var id = t.Id;
+            var ms = t.DurationMs;
+            _ = Task.Delay(ms).ContinueWith(_ => InvokeAsync(() =>
+            {
+                Toasts.Dismiss(id);
+                _timed.Remove(id);
+            }));
+        }
+    }
+
+    private static string IconFor(ToastKind kind) => kind switch
+    {
+        ToastKind.Success => "check-circle",
+        ToastKind.Warning => "alert",
+        ToastKind.Error   => "error",
+        _                 => "info"
+    };
+}

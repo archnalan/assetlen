@@ -1,0 +1,206 @@
+@*
+    The frame every project screen renders inside.
+
+    It does four things once, so that eleven pages do not each do them slightly
+    differently: resolves the project, resolves the caller's standing on it,
+    renders the title block, and renders the section strip. Pages receive a
+    loaded context and get on with their own job.
+
+    The section strip is filtered by standing, not by role. A tab that leads to
+    a 404 is worse than an absent tab — it tells the reader the product is
+    broken rather than that the door is not theirs.
+*@
+
+@implements IDisposable
+@inject ShellState Shell
+@inject NavigationManager Nav
+
+<div class="al-page">
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="This project didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyTitle="Project not found"
+                EmptyIcon="project"
+                EmptyBody="The link may be out of date, or you may no longer be on this project.">
+        <Loading>
+            <div class="projectpage__ghost">
+                <div class="al-shimmer al-ghost-line al-ghost-line--short"></div>
+                <div class="al-shimmer al-ghost-line al-ghost-line--title"></div>
+                <div class="al-shimmer al-ghost-row"></div>
+                <div class="al-shimmer al-ghost-row"></div>
+                <div class="al-shimmer al-ghost-row"></div>
+            </div>
+        </Loading>
+
+        <ChildContent>
+            <TitleBlock Eyebrow="@Eyebrow"
+                        Title="@(project!.ProjectName ?? "Project")"
+                        Subtitle="@Subtitle">
+                <Meta>
+                    <div class="al-meta">
+                        <span class="al-label">Location</span>
+                        <span class="al-meta__value">@(project.Location ?? "—")</span>
+                    </div>
+                    <div class="al-meta">
+                        <span class="al-label">Budget</span>
+                        <span class="al-meta__value">@Fmt.MoneyShort(project.TotalBudget ?? 0, project.Currency)</span>
+                    </div>
+                    <div class="al-meta">
+                        <span class="al-label">Your side</span>
+                        <span class="al-meta__value">@SideLabel</span>
+                    </div>
+                </Meta>
+
+                <Below>
+                    @if (project.ParentProjectId is not null)
+                    {
+                        <span class="al-badge al-badge--neutral">
+                            <Icon Name="wing" Size="11" /> Sub-project of @(project.ParentProjectName ?? "the parent")
+                        </span>
+                    }
+                    @if (access?.IsMediator == true)
+                    {
+                        <span class="al-badge al-badge--accent" title="Everything that crosses to the client side carries your name.">
+                            <Icon Name="shield" Size="11" /> Accountable face
+                        </span>
+                    }
+                    <span class="al-badge @(project.Status == ProjectStatus.Active ? "al-badge--success" : "al-badge--neutral")">
+                        @Fmt.Humanise(project.Status.ToString())
+                    </span>
+                </Below>
+            </TitleBlock>
+
+            <nav class="al-tabs projectpage__tabs" aria-label="Project sections">
+                @foreach (var tab in VisibleTabs)
+                {
+                    <a href="@Href(tab.Slug)"
+                       class="al-tabs__tab @(tab.Slug == Section ? "is-active" : "")"
+                       aria-selected="@(tab.Slug == Section)">
+                        <Icon Name="@tab.Icon" Size="16" />
+                        <span>@tab.Label</span>
+                    </a>
+                }
+            </nav>
+
+            <div class="projectpage__body">
+                @ChildContent(new ProjectPageContext(project, access!))
+            </div>
+        </ChildContent>
+    </StateBlock>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    /// <summary>Slug of the section this page is. Must match one of the tabs below.</summary>
+    [Parameter, EditorRequired] public string Section { get; set; } = "overview";
+
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+
+    [Parameter, EditorRequired] public RenderFragment<ProjectPageContext> ChildContent { get; set; } = default!;
+
+    private ProjectDto? project;
+    private ProjectAccessDto? access;
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? loadedId;
+
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
+    // Moving between sections keeps the same component instance, so a plain
+    // OnParametersSet would refetch the project on every tab click.
+    private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
+        => InvokeAsync(StateHasChanged);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Standing and project are independent; fetching them in sequence
+            // doubles the wait on a phone connection for no reason.
+            var projectTask = _projectsRSApi.GetProjectById(ProjectId);
+            var standingTask = _projectMembersApi.GetMyStanding(ProjectId);
+            await Task.WhenAll(projectTask, standingTask);
+
+            var projectResponse = projectTask.Result;
+            var standingResponse = standingTask.Result;
+
+            if (!projectResponse.IsSuccessStatusCode || projectResponse.Content is null)
+            {
+                // A project the caller has no standing on answers 404, not 403 —
+                // a refusal would confirm it exists. Render "not found" to match.
+                phase = (int)projectResponse.StatusCode is 404 or 403 ? LoadPhase.Empty : LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(projectResponse);
+                return;
+            }
+
+            project = projectResponse.Content;
+            access = standingResponse.IsSuccessStatusCode ? standingResponse.Content : null;
+
+            // Everything the chrome needs to render a name-based trail.
+            Shell.Remember(project.Id, project.ProjectName, project.ParentProjectId);
+            if (project.ParentProjectId is not null && project.ParentProjectName is not null)
+                Shell.Remember(project.ParentProjectId, project.ParentProjectName);
+            foreach (var sub in project.SubProjects) Shell.Remember(sub.Id, sub.ProjectName, project.Id);
+
+            loadedId = ProjectId;
+            phase = LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private string Href(string slug) => slug == "overview" ? $"/project/{ProjectId}" : $"/project/{ProjectId}/{slug}";
+
+    private string SideLabel => access?.Side switch
+    {
+        ProjectSide.Client => access.IsMediator ? "Client · mediator" : "Client",
+        ProjectSide.Contractor => access.IsMediator ? "Delivery · mediator" : "Delivery",
+        _ => "—"
+    };
+
+    private sealed record Tab(string Slug, string Label, string Icon, Func<ProjectAccessDto?, bool> Visible);
+
+    private static readonly Tab[] AllTabs =
+    [
+        new("overview",  "Overview",  "project",    _ => true),
+        new("brief",     "Brief",     "brief",      _ => true),
+        new("money",     "Money",     "money",      a => a?.CanRead == true),
+        new("register",  "Register",  "commitment", _ => true),
+        new("documents", "Drawings",  "drawing",    _ => true),
+
+        // The Site Log is the delivery side's unsanitised record. A client-side
+        // reader must not even see the tab: knowing it exists invites the
+        // question the two-surface model exists to avoid (assetlen.md §5).
+        new("log",       "Site Log",  "log",        a => a?.CanSeeSiteLog == true),
+
+        // Ingested material belongs to whoever imported it, and only the
+        // delivery side and mediators read the raw pile.
+        new("history",   "History",   "history",    a => a?.CanSeeSiteLog == true),
+
+        new("people",    "People",    "people",     _ => true),
+        new("settings",  "Settings",  "settings",   a => a?.CanManage == true)
+    ];
+
+    private IEnumerable<Tab> VisibleTabs => AllTabs.Where(t => t.Visible(access));
+}

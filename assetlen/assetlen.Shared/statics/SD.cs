@@ -2,7 +2,6 @@
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.Services;
 using Blazored.LocalStorage;
-using Microsoft.FluentUI.AspNetCore.Components;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;

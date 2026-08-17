@@ -1,0 +1,48 @@
+.overview__stage-meter {
+    display: block;
+    margin-top: var(--al-space-2);
+    max-width: 16rem;
+}
+
+.overview__subs { margin-top: var(--al-space-3); }
+
+/* The "go to" panel is a set of doorways, drawn as plan tiles rather than
+   buttons — this is orientation, not action. */
+.overview__jumps {
+    display: grid;
+    gap: var(--al-space-3);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+}
+
+.overview__jump {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    background: var(--al-bg-elevated);
+    color: var(--al-text-muted);
+    transition: border-color var(--al-transition-fast), background-color var(--al-transition-fast);
+}
+
+.overview__jump:hover {
+    border-color: var(--al-accent-line);
+    background: var(--al-surface);
+    color: var(--al-text);
+}
+
+/* The icon belongs to the Icon component, so it carries that component's scope
+   attribute and not this page's. ::deep is the only selector that reaches it. */
+.overview__jump ::deep > .al-icon { color: var(--al-accent); }
+
+.overview__jump-title {
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+}
+
+.overview__jump-note {
+    font-size: var(--al-font-size-xs);
+    line-height: var(--al-leading-snug);
+}

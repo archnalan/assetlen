@@ -180,9 +180,11 @@ public sealed class AttentionState
                 }
             }
 
-            // Crew and Guest have no financial visibility anywhere (CLAUDE.md §5.5),
-            // so an unconfirmed release must not even be counted for them.
-            if (_sd.CurrentUser?.RolesDto?.CanSeeFinancials == true)
+            // This queue is "releases waiting for ME to say the money landed",
+            // which only the delivery side can answer. Gating it on
+            // CanSeeFinancials included the client, whom the server refuses —
+            // and the refusal used to navigate the whole app away.
+            if (_sd.CurrentUser?.RolesDto is { } roles && (roles.Contractor || roles.Manager || roles.SystemAdmin))
             {
                 try
                 {

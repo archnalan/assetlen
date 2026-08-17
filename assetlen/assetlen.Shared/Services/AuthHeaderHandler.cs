@@ -94,18 +94,13 @@ namespace assetlen.Shared.Services
                     }
                 }
 
-                // Handle 403 Forbidden — redirect based on user role context
-                if (response.StatusCode == HttpStatusCode.Forbidden)
-                {
-                    var requestPath = request.RequestUri?.PathAndQuery ?? string.Empty;
-                    bool isAdminPath = requestPath.Contains("/admin", StringComparison.OrdinalIgnoreCase);
-                    bool userHasAdminLogin = _sd.CurrentUser?.RolesDto?.IsTenantAdmin == true;
-
-                    if (isAdminPath || userHasAdminLogin)
-                        _navigationManager.NavigateTo("/admin/dashboard");
-                    else
-                        _navigationManager.NavigateTo("/books");
-                }
+                // A 403 is an answer to the caller, not a navigation event. This
+                // used to redirect — to /books, a POS route deleted in Phase 0 —
+                // so one refused background call tore the reader off whatever
+                // page they were on and left them on a 404. It hit every
+                // principal who is not a tenant admin: the client's own
+                // dashboard scanned for pending releases, was refused, and the
+                // whole app jumped. Callers render their own refusal.
 
                 return response;
             }

@@ -62,7 +62,8 @@ public class ProjectAccessService : IProjectAccessService
             return new ProjectAccess(
                 ProjectAccessLevel.Manage,
                 ownerSide,
-                isMediator || (memberships.Count == 0 && isManager));
+                isMediator || (memberships.Count == 0 && isManager),
+                DeepestSeat(memberships.Select(m => m.Specialization)));
         }
 
         if (memberships.Count == 0)
@@ -74,7 +75,31 @@ public class ProjectAccessService : IProjectAccessService
             ? ProjectAccessLevel.Write
             : ProjectAccessLevel.Read;
 
-        return new ProjectAccess(level, HighestSide(memberships.Select(m => m.Side)), isMediator);
+        return new ProjectAccess(
+            level,
+            HighestSide(memberships.Select(m => m.Side)),
+            isMediator,
+            DeepestSeat(memberships.Select(m => m.Specialization)));
+    }
+
+    /// <summary>
+    /// The specialization to judge this reader by when they hold more than one
+    /// row — foreman on the house, architect on the wing. The wider seat wins,
+    /// for the same reason <see cref="HighestSide"/> exists: narrowing on the
+    /// strength of a second membership would take away something the first one
+    /// already granted.
+    /// </summary>
+    private static ProjectMemberSpecialization? DeepestSeat(IEnumerable<ProjectMemberSpecialization> specializations)
+    {
+        ProjectMemberSpecialization? widest = null;
+
+        foreach (var spec in specializations)
+        {
+            if (ProjectSeatDefaults.For(spec) == ProjectSeat.Principal) return spec;
+            if (widest is null || ProjectSeatDefaults.ReadsDrawings(spec)) widest = spec;
+        }
+
+        return widest;
     }
 
     /// <summary>

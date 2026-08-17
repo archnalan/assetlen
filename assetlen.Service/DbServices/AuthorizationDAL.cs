@@ -1512,7 +1512,15 @@ namespace assetlen.Service.DbServices
             }
             claims.Add(new Claim("TenantId", tenantId ?? "default"));
 
-            var expiryTime = DateTime.UtcNow.AddMinutes(10); // Changed from 3 days to 1 hour
+            // Short enough that a revoked role bites within the hour, long
+            // enough that the silent renewal below is rare. Peter reads for
+            // under a minute at a time (Peter.md) and must never come back to a
+            // sign-in screen because he put the phone down.
+            var accessMinutes = int.TryParse(_config["Jwt:AccessTokenMinutes"], out var configured) && configured > 0
+                ? configured
+                : 60;
+
+            var expiryTime = DateTime.UtcNow.AddMinutes(accessMinutes);
             var token = new JwtSecurityToken(
                 _config["Jwt:Issuer"],
                 _config["Jwt:Audience"],
@@ -1696,8 +1704,13 @@ namespace assetlen.Service.DbServices
                 var userObject = jsonDocument.RootElement;
                 string userIdValue = userObject.GetProperty("Id").GetString();
 
-                // Find the refresh token
+                // Filters are bypassed on purpose here and below. Renewing a
+                // session is the one authenticated call that arrives with no
+                // usable token, so the tenant the filter reads is empty and the
+                // row is invisible — which failed every renewal and dropped the
+                // reader on /login mid-sentence.
                 var storedRefreshToken = await _context.RefreshTokens
+                    .IgnoreQueryFilters()
                     .Include(rt => rt.User)
                     .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken && rt.UserId == userIdValue);
 
@@ -1712,8 +1725,10 @@ namespace assetlen.Service.DbServices
                     return ServiceResult<LoginResponseDto>.Failure(new UnAuthorizedException("Refresh token has expired or been revoked"));
                 }
 
-                // Get the user
-                var user = await _userManager.FindByIdAsync(userIdValue);
+                var user = await _context.Users
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.Id == userIdValue);
+
                 if (user == null)
                 {
                     return ServiceResult<LoginResponseDto>.Failure(new NotFoundException("User not found"));

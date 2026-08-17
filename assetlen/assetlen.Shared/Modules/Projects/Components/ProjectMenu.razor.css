@@ -1,0 +1,173 @@
+/* The project actions panel, and the "delete" confirmation that is really an
+   archive. One instance, mounted in the shell. */
+
+/* Catches the click that dismisses. Transparent — a context menu that dims the
+   page behind it reads as a modal, and this one is not. */
+.pmenu__catch {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+}
+
+.pmenu {
+    position: fixed;
+    z-index: 91;
+    /* Placed by assetlen.anchorMenu once it can be measured. Hidden until then:
+       one frame in the wrong corner is a visible jump. */
+    visibility: hidden;
+    top: 0;
+    left: 0;
+
+    min-width: 15rem;
+    max-width: min(20rem, calc(100vw - 1rem));
+    padding: var(--al-space-1);
+
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius);
+    box-shadow: var(--al-shadow);
+
+    animation: pmenu-in var(--al-transition-fast) var(--al-ease);
+    transform-origin: top left;
+}
+
+@keyframes pmenu-in {
+    from { opacity: 0; transform: scale(0.97) translateY(-2px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Names the project the actions belong to. On a phone, where the menu can end
+   up anywhere, this is the only thing that says which one. */
+.pmenu__head {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-3) var(--al-space-3);
+    margin-bottom: var(--al-space-1);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.pmenu__name {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+    min-width: 0;
+}
+
+.pmenu__item {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    width: 100%;
+    /* 40px: a real touch target without turning a seven-item menu into a page. */
+    min-height: 2.5rem;
+    padding: 0 var(--al-space-3);
+    border-radius: var(--al-radius-sm);
+
+    font-size: var(--al-font-size-md);
+    color: var(--al-text);
+    text-align: left;
+    text-decoration: none;
+
+    transition: background var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.pmenu__item > span:first-of-type { flex: 1 1 auto; min-width: 0; }
+
+.pmenu__item svg { flex: 0 0 auto; color: var(--al-text-subtle); }
+
+.pmenu__item:hover:not(:disabled),
+.pmenu__item:focus-visible {
+    background: var(--al-surface-2);
+    outline: none;
+}
+
+.pmenu__item:hover:not(:disabled) svg { color: var(--al-text); }
+
+.pmenu__item:disabled {
+    color: var(--al-text-subtle);
+    cursor: default;
+}
+
+.pmenu__item--danger { color: var(--al-danger); }
+.pmenu__item--danger svg { color: var(--al-danger); }
+.pmenu__item--danger:hover { background: var(--al-danger-soft); }
+.pmenu__item--danger:hover svg { color: var(--al-danger); }
+
+/* "3 used" next to a pin that cannot be added. Says why rather than greying
+   out a control with no explanation. */
+.pmenu__note {
+    flex: 0 0 auto;
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    color: var(--al-text-subtle);
+}
+
+.pmenu__rule {
+    height: 1px;
+    margin: var(--al-space-1) var(--al-space-2);
+    background: var(--al-border);
+}
+
+/* ── Delete confirmation ────────────────────────────────────────────────── */
+
+.parchive {
+    width: min(30rem, 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.parchive__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: var(--al-space-6) var(--al-space-5) var(--al-space-5);
+}
+
+/* An archive box, not a warning triangle. The gesture is reversible and the
+   drawing should say so before the copy does. */
+.parchive__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--al-radius);
+    background: var(--al-surface-2);
+    color: var(--al-text-muted);
+}
+
+.parchive__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-semibold);
+    line-height: var(--al-leading-tight);
+    overflow-wrap: anywhere;
+}
+
+.parchive__lead {
+    font-size: var(--al-font-size-md);
+    line-height: var(--al-leading-relaxed);
+    color: var(--al-text-muted);
+    max-width: 46ch;
+}
+
+.parchive__where {
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-subtle);
+}
+
+.parchive__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4) var(--al-space-5);
+    border-top: 1px solid var(--al-border);
+}
+
+@media (max-width: 30rem) {
+    .parchive__body { padding: var(--al-space-5) var(--al-space-4) var(--al-space-4); }
+    .parchive__foot { padding: var(--al-space-4); }
+    .parchive__foot .al-btn { flex: 1 1 0; justify-content: center; }
+}

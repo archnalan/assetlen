@@ -122,13 +122,18 @@ public sealed class AttentionState
         if (_refreshing) return;
         _refreshing = true;
 
+        // Snapshot before the first await. Callers pass ShellState's live list,
+        // which another screen's dashboard read replaces underneath a scan that
+        // is one request per project long.
+        var roots = projects.ToList();
+
         try
         {
             await EnsureSeenLoadedAsync();
 
             var me = _sd.CurrentUser?.Id;
-            var flat = projects
-                .Concat(projects.SelectMany(p => p.SubProjects))
+            var flat = roots
+                .Concat(roots.SelectMany(p => p.SubProjects))
                 .ToList();
 
             var found = new List<AttentionItem>();

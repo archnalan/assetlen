@@ -1,0 +1,158 @@
+/* Give a project a face. Shows the result at both sizes it will be seen at,
+   because a picker that only previews large produces unrecognisable marks. */
+
+.cover__panel {
+    width: min(34rem, 100%);
+    display: flex;
+    flex-direction: column;
+    max-height: 92vh;
+}
+
+.cover__head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    padding: var(--al-space-5) var(--al-space-5) var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.cover__head > div:first-child { flex: 1 1 auto; min-width: 0; }
+
+.cover__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-semibold);
+    line-height: var(--al-leading-tight);
+    margin-top: var(--al-space-1);
+    overflow-wrap: anywhere;
+}
+
+.cover__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+    padding: var(--al-space-5);
+    overflow-y: auto;
+}
+
+/* ── The two sizes ──────────────────────────────────────────────────────── */
+
+.cover__preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+}
+
+.cover__frame {
+    position: relative;
+    aspect-ratio: var(--al-aspect-card);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--al-surface-2);
+}
+
+.cover__frame-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cover__frame-icon { color: var(--al-text-subtle); }
+
+/* The sidebar rehearsal. Same box, same 18px, same type as the real row — a
+   preview that is merely "small" does not tell you whether the image survives. */
+.cover__at-size {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.cover__at-size-row {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    padding: var(--al-space-2) var(--al-space-3);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius-sm);
+    font-size: var(--al-font-size-md);
+    color: var(--al-text-muted);
+}
+
+.cover__chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    border-radius: var(--al-radius-xs);
+    overflow: hidden;
+    color: var(--al-text-subtle);
+}
+
+.cover__chip img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Choosing ───────────────────────────────────────────────────────────── */
+
+.cover__drop {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    padding: var(--al-space-4);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius);
+    cursor: pointer;
+    transition: border-color var(--al-transition-fast), background var(--al-transition-fast);
+}
+
+.cover__drop:hover { border-color: var(--al-accent); background: var(--al-surface-2); }
+.cover__drop:focus-within { border-color: var(--al-accent); }
+.cover__drop.is-busy { opacity: 0.55; pointer-events: none; }
+
+.cover__drop-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--al-font-size-md);
+    min-width: 0;
+}
+
+/* The native control covers the label so the whole panel is the target, but it
+   must stay in the accessibility tree and stay focusable. */
+.cover__file {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* ── Foot ───────────────────────────────────────────────────────────────── */
+
+.cover__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4) var(--al-space-5);
+    border-top: 1px solid var(--al-border);
+    flex-wrap: wrap;
+}
+
+.cover__clear { color: var(--al-danger); }
+
+@media (max-width: 30rem) {
+    .cover__head,
+    .cover__body,
+    .cover__foot { padding-left: var(--al-space-4); padding-right: var(--al-space-4); }
+
+    /* Clear is destructive and sits alone on its own line rather than a thumb's
+       width from "Use this image". */
+    .cover__clear { order: 3; width: 100%; justify-content: center; margin-top: var(--al-space-2); }
+}

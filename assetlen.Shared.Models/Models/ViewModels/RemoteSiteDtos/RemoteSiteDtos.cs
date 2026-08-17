@@ -25,6 +25,13 @@ public class ProjectDto : BaseDto
     public string? ProjectManagerId { get; set; }
     public string? CoverImageUrl { get; set; }
     public ProjectStatus Status { get; set; }
+
+    /// <summary>Set while this project sits in the bin. See <c>tbl_Project.ArchivedAt</c>.</summary>
+    public DateTime? ArchivedAt { get; set; }
+
+    /// <summary>When the bin empties this one, or null while it is live.</summary>
+    public DateTime? PurgeDueAt { get; set; }
+
     public bool IsFirstFreeProject { get; set; }
     public bool IsSubscriptionActive { get; set; }
     public string Currency { get; set; } = "UGX";
@@ -683,6 +690,80 @@ public class ProjectCardDto
     public string? ParentProjectId { get; set; }
     public int SubProjectCount { get; set; }
     public List<ProjectCardDto> SubProjects { get; set; } = new();
+
+    /// <summary>
+    /// The cover deliberately chosen for this project, as opposed to whatever
+    /// was photographed most recently. Carried separately from
+    /// <see cref="LatestImageUrl"/> so the chrome can tell the two apart: a
+    /// chosen cover is stable enough to recognise a project by, a site photo is
+    /// not, and "clear the image" must only clear the one the reader set.
+    /// </summary>
+    public string? CoverImageUrl { get; set; }
+
+    /// <summary>
+    /// Set on a sub-project that is borrowing its parent's cover. The wing is
+    /// part of the house and looks like it until someone gives it a face of its
+    /// own; the flag exists so "clear image" on the wing does not offer to clear
+    /// something that belongs to the parent.
+    /// </summary>
+    public bool CoverInherited { get; set; }
+
+    /// <summary>Open questions on this project — the number the context menu offers to clear.</summary>
+    public int OpenIssueCount { get; set; }
+
+    // ─── This reader's arrangement ───────────────────────────────
+    // Per user, never per project: two people on one engagement each order
+    // their own screen. See tbl_ProjectPreference.
+
+    public bool IsPinned { get; set; }
+
+    /// <summary>Position among unpinned projects, ascending. Server-assigned; the client sends it back on a drop.</summary>
+    public int SortOrder { get; set; }
+
+    // ─── The bin ─────────────────────────────────────────────────
+
+    public DateTime? ArchivedAt { get; set; }
+
+    /// <summary>Who sent it to the bin, for the archive list. Null while live.</summary>
+    public string? ArchivedByName { get; set; }
+
+    /// <summary>When the contents get soft-deleted. Null while live.</summary>
+    public DateTime? PurgeDueAt { get; set; }
+
+    /// <summary>Whole days left before the purge, floored at zero. Null while live.</summary>
+    public int? DaysUntilPurge { get; set; }
+}
+
+// ─── Arranging and binning projects ──────────────────────────
+
+/// <summary>One project's new position, sent as part of a whole-list drop.</summary>
+public class ProjectOrderItemDto
+{
+    public string ProjectId { get; set; } = string.Empty;
+
+    /// <summary>Zero-based index within the unpinned list, in the order the reader dropped them.</summary>
+    public int SortOrder { get; set; }
+}
+
+/// <summary>
+/// The result of one drag. The whole unpinned list is sent rather than the moved
+/// project alone: a single index is ambiguous the moment two devices reorder at
+/// once, and re-sending eight ids costs less than reconciling that.
+/// </summary>
+public class ProjectOrderUpdateDto
+{
+    public List<ProjectOrderItemDto> Items { get; set; } = new();
+}
+
+/// <summary>
+/// Point a project at an artifact for its cover, or clear it. Null
+/// <see cref="ArtifactId"/> means clear — the project falls back to its parent's
+/// cover if it has one, and to the mark if it does not.
+/// </summary>
+public class ProjectCoverUpdateDto
+{
+    public string ProjectId { get; set; } = string.Empty;
+    public string? ArtifactId { get; set; }
 }
 
 // ─── PM Dashboard DTOs ───────────────────────────────────────

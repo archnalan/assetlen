@@ -19,3 +19,52 @@
    ::deep because the svg is rendered by the Icon component and carries its
    scope attribute, not this page's. */
 .home__section ::deep .home__need-icon { color: var(--al-accent); }
+
+/* ── Arranging ─────────────────────────────────────────────────────────────
+   The slot is what the sortable moves; the card inside it never knows. */
+
+.home__sortable { touch-action: pan-y; }
+
+.pcard__slot { display: flex; }
+.pcard__slot > ::deep .pcard { flex: 1 1 auto; }
+
+/* Transitions go on the shifting slots only — the one in hand must follow the
+   pointer with no easing at all or it lags behind the finger. */
+.pcard__slot.is-shifting {
+    transition: transform var(--al-transition) var(--al-ease);
+    pointer-events: none;
+}
+
+.pcard__slot.is-dragging {
+    position: relative;
+    z-index: 3;
+    cursor: grabbing;
+}
+
+.pcard__slot.is-dragging ::deep .pcard {
+    border-color: var(--al-border-strong);
+    box-shadow: var(--al-shadow-lg);
+    transform: scale(1.015);
+}
+
+.pcard__slot.is-dragging ::deep .pcard__grip { opacity: 1; }
+
+/* A press arming to become a drag. Enough to say something is happening, not
+   enough to look like a tap landed. */
+.pcard__slot.is-arming ::deep .pcard {
+    transform: scale(0.985);
+    transition: transform var(--al-transition) var(--al-ease);
+}
+
+.home__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-2xs);
+    color: var(--al-text-subtle);
+}
+
+/* The wording is wrong on touch — there is nothing to right-click. */
+@media (hover: none) {
+    .home__hint { display: none; }
+}

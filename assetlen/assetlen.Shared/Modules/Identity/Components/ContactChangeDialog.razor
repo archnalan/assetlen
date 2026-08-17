@@ -1,0 +1,271 @@
+@*
+    Change the email or the phone on the account.
+
+    Both are proofs of reach, not labels, so neither moves on a claim — the new
+    address has to answer before it becomes the one the account is addressed at.
+    Two steps, one screen each, because a form that asks for a new address and a
+    code at the same time asks for a code nobody has yet.
+*@
+
+@inject GlobalContext Env
+@inject ILogger<ContactChangeDialog> Logger
+
+<div class="ccd al-dialog" role="dialog" aria-modal="true" aria-labelledby="ccd-title">
+    <div class="al-scrim" @onclick="CloseAsync"></div>
+
+    <div class="al-dialog__panel ccd__panel">
+        <div class="al-dialog__grip" aria-hidden="true"></div>
+
+        <header class="ccd__head">
+            <span class="ccd__mark"><Icon Name="@(IsEmail ? "mail" : "phone")" Size="22" /></span>
+            <div>
+                <span class="al-label">@(IsEmail ? "Email address" : "Phone number")</span>
+                <h2 class="ccd__title" id="ccd-title">
+                    @(sent ? "Enter the code" : IsEmail ? "Change your email" : "Change your phone")
+                </h2>
+            </div>
+            <span class="al-spacer"></span>
+            <button type="button" class="al-iconbtn" @onclick="CloseAsync" aria-label="Close">
+                <Icon Name="close" Size="20" />
+            </button>
+        </header>
+
+        <div class="ccd__body">
+
+            @if (!sent)
+            {
+                <p class="ccd__lead">
+                    @if (IsEmail)
+                    {
+                        <text>
+                            This is where every brief, every question and every sign-in lands. We will send a
+                            six-digit code to the new address; the account only moves once you enter it.
+                        </text>
+                    }
+                    else
+                    {
+                        <text>
+                            We will text a six-digit code to the new number. The account only moves once you
+                            enter it.
+                        </text>
+                    }
+                </p>
+
+                @if (!string.IsNullOrEmpty(Current))
+                {
+                    <div class="ccd__current">
+                        <span class="al-label">Now</span>
+                        <span class="ccd__current-value al-truncate">@Current</span>
+                    </div>
+                }
+
+                <div class="al-field">
+                    <label class="al-label" for="ccd-value">@(IsEmail ? "New email address" : "New phone number")</label>
+
+                    @if (IsEmail)
+                    {
+                        <input id="ccd-value" class="al-input" type="email" inputmode="email"
+                               autocomplete="email" maxlength="254" placeholder="you@example.com"
+                               disabled="@busy" @bind="newValue" @bind:event="oninput" />
+                    }
+                    else
+                    {
+                        <PhoneField @bind-Value="newValue" Disabled="busy" />
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="ccd__lead">
+                    Sent to <strong>@newValue</strong>. It is good for ten minutes.
+                </p>
+
+                @if (devCode is not null)
+                {
+                    @* Development host only — there is no inbox locally, so the
+                       flow could not otherwise be walked end to end. *@
+                    <div class="al-alert al-alert--info ccd__dev">
+                        <Icon Name="info" Size="18" />
+                        <span>
+                            Development build — the code is <strong class="al-num">@devCode</strong>.
+                            <button type="button" class="al-btn al-btn--link" @onclick="() => otp = devCode!">
+                                Fill it in
+                            </button>
+                        </span>
+                    </div>
+                }
+
+                <div class="al-field">
+                    <label class="al-label" for="ccd-code">Six-digit code</label>
+                    <input id="ccd-code" class="al-input ccd__code al-num" inputmode="numeric"
+                           maxlength="6" autocomplete="one-time-code" placeholder="000000"
+                           disabled="@busy" value="@otp" @oninput="OnCodeInput" />
+                    <span class="al-field__hint">
+                        Didn't arrive?
+                        <button type="button" class="al-btn al-btn--link" disabled="@busy" @onclick="SendAsync">
+                            Send another
+                        </button>
+                    </span>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="al-alert al-alert--error" role="alert">
+                    <Icon Name="error" Size="18" />
+                    <span>@errorMessage</span>
+                </div>
+            }
+        </div>
+
+        <footer class="ccd__foot">
+            @if (sent)
+            {
+                <button type="button" class="al-btn al-btn--quiet" disabled="@busy" @onclick="Back">
+                    Use a different @(IsEmail ? "address" : "number")
+                </button>
+            }
+            else
+            {
+                <button type="button" class="al-btn al-btn--quiet" disabled="@busy" @onclick="CloseAsync">Cancel</button>
+            }
+
+            <span class="al-spacer"></span>
+
+            <button type="button" class="al-btn al-btn--primary"
+                    disabled="@(busy || !CanSubmit)"
+                    @onclick="@(sent ? VerifyAsync : SendAsync)">
+                @if (busy)
+                {
+                    <span class="al-spinner"></span><span>@(sent ? "Checking…" : "Sending…")</span>
+                }
+                else
+                {
+                    <span>@(sent ? "Confirm the change" : "Send the code")</span>
+                }
+            </button>
+        </footer>
+    </div>
+</div>
+
+@code {
+    public enum ContactField { Email, Phone }
+
+    [Parameter, EditorRequired] public ContactField Field { get; set; }
+
+    /// <summary>What the account is addressed at now, shown so the reader sees what they are replacing.</summary>
+    [Parameter] public string? Current { get; set; }
+
+    [Parameter, EditorRequired] public string UserId { get; set; } = default!;
+
+    /// <summary>Raised with the confirmed value once the account has actually moved.</summary>
+    [Parameter] public EventCallback<string> OnChanged { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string newValue = string.Empty;
+    private string otp = string.Empty;
+    private string? devCode;
+    private bool sent;
+    private bool busy;
+    private string? errorMessage;
+
+    private bool IsEmail => Field == ContactField.Email;
+
+    private bool CanSubmit => sent
+        ? otp.Length == 6
+        : IsEmail
+            ? newValue.Contains('@') && newValue.Contains('.') && !string.Equals(newValue, Current, StringComparison.OrdinalIgnoreCase)
+            : newValue.Length >= 8 && !string.Equals(newValue, Current, StringComparison.Ordinal);
+
+    private void OnCodeInput(ChangeEventArgs e)
+        => otp = new string((e.Value?.ToString() ?? string.Empty).Where(char.IsDigit).Take(6).ToArray());
+
+    private void Back()
+    {
+        sent = false;
+        otp = string.Empty;
+        devCode = null;
+        errorMessage = null;
+    }
+
+    private async Task SendAsync()
+    {
+        if (busy || !CanSubmit && !sent) return;
+
+        busy = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _auth.InitiateContactChange(new SendVerificationCodeDto
+            {
+                UserId = UserId,
+                Email = IsEmail ? newValue.Trim() : null,
+                PhoneNumber = IsEmail ? null : newValue.Trim()
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "That code could not be sent.";
+                return;
+            }
+
+            devCode = Env.IsDevelopment ? response.Content?.DevCode : null;
+            otp = string.Empty;
+            sent = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not send a contact-change code");
+            errorMessage = "That code could not be sent. Nothing has changed.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task VerifyAsync()
+    {
+        if (busy || otp.Length != 6) return;
+
+        busy = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _auth.VerifyContactChange(new VerifyContactChangeDto
+            {
+                UserId = UserId,
+                NewEmail = IsEmail ? newValue.Trim() : null,
+                NewPhoneNumber = IsEmail ? null : newValue.Trim(),
+                VerificationCode = otp
+            });
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "That code was not accepted.";
+                return;
+            }
+
+            var confirmed = IsEmail ? response.Content.Email : response.Content.PhoneNumber;
+            await OnChanged.InvokeAsync(confirmed ?? newValue.Trim());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not verify a contact change");
+            errorMessage = "That change could not be completed. Nothing has changed.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+}

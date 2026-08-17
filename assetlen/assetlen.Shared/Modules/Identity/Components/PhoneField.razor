@@ -1,0 +1,113 @@
+@*
+    A phone number, entered the way people say it: a country, then the number.
+
+    Flags are derived from the ISO code rather than shipped as images — an
+    <img> per country would be a network request per row on a page that is
+    mostly text, and the media budget belongs to the building.
+*@
+
+<div class="phone">
+    <label class="phone__country">
+        <span class="phone__flag" aria-hidden="true">@Flag(country.Iso)</span>
+        <span class="phone__dial al-num">@country.Dial</span>
+        <Icon Name="chevron-down" Size="14" Class="al-subtle" />
+        <select class="phone__select" value="@country.Iso" @onchange="OnCountryChanged"
+                aria-label="Country calling code" disabled="@Disabled">
+            @foreach (var c in Countries)
+            {
+                <option value="@c.Iso">@Flag(c.Iso) @c.Name @c.Dial</option>
+            }
+        </select>
+    </label>
+
+    <input class="phone__number al-input al-num" type="tel" inputmode="tel"
+           maxlength="15" placeholder="@country.Sample" disabled="@Disabled"
+           value="@national" @oninput="OnNumberInput" aria-label="Phone number" />
+</div>
+
+@if (!IsUganda)
+{
+    @* Honest rather than silently failing on submit: the gateway behind the
+       code is Ugandan-only, and VerifyContactChange rejects anything else. *@
+    <span class="phone__note">
+        <Icon Name="info" Size="14" />
+        Codes can only be sent to Ugandan numbers at the moment.
+    </span>
+}
+
+@code {
+    private sealed record Country(string Iso, string Name, string Dial, string Sample);
+
+    private static readonly Country[] Countries =
+    [
+        new("UG", "Uganda", "+256", "772 123456"),
+        new("KE", "Kenya", "+254", "712 123456"),
+        new("TZ", "Tanzania", "+255", "712 123456"),
+        new("RW", "Rwanda", "+250", "788 123456"),
+        new("GB", "United Kingdom", "+44", "7700 900123"),
+        new("US", "United States", "+1", "202 555 0123"),
+        new("AE", "United Arab Emirates", "+971", "50 123 4567"),
+        new("IN", "India", "+91", "98765 43210"),
+        new("ZA", "South Africa", "+27", "82 123 4567"),
+        new("NG", "Nigeria", "+234", "802 123 4567")
+    ];
+
+    /// <summary>The full number in E.164, e.g. <c>+256772123456</c>. Empty until one is typed.</summary>
+    [Parameter] public string Value { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    private Country country = Countries[0];
+    private string national = string.Empty;
+    private string? parsed;
+
+    private bool IsUganda => country.Iso == "UG";
+
+    protected override void OnParametersSet()
+    {
+        if (Value == parsed) return;
+        parsed = Value;
+
+        if (string.IsNullOrWhiteSpace(Value)) return;
+
+        var match = Countries
+            .Where(c => Value.StartsWith(c.Dial, StringComparison.Ordinal))
+            .OrderByDescending(c => c.Dial.Length)
+            .FirstOrDefault();
+
+        if (match is null) return;
+
+        country = match;
+        national = Value[match.Dial.Length..];
+    }
+
+    private async Task OnCountryChanged(ChangeEventArgs e)
+    {
+        country = Countries.FirstOrDefault(c => c.Iso == e.Value?.ToString()) ?? Countries[0];
+        await EmitAsync();
+    }
+
+    private async Task OnNumberInput(ChangeEventArgs e)
+    {
+        national = new string((e.Value?.ToString() ?? string.Empty).Where(char.IsDigit).ToArray());
+        await EmitAsync();
+    }
+
+    private Task EmitAsync()
+    {
+        // A leading zero is how the number is written locally and is not part of
+        // the international form.
+        var digits = national.TrimStart('0');
+
+        parsed = digits.Length == 0 ? string.Empty : country.Dial + digits;
+        Value = parsed;
+
+        return ValueChanged.InvokeAsync(parsed);
+    }
+
+    /// <summary>An ISO country code as its flag, built from regional indicators.</summary>
+    private static string Flag(string iso)
+        => string.Concat(iso.ToUpperInvariant().Select(c => char.ConvertFromUtf32(0x1F1E6 + (c - 'A'))));
+}

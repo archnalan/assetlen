@@ -1,0 +1,352 @@
+@page "/archive"
+@attribute [Authorize]
+@inject ShellState Shell
+@inject NavigationManager Nav
+@inject IArtifactImageService Images
+@inject ILogger<ArchivePage> Logger
+
+@*
+    The bin.
+
+    Deleting a project archives it for 30 days. This is where it waits, and the
+    reason it waits at all is that the record is the product (assetlen.md §8) —
+    a mis-tap must not be able to end an engagement's history.
+
+    Every row leads with the time left rather than the date it went in, because
+    the only question a reader has here is "can I still get this back".
+*@
+
+<PageTitle>Archive — ASSETLEN</PageTitle>
+
+<div class="al-page">
+
+    <TitleBlock Eyebrow="Deleted projects"
+                Title="Archive"
+                Subtitle="Anything you delete waits here for 30 days, with everything on it. After that it is removed.">
+        <Meta>
+            <div class="al-meta">
+                <span class="al-label">In the bin</span>
+                <span class="al-meta__value">@archived.Count</span>
+            </div>
+            @if (SoonestDays is { } days)
+            {
+                <div class="al-meta">
+                    <span class="al-label">Next removed</span>
+                    <span class="al-meta__value">@(days == 0 ? "Today" : $"{days}d")</span>
+                </div>
+            }
+        </Meta>
+    </TitleBlock>
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The archive didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="archive"
+                EmptyTitle="The bin is empty"
+                EmptyBody="Nothing has been deleted. When a project is, it waits here for 30 days so it can be put back.">
+        <Loading>
+            <div class="bin__ghosts">
+                <div class="al-shimmer bin__ghost"></div>
+                <div class="al-shimmer bin__ghost"></div>
+            </div>
+        </Loading>
+
+        <ChildContent>
+            <ul class="bin__list">
+                @foreach (var project in archived)
+                {
+                    <li class="bin__item @(project.DaysUntilPurge <= 3 ? "is-urgent" : "")">
+                        <div class="bin__row">
+                            <ProjectMark Source="@Face(project)" Size="44" Fallback="project" />
+
+                            <div class="bin__main">
+                                <span class="bin__name">@project.ProjectName</span>
+                                <span class="bin__meta">
+                                    @if (!string.IsNullOrEmpty(project.Location))
+                                    {
+                                        <span>@project.Location</span>
+                                    }
+                                    @if (project.SubProjectCount > 0)
+                                    {
+                                        <span>@project.SubProjectCount sub-project@(project.SubProjectCount == 1 ? "" : "s")</span>
+                                    }
+                                    <span>Deleted @Fmt.Ago(project.ArchivedAt)@(project.ArchivedByName is { } who ? $" by {who}" : "")</span>
+                                </span>
+                            </div>
+
+                            <div class="bin__end">
+                                <span class="al-badge @(project.DaysUntilPurge <= 3 ? "al-badge--danger" : "al-badge--neutral")">
+                                    @RemainingLabel(project)
+                                </span>
+                            </div>
+                        </div>
+
+                        @if (project.SubProjects.Count > 0)
+                        {
+                            @* Listed, not restorable on their own: a wing went in
+                               with its house and comes back with it. *@
+                            <ul class="bin__children">
+                                @foreach (var sub in project.SubProjects)
+                                {
+                                    <li class="bin__child">
+                                        <Icon Name="wing" Size="14" Class="al-subtle" />
+                                        <span class="al-truncate">@sub.ProjectName</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+
+                        <div class="bin__actions">
+                            <button type="button" class="al-btn al-btn--default"
+                                    disabled="@(busyId is not null)"
+                                    @onclick="() => RestoreAsync(project)">
+                                @if (busyId == project.Id && !purging)
+                                {
+                                    <span class="al-spinner"></span><span>Putting back…</span>
+                                }
+                                else
+                                {
+                                    <Icon Name="restore" Size="15" />
+                                    <span>Put back</span>
+                                }
+                            </button>
+
+                            @if (CanPurge)
+                            {
+                                <button type="button" class="al-btn al-btn--quiet bin__purge"
+                                        disabled="@(busyId is not null)"
+                                        @onclick="() => confirmingPurge = project">
+                                    <Icon Name="trash" Size="15" />
+                                    <span>Delete now</span>
+                                </button>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        </ChildContent>
+    </StateBlock>
+</div>
+
+@* The one irreversible action in the product, and the only place it is offered. *@
+@if (confirmingPurge is { } doomed)
+{
+    <div class="al-dialog" role="dialog" aria-modal="true" aria-labelledby="purge-title">
+        <div class="al-scrim" @onclick="() => confirmingPurge = null"></div>
+
+        <div class="al-dialog__panel bin__confirm">
+            <div class="al-dialog__grip" aria-hidden="true"></div>
+
+            <div class="bin__confirm-body">
+                <span class="bin__confirm-mark"><Icon Name="alert" Size="24" /></span>
+
+                <h2 class="bin__confirm-title" id="purge-title">Delete @doomed.ProjectName for good?</h2>
+
+                <p class="bin__confirm-lead">
+                    This cannot be undone. The stages, the money released, every photograph and
+                    every question raised on this project stop being readable.
+                    @if (doomed.DaysUntilPurge > 0)
+                    {
+                        <text>It would go on its own in @doomed.DaysUntilPurge day@(doomed.DaysUntilPurge == 1 ? "" : "s").</text>
+                    }
+                </p>
+
+                <label class="bin__confirm-check">
+                    <span class="al-label">Type the project name to confirm</span>
+                    <input class="al-input" @bind="purgeTyped" @bind:event="oninput"
+                           placeholder="@doomed.ProjectName" autocomplete="off" />
+                </label>
+
+                @if (!string.IsNullOrEmpty(purgeError))
+                {
+                    <div class="al-alert al-alert--error" role="alert">
+                        <Icon Name="error" Size="18" />
+                        <span>@purgeError</span>
+                    </div>
+                }
+            </div>
+
+            <div class="bin__confirm-foot">
+                <button type="button" class="al-btn al-btn--quiet" disabled="@purging"
+                        @onclick="() => confirmingPurge = null">
+                    Keep it
+                </button>
+                <button type="button" class="al-btn al-btn--danger"
+                        disabled="@(purging || !NameMatches(doomed))"
+                        @onclick="() => PurgeAsync(doomed)">
+                    @if (purging)
+                    {
+                        <span class="al-spinner"></span><span>Deleting…</span>
+                    }
+                    else
+                    {
+                        <span>Delete for good</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly List<ProjectCardDto> archived = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+
+    private string? busyId;
+    private ProjectCardDto? confirmingPurge;
+    private string purgeTyped = string.Empty;
+    private string? purgeError;
+    private bool purging;
+
+    /// <summary>Only the owning account may end a record early (same gate as archiving).</summary>
+    private bool CanPurge => _sd.CurrentUser?.RolesDto is { } r && (r.Contractor || r.SystemAdmin);
+
+    private int? SoonestDays => archived.Count == 0
+        ? null
+        : archived.Min(p => p.DaysUntilPurge ?? int.MaxValue) is var d && d == int.MaxValue ? null : d;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        archived.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.GetArchivedProjects();
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+
+            archived.AddRange(response.Content);
+            phase = archived.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Archive failed to load");
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private static string? Face(ProjectCardDto p)
+        => (string.IsNullOrWhiteSpace(p.CoverImageUrl) ? null : p.CoverImageUrl)
+           ?? p.RecentImageUrls.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u))
+           ?? (string.IsNullOrWhiteSpace(p.LatestImageUrl) ? null : p.LatestImageUrl);
+
+    private static string RemainingLabel(ProjectCardDto p) => p.DaysUntilPurge switch
+    {
+        null => "Waiting",
+        0 => "Removed today",
+        1 => "1 day left",
+        var d => $"{d} days left"
+    };
+
+    private bool NameMatches(ProjectCardDto p)
+        => string.Equals(purgeTyped.Trim(), p.ProjectName, StringComparison.OrdinalIgnoreCase);
+
+    private async Task RestoreAsync(ProjectCardDto project)
+    {
+        if (busyId is not null) return;
+
+        busyId = project.Id;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.RestoreProject(project.Id);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response)
+                    ?? "That project could not be put back.");
+                return;
+            }
+
+            archived.Remove(project);
+            if (archived.Count == 0) phase = LoadPhase.Empty;
+
+            // The rail and the home screen are the same list; both have to learn
+            // the project exists again without a reload.
+            await ReloadShellAsync();
+
+            ToastService.ShowSuccess($"{project.ProjectName} is back.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not restore {ProjectId}", project.Id);
+            ToastService.ShowError("That project could not be put back.");
+        }
+        finally
+        {
+            busyId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PurgeAsync(ProjectCardDto project)
+    {
+        if (purging || !NameMatches(project)) return;
+
+        purging = true;
+        busyId = project.Id;
+        purgeError = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.DeleteProject(project.Id);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                purgeError = _apiResponseHandler.GetApiErrorMessage(response)
+                    ?? "That project could not be deleted.";
+                return;
+            }
+
+            archived.Remove(project);
+            if (archived.Count == 0) phase = LoadPhase.Empty;
+
+            confirmingPurge = null;
+            purgeTyped = string.Empty;
+            ToastService.ShowSuccess($"{project.ProjectName} has been deleted.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not purge {ProjectId}", project.Id);
+            purgeError = "That project could not be deleted. Nothing has changed.";
+        }
+        finally
+        {
+            purging = false;
+            busyId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadShellAsync()
+    {
+        try
+        {
+            var dashboard = await _projectsRSApi.GetPortfolioDashboard();
+            if (dashboard.IsSuccessStatusCode && dashboard.Content is not null)
+                Shell.SetProjects(dashboard.Content.Projects);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not refresh the project list after a restore");
+        }
+    }
+}

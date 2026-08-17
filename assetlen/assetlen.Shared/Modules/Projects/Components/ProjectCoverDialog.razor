@@ -1,0 +1,273 @@
+@*
+    Give a project a face. Previewed at both sizes it will be seen at — the card
+    and the 18px rail mark — before anything is saved.
+
+    The image is stored as an Artifact (CLAUDE.md §1): one permanent address,
+    hash-matched, obeying the same visibility rules as every other file.
+*@
+
+@using Refit
+@inject ShellState Shell
+@inject IArtifactImageService Images
+@inject ILogger<ProjectCoverDialog> Logger
+
+<div class="al-dialog cover" role="dialog" aria-modal="true" aria-labelledby="cover-title">
+    <div class="al-scrim" @onclick="Close"></div>
+
+    <div class="al-dialog__panel cover__panel">
+        <div class="al-dialog__grip" aria-hidden="true"></div>
+
+        <header class="cover__head">
+            <div>
+                <span class="al-label">@(IsSubProject ? "Sub-project image" : "Project image")</span>
+                <h2 class="cover__title" id="cover-title">@Project.ProjectName</h2>
+            </div>
+            <button type="button" class="al-iconbtn" @onclick="Close" aria-label="Close">
+                <Icon Name="close" Size="20" />
+            </button>
+        </header>
+
+        <div class="cover__body">
+
+            <div class="cover__preview">
+                <div class="cover__frame al-gridded">
+                    @if (previewUrl is not null)
+                    {
+                        <img class="cover__frame-img" src="@previewUrl" alt="" />
+                    }
+                    else
+                    {
+                        <Icon Name="@FallbackMark" Size="40" Weight="1" Class="cover__frame-icon" />
+                    }
+                </div>
+
+                <div class="cover__at-size">
+                    <span class="al-label">In the sidebar</span>
+                    <div class="cover__at-size-row">
+                        <span class="cover__chip">
+                            @if (previewUrl is not null)
+                            {
+                                <img src="@previewUrl" alt="" />
+                            }
+                            else
+                            {
+                                <Icon Name="@FallbackMark" Size="18" Weight="1.5" />
+                            }
+                        </span>
+                        <span class="al-truncate">@Project.ProjectName</span>
+                    </div>
+                </div>
+            </div>
+
+            @if (InheritingParent)
+            {
+                <div class="al-alert al-alert--info">
+                    <Icon Name="info" Size="18" />
+                    <span>
+                        This sub-project is showing the parent's image. Choose one here and it gets
+                        a face of its own; clear it again and it goes back to the parent's.
+                    </span>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="al-alert al-alert--error" role="alert">
+                    <Icon Name="error" Size="18" />
+                    <span>@errorMessage</span>
+                </div>
+            }
+
+            <label class="cover__drop @(busy ? "is-busy" : "")">
+                <InputFile OnChange="OnFileSelected" accept="image/*" disabled="@busy" class="cover__file" />
+                <Icon Name="image" Size="22" Class="al-subtle" />
+                <span class="cover__drop-main">
+                    <strong>@(previewUrl is null ? "Choose an image" : "Choose a different image")</strong>
+                    <span class="al-subtle">A photograph of the building reads better than a drawing at this size.</span>
+                </span>
+            </label>
+        </div>
+
+        <footer class="cover__foot">
+            @if (HasOwnCover)
+            {
+                <button type="button" class="al-btn al-btn--quiet cover__clear"
+                        disabled="@busy" @onclick="ClearAsync">
+                    <Icon Name="trash" Size="15" />
+                    Clear image
+                </button>
+            }
+
+            <span class="al-spacer"></span>
+
+            <button type="button" class="al-btn al-btn--quiet" disabled="@busy" @onclick="Close">Cancel</button>
+
+            <button type="button" class="al-btn al-btn--primary"
+                    disabled="@(busy || pendingFile is null)" @onclick="SaveAsync">
+                @if (busy)
+                {
+                    <span class="al-spinner"></span><span>Saving…</span>
+                }
+                else
+                {
+                    <span>Use this image</span>
+                }
+            </button>
+        </footer>
+    </div>
+</div>
+
+@code {
+    private const int MaxEdge = 1400;
+
+    private const long MaxBytes = 12L * 1024 * 1024;
+
+    [Parameter, EditorRequired] public ProjectCardDto Project { get; set; } = default!;
+
+    /// <summary>Raised when the dialog should close, whether or not anything changed.</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private IBrowserFile? pendingFile;
+    private string? previewUrl;
+    private bool busy;
+    private string? errorMessage;
+
+    private bool IsSubProject => !string.IsNullOrEmpty(Project.ParentProjectId);
+
+    /// <summary>A cover this project actually owns, as opposed to one borrowed from its parent.</summary>
+    private bool HasOwnCover => !string.IsNullOrEmpty(Project.CoverImageUrl);
+
+    private bool InheritingParent => IsSubProject && Project.CoverInherited;
+
+    private string FallbackMark => IsSubProject ? "wing" : "project";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var current = Project.CoverImageUrl ?? Project.LatestImageUrl;
+        previewUrl = await Images.ResolveAsync(current);
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        errorMessage = null;
+
+        if (file.Size > MaxBytes)
+        {
+            errorMessage = "That image is too large. Anything up to 12 MB is fine.";
+            return;
+        }
+
+        try
+        {
+            // Resize in the browser. A phone photograph is 4–8 MB and none of
+            // those pixels survive being drawn at 18px.
+            pendingFile = await file.RequestImageFileAsync(file.ContentType, MaxEdge, MaxEdge);
+
+            using var stream = new MemoryStream();
+            await pendingFile.OpenReadStream(MaxBytes).CopyToAsync(stream);
+
+            previewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(stream.ToArray())}";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not read the chosen cover image");
+            errorMessage = "Could not read that image. Try another one.";
+            pendingFile = null;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (busy || pendingFile is null) return;
+
+        busy = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = pendingFile.OpenReadStream(MaxBytes);
+            var part = new StreamPart(stream, pendingFile.Name, pendingFile.ContentType);
+
+            var upload = await _artifactsApi.Upload(part, Project.Id);
+
+            if (!upload.IsSuccessStatusCode || upload.Content is null)
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(upload) ?? "Could not store that image.";
+                return;
+            }
+
+            var applied = await _projectsRSApi.SetProjectCover(new ProjectCoverUpdateDto
+            {
+                ProjectId = Project.Id,
+                ArtifactId = upload.Content.Id
+            });
+
+            if (!applied.IsSuccessStatusCode || applied.Content is null)
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(applied) ?? "The image saved but could not be set.";
+                return;
+            }
+
+            Shell.SetCover(Project.Id, applied.Content.CoverImageUrl);
+            ToastService.ShowSuccess($"{Project.ProjectName} has a new image.");
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not set the cover on {ProjectId}", Project.Id);
+            errorMessage = "Could not save that image. Nothing has changed.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearAsync()
+    {
+        if (busy) return;
+
+        busy = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.SetProjectCover(new ProjectCoverUpdateDto
+            {
+                ProjectId = Project.Id,
+                ArtifactId = null
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not clear that image.";
+                return;
+            }
+
+            Shell.SetCover(Project.Id, null);
+            ToastService.ShowSuccess(IsSubProject
+                ? "Image cleared. This sub-project shows the parent's again."
+                : "Image cleared.");
+
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not clear the cover on {ProjectId}", Project.Id);
+            errorMessage = "Could not clear that image.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task Close() => OnClose.InvokeAsync();
+}

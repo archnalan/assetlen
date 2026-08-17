@@ -1,0 +1,161 @@
+.bin__ghosts { display: flex; flex-direction: column; gap: var(--al-space-3); }
+.bin__ghost { height: 6rem; border-radius: var(--al-radius); }
+
+.bin__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Held back rather than presented as live work: this is a record on its way
+   out, and it should not compete with the projects that are running. */
+.bin__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: var(--al-space-4);
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    transition: border-color var(--al-transition);
+}
+
+.bin__item:hover { border-color: var(--al-border-strong); }
+
+.bin__item.is-urgent { border-color: var(--al-danger); }
+
+.bin__row {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    min-width: 0;
+}
+
+.bin__main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bin__name {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-lg);
+    font-weight: var(--al-weight-semibold);
+    line-height: var(--al-leading-tight);
+    overflow-wrap: anywhere;
+}
+
+.bin__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-1) var(--al-space-3);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.bin__end { flex: 0 0 auto; }
+
+.bin__children {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    list-style: none;
+    margin: 0;
+    margin-left: var(--al-space-6);
+    padding-left: var(--al-space-3);
+    border-left: 1px solid var(--al-border);
+}
+
+.bin__child {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    min-width: 0;
+}
+
+.bin__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding-top: var(--al-space-3);
+    border-top: 1px solid var(--al-border);
+}
+
+.bin__purge { color: var(--al-danger); }
+.bin__purge:hover:not(:disabled) { background: var(--al-danger-soft); }
+
+/* At 360px two side-by-side buttons leave neither one readable. */
+@media (max-width: 30rem) {
+    .bin__actions { flex-direction: column-reverse; align-items: stretch; }
+    .bin__actions .al-btn { justify-content: center; }
+}
+
+/* ── Delete for good ───────────────────────────────────────────────────── */
+
+.bin__confirm {
+    width: min(30rem, 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.bin__confirm-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: var(--al-space-6) var(--al-space-5) var(--al-space-5);
+}
+
+.bin__confirm-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--al-radius);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+}
+
+.bin__confirm-title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-semibold);
+    line-height: var(--al-leading-tight);
+    overflow-wrap: anywhere;
+}
+
+.bin__confirm-lead {
+    font-size: var(--al-font-size-md);
+    line-height: var(--al-leading-relaxed);
+    color: var(--al-text-muted);
+    max-width: 46ch;
+}
+
+/* Typing the name is the point: it makes the reader look at which project this
+   is before the only irreversible button in the product becomes live. */
+.bin__confirm-check {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.bin__confirm-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4) var(--al-space-5);
+    border-top: 1px solid var(--al-border);
+}
+
+@media (max-width: 30rem) {
+    .bin__confirm-body { padding: var(--al-space-5) var(--al-space-4) var(--al-space-4); }
+    .bin__confirm-foot { padding: var(--al-space-4); }
+    .bin__confirm-foot .al-btn { flex: 1 1 0; justify-content: center; }
+}

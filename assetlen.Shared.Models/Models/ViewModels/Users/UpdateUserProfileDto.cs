@@ -45,4 +45,43 @@ namespace assetlen.Shared.Models.Models.ViewModels.Users
         [StringLength(6, MinimumLength = 6)]
         public string VerificationCode { get; set; }
     }
+
+    /// <summary>What the caller learns after a code is sent.</summary>
+    public class ContactChallengeDto
+    {
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The code itself, on a Development host only. A real inbox is not
+        /// wired up locally, so without this the change flow cannot be walked
+        /// end to end. Always null anywhere else.
+        /// </summary>
+        public string? DevCode { get; set; }
+    }
+
+    /// <summary>
+    /// Whether a username can be claimed, and what to offer instead when it
+    /// cannot. Suggestions are pre-checked, so anything returned here is free.
+    /// </summary>
+    public class UserNameAvailabilityDto
+    {
+        public string UserName { get; set; } = string.Empty;
+
+        public bool Available { get; set; }
+
+        /// <summary>Why not, in words the reader can act on. Null when available.</summary>
+        public string? Reason { get; set; }
+
+        public List<string> Suggestions { get; set; } = new();
+    }
+
+    public class UpdateUserNameDto
+    {
+        [Required]
+        public string UserId { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(64, MinimumLength = 3)]
+        public string UserName { get; set; } = string.Empty;
+    }
 }

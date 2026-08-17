@@ -1,5 +1,9 @@
 @page "/account"
 @attribute [Authorize]
+@implements IDisposable
+
+@using assetlen.Shared.Models.Models
+@using assetlen.Shared.Modules.Identity.Components
 
 @*
     Who you are signed in as, and which account you are acting in.
@@ -7,6 +11,9 @@
     One human, one login, many accounts (assetlen.md §10.2): the architect works
     for several developers and appears as a guest in each. The account is the
     boundary, so the switcher belongs here rather than buried in a settings tree.
+
+    Email and phone are proofs of reach and change only against a code sent to
+    the new one; a username is a label and changes on the spot.
 *@
 
 <PageTitle>Account — ASSETLEN</PageTitle>
@@ -34,22 +41,163 @@
             </div>
 
             <div class="al-sheet__body">
-                <div class="account__grid">
+                <div class="account__rows">
+
+                    @* ── Email ──────────────────────────────────────────── *@
                     <div class="account__row">
-                        <span class="al-label">Email</span>
-                        <span class="account__value">@(_sd.CurrentUser?.Email ?? "—")</span>
+                        <span class="account__icon"><Icon Name="mail" Size="18" /></span>
+
+                        <span class="account__field">
+                            <span class="al-label">Email</span>
+                            <span class="account__value al-truncate">@(_sd.CurrentUser?.Email ?? "Not set")</span>
+                            <span class="account__hint">Where every brief and sign-in lands.</span>
+                        </span>
+
+                        <button type="button" class="al-iconbtn account__edit"
+                                @onclick="() => changing = ContactChangeDialog.ContactField.Email"
+                                aria-label="Change email">
+                            <Icon Name="edit" Size="16" />
+                        </button>
                     </div>
+
+                    @* ── Username ───────────────────────────────────────── *@
                     <div class="account__row">
-                        <span class="al-label">Username</span>
-                        <span class="account__value">@(_sd.CurrentUser?.UseName ?? "—")</span>
+                        <span class="account__icon"><Icon Name="at" Size="18" /></span>
+
+                        <span class="account__field">
+                            <span class="al-label">Username</span>
+
+                            @if (editingName)
+                            {
+                                <span class="account__inline">
+                                    <span class="handle @HandleStateClass">
+                                        <span class="handle__at" aria-hidden="true">@@</span>
+                                        <input class="handle__input" maxlength="64" placeholder="username"
+                                               autocomplete="off" spellcheck="false"
+                                               disabled="@savingName" value="@draftName" @oninput="OnNameInput" />
+                                        <span class="handle__mark" aria-hidden="true">
+                                            @if (checkingName)
+                                            {
+                                                <span class="al-spinner al-spinner--sm"></span>
+                                            }
+                                            else if (nameCheck?.Available == true)
+                                            {
+                                                <Icon Name="check-circle" Size="16" />
+                                            }
+                                            else if (nameCheck is not null)
+                                            {
+                                                <Icon Name="close" Size="16" />
+                                            }
+                                        </span>
+                                    </span>
+
+                                    <button type="button" class="al-btn al-btn--primary al-btn--sm"
+                                            disabled="@(!CanSaveName)" @onclick="SaveUserNameAsync">
+                                        @if (savingName)
+                                        {
+                                            <span class="al-spinner"></span>
+                                        }
+                                        else
+                                        {
+                                            <span>Save</span>
+                                        }
+                                    </button>
+                                    <button type="button" class="al-btn al-btn--quiet al-btn--sm"
+                                            disabled="@savingName" @onclick="CancelNameEdit">
+                                        Cancel
+                                    </button>
+                                </span>
+
+                                @* Said as you type, because a name is rejected on
+                                   save and typing it twice is the failure. *@
+                                <span class="account__status @HandleStateClass" aria-live="polite">
+                                    @if (checkingName)
+                                    {
+                                        <text>Checking…</text>
+                                    }
+                                    else if (nameCheck?.Available == true)
+                                    {
+                                        <text>@@@nameCheck.UserName is yours.</text>
+                                    }
+                                    else if (nameCheck is not null)
+                                    {
+                                        <text>@nameCheck.Reason</text>
+                                    }
+                                    else
+                                    {
+                                        <text>Letters, numbers, and . _ - only.</text>
+                                    }
+                                </span>
+
+                                @if (nameCheck is { Available: false, Suggestions.Count: > 0 })
+                                {
+                                    <span class="handle__picks">
+                                        @foreach (var suggestion in nameCheck.Suggestions)
+                                        {
+                                            <button type="button" class="handle__pick"
+                                                    @onclick="() => TakeSuggestionAsync(suggestion)">
+                                                @@@suggestion
+                                            </button>
+                                        }
+                                    </span>
+                                }
+
+                                @if (!string.IsNullOrEmpty(nameError))
+                                {
+                                    <span class="account__error" role="alert">@nameError</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="account__value al-truncate">
+                                    @if (string.IsNullOrEmpty(_sd.CurrentUser?.UseName))
+                                    {
+                                        <text>Not set</text>
+                                    }
+                                    else
+                                    {
+                                        <span class="account__handle">@@@_sd.CurrentUser!.UseName</span>
+                                    }
+                                </span>
+                                <span class="account__hint">A label. Nobody is reached at it.</span>
+                            }
+                        </span>
+
+                        @if (!editingName)
+                        {
+                            <button type="button" class="al-iconbtn account__edit"
+                                    @onclick="StartNameEdit" aria-label="Change username">
+                                <Icon Name="edit" Size="16" />
+                            </button>
+                        }
                     </div>
+
+                    @* ── Phone ──────────────────────────────────────────── *@
                     <div class="account__row">
-                        <span class="al-label">Phone</span>
-                        <span class="account__value">@(_sd.CurrentUser?.PhoneNumber ?? "Not set")</span>
+                        <span class="account__icon"><Icon Name="phone" Size="18" /></span>
+
+                        <span class="account__field">
+                            <span class="al-label">Phone</span>
+                            <span class="account__value al-num">@(_sd.CurrentUser?.PhoneNumber ?? "Not set")</span>
+                            <span class="account__hint">Used for codes, not for notifications.</span>
+                        </span>
+
+                        <button type="button" class="al-iconbtn account__edit"
+                                @onclick="() => changing = ContactChangeDialog.ContactField.Phone"
+                                aria-label="Change phone number">
+                            <Icon Name="edit" Size="16" />
+                        </button>
                     </div>
+
+                    @* ── Active account ─────────────────────────────────── *@
                     <div class="account__row">
-                        <span class="al-label">Active account</span>
-                        <span class="account__value">@(_sd.CurrentUser?.TenantId ?? "—")</span>
+                        <span class="account__icon"><Icon Name="shield" Size="18" /></span>
+
+                        <span class="account__field">
+                            <span class="al-label">Active account</span>
+                            <span class="account__value al-truncate">@ActiveAccountName</span>
+                            <span class="account__hint">Which developer's projects you are looking at.</span>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -70,13 +218,242 @@
         <TenantSwitcher RedirectTo="/" />
     </section>
 
+    @* ── Danger zone ────────────────────────────────────────────────────
+       Drawn, and deliberately not wired: closing an account has to decide what
+       happens to the projects it owns and the record other people are relying
+       on, and that decision is not made yet. *@
+    <section class="danger">
+        <div class="al-rule"><span class="al-label">Danger zone</span></div>
+
+        <div class="danger__card">
+            <div class="danger__body">
+                <span class="danger__mark"><Icon Name="alert" Size="20" /></span>
+
+                <div class="danger__main">
+                    <h3 class="danger__title">Delete your account</h3>
+                    <p class="danger__lead">
+                        Removes you and everything personal to you from ASSETLEN. Projects you own would go
+                        with you — including the commitments other people on them are relying on, which is
+                        why this is not switched on yet.
+                    </p>
+                </div>
+            </div>
+
+            <div class="danger__foot">
+                <span class="al-badge al-badge--neutral">Coming soon</span>
+                <button type="button" class="al-btn al-btn--danger" disabled
+                        aria-disabled="true" title="Not available yet">
+                    <Icon Name="trash" Size="15" /> Delete my account
+                </button>
+            </div>
+        </div>
+    </section>
+
 </div>
+
+@if (changing is { } field)
+{
+    <ContactChangeDialog Field="field"
+                         UserId="@(_sd.CurrentUser?.Id ?? string.Empty)"
+                         Current="@(field == ContactChangeDialog.ContactField.Email ? _sd.CurrentUser?.Email : _sd.CurrentUser?.PhoneNumber)"
+                         OnChanged="OnContactChanged"
+                         OnClose="() => changing = null" />
+}
 
 @code {
     [Inject] private CustomAuthStateProvider _custAuth { get; set; } = default!;
     [Inject] private ShellState Shell { get; set; } = default!;
+    [Inject] private ILogger<Account> Logger { get; set; } = default!;
+
+    private ContactChangeDialog.ContactField? changing;
+
+    private bool editingName;
+    private bool savingName;
+    private string draftName = string.Empty;
+    private string? nameError;
+
+    /// <summary>Long enough that a fast typist makes one request, short enough to feel live.</summary>
+    private const int CheckDebounceMs = 350;
+
+    private UserNameAvailabilityDto? nameCheck;
+    private bool checkingName;
+    private CancellationTokenSource? checkCts;
+
+    private bool NameChanged => draftName.Trim().Length >= 3
+        && !string.Equals(draftName.Trim(), _sd.CurrentUser?.UseName, StringComparison.Ordinal);
+
+    private bool CanSaveName => !savingName && !checkingName && NameChanged && nameCheck?.Available == true;
+
+    private string HandleStateClass => checkingName
+        ? "is-checking"
+        : nameCheck is null ? "" : nameCheck.Available ? "is-free" : "is-taken";
+
+    protected override void OnInitialized() => _sd.OnUserUpdated += Refresh;
+
+    public void Dispose()
+    {
+        _sd.OnUserUpdated -= Refresh;
+        checkCts?.Cancel();
+        checkCts?.Dispose();
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
 
     private bool IsClientSide => _sd.CurrentUser?.RolesDto?.IsExternal == true;
+
+    private string ActiveAccountName
+        => Shell.Find(_sd.CurrentUser?.TenantId)?.Name
+           ?? _sd.CurrentUser?.TenantId
+           ?? "—";
+
+    // ── Editing ─────────────────────────────────────────────────────────────
+
+    private void StartNameEdit()
+    {
+        draftName = _sd.CurrentUser?.UseName ?? string.Empty;
+        nameError = null;
+        nameCheck = null;
+        editingName = true;
+    }
+
+    private void CancelNameEdit()
+    {
+        checkCts?.Cancel();
+        checkingName = false;
+        nameCheck = null;
+        nameError = null;
+        editingName = false;
+    }
+
+    private async Task OnNameInput(ChangeEventArgs e)
+    {
+        draftName = (e.Value?.ToString() ?? string.Empty).Trim();
+        nameError = null;
+        nameCheck = null;
+
+        checkCts?.Cancel();
+        checkCts?.Dispose();
+        checkCts = new CancellationTokenSource();
+        var token = checkCts.Token;
+
+        if (draftName.Length == 0
+            || string.Equals(draftName, _sd.CurrentUser?.UseName, StringComparison.Ordinal))
+        {
+            checkingName = false;
+            return;
+        }
+
+        checkingName = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(CheckDebounceMs, token);
+
+            var response = await _auth.CheckUserName(draftName, token);
+            if (token.IsCancellationRequested) return;
+
+            nameCheck = response.IsSuccessStatusCode ? response.Content : null;
+
+            // A check that could not run must not read as "taken" — the reader
+            // would rename around a name that is actually free.
+            if (nameCheck is null) nameError = "Could not check that one. Saving will still tell you.";
+        }
+        catch (TaskCanceledException)
+        {
+            return;   // superseded by the next keystroke
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Username check failed");
+            nameError = "Could not check that one. Saving will still tell you.";
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+            {
+                checkingName = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task TakeSuggestionAsync(string suggestion)
+    {
+        draftName = suggestion;
+        nameCheck = new UserNameAvailabilityDto { UserName = suggestion, Available = true };
+        checkingName = false;
+        await SaveUserNameAsync();
+    }
+
+    private async Task SaveUserNameAsync()
+    {
+        if (savingName || !NameChanged) return;
+
+        savingName = true;
+        nameError = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _auth.UpdateUserName(new UpdateUserNameDto
+            {
+                UserId = _sd.CurrentUser?.Id ?? string.Empty,
+                UserName = draftName.Trim()
+            });
+
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                nameError = _apiResponseHandler.GetApiErrorMessage(response) ?? "That username could not be saved.";
+                return;
+            }
+
+            ApplyToSession(user => user.UseName = response.Content.UserName ?? draftName.Trim());
+
+            editingName = false;
+            ToastService.ShowSuccess("Username updated.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not change the username");
+            nameError = "That username could not be saved.";
+        }
+        finally
+        {
+            savingName = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnContactChanged(string confirmed)
+    {
+        var wasEmail = changing == ContactChangeDialog.ContactField.Email;
+
+        // The old value stops being the one the app shows anywhere the moment
+        // the new one is proven — the header, the switcher and the brief all
+        // read the same session object.
+        ApplyToSession(user =>
+        {
+            if (wasEmail) user.Email = confirmed;
+            else user.PhoneNumber = confirmed;
+        });
+
+        changing = null;
+        ToastService.ShowSuccess(wasEmail
+            ? $"Your email is now {confirmed}."
+            : $"Your phone is now {confirmed}.");
+    }
+
+    private void ApplyToSession(Action<UserClaimsDto> apply)
+    {
+        var user = _sd.CurrentUser;
+        if (user is null) return;
+
+        apply(user);
+        _sd.SetUser(user);
+    }
+
+    // ── Reading ─────────────────────────────────────────────────────────────
 
     private string DisplayName
     {

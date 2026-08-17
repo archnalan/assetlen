@@ -1,39 +1,38 @@
 @*
     A project on the home screen.
 
-    Media is the hero and the chrome recedes, but the card has to answer three
-    questions without being opened: how far through is it, what is happening
-    now, and are the sub-projects part of it. The third is why sub-projects are
-    rendered *inside* the parent card rather than as siblings in the grid — a
-    guest wing that looks like its own project is precisely the misreading that
-    turned one engagement into nine.
+    Sub-projects render *inside* the parent card rather than as siblings in the
+    grid — a guest wing that looks like its own project is precisely the
+    misreading that turned one engagement into nine.
 *@
 
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
 @implements IDisposable
+@inject IArtifactImageService Images
 
-<article class="pcard">
+<article class="pcard @(Project.IsPinned ? "pcard--pinned" : "")"
+         @oncontextmenu="OpenMenu" @oncontextmenu:preventDefault>
 
     <a class="pcard__cover" href="/project/@Project.Id"
        @onmouseenter="() => paused = true"
        @onmouseleave="() => paused = false"
        aria-label="@Project.ProjectName">
 
-        @if (Frames.Count > 0)
+        @if (frames.Count > 0)
         {
-            @for (var i = 0; i < Frames.Count; i++)
+            @for (var i = 0; i < frames.Count; i++)
             {
                 var idx = i;
                 <img class="pcard__frame @(idx == activeFrame ? "is-active" : "")"
-                     src="@Frames[idx]" alt=""
+                     src="@frames[idx]" alt="" draggable="false"
                      loading="@(idx == 0 && Eager ? "eager" : "lazy")" />
             }
         }
         else
         {
             <div class="pcard__cover-blank al-gridded">
-                <Icon Name="project" Size="34" Weight="1" Class="pcard__cover-icon" />
+                <Icon Name="@FallbackMark" Size="34" Weight="1" Class="pcard__cover-icon" />
             </div>
         }
 
@@ -48,6 +47,12 @@
                     @Project.SubProjectCount sub-project@(Project.SubProjectCount == 1 ? "" : "s")
                 </span>
             }
+            @if (Project.IsPinned)
+            {
+                <span class="al-badge al-badge--neutral pcard__pin">
+                    <Icon Name="pushpin" Size="11" /> Pinned
+                </span>
+            }
         </div>
 
         <div class="pcard__cover-foot">
@@ -60,16 +65,31 @@
             }
         </div>
 
-        @if (Frames.Count > 1)
+        @if (frames.Count > 1)
         {
             <div class="pcard__dots">
-                @for (var i = 0; i < Frames.Count; i++)
+                @for (var i = 0; i < frames.Count; i++)
                 {
                     <span class="pcard__dot @(i == activeFrame ? "is-active" : "")"></span>
                 }
             </div>
         }
     </a>
+
+    @* Over the cover, not inside the link: an anchor cannot contain a button
+       and the browser's repair of that swallows the button's own click. *@
+    @if (Draggable)
+    {
+        <span class="pcard__grip" data-al-grip aria-hidden="true">
+            <Icon Name="grip" Size="16" />
+        </span>
+    }
+
+    <button type="button" class="pcard__more" data-al-nodrag
+            @onclick="OpenMenu"
+            aria-label="Actions for @Project.ProjectName">
+        <Icon Name="more" Size="18" />
+    </button>
 
     <div class="pcard__body">
 
@@ -121,8 +141,9 @@
             @foreach (var sub in Project.SubProjects)
             {
                 <li>
-                    <a class="pcard__child" href="/project/@sub.Id">
-                        <Icon Name="wing" Size="15" />
+                    <a class="pcard__child" href="/project/@sub.Id"
+                       @oncontextmenu="e => OnMenu.InvokeAsync((sub, e))" @oncontextmenu:preventDefault>
+                        <ProjectMark Source="@Face(sub)" Size="20" Fallback="wing" />
                         <span class="al-truncate">@sub.ProjectName</span>
                         <span class="al-spacer"></span>
                         <span class="al-subtle al-num">@Fmt.Percent(sub.CompletedPercentage)</span>
@@ -151,29 +172,76 @@
     /// <summary>Set on the first card only; everything below the fold lazy-loads.</summary>
     [Parameter] public bool Eager { get; set; }
 
+    /// <summary>Shows the grip. False for pinned cards, which do not move.</summary>
+    [Parameter] public bool Draggable { get; set; } = true;
+
+    /// <summary>Raised for the project's action menu, with the pointer position it was asked at.</summary>
+    [Parameter] public EventCallback<(ProjectCardDto, MouseEventArgs)> OnMenu { get; set; }
+
     private int activeFrame;
     private System.Threading.Timer? timer;
     private bool paused;
 
-    private List<string> Frames =>
-        Project.RecentImageUrls.Count > 0
-            ? Project.RecentImageUrls
-            : string.IsNullOrEmpty(Project.LatestImageUrl) ? new List<string>() : new() { Project.LatestImageUrl! };
+    private readonly List<string> frames = new();
+    private string? resolvedFor;
+    private bool disposed;
 
-    protected override void OnAfterRender(bool firstRender)
+    private string FallbackMark => string.IsNullOrEmpty(Project.ParentProjectId) ? "project" : "wing";
+
+    private static string? Face(ProjectCardDto p)
+        => (string.IsNullOrWhiteSpace(p.CoverImageUrl) ? null : p.CoverImageUrl)
+           ?? p.RecentImageUrls.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u))
+           ?? (string.IsNullOrWhiteSpace(p.LatestImageUrl) ? null : p.LatestImageUrl);
+
+    private List<string> Sources
     {
-        // 5000ms dwell, per the motion spec. Pauses on hover so a reader can
-        // look at one frame without it sliding out from under them.
-        if (firstRender && Frames.Count > 1)
+        get
+        {
+            var set = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(Project.CoverImageUrl)) set.Add(Project.CoverImageUrl!);
+            set.AddRange(Project.RecentImageUrls.Where(u => !string.IsNullOrWhiteSpace(u)));
+            if (set.Count == 0 && !string.IsNullOrWhiteSpace(Project.LatestImageUrl)) set.Add(Project.LatestImageUrl!);
+
+            return set.Distinct().ToList();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var sources = Sources;
+        var key = $"{Project.Id}|{string.Join('|', sources)}";
+        if (key == resolvedFor) return;
+
+        resolvedFor = key;
+        frames.Clear();
+        activeFrame = 0;
+
+        // Artifact-backed covers need a token, so they cannot go straight into
+        // an <img src>. See IArtifactImageService.
+        foreach (var source in sources)
+        {
+            var url = await Images.ResolveAsync(source);
+            if (disposed || key != resolvedFor) return;
+            if (url is not null) frames.Add(url);
+        }
+
+        if (frames.Count > 1 && timer is null)
             timer = new System.Threading.Timer(_ => Tick(), null, 5000, 5000);
+
+        StateHasChanged();
     }
 
     private void Tick()
     {
-        if (paused || Frames.Count <= 1) return;
-        activeFrame = (activeFrame + 1) % Frames.Count;
+        // 5000ms dwell, per the motion spec; pauses on hover so a reader can
+        // look at one frame without it sliding out from under them.
+        if (paused || frames.Count <= 1) return;
+        activeFrame = (activeFrame + 1) % frames.Count;
         InvokeAsync(StateHasChanged);
     }
+
+    private Task OpenMenu(MouseEventArgs e) => OnMenu.InvokeAsync((Project, e));
 
     private static decimal Clamp(decimal v) => Math.Clamp(v, 0m, 100m);
 
@@ -185,5 +253,9 @@
         _ => "al-badge--neutral"
     };
 
-    public void Dispose() => timer?.Dispose();
+    public void Dispose()
+    {
+        disposed = true;
+        timer?.Dispose();
+    }
 }

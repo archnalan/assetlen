@@ -18,8 +18,35 @@ namespace assetlen.Shared.Apicalls
         [Put("/api/ProjectsRS/UpdateProject")]
         Task<IApiResponse<ProjectDto>> UpdateProject([Body] ProjectDto dto);
 
+        /// <summary>Empty one project out of the bin early. Fails unless it is archived already.</summary>
         [Delete("/api/ProjectsRS/DeleteProject")]
         Task<IApiResponse<bool>> DeleteProject([Query] string projectId);
+
+        // ─── The bin ───
+        // Deleting a project archives it for 30 days. Nothing underneath is
+        // touched until the sweep runs.
+
+        [Put("/api/ProjectsRS/ArchiveProject")]
+        Task<IApiResponse<bool>> ArchiveProject([Query] string projectId);
+
+        [Put("/api/ProjectsRS/RestoreProject")]
+        Task<IApiResponse<bool>> RestoreProject([Query] string projectId);
+
+        [Get("/api/ProjectsRS/GetArchivedProjects")]
+        Task<IApiResponse<List<ProjectCardDto>>> GetArchivedProjects();
+
+        // ─── This reader's arrangement ───
+        // Per user, so two people on one engagement each order their own screen.
+
+        [Put("/api/ProjectsRS/ReorderProjects")]
+        Task<IApiResponse<bool>> ReorderProjects([Body] ProjectOrderUpdateDto dto);
+
+        [Put("/api/ProjectsRS/SetProjectPinned")]
+        Task<IApiResponse<bool>> SetProjectPinned([Query] string projectId, [Query] bool pinned);
+
+        /// <summary>Set a project's cover, or clear it with a null artifact id.</summary>
+        [Put("/api/ProjectsRS/SetProjectCover")]
+        Task<IApiResponse<ProjectDto>> SetProjectCover([Body] ProjectCoverUpdateDto dto);
 
         [Get("/api/ProjectsRS/SearchProjects")]
         Task<IApiResponse<PaginationDetails<ProjectCardDto>>> SearchProjects(

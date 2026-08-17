@@ -55,6 +55,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_ProjectSubscription> tbl_ProjectSubscriptions { get; set; }
     public virtual DbSet<tbl_Flag> tbl_Flags { get; set; }
     public virtual DbSet<tbl_ProjectMember> tbl_ProjectMembers { get; set; }
+    public virtual DbSet<tbl_ProjectPreference> tbl_ProjectPreferences { get; set; }
     public virtual DbSet<tbl_BudgetLineItem> tbl_BudgetLineItems { get; set; }
     public virtual DbSet<tbl_Receipt> tbl_Receipts { get; set; }
 
@@ -122,6 +123,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         TenantScoped<tbl_ProjectSubscription>(modelBuilder);
         TenantScoped<tbl_Flag>(modelBuilder);
         TenantScoped<tbl_ProjectMember>(modelBuilder);
+        TenantScoped<tbl_ProjectPreference>(modelBuilder);
         TenantScoped<tbl_BudgetLineItem>(modelBuilder);
         TenantScoped<tbl_Receipt>(modelBuilder);
         TenantScoped<tbl_Artifact>(modelBuilder);
@@ -147,6 +149,10 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasIndex(e => e.ProjectManagerId).HasDatabaseName("IX_Project_ProjectManagerId");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_Project_Status");
             entity.HasIndex(e => e.ParentProjectId).HasDatabaseName("IX_Project_ParentProjectId");
+
+            // Every list of live projects filters on this, and the bin sweep
+            // asks for the handful whose thirty days are up.
+            entity.HasIndex(e => e.ArchivedAt).HasDatabaseName("IX_Project_ArchivedAt");
 
             // The developer's account owns the project. Every child row is
             // stamped from here — see ResolveOwningTenantId.
@@ -233,6 +239,20 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasOne(e => e.Project).WithMany(p => p.Members).HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.AssignedBy).WithMany().HasForeignKey(e => e.AssignedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // One reader's arrangement of their own projects. Read once per
+        // dashboard load and keyed by the reader, so the composite index is the
+        // only one that matters; the unique constraint is what stops a
+        // double-tapped drop from writing two positions for one project.
+        modelBuilder.Entity<tbl_ProjectPreference>(entity =>
+        {
+            entity.HasIndex(e => new { e.UserId, e.ProjectId })
+                  .HasDatabaseName("IX_ProjectPreference_User_Project")
+                  .IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.IsPinned }).HasDatabaseName("IX_ProjectPreference_User_Pinned");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<tbl_Flag>(entity =>

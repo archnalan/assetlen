@@ -1618,6 +1618,13 @@ table.al-table tfoot td {
 }
 
 .al-dialog__panel {
+    /* Above its own scrim. The scrim is this panel's sibling inside .al-dialog,
+       and .al-dialog is a stacking context — so an unpositioned panel, or one
+       ranked below --al-z-scrim, is painted over and nothing in the dialog can
+       be clicked. */
+    position: relative;
+    z-index: calc(var(--al-z-scrim) + 1);
+
     width: 100%;
     max-width: 34rem;
     max-height: 88dvh;

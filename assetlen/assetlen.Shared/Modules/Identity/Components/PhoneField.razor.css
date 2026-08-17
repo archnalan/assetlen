@@ -1,0 +1,71 @@
+.phone {
+    display: flex;
+    align-items: stretch;
+    gap: var(--al-space-2);
+    min-width: 0;
+}
+
+/* The country reads as one control with the number, not as a separate form
+   field — the reader is entering a phone number, not answering two questions. */
+.phone__country {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    flex: 0 0 auto;
+    padding: 0 var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-sm);
+    cursor: pointer;
+    transition: border-color var(--al-transition-fast), background-color var(--al-transition-fast);
+}
+
+.phone__country:hover { background: var(--al-surface-2); }
+.phone__country:focus-within { border-color: var(--al-accent); }
+
+.phone__flag {
+    font-size: var(--al-font-size-lg);
+    line-height: 1;
+}
+
+.phone__dial {
+    font-size: var(--al-font-size-md);
+    font-variant-numeric: tabular-nums;
+    color: var(--al-text);
+}
+
+/* The real <select> sits invisible over the whole cell so the native picker —
+   which is the good one on a phone — is what opens. */
+.phone__select {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    font-size: var(--al-font-size-md);
+}
+
+.phone__number {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.phone__note {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    margin-top: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.phone__note svg { flex: 0 0 auto; }
+
+@media (max-width: 26rem) {
+    .phone { flex-direction: column; }
+    .phone__country { justify-content: flex-start; min-height: 2.75rem; }
+}

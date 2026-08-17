@@ -67,6 +67,8 @@ builder.Services.AddScoped<ShellState>();
 // copy of the same per-project loop and could disagree about the count.
 builder.Services.AddScoped<AttentionState>();
 
+builder.Services.AddScoped<ProjectMenuState>();
+
 // One registration helper — every ASSETLEN API client is registered the same way.
 void AddApi<T>() where T : class => builder.Services
     .AddRefitClient<T>()
@@ -113,6 +115,10 @@ builder.Services.AddScoped<ICustomFileSaver, FileSaverWeb>();
 // reached from an href or a src. Everything fetches through Refit and hands the
 // browser a blob.
 builder.Services.AddScoped<IArtifactDownloadService, ArtifactDownloadService>();
+
+// Same for images that are painted rather than downloaded: a cover in an
+// <img src> carries no bearer token and answers 401.
+builder.Services.AddScoped<IArtifactImageService, ArtifactImageService>();
 builder.Services.AddScoped<IPrintService, PrintServiceWeb>();
 builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();
 

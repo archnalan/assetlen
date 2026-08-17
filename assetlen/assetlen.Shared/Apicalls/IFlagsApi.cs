@@ -26,6 +26,10 @@ public interface IFlagsApi
     [Put("/api/Flags/ResolveFlag")]
     Task<IApiResponse<FlagDto>> ResolveFlag([Query] string flagId);
 
+    /// <summary>Close every open question on a project at once. Returns how many were closed.</summary>
+    [Put("/api/Flags/ResolveProjectFlags")]
+    Task<IApiResponse<int>> ResolveProjectFlags([Query] string projectId);
+
     [Put("/api/Flags/NudgeFlag")]
     Task<IApiResponse<FlagDto>> NudgeFlag([Query] string flagId);
 }

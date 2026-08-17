@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using assetlen.Service.DataAccess;
 
@@ -11,9 +12,11 @@ using assetlen.Service.DataAccess;
 namespace assetlen.SqlServer.Migrations
 {
     [DbContext(typeof(AssetlenDbContext))]
-    partial class AssetlenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260817180056_P4_ProjectArrangementAndArchive")]
+    partial class P4_ProjectArrangementAndArchive
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

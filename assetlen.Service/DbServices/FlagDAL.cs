@@ -225,6 +225,71 @@ public class FlagDAL : IFlagDAL
         return await UpdateFlag(new FlagUpdateDto { Id = flagId, Status = FlagStatus.Resolved }, actingUserId);
     }
 
+    /// <summary>
+    /// Close every open question on a project at once, and say how many.
+    ///
+    /// <para>
+    /// This is the "these were all sorted out on site weeks ago" gesture. It
+    /// exists because the alternative is a reader working down a list of
+    /// fourteen stale queries one at a time, and what actually happens then is
+    /// that they stop reading the number entirely — which is the failure the
+    /// whole attention model is built to avoid.
+    /// </para>
+    /// <para>
+    /// Attribution survives it: each flag still records who resolved it and
+    /// when, exactly as a one-at-a-time resolution would. The bulk form changes
+    /// how many clicks it takes, never what the record says. Only questions the
+    /// caller can actually see are touched — a delivery-side reader clearing
+    /// their board must not silently close a client-channel query they were
+    /// never shown.
+    /// </para>
+    /// </summary>
+    public async Task<ServiceResult<int>> ResolveProjectFlags(string projectId, string actingUserId)
+    {
+        try
+        {
+            var project = await LoadProjectWithParent(projectId);
+            if (project is null)
+                return ServiceResult<int>.Failure(new NotFoundException("Project not found."));
+
+            var access = await _access.ResolveAsync(project, actingUserId);
+            if (access.Level == ProjectAccessLevel.None)
+                return ServiceResult<int>.Failure(new ForbiddenException("Access denied."));
+
+            // Resolving is a write. A guest who can read the board must not be
+            // able to sweep it.
+            if (!await _access.CanWriteAsync(project, actingUserId))
+                return ServiceResult<int>.Failure(new ForbiddenException(
+                    "You can see these questions but not close them."));
+
+            var query = _context.tbl_Flags
+                .Where(f => f.ProjectId == projectId
+                            && (f.Status == FlagStatus.Open || f.Status == FlagStatus.InProgress));
+
+            if (!access.CanSeeSiteLog)
+                query = query.Where(f => f.Channel == Channel.Client);
+
+            var flags = await query.ToListAsync();
+            if (flags.Count == 0) return ServiceResult<int>.Success(0);
+
+            var now = DateTime.UtcNow;
+            foreach (var flag in flags)
+            {
+                flag.Status = FlagStatus.Resolved;
+                flag.ResolvedById = actingUserId;
+                flag.ResolvedDate = now;
+            }
+
+            await _context.SaveChangesAsync();
+            return ServiceResult<int>.Success(flags.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resolving all flags on {ProjectId}", projectId);
+            return ServiceResult<int>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
     public async Task<ServiceResult<FlagDto>> NudgeFlag(string flagId, string actingUserId)
     {
         try

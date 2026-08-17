@@ -93,6 +93,23 @@ public class FlagsController : ControllerBase
         return Ok(result.Data);
     }
 
+    /// <summary>
+    /// Close every open question on a project at once, and answer how many.
+    /// The "these were all sorted out on site weeks ago" gesture — each flag
+    /// still records who closed it and when.
+    /// </summary>
+    [HttpPut]
+    [ProducesResponseType(typeof(int), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> ResolveProjectFlags([FromQuery][Required] string projectId)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _dal.ResolveProjectFlags(projectId, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
     [HttpPut]
     [ProducesResponseType(typeof(FlagDto), 200)]
     [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",

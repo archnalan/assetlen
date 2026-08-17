@@ -89,11 +89,20 @@ namespace assetlen.Shared.Apicalls
         [Put("/api/Authorization/UpdateUserProfile")]
         Task<IApiResponse<CreateUserResponseDto>> UpdateUserProfile([Body] UpdateUserProfileDto dto);
 
+        /// <summary>Sends a code to a new email or phone. On a Development host the response carries the code.</summary>
         [Post("/api/Authorization/InitiateContactChange")]
-        Task<IApiResponse<string>> InitiateContactChange([Body] SendVerificationCodeDto dto);
+        Task<IApiResponse<ContactChallengeDto>> InitiateContactChange([Body] SendVerificationCodeDto dto);
 
         [Post("/api/Authorization/VerifyContactChange")]
         Task<IApiResponse<CreateUserResponseDto>> VerifyContactChange([Body] VerifyContactChangeDto dto);
+
+        [Put("/api/Authorization/UpdateUserName")]
+        Task<IApiResponse<CreateUserResponseDto>> UpdateUserName([Body] UpdateUserNameDto dto);
+
+        /// <summary>Is a username free platform-wide? Answers with alternatives when it is not.</summary>
+        [Get("/api/Authorization/CheckUserName")]
+        Task<IApiResponse<UserNameAvailabilityDto>> CheckUserName(
+            [Query] string userName, CancellationToken cancellationToken = default);
     }
 }
 

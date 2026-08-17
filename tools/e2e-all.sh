@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# ASSETLEN — the whole chain: P0 + P1 + P2 + P3.
+# ASSETLEN — the whole chain: P0 + P1 + P2 + P3 + the arrangement and the bin.
 #
-# Two suites, run in order, one exit code. They are kept separate because they
+# Three suites, run in order, one exit code. They are kept separate because they
 # answer different questions — e2e-p2-peter.sh asks whether the project belongs
 # to the person who funds it, e2e-p3-ingest.sh asks whether he can get his year
-# of history into it — but a phase is only done when both are green together.
+# of history into it, e2e-p4-arrange.sh asks whether his screen is his own and
+# whether deleting destroys the record — but a phase is only done when all of
+# them are green together.
 #
 # Usage:  bash tools/e2e-all.sh [api-base] [tenant-admin-email] [password]
 # Needs:  the API running, and pwsh for the P3 fixtures. Run from the repo root.
@@ -44,10 +46,11 @@ run() { # run LABEL SCRIPT
 
 run "P0 + P1 + P2 — ownership, sides, the artifact store" tools/e2e-p2-peter.sh
 run "P3 — ingest, the front door"                         tools/e2e-p3-ingest.sh
+run "The reader's own screen, and the bin"                tools/e2e-p4-arrange.sh
 
 printf "\n%s══ Whole chain %s\n" "$c_head" "$c_off"
 if [ "$FAILED" -eq 0 ]; then
-  printf "  %s%d passed%s, %d failed, %d skipped — P0+P1+P2+P3 green\n\n" \
+  printf "  %s%d passed%s, %d failed, %d skipped — the chain is green\n\n" \
     "$c_pass" "$TOTAL_PASS" "$c_off" "$TOTAL_FAIL" "$TOTAL_SKIP"
 else
   printf "  %s%d failed%s of %d — see above\n\n" \

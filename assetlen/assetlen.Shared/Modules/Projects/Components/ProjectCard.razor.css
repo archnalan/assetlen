@@ -1,6 +1,8 @@
 .pcard {
+    position: relative;
     display: flex;
     flex-direction: column;
+    height: 100%;
     background: var(--al-bg-elevated);
     border: 1px solid var(--al-border);
     border-radius: var(--al-radius);
@@ -12,6 +14,50 @@
     border-color: var(--al-border-strong);
     box-shadow: var(--al-shadow-sm);
 }
+
+.pcard--pinned { border-color: var(--al-border-strong); }
+
+/* ── Grip and actions, floating over the cover ─────────────────────────────
+   Both sit outside the cover anchor so their clicks are their own. They fade
+   in on hover; on touch, where there is no hover and no right-click, the
+   actions button is simply always there. */
+
+.pcard__grip,
+.pcard__more {
+    position: absolute;
+    top: var(--al-space-3);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--al-radius-sm);
+    background: rgba(255, 255, 255, 0.92);
+    color: #16191c;
+    backdrop-filter: blur(6px);
+    opacity: 0;
+    transition: opacity var(--al-transition-fast), transform var(--al-transition-fast);
+}
+
+.pcard__grip { right: calc(var(--al-space-3) + 2.25rem); cursor: grab; touch-action: none; }
+.pcard__grip:active { cursor: grabbing; }
+.pcard__more { right: var(--al-space-3); }
+
+.pcard:hover .pcard__grip,
+.pcard:hover .pcard__more,
+.pcard__grip:focus-visible,
+.pcard__more:focus-visible { opacity: 1; }
+
+.pcard__more:hover { transform: scale(1.06); }
+
+@media (hover: none) {
+    .pcard__grip { display: none; }
+    .pcard__more { opacity: 1; }
+}
+
+/* The drag states live on the slot, which the home screen owns — see
+   Home.razor.css. */
 
 /* ── Cover ─────────────────────────────────────────────────────────────── */
 

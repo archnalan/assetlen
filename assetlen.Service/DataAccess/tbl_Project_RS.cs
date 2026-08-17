@@ -89,6 +89,31 @@ public class tbl_Project : BaseEntity
 
     public ProjectStatus Status { get; set; } = ProjectStatus.Active;
 
+    /// <summary>
+    /// When someone sent this project to the bin. Null for a live project.
+    /// <para>
+    /// <b>Deletion is a two-step with thirty days in between.</b> A project is
+    /// the container for every commitment, receipt and photograph on an
+    /// engagement — the one thing in this product that must never be destroyed
+    /// by a mis-tap. Archiving hides it from the rail, the home screen and the
+    /// dashboard totals but touches nothing underneath, so restoring is a single
+    /// write. Only after <see cref="PurgeDueAt"/> passes does anything get
+    /// soft-deleted, and even then the rows survive as <c>IsDeleted</c>.
+    /// </para>
+    /// </summary>
+    public DateTime? ArchivedAt { get; set; }
+
+    /// <summary>Who binned it. The bin lists a name, because "who threw this away" is the first question asked.</summary>
+    [MaxLength(450)]
+    public string? ArchivedById { get; set; }
+
+    /// <summary>Days an archived project waits in the bin before its contents are soft-deleted.</summary>
+    public const int ArchiveRetentionDays = 30;
+
+    /// <summary>When the contents get soft-deleted, or null while the project is live.</summary>
+    [NotMapped]
+    public DateTime? PurgeDueAt => ArchivedAt?.AddDays(ArchiveRetentionDays);
+
     public bool IsFirstFreeProject { get; set; }
 
     public bool IsSubscriptionActive { get; set; } = true;

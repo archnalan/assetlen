@@ -264,6 +264,20 @@
     private bool saving;
     private string? errorMessage;
 
+    /// <summary>Preselected when the reader arrived from a project's "Add a sub-project".</summary>
+    [SupplyParameterFromQuery(Name = "parent")]
+    public string? ParentFromQuery { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrEmpty(ParentFromQuery) || parentId is not null) return;
+
+        // One level only: if the reader asked to nest under a wing, nest under
+        // the house instead rather than refusing.
+        var target = Shell.Find(ParentFromQuery);
+        parentId = target?.ParentId ?? target?.Id ?? ParentFromQuery;
+    }
+
     private void SelectFirstParent()
         => parentId = Shell.Roots.FirstOrDefault()?.Id;
 
@@ -348,7 +362,11 @@
                 }
             }
 
+            // Into the rail and the home screen before the navigation lands —
+            // opening a project that is not in the sidebar reads as a failure.
+            Shell.AddProject(created);
             Shell.Remember(created.Id, created.ProjectName, created.ParentProjectId);
+
             ToastService.ShowSuccess($"{created.ProjectName} created.");
             Nav.NavigateTo($"/project/{created.Id}");
         }

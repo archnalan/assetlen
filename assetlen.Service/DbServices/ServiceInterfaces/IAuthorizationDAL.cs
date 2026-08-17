@@ -58,5 +58,14 @@ namespace assetlen.Service.DbServices.ServiceInterfaces
         /// Verify contact change with OTP and update user's email or phone.
         /// </summary>
         Task<ServiceResult<CreateUserResponseDto>> VerifyContactChange(VerifyContactChangeDto dto);
+
+        /// <summary>Send a code for an email or phone change; <paramref name="revealCode"/> is Development-only.</summary>
+        Task<ServiceResult<ContactChallengeDto>> InitiateContactChange(SendVerificationCodeDto dto, bool revealCode);
+
+        /// <summary>Change a username. No OTP — a username reaches nobody.</summary>
+        Task<ServiceResult<CreateUserResponseDto>> UpdateUserName(UpdateUserNameDto dto);
+
+        /// <summary>Is this username free platform-wide, and if not, what is?</summary>
+        Task<ServiceResult<UserNameAvailabilityDto>> CheckUserName(string userName, string? currentUserId);
     }
 }

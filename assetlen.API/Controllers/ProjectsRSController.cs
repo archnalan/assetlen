@@ -81,6 +81,11 @@ public class ProjectsRSController : ControllerBase
         return Ok(result.Data);
     }
 
+    /// <summary>
+    /// Empty one project out of the bin ahead of its thirty days. Rejected
+    /// unless the project is already archived — deletion goes through the bin so
+    /// it can be undone.
+    /// </summary>
     [HttpDelete]
     [ProducesResponseType(typeof(bool), 200)]
     [Authorize(Roles = UserRoles.Contractor,
@@ -89,6 +94,81 @@ public class ProjectsRSController : ControllerBase
     {
         var userId = _tenantProvider.GetUserId();
         var result = await _projectDAL.DeleteProject(projectId, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    // ─── The bin ──────────────────────────────────────────────
+    // Archiving is what the delete gesture does. Thirty days later a sweep
+    // soft-deletes the contents; until then the project is one call from being
+    // back on the rail.
+
+    [HttpPut]
+    [ProducesResponseType(typeof(bool), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> ArchiveProject([FromQuery][Required] string projectId)
+    {
+        var result = await _projectDAL.ArchiveProject(projectId, _tenantProvider.GetUserId());
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpPut]
+    [ProducesResponseType(typeof(bool), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> RestoreProject([FromQuery][Required] string projectId)
+    {
+        var result = await _projectDAL.RestoreProject(projectId, _tenantProvider.GetUserId());
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpGet]
+    [ProducesResponseType(typeof(List<ProjectCardDto>), 200)]
+    public async Task<ActionResult> GetArchivedProjects()
+    {
+        var result = await _projectDAL.GetArchivedProjects(_tenantProvider.GetUserId());
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    // ─── This reader's arrangement ────────────────────────────
+    // Ordering and pins are per user. Every signed-in role may arrange their
+    // own screen — a guest who cannot change a figure can still decide which
+    // project they want to see first.
+
+    [HttpPut]
+    [ProducesResponseType(typeof(bool), 200)]
+    public async Task<ActionResult> ReorderProjects([FromBody] ProjectOrderUpdateDto dto)
+    {
+        var result = await _projectDAL.ReorderProjects(dto, _tenantProvider.GetUserId());
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpPut]
+    [ProducesResponseType(typeof(bool), 200)]
+    public async Task<ActionResult> SetProjectPinned(
+        [FromQuery][Required] string projectId, [FromQuery] bool pinned)
+    {
+        var result = await _projectDAL.SetProjectPinned(projectId, pinned, _tenantProvider.GetUserId());
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    /// <summary>
+    /// Give a project a face, or clear it. A cleared sub-project falls back to
+    /// its parent's cover; a cleared top-level project falls back to its mark.
+    /// </summary>
+    [HttpPut]
+    [ProducesResponseType(typeof(ProjectDto), 200)]
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Crew}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> SetProjectCover([FromBody] ProjectCoverUpdateDto dto)
+    {
+        var result = await _projectDAL.SetProjectCover(dto, _tenantProvider.GetUserId());
         if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
         return Ok(result.Data);
     }

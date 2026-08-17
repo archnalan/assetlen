@@ -1,0 +1,72 @@
+@*
+    A project's face, at a fixed size, wherever the chrome needs one. The box
+    never changes with content, and the fallback differs by kind — a house for a
+    project, a wing for a sub-project, which is the distinction sub-projects
+    exist to make visible.
+*@
+
+@implements IDisposable
+@inject IArtifactImageService Images
+
+<span class="pmark @(Rounded ? "pmark--rounded" : "")"
+      style="width:@(Size)px;height:@(Size)px">
+
+    @if (resolved is not null)
+    {
+        <img class="pmark__img" src="@resolved" alt="" loading="lazy" draggable="false" />
+    }
+    else if (loading)
+    {
+        <span class="al-shimmer pmark__ghost"></span>
+    }
+    else
+    {
+        <Icon Name="@Fallback" Size="@Size" Weight="1.5" />
+    }
+</span>
+
+@code {
+    /// <summary>The stored address — an artifact endpoint, a remote URL, or null.</summary>
+    [Parameter] public string? Source { get; set; }
+
+    /// <summary>Edge length in pixels. The box never changes with content.</summary>
+    [Parameter] public int Size { get; set; } = 18;
+
+    /// <summary>Drawn when there is no image, or the reader is not entitled to the one there is.</summary>
+    [Parameter] public string Fallback { get; set; } = "project";
+
+    /// <summary>Softens the corners. Off in dense lists, on where the mark reads as a tile.</summary>
+    [Parameter] public bool Rounded { get; set; } = true;
+
+    private string? resolved;
+    private string? requested;
+    private bool loading;
+    private bool disposed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Source == requested) return;
+
+        requested = Source;
+        resolved = null;
+
+        if (string.IsNullOrWhiteSpace(Source))
+        {
+            loading = false;
+            return;
+        }
+
+        loading = true;
+
+        var url = await Images.ResolveAsync(Source);
+
+        // Blazor reuses this row as the reader switches projects; only the most
+        // recent request may write, or an old cover lands on a new project.
+        if (disposed || Source != requested) return;
+
+        resolved = url;
+        loading = false;
+    }
+
+    public void Dispose() => disposed = true;
+}

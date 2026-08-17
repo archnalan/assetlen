@@ -1,25 +1,24 @@
 @page "/"
 @attribute [Authorize]
-@implements IDisposable
+@implements IAsyncDisposable
 @inject ShellState Shell
 @inject AttentionState Attention
+@inject ProjectMenuState Menu
 @inject ILogger<Home> Logger
 
 @*
-    One home, three readings.
+    One home, several readings.
 
-    The old build had two landing pages — a portfolio for the owner and a
-    separate manager dashboard — which meant the same facts were assembled
-    twice and diverged. There is one home. What changes per reader is
-    *emphasis*, exactly as the Client Brief changes emphasis over one set of
-    facts (assetlen.md §5): the funder leads with money and decisions owed, the
-    representative with choices she owes, the delivery side with what is open on
-    site. Nobody gets a different truth.
+    What changes per reader is *emphasis*, exactly as the Client Brief changes
+    emphasis over one set of facts (assetlen.md §5). Nobody gets a different
+    truth.
 
-    Order is deliberate and is the same for everyone: what needs you, then what
-    you own, then what moved. Peter opens this for under a minute
-    ([Peter.md](Peter.md), "the daily loop"), so the thing he must act on cannot
-    be below a grid of cards.
+    Order is the same for everyone: what needs you, then what you own, then what
+    moved. Peter opens this for under a minute (Peter.md, "the daily loop"), so
+    the thing he must act on cannot sit below a grid of cards.
+
+    The projects come from ShellState, not from a list of this page's own, so
+    the arrangement here and the arrangement in the rail are the same list.
 *@
 
 <PageTitle>Your projects — ASSETLEN</PageTitle>
@@ -30,7 +29,7 @@
         <Meta>
             <div class="al-meta">
                 <span class="al-label">Projects</span>
-                <span class="al-meta__value">@(portfolio?.Projects.Count ?? 0)</span>
+                <span class="al-meta__value">@Shell.Cards.Count</span>
             </div>
             @if (ShowMoney)
             {
@@ -125,15 +124,48 @@
             }
 
             @* ── 2. The projects ───────────────────────────────────────── *@
+            @if (Shell.PinnedCount > 0)
+            {
+                <section class="home__section">
+                    <div class="al-rule">
+                        <span class="al-label">Pinned</span>
+                    </div>
+
+                    @* Pinned cards are outside the sortable list: a pin is a
+                       statement that this one stays put. *@
+                    <div class="al-grid al-grid--wide">
+                        @foreach (var project in Shell.Pinned)
+                        {
+                            <ProjectCard Project="project" ShowMoney="ShowMoney"
+                                         Draggable="false" Eager="true" OnMenu="OpenMenu" />
+                        }
+                    </div>
+                </section>
+            }
+
             <section class="home__section">
                 <div class="al-rule">
-                    <span class="al-label">Your projects</span>
+                    <span class="al-label">@(Shell.PinnedCount > 0 ? "Everything else" : "Your projects")</span>
+                    @if (UnpinnedCards.Count > 1 && !hintDismissed)
+                    {
+                        <span class="home__hint">
+                            <Icon Name="grip" Size="13" />
+                            <span>Drag to rearrange. Right-click for more.</span>
+                        </span>
+                    }
                 </div>
 
-                <div class="al-grid al-grid--wide">
-                    @foreach (var project in portfolio!.Projects)
+                <div class="al-grid al-grid--wide home__sortable" @ref="sortHost">
+                    @{ var first = true; }
+                    @foreach (var project in UnpinnedCards)
                     {
-                        <ProjectCard Project="project" ShowMoney="ShowMoney" />
+                        var eager = first && Shell.PinnedCount == 0;
+                        first = false;
+
+                        <div class="pcard__slot" data-al-drag="@project.Id">
+                            <ProjectCard Project="project" ShowMoney="ShowMoney"
+                                         Eager="eager" OnMenu="OpenMenu" />
+                        </div>
                     }
                 </div>
             </section>
@@ -202,21 +234,86 @@
     private LoadPhase phase = LoadPhase.Loading;
     private string? errorMessage;
 
+    private ElementReference sortHost;
+    private DotNetObjectReference<Home>? selfRef;
+    private bool sortRegistered;
+    private bool dragging;
+    private bool hintDismissed;
+
+    private List<ProjectCardDto> UnpinnedCards => Shell.Unpinned.ToList();
+
     protected override void OnInitialized()
     {
         _sd.OnUserUpdated += Refresh;
         Attention.OnChange += Refresh;
+        Shell.OnChange += Refresh;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _sd.OnUserUpdated -= Refresh;
         Attention.OnChange -= Refresh;
+        Shell.OnChange -= Refresh;
+
+        if (sortRegistered)
+        {
+            try { await JS.InvokeVoidAsync("assetlen.dragsort.unregister", SortId); }
+            catch (Exception ex) { Logger.LogDebug(ex, "Could not release the home sortable"); }
+        }
+
+        selfRef?.Dispose();
     }
 
     private void Refresh() => InvokeAsync(StateHasChanged);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    // ── Arranging ───────────────────────────────────────────────────────────
+
+    private const string SortId = "home-projects";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (sortRegistered || phase != LoadPhase.Ready || Shell.Cards.Count == 0) return;
+
+        sortRegistered = true;
+        selfRef ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            await JS.InvokeVoidAsync("assetlen.dragsort.register", SortId, sortHost, selfRef);
+        }
+        catch (Exception ex)
+        {
+            sortRegistered = false;
+            Logger.LogDebug(ex, "Could not attach the home sortable");
+        }
+    }
+
+    /// <summary>Called by the sortable on drop, with positions within the unpinned list.</summary>
+    [JSInvokable]
+    public async Task OnReorder(int from, int to)
+    {
+        hintDismissed = true;
+
+        if (!await Shell.ReorderAsync(from, to))
+            ToastService.ShowWarning("That order didn't save. It will go back on the next refresh.");
+    }
+
+    [JSInvokable]
+    public Task OnDragStateChanged(bool isDragging)
+    {
+        dragging = isDragging;
+        if (isDragging) hintDismissed = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenMenu((ProjectCardDto Project, MouseEventArgs Pointer) request)
+    {
+        // A menu anchored to a pointer that has moved on would open in the wrong place.
+        if (dragging) return;
+        Menu.Open(request.Project, request.Pointer.ClientX, request.Pointer.ClientY);
+    }
 
     private async Task LoadAsync()
     {
@@ -239,7 +336,7 @@
             portfolio = response.Content;
             Shell.SetProjects(portfolio.Projects);
 
-            if (portfolio.Projects.Count == 0)
+            if (Shell.Cards.Count == 0)
             {
                 phase = LoadPhase.Empty;
                 return;
@@ -248,13 +345,12 @@
             phase = LoadPhase.Ready;
             StateHasChanged();
 
-            // The two secondary bands are additive: the page is usable the
-            // moment the projects render, and neither of these can hold it up
-            // or take it down. "Needs you" is read from the shared scan the
-            // shell already ran — this page used to assemble its own copy, so
-            // the number here and the number in the rail were two answers.
+            // Additive: the page is usable the moment the projects render, and
+            // neither of these can hold it up. "Needs you" reads the shared scan
+            // rather than assembling a second copy that could disagree with the
+            // number in the rail.
             await Task.WhenAll(
-                Attention.RefreshAsync(portfolio.Projects),
+                Attention.RefreshAsync(Shell.Cards),
                 LoadRecentAsync());
         }
         catch (Exception ex)
@@ -291,11 +387,13 @@
         StateHasChanged();
     }
 
-    /// <summary>Top-level projects and their sub-projects, flattened. A guest wing has its own stages and its own activity.</summary>
-    private IEnumerable<ProjectCardDto> AllProjects()
-        => portfolio is null
-            ? Enumerable.Empty<ProjectCardDto>()
-            : portfolio.Projects.Concat(portfolio.Projects.SelectMany(p => p.SubProjects));
+    /// <summary>
+    /// Top-level projects and their sub-projects, flattened — a guest wing has
+    /// its own stages and its own activity. Snapshotted because the shell reads
+    /// the dashboard too and replaces the list mid-scan.
+    /// </summary>
+    private List<ProjectCardDto> AllProjects()
+        => Shell.Cards.Concat(Shell.Cards.SelectMany(p => p.SubProjects)).ToList();
 
     private string ProjectNameFor(string? projectId)
         => Shell.Find(projectId)?.Name ?? "—";

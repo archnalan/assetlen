@@ -100,6 +100,135 @@
 
 .rail__link--nested { min-height: 2.125rem; font-size: var(--al-font-size-sm); }
 
+.rail__label { flex: 1 1 auto; }
+
+/* ── A project row ──────────────────────────────────────────────────────────
+   The link and the ⋮ button are siblings inside a wrapper rather than the
+   button being nested in the link: a button inside an anchor is invalid, and
+   the browser's repair of it swallows the button's own click. */
+
+.rail__item { list-style: none; }
+
+.rail__rowwrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.rail__rowwrap > .rail__link { flex: 1 1 auto; min-width: 0; }
+
+/* Sits over the row's right edge so the label keeps its full width — a control
+   that steals 2rem from every name would truncate rows that fit today. */
+.rail__more {
+    position: absolute;
+    right: var(--al-space-1);
+    opacity: 0;
+    color: var(--al-text-subtle);
+    background: var(--al-bg);
+    transition: opacity var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.rail--drawer .rail__more { background: var(--al-bg-elevated); }
+.rail__rowwrap:has(.rail__link.is-active) .rail__more { background: var(--al-accent-soft); }
+
+.rail__rowwrap:hover .rail__more,
+.rail__more:focus-visible { opacity: 1; }
+
+/* No hover on a touch screen, and a right-click is not a gesture a thumb has —
+   so below the rail's own breakpoint the control is simply always there. */
+@media (hover: none) {
+    .rail__more { opacity: 1; }
+}
+
+/* ── The grip ───────────────────────────────────────────────────────────────
+   Presentational: the whole row is draggable, and a long press anywhere on it
+   works. This is the part that says so, which is the difference between a
+   feature and a secret. */
+
+.rail__grip {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    margin-left: calc(var(--al-space-3) * -1 + 2px);
+    margin-right: calc(var(--al-space-2) * -1);
+    color: var(--al-text-subtle);
+    opacity: 0;
+    cursor: grab;
+    touch-action: none;
+    transition: opacity var(--al-transition-fast);
+}
+
+.rail__rowwrap:hover .rail__grip,
+.rail__link:focus-visible .rail__grip { opacity: 0.7; }
+
+.rail__grip:hover { opacity: 1 !important; }
+.rail__grip:active { cursor: grabbing; }
+
+/* On touch the grip would sit there permanently competing with the name, so it
+   stays hidden and the long press is the way in. */
+@media (hover: none) {
+    .rail__grip { display: none; }
+}
+
+.rail__pinmark { flex: 0 0 auto; color: var(--al-text-subtle); }
+.rail__link.is-active .rail__pinmark { color: var(--al-accent); }
+
+/* ── While sorting ──────────────────────────────────────────────────────────
+   The row in hand lifts off the sheet; the rest slide under it. Transitions go
+   on the shifting rows only — the dragged one must follow the pointer with no
+   easing at all or it lags behind the finger. */
+
+.rail__list--sortable { touch-action: pan-y; }
+
+.rail__item.is-shifting {
+    transition: transform var(--al-transition) var(--al-ease);
+    pointer-events: none;
+}
+
+.rail__item.is-dragging {
+    position: relative;
+    z-index: 2;
+    cursor: grabbing;
+}
+
+.rail__item.is-dragging .rail__link {
+    background: var(--al-bg-elevated);
+    color: var(--al-text);
+    border-radius: var(--al-radius-sm);
+    box-shadow: var(--al-shadow);
+    transform: scale(1.02);
+}
+
+.rail__item.is-dragging .rail__grip { opacity: 1; }
+
+/* A press that is arming to become a drag. Small and slow — enough to say
+   "something is happening", not enough to look like a tap landed. */
+.rail__item.is-arming .rail__link {
+    transform: scale(0.985);
+    transition: transform var(--al-transition) var(--al-ease);
+}
+
+/* The gap the row came out of, so the list does not visibly close up and then
+   reopen underneath the drop. */
+.rail__list--sortable.is-sorting { position: relative; }
+
+.rail__hint {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3) var(--al-space-3) 0;
+    font-size: var(--al-font-size-2xs);
+    color: var(--al-text-subtle);
+}
+
+.rail__hint svg { flex: 0 0 auto; }
+
+/* Only worth saying where the gesture exists. On touch the wording is wrong
+   anyway — there is nothing to right-click. */
+@media (hover: none) {
+    .rail__hint { display: none; }
+}
+
 /* A cover frame standing in for the project mark. Exactly the mark's box, so
    rows with and without a photo line up; the hairline stops a pale sky
    dissolving into the rail background. */
@@ -134,7 +263,16 @@
     color: var(--al-text-subtle);
 }
 
-.rail__foot-action { margin-top: var(--al-space-3); }
+/* "New project" and the bin, together: the two ends of a project's life, and a
+   reader who has just deleted something looks for it where they made it. */
+.rail__foot-action {
+    margin-top: var(--al-space-4);
+    padding-top: var(--al-space-3);
+    border-top: 1px solid var(--al-border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
 
 .rail__foot {
     flex: 0 0 auto;

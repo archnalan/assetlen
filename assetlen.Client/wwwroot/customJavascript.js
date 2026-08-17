@@ -1613,3 +1613,311 @@ window.assetlen.tabstrip = (function () {
     },
   };
 })();
+
+/* ── Drag to rearrange ─────────────────────────────────────────────────────
+   Pointer events, not HTML5 drag-and-drop, which never fires on touch — and
+   this product is used on a phone (CLAUDE.md §3). Two ways in: the grip, and a
+   long press for a thumb.
+
+   Geometry is FLIP rather than "shift by one row height", because the same code
+   serves the rail's column and the home screen's responsive grid.
+
+   Nothing here mutates DOM order: it reports (from, to) on drop and Blazor
+   re-renders, so the rendered and persisted orders cannot drift apart.
+   ────────────────────────────────────────────────────────────────────────── */
+window.assetlen.dragsort = (function () {
+  var lists = new Map();
+
+  var LONG_PRESS_MS = 450;
+  var MOVE_TOLERANCE = 8;   // px of travel that cancels a long press
+  var START_THRESHOLD = 4;  // px before a grip press counts as a drag
+
+  function items(entry) {
+    return Array.prototype.slice
+      .call(entry.el.querySelectorAll("[data-al-drag]"))
+      .filter(function (n) { return n.closest("[data-al-dragsort]") === entry.el; });
+  }
+
+  function measure(nodes) {
+    return nodes.map(function (n) {
+      var r = n.getBoundingClientRect();
+      return {
+        x: r.left, y: r.top, w: r.width, h: r.height,
+        cx: r.left + r.width / 2, cy: r.top + r.height / 2
+      };
+    });
+  }
+
+  /* Rects are the ones captured at drag start; asking the live DOM mid
+     transition is what makes these flicker between two indices. */
+  function indexAt(rects, x, y, fallback) {
+    for (var i = 0; i < rects.length; i++) {
+      var r = rects[i];
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return i;
+    }
+
+    // Outside every rect: nearest centre, so a drag into the gutter still tracks.
+    var best = fallback, bestDist = Infinity;
+    for (var j = 0; j < rects.length; j++) {
+      var d = Math.pow(rects[j].cx - x, 2) + Math.pow(rects[j].cy - y, 2);
+      if (d < bestDist) { bestDist = d; best = j; }
+    }
+    return best;
+  }
+
+  /* Every item but the one in hand slides to the slot it would take on drop. */
+  function layout(drag) {
+    var order = drag.nodes.map(function (_, i) { return i; });
+    order.splice(drag.from, 1);
+    order.splice(drag.to, 0, drag.from);
+
+    for (var slot = 0; slot < order.length; slot++) {
+      var original = order[slot];
+      if (original === drag.from) continue;
+
+      var node = drag.nodes[original];
+      var a = drag.rects[original];
+      var b = drag.rects[slot];
+
+      node.style.transform = "translate(" + (b.x - a.x) + "px," + (b.y - a.y) + "px)";
+    }
+  }
+
+  function clear(drag) {
+    drag.nodes.forEach(function (n) {
+      n.style.transform = "";
+      n.style.width = "";
+      n.style.height = "";
+      n.classList.remove("is-dragging", "is-shifting", "is-arming");
+    });
+    if (drag.entry.el) drag.entry.el.classList.remove("is-sorting");
+    document.body.classList.remove("al-dragging");
+  }
+
+  function begin(entry, node, ev) {
+    var nodes = items(entry);
+    var from = nodes.indexOf(node);
+    if (from < 0) return null;
+
+    var rects = measure(nodes);
+
+    var drag = {
+      entry: entry, nodes: nodes, rects: rects,
+      from: from, to: from,
+      originX: ev.clientX, originY: ev.clientY,
+      node: node
+    };
+
+    // Freeze the box first: a grid item sized by `1fr` collapses the moment its
+    // siblings move out from under it.
+    nodes.forEach(function (n, i) {
+      n.style.width = rects[i].w + "px";
+      n.style.height = rects[i].h + "px";
+      if (n !== node) n.classList.add("is-shifting");
+    });
+
+    node.classList.add("is-dragging");
+    entry.el.classList.add("is-sorting");
+    document.body.classList.add("al-dragging");
+
+    if (entry.ref) entry.ref.invokeMethodAsync("OnDragStateChanged", true);
+    return drag;
+  }
+
+  function attach(entry) {
+    var drag = null;
+    var pending = null;   // a press that has not become a drag yet
+    var pressTimer = null;
+    var suppressClickUntil = 0;
+
+    function cancelPending() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      if (pending && pending.node) pending.node.classList.remove("is-arming");
+      pending = null;
+    }
+
+    function onPointerDown(ev) {
+      if (drag || ev.button > 0) return;
+
+      var node = ev.target.closest ? ev.target.closest("[data-al-drag]") : null;
+      if (!node || !entry.el.contains(node)) return;
+
+      // The ⋮ trigger and the like are targets, not handles.
+      if (ev.target.closest("[data-al-nodrag]")) return;
+
+      var onGrip = !!(ev.target.closest && ev.target.closest("[data-al-grip]"));
+      pending = { node: node, ev: ev, onGrip: onGrip, x: ev.clientX, y: ev.clientY };
+
+      if (onGrip) {
+        // Unambiguous: a few pixels of intent, so a tap on the grip is a tap.
+        ev.preventDefault();
+        return;
+      }
+
+      // The arming class is what teaches a reader the gesture exists.
+      node.classList.add("is-arming");
+      pressTimer = setTimeout(function () {
+        pressTimer = null;
+        if (!pending) return;
+        node.classList.remove("is-arming");
+        drag = begin(entry, node, pending.ev);
+        pending = null;
+        if (drag && navigator.vibrate) navigator.vibrate(8);
+      }, LONG_PRESS_MS);
+    }
+
+    function onPointerMove(ev) {
+      if (!drag) {
+        if (!pending) return;
+
+        var travelled = Math.hypot(ev.clientX - pending.x, ev.clientY - pending.y);
+
+        if (pending.onGrip) {
+          if (travelled < START_THRESHOLD) return;
+          var armed = pending;
+          pending = null;
+          drag = begin(entry, armed.node, armed.ev);
+          if (!drag) return;
+        } else {
+          // Scrolling the page must never turn into a drag.
+          if (travelled > MOVE_TOLERANCE) cancelPending();
+          return;
+        }
+      }
+
+      // Once the item is in hand the page must not scroll under it.
+      if (ev.cancelable) ev.preventDefault();
+
+      var dx = ev.clientX - drag.originX;
+      var dy = ev.clientY - drag.originY;
+      drag.node.style.transform = "translate(" + dx + "px," + dy + "px)";
+
+      var next = indexAt(drag.rects, ev.clientX, ev.clientY, drag.to);
+      if (next !== drag.to) {
+        drag.to = next;
+        layout(drag);
+      }
+    }
+
+    function onPointerUp() {
+      cancelPending();
+      if (!drag) return;
+
+      var from = drag.from, to = drag.to, ref = drag.entry.ref;
+      clear(drag);
+      drag = null;
+
+      // A drag released over a link would otherwise navigate.
+      suppressClickUntil = Date.now() + 300;
+
+      if (ref) {
+        ref.invokeMethodAsync("OnDragStateChanged", false);
+        if (from !== to) ref.invokeMethodAsync("OnReorder", from, to);
+      }
+    }
+
+    function onPointerCancel() {
+      cancelPending();
+      if (!drag) return;
+      var ref = drag.entry.ref;
+      clear(drag);
+      drag = null;
+      if (ref) ref.invokeMethodAsync("OnDragStateChanged", false);
+    }
+
+    function onClick(ev) {
+      if (Date.now() > suppressClickUntil) return;
+      suppressClickUntil = 0;
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
+
+    entry.el.addEventListener("pointerdown", onPointerDown);
+    entry.el.addEventListener("click", onClick, true);
+    // On the document: a fast drag leaves the list's box before pointerup.
+    document.addEventListener("pointermove", onPointerMove, { passive: false });
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerCancel);
+
+    entry.detach = function () {
+      cancelPending();
+      if (drag) { clear(drag); drag = null; }
+      entry.el.removeEventListener("pointerdown", onPointerDown);
+      entry.el.removeEventListener("click", onClick, true);
+      document.removeEventListener("pointermove", onPointerMove);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerCancel);
+    };
+  }
+
+  return {
+    register: function (id, el, dotNetRef) {
+      if (!el) return;
+      if (lists.has(id)) this.unregister(id);
+
+      el.setAttribute("data-al-dragsort", id);
+      var entry = { el: el, ref: dotNetRef, detach: null };
+      lists.set(id, entry);
+      attach(entry);
+    },
+
+    unregister: function (id) {
+      var entry = lists.get(id);
+      if (!entry) return;
+      if (entry.detach) entry.detach();
+      lists.delete(id);
+    },
+  };
+})();
+
+/* Flips a pointer-anchored menu to stay on screen. Blazor cannot measure a
+   panel before it paints, so the panel renders hidden and this reveals it. */
+window.assetlen.anchorMenu = function (panelId, x, y) {
+  var el = document.getElementById(panelId);
+  if (!el) return;
+
+  var margin = 8;
+  var r = el.getBoundingClientRect();
+
+  var left = x;
+  var top = y;
+
+  if (left + r.width + margin > window.innerWidth) left = x - r.width;
+  if (top + r.height + margin > window.innerHeight) top = y - r.height;
+
+  el.style.left = Math.max(margin, Math.min(left, window.innerWidth - r.width - margin)) + "px";
+  el.style.top = Math.max(margin, Math.min(top, window.innerHeight - r.height - margin)) + "px";
+  el.style.visibility = "visible";
+
+  var first = el.querySelector("button:not([disabled]), a");
+  if (first) first.focus({ preventScroll: true });
+};
+
+/* Reads a chosen file as a data URL for preview, without shipping the bytes
+   across the interop boundary twice. */
+window.assetlen.readImagePreview = function (inputEl) {
+  return new Promise(function (resolve) {
+    var file = inputEl && inputEl.files && inputEl.files[0];
+    if (!file) { resolve(null); return; }
+
+    var reader = new FileReader();
+    reader.onload = function () { resolve(reader.result); };
+    reader.onerror = function () { resolve(null); };
+    reader.readAsDataURL(file);
+  });
+};
+
+/* Artifact bytes arrive through .NET (they sit behind a bearer token) and are
+   parked here as a blob an <img> will paint. Revoking is explicit: the same
+   cover is drawn in three places and one unmount must not blank the others. */
+window.assetlen.objectUrl = function (mimeType, bytes) {
+  var blob = new Blob([new Uint8Array(bytes)], { type: mimeType || "image/jpeg" });
+  return URL.createObjectURL(blob);
+};
+
+window.assetlen.revokeObjectUrls = function (urls) {
+  if (!urls) return;
+  for (var i = 0; i < urls.length; i++) {
+    try { URL.revokeObjectURL(urls[i]); } catch (e) { /* already gone */ }
+  }
+};

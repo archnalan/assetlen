@@ -1,0 +1,358 @@
+@*
+    Everything you can do to a project, where you asked for it. Opened by
+    right-click on any project row or card, and by the ⋮ button those surfaces
+    carry for readers who have no right-click.
+
+    "Delete" archives. The record is the product (assetlen.md §8) and destroying
+    it on one click is not a thing this app does — the confirmation says the
+    30-day bin out loud rather than asking "are you sure?".
+*@
+
+@implements IDisposable
+@inject ProjectMenuState Menu
+@inject ShellState Shell
+@inject AttentionState Attention
+@inject NavigationManager Nav
+@inject ILogger<ProjectMenu> Logger
+
+@if (Menu.Project is { } project)
+{
+    <div class="pmenu__catch" @onclick="Close" @oncontextmenu:preventDefault @oncontextmenu="Close"></div>
+
+    @* Hidden until anchorMenu has measured it — one frame in the wrong corner. *@
+    <div class="pmenu" id="@PanelId" role="menu" tabindex="-1"
+         aria-label="@project.ProjectName"
+         @onkeydown="OnKeyDown">
+
+        <div class="pmenu__head">
+            <ProjectMark Source="@Face(project)" Size="26"
+                         Fallback="@(Menu.IsSubProject ? "wing" : "project")" />
+            <span class="pmenu__name al-truncate">@project.ProjectName</span>
+        </div>
+
+        <a class="pmenu__item" role="menuitem" href="/project/@project.Id" @onclick="Close">
+            <Icon Name="arrow-right" Size="16" />
+            <span>Open</span>
+        </a>
+
+        @if (!Menu.IsSubProject)
+        {
+            <button type="button" class="pmenu__item" role="menuitem" @onclick="() => PinAsync(project)">
+                <Icon Name="@(project.IsPinned ? "unpin" : "pushpin")" Size="16" />
+                <span>@(project.IsPinned ? "Unpin from top" : "Pin to top")</span>
+                @if (!project.IsPinned && Shell.PinnedCount >= ShellState.MaxPins)
+                {
+                    <span class="pmenu__note">@ShellState.MaxPins used</span>
+                }
+            </button>
+        }
+
+        <div class="pmenu__rule"></div>
+
+        <button type="button" class="pmenu__item" role="menuitem" @onclick="OpenCover">
+            <Icon Name="image" Size="16" />
+            <span>@(HasOwnCover(project) ? "Change image" : "Add an image")</span>
+        </button>
+
+        @if (CanCreateSubProject)
+        {
+            <a class="pmenu__item" role="menuitem"
+               href="/project/create?parent=@project.Id" @onclick="Close">
+                <Icon Name="wing" Size="16" />
+                <span>Add a sub-project</span>
+            </a>
+        }
+
+        @if (CanWrite)
+        {
+            <button type="button" class="pmenu__item" role="menuitem"
+                    disabled="@(project.OpenIssueCount == 0 || resolving)"
+                    @onclick="() => ResolveIssuesAsync(project)">
+                <Icon Name="check-circle" Size="16" />
+                <span>
+                    @if (project.OpenIssueCount == 0)
+                    {
+                        <text>No open questions</text>
+                    }
+                    else
+                    {
+                        <text>Mark @project.OpenIssueCount open question@(project.OpenIssueCount == 1 ? "" : "s") resolved</text>
+                    }
+                </span>
+            </button>
+
+            <a class="pmenu__item" role="menuitem"
+               href="/project/@project.Id/settings" @onclick="Close">
+                <Icon Name="settings" Size="16" />
+                <span>Project settings</span>
+            </a>
+        }
+
+        @if (CanArchive)
+        {
+            <div class="pmenu__rule"></div>
+
+            <button type="button" class="pmenu__item pmenu__item--danger" role="menuitem"
+                    @onclick="() => confirmingArchive = true">
+                <Icon Name="trash" Size="16" />
+                <span>Delete project…</span>
+            </button>
+        }
+    </div>
+}
+
+@if (confirmingArchive && Menu.Project is { } doomed)
+{
+    <div class="al-dialog" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+        <div class="al-scrim" @onclick="CancelArchive"></div>
+
+        <div class="al-dialog__panel parchive">
+            <div class="al-dialog__grip" aria-hidden="true"></div>
+
+            <div class="parchive__body">
+                <span class="parchive__mark"><Icon Name="archive" Size="24" /></span>
+
+                <h2 class="parchive__title" id="archive-title">Delete @doomed.ProjectName?</h2>
+
+                <p class="parchive__lead">
+                    It moves to the bin for <strong>30 days</strong>. Everything on it — the stages, the
+                    money, the photographs, every question that was ever raised — goes with it and comes
+                    back with it. Nothing is removed until the 30 days are up.
+                </p>
+
+                @if (doomed.SubProjectCount > 0)
+                {
+                    <div class="al-alert al-alert--warning">
+                        <Icon Name="alert" Size="18" />
+                        <span>
+                            @doomed.SubProjectCount sub-project@(doomed.SubProjectCount == 1 ? "" : "s")
+                            @(doomed.SubProjectCount == 1 ? "goes" : "go") to the bin with it.
+                        </span>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(archiveError))
+                {
+                    <div class="al-alert al-alert--error" role="alert">
+                        <Icon Name="error" Size="18" />
+                        <span>@archiveError</span>
+                    </div>
+                }
+
+                <p class="parchive__where">
+                    You can take it back out from <strong>Archive</strong>, below “New project” in the sidebar.
+                </p>
+            </div>
+
+            <div class="parchive__foot">
+                <button type="button" class="al-btn al-btn--quiet" disabled="@archiving" @onclick="CancelArchive">
+                    Keep it
+                </button>
+                <button type="button" class="al-btn al-btn--danger" disabled="@archiving"
+                        @onclick="() => ArchiveAsync(doomed)">
+                    @if (archiving)
+                    {
+                        <span class="al-spinner"></span><span>Moving…</span>
+                    }
+                    else
+                    {
+                        <span>Move to bin</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (coverFor is not null)
+{
+    <ProjectCoverDialog Project="coverFor" OnClose="CloseCover" />
+}
+
+@code {
+    private const string PanelId = "al-project-menu";
+
+    private bool confirmingArchive;
+    private bool archiving;
+    private string? archiveError;
+    private bool resolving;
+
+    private ProjectCardDto? coverFor;
+
+    private string? anchoredFor;
+
+    protected override void OnInitialized()
+    {
+        Menu.OnChange += Refresh;
+        Shell.OnChange += Refresh;
+    }
+
+    public void Dispose()
+    {
+        Menu.OnChange -= Refresh;
+        Shell.OnChange -= Refresh;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var open = Menu.Project?.Id;
+
+        if (open is null)
+        {
+            anchoredFor = null;
+            return;
+        }
+
+        if (anchoredFor == open) return;
+        anchoredFor = open;
+
+        try
+        {
+            await JS.InvokeVoidAsync("assetlen.anchorMenu", PanelId, Menu.X, Menu.Y);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not anchor the project menu");
+        }
+    }
+
+    private void Close()
+    {
+        confirmingArchive = false;
+        archiveError = null;
+        Menu.Close();
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") Close();
+    }
+
+    private static string? Face(ProjectCardDto p)
+        => p.CoverImageUrl ?? p.RecentImageUrls.FirstOrDefault() ?? p.LatestImageUrl;
+
+    private static bool HasOwnCover(ProjectCardDto p) => !string.IsNullOrEmpty(p.CoverImageUrl);
+
+    // These mirror the server's gates so the menu never offers an action that
+    // will 403. Arranging is everyone's; changing the record is not.
+
+    private UserRolesDto? Roles => _sd.CurrentUser?.RolesDto;
+
+    private bool CanWrite => Roles is { } r && (r.Contractor || r.Manager || r.Crew || r.SystemAdmin);
+
+    /// <summary>Nesting is one level. A wing cannot have a wing.</summary>
+    private bool CanCreateSubProject
+        => !Menu.IsSubProject && Roles is { } r && (r.Contractor || r.Manager || r.SystemAdmin);
+
+    /// <summary>Binning an engagement is the owning account's call, not the mediator's.</summary>
+    private bool CanArchive => Roles is { } r && (r.Contractor || r.SystemAdmin);
+
+    // ── Actions ─────────────────────────────────────────────────────────────
+
+    private async Task PinAsync(ProjectCardDto project)
+    {
+        var refused = await Shell.SetPinnedAsync(project.Id, !project.IsPinned);
+        Close();
+
+        if (refused is not null) ToastService.ShowWarning(refused);
+    }
+
+    private void OpenCover()
+    {
+        coverFor = Menu.Project;
+        Menu.Close();
+    }
+
+    private void CloseCover() => coverFor = null;
+
+    private async Task ResolveIssuesAsync(ProjectCardDto project)
+    {
+        if (resolving || project.OpenIssueCount == 0) return;
+
+        resolving = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _flagsApi.ResolveProjectFlags(project.Id);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response)
+                    ?? "Those questions could not be closed.");
+                return;
+            }
+
+            var closed = response.Content;
+            Shell.ClearOpenIssues(project.Id);
+
+            // The rail's number counts the same items; a badge left standing
+            // after the questions close teaches the reader not to trust it.
+            await Attention.RefreshAsync(Shell.Cards);
+
+            ToastService.ShowSuccess(closed == 1
+                ? "One question closed."
+                : $"{closed} questions closed on {project.ProjectName}.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not resolve open questions on {ProjectId}", project.Id);
+            ToastService.ShowError("Those questions could not be closed.");
+        }
+        finally
+        {
+            resolving = false;
+            Close();
+        }
+    }
+
+    private void CancelArchive()
+    {
+        confirmingArchive = false;
+        archiveError = null;
+    }
+
+    private async Task ArchiveAsync(ProjectCardDto project)
+    {
+        if (archiving) return;
+
+        archiving = true;
+        archiveError = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _projectsRSApi.ArchiveProject(project.Id);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                archiveError = _apiResponseHandler.GetApiErrorMessage(response)
+                    ?? "That project could not be moved to the bin.";
+                return;
+            }
+
+            var wasHere = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath
+                .StartsWith($"/project/{project.Id}", StringComparison.OrdinalIgnoreCase);
+
+            Shell.RemoveProject(project.Id);
+            ToastService.ShowSuccess($"{project.ProjectName} is in the bin for 30 days.");
+
+            confirmingArchive = false;
+            Menu.Close();
+
+            if (wasHere) Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not archive {ProjectId}", project.Id);
+            archiveError = "That project could not be moved to the bin. Nothing has changed.";
+        }
+        finally
+        {
+            archiving = false;
+            StateHasChanged();
+        }
+    }
+}

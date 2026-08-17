@@ -41,6 +41,15 @@ public interface IArtifactsApi
     [Get("/api/Artifacts/{artifactId}/content")]
     Task<HttpResponseMessage> Download(string artifactId);
 
+    /// <summary>
+    /// The scaled copy, through the same authenticated pipeline. Used to paint
+    /// covers and thumbnails: <c>IArtifactImageService</c> fetches here and hands
+    /// the browser an object URL, because an <c>&lt;img src&gt;</c> pointed
+    /// straight at the endpoint carries no bearer token and answers 401.
+    /// </summary>
+    [Get("/api/Artifacts/{artifactId}/thumbnail")]
+    Task<HttpResponseMessage> DownloadThumbnail(string artifactId);
+
     [Post("/api/Artifacts/AddRef")]
     Task<IApiResponse<ArtifactRefDto>> AddRef([Body] ArtifactRefCreateDto dto);
 

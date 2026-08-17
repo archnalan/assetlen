@@ -1,4 +1,5 @@
-﻿using assetlen.Service.Extensions;
+using System.Text.RegularExpressions;
+using assetlen.Service.Extensions;
 using Google.Apis.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -2044,11 +2045,42 @@ namespace assetlen.Service.DbServices
 
         public async Task<ServiceResult<string>> SendVerificationCode(SendVerificationCodeDto sendVerificationCodeDto)
         {
+            var issued = await IssueVerificationCode(sendVerificationCodeDto);
+
+            return issued.IsSuccess
+                ? ServiceResult<string>.Success(issued.Data.Message)
+                : ServiceResult<string>.Failure(issued.Error);
+        }
+
+        /// <summary>
+        /// Send a code for an email or phone change. <paramref name="revealCode"/>
+        /// is the Development-only reveal: there is no inbox locally, so without
+        /// it the change flow cannot be walked end to end.
+        /// </summary>
+        public async Task<ServiceResult<ContactChallengeDto>> InitiateContactChange(
+            SendVerificationCodeDto dto, bool revealCode)
+        {
+            var issued = await IssueVerificationCode(dto);
+
+            if (!issued.IsSuccess)
+                return ServiceResult<ContactChallengeDto>.Failure(issued.Error);
+
+            return ServiceResult<ContactChallengeDto>.Success(new ContactChallengeDto
+            {
+                Message = issued.Data.Message,
+                DevCode = revealCode ? issued.Data.Code : null
+            });
+        }
+
+        private sealed record IssuedCode(string Message, string Code);
+
+        private async Task<ServiceResult<IssuedCode>> IssueVerificationCode(SendVerificationCodeDto sendVerificationCodeDto)
+        {
             try
             {
                 var user = await _userManager.FindByIdAsync(sendVerificationCodeDto.UserId);
                 if (user == null)
-                    return ServiceResult<string>.Failure(new NotFoundException("User not found"));
+                    return ServiceResult<IssuedCode>.Failure(new NotFoundException("User not found"));
 
                 // Determine what to send to (email or phone)
                 var contact = sendVerificationCodeDto.Email ?? sendVerificationCodeDto.PhoneNumber;
@@ -2057,7 +2089,7 @@ namespace assetlen.Service.DbServices
                     : VerificationType.Phone;
 
                 if (string.IsNullOrEmpty(contact))
-                    return ServiceResult<string>.Failure(new BadRequestException("Email or phone number is required"));
+                    return ServiceResult<IssuedCode>.Failure(new BadRequestException("Email or phone number is required"));
 
                 // Generate 6-digit code
                 var code = new Random().Next(100000, 999999).ToString();
@@ -2094,7 +2126,7 @@ namespace assetlen.Service.DbServices
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to send verification email");
-                        return ServiceResult<string>.Failure(new ServerErrorException("Failed to send verification email"));
+                        return ServiceResult<IssuedCode>.Failure(new ServerErrorException("Failed to send verification email"));
                     }
                 }
                 else
@@ -2117,29 +2149,31 @@ namespace assetlen.Service.DbServices
                             else
                             {
                                 _logger.LogError($"Failed to send SMS to {contact}: {smsResult.ErrorMessage}");
-                                return ServiceResult<string>.Failure(new ServerErrorException("Failed to send SMS verification code"));
+                                return ServiceResult<IssuedCode>.Failure(new ServerErrorException("Failed to send SMS verification code"));
                             }
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, $"Error sending SMS to {contact}");
-                            return ServiceResult<string>.Failure(new ServerErrorException("Failed to send SMS verification code"));
+                            return ServiceResult<IssuedCode>.Failure(new ServerErrorException("Failed to send SMS verification code"));
                         }
                     }
                     else
                     {
                         // Non-Ugandan number - log only (cannot send SMS with current gateway)
                         _logger.LogInformation($"Phone number {contact} is not a Ugandan number. SMS verification not sent. Code: {code}");
-                        return ServiceResult<string>.Success("Verification code generated successfully. Note: SMS sending is only supported for Ugandan phone numbers.");
+                        return ServiceResult<IssuedCode>.Success(new IssuedCode(
+                            "Verification code generated successfully. Note: SMS sending is only supported for Ugandan phone numbers.",
+                            code));
                     }
                 }
 
-                return ServiceResult<string>.Success("Verification code sent successfully");
+                return ServiceResult<IssuedCode>.Success(new IssuedCode("Verification code sent successfully", code));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending verification code");
-                return ServiceResult<string>.Failure(new ServerErrorException("Failed to send verification code"));
+                return ServiceResult<IssuedCode>.Failure(new ServerErrorException("Failed to send verification code"));
             }
         }
 
@@ -2614,6 +2648,162 @@ namespace assetlen.Service.DbServices
                 return ServiceResult<CreateUserResponseDto>.Failure(new ServerErrorException("Error updating profile"));
             }
         }
+
+        /// <summary>
+        /// Change a user's username. No OTP: unlike an email or a phone, a
+        /// username proves nothing and reaches nobody — it is only a label.
+        /// </summary>
+        public async Task<ServiceResult<CreateUserResponseDto>> UpdateUserName(UpdateUserNameDto dto)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(dto.UserId);
+                if (user == null)
+                    return ServiceResult<CreateUserResponseDto>.Failure(new NotFoundException("User not found"));
+
+                var requested = dto.UserName?.Trim() ?? string.Empty;
+
+                if (requested.Length < 3)
+                    return ServiceResult<CreateUserResponseDto>.Failure(
+                        new BadRequestException("A username needs at least three characters."));
+
+                if (string.Equals(user.UserName, requested, StringComparison.OrdinalIgnoreCase))
+                    return ServiceResult<CreateUserResponseDto>.Success(user.Adapt<CreateUserResponseDto>());
+
+                var taken = await _userManager.FindByNameAsync(requested);
+                if (taken != null && taken.Id != user.Id)
+                    return ServiceResult<CreateUserResponseDto>.Failure(
+                        new BadRequestException("That username is already taken."));
+
+                IdentityResult result;
+                try
+                {
+                    result = await _userManager.SetUserNameAsync(user, requested);
+                }
+                catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+                {
+                    // The lookup above runs through the tenant query filter and
+                    // the unique index does not — a name held in another
+                    // contractor's org is invisible here but still collides.
+                    _logger.LogInformation("Username {Name} is taken outside this tenant", requested);
+                    return ServiceResult<CreateUserResponseDto>.Failure(
+                        new BadRequestException("That username is already taken."));
+                }
+
+                if (!result.Succeeded)
+                    return ServiceResult<CreateUserResponseDto>.Failure(
+                        new BadRequestException(string.Join(", ", result.Errors.Select(e => e.Description))));
+
+                return ServiceResult<CreateUserResponseDto>.Success(user.Adapt<CreateUserResponseDto>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing username for {UserId}", dto.UserId);
+                return ServiceResult<CreateUserResponseDto>.Failure(new ServerErrorException("Error changing username"));
+            }
+        }
+
+        /// <summary>
+        /// Is this username free, and if not, what is? Answered against the
+        /// whole platform rather than the caller's tenant — usernames are unique
+        /// across ASSETLEN, so a per-tenant answer would tell the reader a name
+        /// is available and then fail on save.
+        /// </summary>
+        public async Task<ServiceResult<UserNameAvailabilityDto>> CheckUserName(string userName, string? currentUserId)
+        {
+            try
+            {
+                var requested = (userName ?? string.Empty).Trim();
+                var result = new UserNameAvailabilityDto { UserName = requested };
+
+                if (requested.Length < 3)
+                {
+                    result.Reason = "At least three characters.";
+                    return ServiceResult<UserNameAvailabilityDto>.Success(result);
+                }
+
+                if (requested.Length > 64)
+                {
+                    result.Reason = "That is longer than 64 characters.";
+                    return ServiceResult<UserNameAvailabilityDto>.Success(result);
+                }
+
+                if (!UserNameShape.IsMatch(requested))
+                {
+                    result.Reason = "Letters, numbers, and . _ - only.";
+                    return ServiceResult<UserNameAvailabilityDto>.Success(result);
+                }
+
+                var taken = await TakenAsync(new[] { requested }, currentUserId);
+
+                if (!taken.Contains(Normalize(requested)))
+                {
+                    result.Available = true;
+                    return ServiceResult<UserNameAvailabilityDto>.Success(result);
+                }
+
+                result.Reason = "Someone already has that one.";
+                result.Suggestions = await SuggestAsync(requested, currentUserId);
+
+                return ServiceResult<UserNameAvailabilityDto>.Success(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking username {UserName}", userName);
+                return ServiceResult<UserNameAvailabilityDto>.Failure(new ServerErrorException("Could not check that username"));
+            }
+        }
+
+        private static readonly Regex UserNameShape = new(@"^[A-Za-z0-9._-]+$", RegexOptions.Compiled);
+
+        private static string Normalize(string s) => s.ToUpperInvariant();
+
+        /// <summary>
+        /// Which of these are already claimed. Filters are bypassed because the
+        /// unique index on AspNetUsers is global while the tenant filter is not
+        /// — checking through it reports a name free that the insert rejects.
+        /// </summary>
+        private async Task<HashSet<string>> TakenAsync(IEnumerable<string> candidates, string? exceptUserId)
+        {
+            var normalized = candidates.Select(Normalize).Distinct().ToList();
+
+            var hits = await _context.Users
+                .IgnoreQueryFilters()
+                .Where(u => u.NormalizedUserName != null && normalized.Contains(u.NormalizedUserName))
+                .Where(u => exceptUserId == null || u.Id != exceptUserId)
+                .Select(u => u.NormalizedUserName!)
+                .ToListAsync();
+
+            return new HashSet<string>(hits, StringComparer.Ordinal);
+        }
+
+        /// <summary>Free variations on what the reader typed, so a refusal comes with a way forward.</summary>
+        private async Task<List<string>> SuggestAsync(string requested, string? currentUserId)
+        {
+            var stem = requested.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+            if (stem.Length < 3) stem = requested;
+
+            var random = new Random();
+            var candidates = new List<string>
+            {
+                $"{stem}.{random.Next(10, 99)}",
+                $"{stem}{random.Next(100, 999)}",
+                $"{stem}_{random.Next(1, 9)}",
+                $"the{stem}",
+                $"{stem}.co"
+            };
+
+            var taken = await TakenAsync(candidates, currentUserId);
+
+            return candidates
+                .Where(c => c.Length <= 64 && !taken.Contains(Normalize(c)))
+                .Take(3)
+                .ToList();
+        }
+
+        private static bool IsUniqueViolation(DbUpdateException ex)
+            => ex.InnerException?.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase) == true
+               || ex.InnerException?.Message.Contains("UNIQUE constraint", StringComparison.OrdinalIgnoreCase) == true;
 
         /// <summary>
         /// Verify OTP and update user's email or phone number.

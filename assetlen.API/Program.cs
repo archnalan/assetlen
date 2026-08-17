@@ -292,6 +292,11 @@ builder.Services.AddWindowsService();
 builder.Services.AddScoped<ISyncDAL, SyncDAL>();
 builder.Services.AddSingleton<IOnlineIdentityVerifier, OnlineIdentityVerifier>();
 builder.Services.AddHostedService<NetworkMonitorService>();
+
+// Empties the bin: archived projects are soft-deleted 30 days after they were
+// binned. On a timer rather than on a read path — a dashboard load must not
+// turn into a multi-table write because a clock ticked.
+builder.Services.AddHostedService<ArchiveSweepService>();
 builder.Services.AddScoped<IRecoveryActionService, RecoveryActionService>();
 builder.Services.AddScoped<IPasswordHasher<TenantInstance>, PasswordHasher<TenantInstance>>();
 builder.Services.AddHttpClient();

@@ -19,6 +19,7 @@
 @using assetlen.Shared.Models.statics
 @inject ShellState Shell
 @inject AttentionState Attention
+@inject IArtifactImageService Images
 @inject CustomAuthStateProvider _custAuth
 
 <div class="shell">
@@ -126,6 +127,9 @@
         }
     }
 </div>
+
+@* One project-actions panel for the whole app — a card clips its own menu. *@
+<ProjectMenu />
 
 <ToastHost />
 <RouteTracker />
@@ -331,6 +335,10 @@
         _accountOpen = false;
         Shell.Clear();
         Attention.Clear();
+
+        // One account's project covers must not survive into another's session.
+        await Images.ClearAsync();
+
         _sd.RemoveUser();
         await _custAuth.MarkUserAsLoggedOut();
         _nav.NavigateTo("/login", forceLoad: true);

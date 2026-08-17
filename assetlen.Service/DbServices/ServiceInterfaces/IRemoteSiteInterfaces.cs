@@ -14,7 +14,31 @@ public interface IProjectDAL
     Task<ServiceResult<ProjectDto>> CreateProject(ProjectCreateDto dto, string investorId);
     Task<ServiceResult<ProjectDto>> GetProjectById(string projectId, string userId);
     Task<ServiceResult<ProjectDto>> UpdateProject(ProjectDto dto, string userId);
+
+    /// <summary>Empty one project out of the bin early. Requires it to be archived already.</summary>
     Task<ServiceResult<bool>> DeleteProject(string projectId, string userId);
+
+    // ─── The bin ──────────────────────────────────────────────
+    // Deleting a project is archive-then-purge with 30 days in between. The
+    // record an engagement leaves behind is the product; one confirmation
+    // dialog is not enough standing between it and nothing.
+
+    Task<ServiceResult<bool>> ArchiveProject(string projectId, string userId);
+    Task<ServiceResult<bool>> RestoreProject(string projectId, string userId);
+    Task<ServiceResult<List<ProjectCardDto>>> GetArchivedProjects(string userId);
+
+    /// <summary>Timer-driven sweep of everything whose thirty days are up. Never called on a read path.</summary>
+    Task<ServiceResult<int>> PurgeExpiredArchives(CancellationToken ct = default);
+
+    // ─── This reader's arrangement ────────────────────────────
+    // Per user, not per project: two people on one engagement each arrange
+    // their own screen.
+
+    Task<ServiceResult<bool>> ReorderProjects(ProjectOrderUpdateDto dto, string userId);
+    Task<ServiceResult<bool>> SetProjectPinned(string projectId, bool pinned, string userId);
+
+    /// <summary>Point a project at an artifact for its cover, or clear it (null artifact).</summary>
+    Task<ServiceResult<ProjectDto>> SetProjectCover(ProjectCoverUpdateDto dto, string userId);
 
     // ─── Search / List ────────────────────────────────────────
     Task<ServiceResult<PaginationDetails<ProjectCardDto>>> SearchProjects(
@@ -103,6 +127,10 @@ public interface IFlagDAL
     Task<ServiceResult<List<FlagDto>>> GetFlagsByEntry(string progressUpdateId, string actingUserId);
     Task<ServiceResult<FlagDto>> UpdateFlag(FlagUpdateDto dto, string actingUserId);
     Task<ServiceResult<FlagDto>> ResolveFlag(string flagId, string actingUserId);
+
+    /// <summary>Close every open question on a project the caller can see and write to. Returns how many.</summary>
+    Task<ServiceResult<int>> ResolveProjectFlags(string projectId, string actingUserId);
+
     Task<ServiceResult<FlagDto>> NudgeFlag(string flagId, string actingUserId);
 }
 

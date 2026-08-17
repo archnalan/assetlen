@@ -7,6 +7,9 @@
     parent — because a guest wing is part of a residence, and a flat list of
     "projects" was the mistake that turned one engagement into nine.
 
+    The order and the pins are the reader's own and are stored per user: two
+    people on one engagement each arrange their own sidebar.
+
     Two markers, and only two (see AttentionState):
 
       · a **number** when the reader owes something here. It clears when the
@@ -19,51 +22,12 @@
     until the scan finishes, so the rail never flashes a row of zeroes.
 *@
 
-@implements IDisposable
+@implements IAsyncDisposable
 @inject ShellState Shell
 @inject AttentionState Attention
+@inject ProjectMenuState Menu
 @inject NavigationManager Nav
-
-@*  A cover photo where the mark would be, at exactly the mark's size, so a
-    reader picks their project out by sight rather than by reading three similar
-    names. Same box either way — the row must not reflow depending on whether a
-    project happens to have a photo. *@
-@{
-    RenderFragment<(ProjectRef Project, int Size, string Fallback)> mark = ctx =>
-    @<text>
-        @if (!string.IsNullOrEmpty(ctx.Project.Thumb) && !brokenThumbs.Contains(ctx.Project.Id))
-        {
-            <img class="rail__thumb" src="@ctx.Project.Thumb" alt="" loading="lazy"
-                 style="width:@(ctx.Size)px;height:@(ctx.Size)px"
-                 @onerror="() => ThumbFailed(ctx.Project.Id)" />
-        }
-        else
-        {
-            <Icon Name="@ctx.Fallback" Size="@ctx.Size" />
-        }
-    </text>;
-
-    RenderFragment<string> markers = projectId =>
-    @<text>
-        @if (Attention.Loaded)
-        {
-            var owed = Attention.OwedOn(projectId);
-
-            if (owed > 0)
-            {
-                <span class="al-spacer"></span>
-                <span class="al-count" title="@CountLabel(owed)" aria-label="@CountLabel(owed)">@owed</span>
-            }
-            else if (Attention.HasUnseen(projectId))
-            {
-                <span class="al-spacer"></span>
-                <span class="al-moved" role="img"
-                      title="@Attention.UnseenReason(projectId)"
-                      aria-label="@Attention.UnseenReason(projectId)"></span>
-            }
-        }
-    </text>;
-}
+@inject ILogger<NavRail> Logger
 
 <nav class="rail @(InDrawer ? "rail--drawer" : "rail--fixed")" aria-label="Projects and sections">
 
@@ -110,12 +74,11 @@
             </li>
         </ul>
 
-        <div class="rail__section">
-            <span class="al-label">Your projects</span>
-        </div>
-
         @if (!Shell.ProjectsLoaded)
         {
+            <div class="rail__section">
+                <span class="al-label">Your projects</span>
+            </div>
             <div class="rail__loading" aria-hidden="true">
                 @for (var i = 0; i < 3; i++)
                 {
@@ -123,51 +86,68 @@
                 }
             </div>
         }
-        else if (Shell.Roots.Count == 0)
+        else if (Shell.Cards.Count == 0)
         {
+            <div class="rail__section">
+                <span class="al-label">Your projects</span>
+            </div>
             <p class="rail__empty">No projects yet.</p>
         }
         else
         {
-            <ul class="rail__list">
-                @foreach (var project in Shell.Roots)
-                {
-                    <li>
-                        <a href="/project/@project.Id" class="rail__link @Active($"/project/{project.Id}")">
-                            @mark((project, 18, "project"))
-                            <span class="al-truncate">@project.Name</span>
-                            @markers(project.Id)
-                        </a>
+            @* Pinned rows are not draggable: a pin says this one stays put. *@
+            @if (Shell.PinnedCount > 0)
+            {
+                <div class="rail__section">
+                    <span class="al-label">Pinned</span>
+                </div>
 
-                        @if (project.Children.Count > 0)
-                        {
-                            <ul class="rail__list rail__list--nested">
-                                @foreach (var child in project.Children)
-                                {
-                                    <li>
-                                        <a href="/project/@child.Id" class="rail__link rail__link--nested @Active($"/project/{child.Id}")">
-                                            @mark((child, 16, "wing"))
-                                            <span class="al-truncate">@child.Name</span>
-                                            @markers(child.Id)
-                                        </a>
-                                    </li>
-                                }
-                            </ul>
-                        }
-                    </li>
+                <ul class="rail__list rail__list--pinned">
+                    @foreach (var project in Shell.Pinned)
+                    {
+                        @ProjectRow(project, pinned: true)
+                    }
+                </ul>
+            }
+
+            <div class="rail__section">
+                <span class="al-label">@(Shell.PinnedCount > 0 ? "Everything else" : "Your projects")</span>
+            </div>
+
+            @* The drop reports two indices and Blazor re-renders; the script
+               never reorders the DOM itself, so screen and saved order agree. *@
+            <ul class="rail__list rail__list--sortable" @ref="sortHost">
+                @foreach (var project in Shell.Unpinned)
+                {
+                    @ProjectRow(project, pinned: false)
                 }
             </ul>
+
+            @if (Shell.Unpinned.Count() > 1 && !hintDismissed)
+            {
+                <p class="rail__hint">
+                    <Icon Name="grip" Size="13" />
+                    <span>Drag to rearrange. Right-click for more.</span>
+                </p>
+            }
         }
 
-        @if (CanCreateProject)
-        {
-            <div class="rail__foot-action">
+        <div class="rail__foot-action">
+            @if (CanCreateProject)
+            {
                 <a href="/project/create" class="rail__link rail__link--muted">
                     <Icon Name="plus" Size="18" />
                     <span>New project</span>
                 </a>
-            </div>
-        }
+            }
+
+            @* The bin sits under "New project" — a reader who has just deleted
+               something looks for it where they made it. *@
+            <a href="/archive" class="rail__link rail__link--muted @Active("/archive")">
+                <Icon Name="archive" Size="18" />
+                <span>Archive</span>
+            </a>
+        </div>
     </div>
 
     <div class="rail__foot">
@@ -179,13 +159,15 @@
     /// <summary>True when rendered inside the mobile drawer rather than as the permanent rail.</summary>
     [Parameter] public bool InDrawer { get; set; }
 
-    /// <summary>
-    /// Thumbnails that failed to load. An artifact-backed cover sits behind an
-    /// authenticated endpoint, so an img src can legitimately answer 401 — and a
-    /// broken-image glyph in the chrome looks like a broken product. Falling back
-    /// to the mark leaves the row identical to one that never had a cover.
-    /// </summary>
-    private readonly HashSet<string> brokenThumbs = new(StringComparer.OrdinalIgnoreCase);
+    private ElementReference sortHost;
+    private DotNetObjectReference<NavRail>? selfRef;
+    private bool sortRegistered;
+    private bool dragging;
+    private bool hintDismissed;
+
+    // Distinct per presentation: the rail and the drawer are both live on a
+    // tablet, and one id would have the visible list reorder the hidden one.
+    private string SortId => InDrawer ? "rail-drawer" : "rail-fixed";
 
     protected override void OnInitialized()
     {
@@ -194,11 +176,19 @@
         Nav.LocationChanged += OnLocationChanged;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         Shell.OnChange -= Refresh;
         Attention.OnChange -= Refresh;
         Nav.LocationChanged -= OnLocationChanged;
+
+        if (sortRegistered)
+        {
+            try { await JS.InvokeVoidAsync("assetlen.dragsort.unregister", SortId); }
+            catch (Exception ex) { Logger.LogDebug(ex, "Could not release the rail sortable"); }
+        }
+
+        selfRef?.Dispose();
     }
 
     private void Refresh() => InvokeAsync(StateHasChanged);
@@ -206,9 +196,147 @@
     private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
         => InvokeAsync(StateHasChanged);
 
-    private void ThumbFailed(string projectId)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (brokenThumbs.Add(projectId)) StateHasChanged();
+        // Wait for the list to exist; binding to a null element silently leaves
+        // the rail unsortable for the rest of the session.
+        if (sortRegistered || !Shell.ProjectsLoaded || Shell.Cards.Count == 0) return;
+
+        sortRegistered = true;
+        selfRef ??= DotNetObjectReference.Create(this);
+
+        try
+        {
+            await JS.InvokeVoidAsync("assetlen.dragsort.register", SortId, sortHost, selfRef);
+        }
+        catch (Exception ex)
+        {
+            // Without the script the rail is still a list of links.
+            sortRegistered = false;
+            Logger.LogDebug(ex, "Could not attach the rail sortable");
+        }
+    }
+
+    /// <summary>Called by the sortable on drop, with positions within the unpinned list.</summary>
+    [JSInvokable]
+    public async Task OnReorder(int from, int to)
+    {
+        hintDismissed = true;
+
+        if (!await Shell.ReorderAsync(from, to))
+            ToastService.ShowWarning("That order didn't save. It will go back on the next refresh.");
+    }
+
+    [JSInvokable]
+    public Task OnDragStateChanged(bool isDragging)
+    {
+        dragging = isDragging;
+        if (isDragging) hintDismissed = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    // ── One row, parent or child ────────────────────────────────────────────
+
+    private RenderFragment ProjectRow(ProjectCardDto project, bool pinned) =>
+    @<li data-al-drag="@(pinned ? null : project.Id)" class="rail__item">
+
+        <div class="rail__rowwrap">
+            <a href="/project/@project.Id"
+               class="rail__link @Active($"/project/{project.Id}")"
+               @oncontextmenu="e => OpenMenu(e, project)" @oncontextmenu:preventDefault>
+
+                @if (!pinned)
+                {
+                    <span class="rail__grip" data-al-grip aria-hidden="true">
+                        <Icon Name="grip" Size="14" />
+                    </span>
+                }
+
+                <ProjectMark Source="@Face(project)" Size="18" Fallback="project" />
+
+                <span class="al-truncate rail__label">@project.ProjectName</span>
+
+                @if (pinned)
+                {
+                    <Icon Name="pushpin" Size="12" Class="rail__pinmark" />
+                }
+
+                @Markers(project.Id)
+            </a>
+
+            @* A right-click is not a gesture a thumb has. *@
+            <button type="button" class="rail__more al-iconbtn al-iconbtn--sm"
+                    data-al-nodrag
+                    @onclick="e => OpenMenu(e, project)"
+                    aria-label="Actions for @project.ProjectName">
+                <Icon Name="more" Size="16" />
+            </button>
+        </div>
+
+        @if (project.SubProjects.Count > 0)
+        {
+            <ul class="rail__list rail__list--nested">
+                @foreach (var child in project.SubProjects)
+                {
+                    <li>
+                        <div class="rail__rowwrap">
+                            <a href="/project/@child.Id"
+                               class="rail__link rail__link--nested @Active($"/project/{child.Id}")"
+                               @oncontextmenu="e => OpenMenu(e, child)" @oncontextmenu:preventDefault>
+
+                                @* A wing wears the house's face until given one
+                                   of its own; the fallback mark still differs. *@
+                                <ProjectMark Source="@Face(child)" Size="16" Fallback="wing" />
+
+                                <span class="al-truncate rail__label">@child.ProjectName</span>
+                                @Markers(child.Id)
+                            </a>
+
+                            <button type="button" class="rail__more al-iconbtn al-iconbtn--sm"
+                                    data-al-nodrag
+                                    @onclick="e => OpenMenu(e, child)"
+                                    aria-label="Actions for @child.ProjectName">
+                                <Icon Name="more" Size="16" />
+                            </button>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </li>;
+
+    private RenderFragment Markers(string projectId) =>
+    @<text>
+        @if (Attention.Loaded)
+        {
+            var owed = Attention.OwedOn(projectId);
+
+            if (owed > 0)
+            {
+                <span class="al-spacer"></span>
+                <span class="al-count" title="@CountLabel(owed)" aria-label="@CountLabel(owed)">@owed</span>
+            }
+            else if (Attention.HasUnseen(projectId))
+            {
+                <span class="al-spacer"></span>
+                <span class="al-moved" role="img"
+                      title="@Attention.UnseenReason(projectId)"
+                      aria-label="@Attention.UnseenReason(projectId)"></span>
+            }
+        }
+    </text>;
+
+    /// <summary>A cover the reader chose wins; otherwise the most recent frame posted here.</summary>
+    private static string? Face(ProjectCardDto p)
+        => (string.IsNullOrWhiteSpace(p.CoverImageUrl) ? null : p.CoverImageUrl)
+           ?? p.RecentImageUrls.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u))
+           ?? (string.IsNullOrWhiteSpace(p.LatestImageUrl) ? null : p.LatestImageUrl);
+
+    private void OpenMenu(MouseEventArgs e, ProjectCardDto project)
+    {
+        // A menu opened mid-drag would be anchored to a pointer that has moved on.
+        if (dragging) return;
+        Menu.Open(project, e.ClientX, e.ClientY);
     }
 
     private static string CountLabel(int n)

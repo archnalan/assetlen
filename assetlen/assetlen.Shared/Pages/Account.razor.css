@@ -1,28 +1,3 @@
-.account__grid {
-    display: grid;
-    gap: var(--al-space-4);
-    grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 720px) {
-    .account__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-.account__row {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: var(--al-space-3) 0;
-    border-bottom: 1px solid var(--al-border);
-}
-
-.account__row:last-child { border-bottom: 0; }
-
-.account__value {
-    font-size: var(--al-font-size-md);
-    overflow-wrap: anywhere;
-}
-
 .account__identity {
     display: flex;
     align-items: center;
@@ -34,4 +9,242 @@
     font-family: var(--al-font-display);
     font-size: var(--al-font-size-lg);
     font-weight: var(--al-weight-semibold);
+}
+
+/* ── The details ───────────────────────────────────────────────────────────
+   A register rather than a two-column grid: each of these is one fact with one
+   way to change it, and a grid puts the edit control a long way from the value
+   it edits at wide widths. */
+
+.account__rows {
+    display: flex;
+    flex-direction: column;
+}
+
+.account__row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    padding: var(--al-space-4) 0;
+    border-bottom: 1px solid var(--al-border);
+    min-width: 0;
+}
+
+.account__row:first-child { padding-top: 0; }
+.account__row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.account__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface-2);
+    color: var(--al-text-muted);
+}
+
+.account__field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.account__value {
+    font-size: var(--al-font-size-md);
+    overflow-wrap: anywhere;
+}
+
+.account__hint {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+/* Quiet until the row is reached: the page is mostly for reading, and four
+   pencils competing with four values is a settings screen. */
+.account__edit {
+    flex: 0 0 auto;
+    color: var(--al-text-subtle);
+    opacity: 0;
+    transition: opacity var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.account__row:hover .account__edit,
+.account__edit:focus-visible { opacity: 1; }
+
+.account__edit:hover { color: var(--al-text); }
+
+@media (hover: none) {
+    .account__edit { opacity: 1; }
+}
+
+.account__inline {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    flex-wrap: wrap;
+    margin-top: var(--al-space-1);
+}
+
+.account__handle { font-variant-numeric: tabular-nums; }
+
+.account__error {
+    margin-top: var(--al-space-1);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-danger);
+}
+
+/* ── Claiming a handle ─────────────────────────────────────────────────────
+   The @ is chrome, not something to type, so it lives outside the input and
+   the whole cell behaves as one field. The verdict sits at the other end,
+   where the eye already is after typing. */
+
+.handle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    flex: 1 1 14rem;
+    min-width: 0;
+    padding: 0 var(--al-space-3);
+    min-height: 2.5rem;
+    background: var(--al-surface);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-sm);
+    transition: border-color var(--al-transition-fast), background-color var(--al-transition-fast);
+}
+
+.handle:focus-within { border-color: var(--al-accent); }
+
+.handle__at {
+    flex: 0 0 auto;
+    font-size: var(--al-font-size-md);
+    color: var(--al-text-subtle);
+}
+
+.handle__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-size: var(--al-font-size-md);
+    color: var(--al-text);
+}
+
+.handle__input:focus { outline: none; }
+.handle__input::placeholder { color: var(--al-text-subtle); }
+
+.handle__mark {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    width: 1rem;
+    color: var(--al-text-subtle);
+}
+
+.handle.is-free { border-color: var(--al-success); }
+.handle.is-free .handle__mark { color: var(--al-success); }
+
+.handle.is-taken { border-color: var(--al-danger); }
+.handle.is-taken .handle__mark { color: var(--al-danger); }
+
+.account__status {
+    margin-top: var(--al-space-1);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.account__status.is-free  { color: var(--al-success); }
+.account__status.is-taken { color: var(--al-danger); }
+
+/* Free names, one tap each. A refusal that comes with a way forward is the
+   difference between a validator and an obstacle. */
+.handle__picks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    margin-top: var(--al-space-2);
+}
+
+.handle__pick {
+    padding: var(--al-space-1) var(--al-space-3);
+    min-height: 1.875rem;
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-pill);
+    background: var(--al-surface);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text);
+    transition: background-color var(--al-transition-fast), border-color var(--al-transition-fast);
+}
+
+.handle__pick:hover {
+    background: var(--al-accent-soft);
+    border-color: var(--al-accent);
+    color: var(--al-accent);
+}
+
+/* ── Danger zone ───────────────────────────────────────────────────────── */
+
+.danger { margin-top: var(--al-space-6); }
+
+.danger__card {
+    border: 1px solid var(--al-danger);
+    border-radius: var(--al-radius);
+    background: var(--al-bg-elevated);
+    overflow: hidden;
+}
+
+.danger__body {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    padding: var(--al-space-4);
+}
+
+.danger__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--al-radius-sm);
+    background: var(--al-danger-soft);
+    color: var(--al-danger);
+}
+
+.danger__main { display: flex; flex-direction: column; gap: var(--al-space-2); min-width: 0; }
+
+.danger__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+}
+
+.danger__lead {
+    font-size: var(--al-font-size-sm);
+    line-height: var(--al-leading-relaxed);
+    color: var(--al-text-muted);
+    max-width: 60ch;
+}
+
+.danger__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3) var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+    background: var(--al-surface-2);
+}
+
+.danger__foot .al-btn { margin-left: auto; }
+
+@media (max-width: 30rem) {
+    .danger__foot { flex-direction: column; align-items: stretch; }
+    .danger__foot .al-btn { margin-left: 0; justify-content: center; }
+    .danger__foot .al-badge { align-self: flex-start; }
 }

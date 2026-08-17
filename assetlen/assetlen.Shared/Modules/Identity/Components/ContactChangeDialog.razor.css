@@ -1,0 +1,92 @@
+.ccd__panel {
+    width: min(30rem, 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.ccd__head {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    padding: var(--al-space-5) var(--al-space-5) var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.ccd__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--al-radius);
+    background: var(--al-accent-soft);
+    color: var(--al-accent);
+}
+
+.ccd__title {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-lg);
+    font-weight: var(--al-weight-semibold);
+    line-height: var(--al-leading-tight);
+}
+
+.ccd__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+    padding: var(--al-space-5);
+}
+
+.ccd__lead {
+    font-size: var(--al-font-size-md);
+    line-height: var(--al-leading-relaxed);
+    color: var(--al-text-muted);
+    max-width: 46ch;
+}
+
+/* What is being replaced, next to what replaces it. Held back so the field the
+   reader is filling in is the one that reads first. */
+.ccd__current {
+    display: flex;
+    align-items: baseline;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+    min-width: 0;
+}
+
+.ccd__current-value {
+    font-size: var(--al-font-size-md);
+    color: var(--al-text-muted);
+    min-width: 0;
+}
+
+/* Six characters, spaced and large: this is read off another screen and typed
+   across, and a cramped field is where transcription goes wrong. */
+.ccd__code {
+    font-size: var(--al-font-size-xl);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.42em;
+    text-align: center;
+    padding-left: 0.42em;
+}
+
+.ccd__dev { align-items: center; }
+
+.ccd__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-4) var(--al-space-5);
+    border-top: 1px solid var(--al-border);
+}
+
+@media (max-width: 30rem) {
+    .ccd__head { padding: var(--al-space-4); }
+    .ccd__body { padding: var(--al-space-4); }
+    .ccd__foot { flex-direction: column-reverse; align-items: stretch; padding: var(--al-space-4); }
+    .ccd__foot .al-spacer { display: none; }
+    .ccd__foot .al-btn { justify-content: center; }
+}

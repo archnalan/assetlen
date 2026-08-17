@@ -42,12 +42,18 @@ namespace assetlen.API.Controllers
         private IAuthorizationDAL _authorizationDAL;
         private readonly IConfiguration _configuration;
         private readonly ITenantProvider _tenantProvider;
+        private readonly IWebHostEnvironment _env;
 
-        public AuthorizationController(IAuthorizationDAL authorizationDAL, IConfiguration configuration, ITenantProvider tenantProvider)
+        public AuthorizationController(
+            IAuthorizationDAL authorizationDAL,
+            IConfiguration configuration,
+            ITenantProvider tenantProvider,
+            IWebHostEnvironment env)
         {
             _authorizationDAL = authorizationDAL;
             _configuration = configuration;
             _tenantProvider = tenantProvider;
+            _env = env;
         }
 
         [HttpGet]
@@ -430,13 +436,19 @@ namespace assetlen.API.Controllers
         /// <summary>
         /// Initiate contact change (email or phone) - sends OTP for verification.
         /// </summary>
+        /// <remarks>
+        /// AllowAnonymous drops the class-level Contractor gate: a Client and a
+        /// Crew member own their own email too. Identity is checked below.
+        /// </remarks>
         [HttpPost]
-        [Authorize]
         [AllowAnonymous]
-        [ProducesResponseType(typeof(string), 200)]
+        [ProducesResponseType(typeof(ContactChallengeDto), 200)]
         public async Task<IActionResult> InitiateContactChange([FromBody][Required] SendVerificationCodeDto dto)
         {
-            var result = await _authorizationDAL.SendVerificationCode(dto);
+            if (ActsForSomeoneElse(dto.UserId))
+                return Forbid();
+
+            var result = await _authorizationDAL.InitiateContactChange(dto, _env.IsDevelopment());
 
             if (!result.IsSuccess)
                 return StatusCode(result.StatusCode, result.Error);
@@ -448,17 +460,79 @@ namespace assetlen.API.Controllers
         /// Verify and complete contact change (email or phone) with OTP.
         /// </summary>
         [HttpPost]
-        [Authorize]
         [AllowAnonymous]
         [ProducesResponseType(typeof(CreateUserResponseDto), 200)]
         public async Task<IActionResult> VerifyContactChange([FromBody][Required] VerifyContactChangeDto dto)
         {
+            if (ActsForSomeoneElse(dto.UserId))
+                return Forbid();
+
             var result = await _authorizationDAL.VerifyContactChange(dto);
 
             if (!result.IsSuccess)
                 return StatusCode(result.StatusCode, result.Error);
 
             return Ok(result.Data);
+        }
+
+        /// <summary>
+        /// Is a username free? Called as the reader types, so it answers about
+        /// the whole platform and excludes the caller's own current name.
+        /// </summary>
+        [HttpGet]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(UserNameAvailabilityDto), 200)]
+        public async Task<IActionResult> CheckUserName([FromQuery][Required][MinLength(1)] string userName)
+        {
+            // Signed-in only. This is a name-enumeration oracle, and nothing
+            // anonymous needs it yet.
+            if (User?.Identity?.IsAuthenticated != true) return Forbid();
+
+            var result = await _authorizationDAL.CheckUserName(userName, _tenantProvider.GetUserId());
+
+            if (!result.IsSuccess)
+                return StatusCode(result.StatusCode, result.Error);
+
+            return Ok(result.Data);
+        }
+
+        /// <summary>Change your own username.</summary>
+        [HttpPut]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(CreateUserResponseDto), 200)]
+        public async Task<IActionResult> UpdateUserName([FromBody][Required] UpdateUserNameDto dto)
+        {
+            if (User?.Identity?.IsAuthenticated != true || ActsForSomeoneElse(dto.UserId))
+                return Forbid();
+
+            var result = await _authorizationDAL.UpdateUserName(dto);
+
+            if (!result.IsSuccess)
+                return StatusCode(result.StatusCode, result.Error);
+
+            return Ok(result.Data);
+        }
+
+        /// <summary>
+        /// True when a signed-in caller is asking to change a different account.
+        /// These endpoints take the user id from the body and stay reachable
+        /// anonymously for sign-up, so without this a token holder could point
+        /// one at anyone.
+        /// </summary>
+        /// <remarks>
+        /// The id comes from <see cref="ITenantProvider"/>, not from a
+        /// NameIdentifier claim — this API's token carries identity as a JSON
+        /// blob in a "user" claim, so reading NameIdentifier silently returns
+        /// null and the check passes everything.
+        /// </remarks>
+        private bool ActsForSomeoneElse(string? userId)
+        {
+            if (User?.Identity?.IsAuthenticated != true) return false;
+
+            var signedIn = _tenantProvider.GetUserId();
+
+            return !string.IsNullOrEmpty(signedIn)
+                && !string.Equals(signedIn, userId, StringComparison.OrdinalIgnoreCase);
         }
 
         private string DetermineDeviceType(string userAgent)

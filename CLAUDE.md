@@ -138,6 +138,20 @@ Carousel auto-slide: **5000ms** dwell, **400ms** cross-fade. Pause on hover and 
 - Parameters are typed; avoid `object` and `dynamic`.
 - Use `@inject` for services; never call APIs directly from markup.
 
+### 4.2.1 Comments — minimal, and tied to the vision
+
+**Default to no comment.** Well-named code does not need narration, and a wall of prose above every method is noise that hides the two comments that mattered.
+
+Write one **only** when it connects the code to the product truth in [assetlen.md](assetlen.md) — the reason this exists for Peter, Nalan or Dinah, or the rule from the vision it is enforcing. That is what "vision-focused" means here: a reader should come away understanding how this line serves the big picture, not what the line does.
+
+| Write a comment when… | Don't when… |
+|---|---|
+| A rule from assetlen.md / this charter is being enforced (Law 0, the truth floor, sides, one-level nesting, per-project billing). Cite the section. | It restates the code (`// loop over projects`). |
+| A non-obvious choice protects the record or the reader — why archiving rather than deleting, why fail-closed. | It narrates a mechanism the API already names. |
+| A past bug would otherwise be reintroduced, and the fix looks arbitrary without it. | It is a changelog, an apology, or a tour of what was tried. |
+
+Keep it to **one or two sentences**. A `<summary>` on a public service member is fine and should say what the caller gets, not how. If a comment is needed to explain *what* the code does, rename things instead.
+
 ### 4.3 Folder structure — module-based vertical slices
 
 ```

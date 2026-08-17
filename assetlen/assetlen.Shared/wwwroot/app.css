@@ -1061,6 +1061,61 @@ table.al-register td,
 .al-dot--accent  { background: var(--al-accent); }
 .al-dot--blueprint { background: var(--al-blueprint); }
 
+/* ── Attention markers ──────────────────────────────────────────────────────
+   Exactly two, and they mean different things (see AttentionState):
+
+     .al-count  a number of things waiting on this reader. Filled accent,
+                tabular figures. Clears when the work is done, never by being
+                looked at, so it is allowed to be the loudest mark in the chrome.
+     .al-moved  something moved here since the reader last opened it. A ringed
+                dot, not a number — a number would read as a to-do list, and
+                none of these are things the reader owes. Clears on the visit.
+
+   The ring is what keeps the dot legible against .rail__link.is-active, whose
+   background is already accent-tinted; a plain accent dot vanished into it.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 5px;
+    border-radius: var(--al-radius-pill);
+    background: var(--al-accent);
+    color: #fff;
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+/* Overdue is the one state that earns the alarm colour. */
+.al-count--overdue { background: var(--al-danger); }
+
+.al-count--quiet {
+    background: var(--al-surface-2);
+    color: var(--al-text-muted);
+}
+
+.al-moved {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--al-accent);
+    box-shadow: 0 0 0 2px var(--al-bg);
+}
+
+/* Nothing pulses. A marker that moves is a marker the reader has to actively
+   ignore, and this chrome is meant to be readable at 5am on a phone. */
+@media (prefers-reduced-motion: no-preference) {
+    .al-count { transition: background-color var(--al-transition-fast); }
+}
+
 /* Chip — a removable / selectable token */
 .al-chip {
     display: inline-flex;
@@ -1651,6 +1706,19 @@ table.al-table tfoot td {
 }
 
 .al-tabs__tab.is-active .al-tabs__count { background: var(--al-accent-soft); color: var(--al-accent); }
+
+/* A count on a tab, for work the reader owes in that section. Smaller than the
+   rail's, because here it is a footnote on a label rather than the only thing in
+   the row. */
+.al-tabs__mark {
+    min-width: 1rem;
+    height: 1rem;
+    margin-left: -2px;
+}
+
+/* Tabs must be a comfortable touch target on a phone. 44px is the floor, and
+   this strip is the one piece of navigation inside a project. */
+.al-tabs__tab { min-height: 2.75rem; }
 
 /* ───────────────────────────────────────────────────────────────────────────
    23. PROVENANCE STRIP — agreed → evidence → invoiced → cleared

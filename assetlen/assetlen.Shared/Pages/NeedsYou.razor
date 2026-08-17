@@ -1,5 +1,7 @@
 @page "/needs-you"
 @attribute [Authorize]
+@implements IDisposable
+@inject AttentionState Attention
 @inject ILogger<NeedsYou> Logger
 
 @*
@@ -12,6 +14,12 @@
     Ordered by deadline, soonest first, with anything already overdue at the
     top. Undated items sit last: an idea nobody is waiting on must never be
     allowed to nag (Law 4).
+
+    The list itself comes from [[AttentionState]] rather than being assembled
+    here. This page and Home each used to run their own per-project loop over
+    the same two endpoints, which meant the number in the rail, the number on
+    Home and the rows on this page were three separate answers to one question
+    and could disagree.
 *@
 
 <PageTitle>Needs you — ASSETLEN</PageTitle>
@@ -24,11 +32,11 @@
         <Meta>
             <div class="al-meta">
                 <span class="al-label">Waiting</span>
-                <span class="al-meta__value">@items.Count</span>
+                <span class="al-meta__value">@Attention.Count</span>
             </div>
             <div class="al-meta">
                 <span class="al-label">Overdue</span>
-                <span class="al-meta__value">@items.Count(i => i.IsOverdue)</span>
+                <span class="al-meta__value">@Attention.OverdueCount</span>
             </div>
         </Meta>
     </TitleBlock>
@@ -41,7 +49,7 @@
                 EmptyBody="When a choice blocks work, costs money or moves a date, it appears here with its by-when and what it holds up.">
         <ChildContent>
 
-            @foreach (var group in items.GroupBy(i => i.ProjectName))
+            @foreach (var group in Attention.Owed.GroupBy(i => i.ProjectName))
             {
                 <section class="needs__group">
                     <div class="al-rule">
@@ -83,17 +91,27 @@
 </div>
 
 @code {
-    private readonly List<Item> items = new();
     private LoadPhase phase = LoadPhase.Loading;
     private string? errorMessage;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override void OnInitialized() => Attention.OnChange += Refresh;
+    public void Dispose() => Attention.OnChange -= Refresh;
+
+    private void Refresh() => InvokeAsync(() => { Settle(); StateHasChanged(); });
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The shell scans at boot, so in the normal case this page has its
+        // answer before it is opened and renders with no wait at all. Only a
+        // deep link straight to /needs-you has to ask.
+        if (!Attention.Loaded) await LoadAsync();
+        else Settle();
+    }
 
     private async Task LoadAsync()
     {
         phase = LoadPhase.Loading;
         errorMessage = null;
-        items.Clear();
         StateHasChanged();
 
         try
@@ -107,65 +125,8 @@
                 return;
             }
 
-            var me = _sd.CurrentUser?.Id;
-
-            var projects = response.Content.Projects
-                .Concat(response.Content.Projects.SelectMany(p => p.SubProjects))
-                .ToList();
-
-            foreach (var project in projects)
-            {
-                try
-                {
-                    var flags = await _flagsApi.GetFlagsByProject(project.Id, FlagStatus.Open);
-                    if (!flags.IsSuccessStatusCode || flags.Content is null) continue;
-
-                    foreach (var flag in flags.Content.Where(f => f.AssignedToId == me))
-                    {
-                        items.Add(new Item(
-                            flag.Title ?? "Open question",
-                            project.ProjectName,
-                            flag.StageName,
-                            Trim(flag.Description),
-                            $"/project/{project.Id}/register#{flag.Id}",
-                            "decision",
-                            flag.DueDate));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "Could not read questions on {ProjectId}", project.Id);
-                }
-            }
-
-            if (_sd.CurrentUser?.RolesDto?.CanSeeFinancials == true)
-            {
-                try
-                {
-                    var pending = await _fundingApi.GetPendingConfirmations();
-                    if (pending.IsSuccessStatusCode && pending.Content is not null)
-                    {
-                        foreach (var entry in pending.Content)
-                        {
-                            items.Add(new Item(
-                                $"Confirm {Fmt.Money(entry.Amount)} on {entry.StageName ?? "this project"}",
-                                entry.ProjectName ?? "—",
-                                $"Recorded {Fmt.Date(entry.PaymentDate)}",
-                                entry.Notes,
-                                $"/project/{entry.ProjectId}/money",
-                                "money",
-                                null));
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "Could not read pending confirmations");
-                }
-            }
-
-            items.Sort((a, b) => (a.Due ?? DateTime.MaxValue).CompareTo(b.Due ?? DateTime.MaxValue));
-            phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+            await Attention.RefreshAsync(response.Content.Projects);
+            Settle();
         }
         catch (Exception ex)
         {
@@ -176,28 +137,16 @@
         finally { StateHasChanged(); }
     }
 
-    /// <summary>The consequence line is what makes a deadline real; one sentence of it is enough here.</summary>
-    private static string? Trim(string? text)
+    /// <summary>
+    /// Empty here is the good outcome, so it gets its own state rather than an
+    /// empty list under a heading. But "nothing is waiting on you" must never be
+    /// shown before the scan has answered — that would be a lie with a tick next
+    /// to it, which is worse than a skeleton.
+    /// </summary>
+    private void Settle()
     {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        var clean = text.Trim();
-        return clean.Length <= 90 ? clean : clean[..87].TrimEnd() + "…";
-    }
-
-    private sealed record Item(
-        string Title, string ProjectName, string? Detail, string? Consequence,
-        string Href, string Icon, DateTime? Due)
-    {
-        public bool IsOverdue => Due is not null && Due.Value.Date < DateTime.Now.Date;
-
-        public string DueLabel => Due is null
-            ? "No deadline"
-            : IsOverdue ? "Overdue" : $"By {Fmt.DateShort(Due)}";
-
-        public string BadgeClass => Due is null
-            ? "al-badge--neutral"
-            : IsOverdue ? "al-badge--danger"
-            : (Due.Value - DateTime.Now).TotalDays <= 7 ? "al-badge--warning"
-            : "al-badge--neutral";
+        if (phase == LoadPhase.Error) return;
+        if (!Attention.Loaded) { phase = LoadPhase.Loading; return; }
+        phase = Attention.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
     }
 }

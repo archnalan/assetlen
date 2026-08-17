@@ -30,7 +30,9 @@
     min-width: 0;
 }
 
-.bottombar__item span {
+/* Labels only. The icon wrapper must not clip, or it would cut the count badge
+   that overhangs it. */
+.bottombar__item > span:not(.bottombar__mark) {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -40,6 +42,21 @@
 .bottombar__item:hover { color: var(--al-text-muted); }
 
 .bottombar__item.is-active { color: var(--al-accent); }
+
+/* The count rides the icon, not the label, so it stays put when the label
+   ellipsises at 360px. The wrapper is the anchor. */
+.bottombar__mark {
+    position: relative;
+    display: inline-flex;
+    line-height: 0;
+}
+
+.bottombar__count {
+    position: absolute;
+    top: -5px;
+    left: 60%;
+    box-shadow: 0 0 0 2px var(--al-bg-elevated);
+}
 
 /* A 2px rule on the active destination, drawn on the bar's own top edge —
    the same device the desktop tabs use, so "where am I" reads identically. */

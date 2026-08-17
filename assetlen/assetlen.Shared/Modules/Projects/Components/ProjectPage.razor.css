@@ -5,8 +5,10 @@
 }
 
 /* The section strip sits under the title block's rule and shares its width, so
-   the two read as one header rather than as a header and a toolbar. */
-.projectpage__tabs {
+   the two read as one header rather than as a header and a toolbar.
+
+   ::deep — the strip is a TabStrip now and carries that component's scope. */
+::deep .projectpage__tabs {
     margin-top: calc(var(--al-space-5) * -1 + var(--al-space-1));
     margin-bottom: var(--al-space-5);
 }

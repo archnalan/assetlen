@@ -246,6 +246,31 @@ public sealed class DevSeedService : IDevSeedService
 
     // ── The project ─────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// A cover for each demo project, as an inline SVG.
+    /// <para>
+    /// The seeded world has no photographs in it, which meant everything that
+    /// renders a project's cover — the dashboard card carousel, and the nav
+    /// rail's thumbnail — fell through to its placeholder and could not be seen
+    /// working at all. A flat drawing-sheet elevation is enough to prove the
+    /// path and is honest about being demo material, which a stock photograph
+    /// would not be.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// Kept small on purpose: <c>tbl_Project_RS.CoverImageUrl</c> is
+    /// <c>MaxLength(500)</c> — the column was sized for a URL, not for inline
+    /// bytes — and an over-long value fails the insert outright rather than
+    /// degrading. Three paths on a 32×20 grid is the whole drawing.
+    /// </remarks>
+    private static string Cover(string sky, string ground, string mass) =>
+        "data:image/svg+xml;utf8," + Uri.EscapeDataString(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 20\">"
+          + $"<path fill=\"{sky}\" d=\"M0 0h32v20H0z\"/>"
+          + $"<path fill=\"{ground}\" d=\"M0 15h32v5H0z\"/>"
+          + $"<path fill=\"{mass}\" d=\"M6 15V8l5-3 5 3v7zm11 0V9l5-2v8z\"/>"
+          + "</svg>");
+
     private async Task EnsureProjectsAsync(AppUser peter, AppUser nalan, CancellationToken ct)
     {
         var start = new DateTime(2025, 9, 18, 0, 0, 0, DateTimeKind.Utc);
@@ -269,6 +294,7 @@ public sealed class DevSeedService : IDevSeedService
                 InvestorId = peter.Id,
                 ProjectManagerId = nalan.Id,
                 Status = ProjectStatus.Active,
+                CoverImageUrl = Cover("#b9cbd8", "#8a8477", "#6f6a61"),
 
                 // 470 own + 150 in the wing = 620 m² → Medium (§10.3). The tier
                 // is stored, not recomputed on read, so retuning a threshold
@@ -302,6 +328,7 @@ public sealed class DevSeedService : IDevSeedService
                 InvestorId = peter.Id,
                 ProjectManagerId = nalan.Id,
                 Status = ProjectStatus.Active,
+                CoverImageUrl = Cover("#d8cdb9", "#7d7566", "#8d6a4f"),
                 FloorAreaSqm = 150m,
                 SizeSource = ProjectSizeSource.Declared,
                 IsSubscriptionActive = true

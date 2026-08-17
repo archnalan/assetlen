@@ -6,11 +6,64 @@
     The rail lists projects by name, with sub-projects indented under their
     parent — because a guest wing is part of a residence, and a flat list of
     "projects" was the mistake that turned one engagement into nine.
+
+    Two markers, and only two (see AttentionState):
+
+      · a **number** when the reader owes something here. It clears when the
+        item is resolved, never by being looked at.
+      · a **dot** when something moved here since the reader last opened it. It
+        clears on the visit.
+
+    A project never carries both. If you owe something on it, the number is the
+    stronger statement and the dot would only add noise. Nothing appears at all
+    until the scan finishes, so the rail never flashes a row of zeroes.
 *@
 
 @implements IDisposable
 @inject ShellState Shell
+@inject AttentionState Attention
 @inject NavigationManager Nav
+
+@*  A cover photo where the mark would be, at exactly the mark's size, so a
+    reader picks their project out by sight rather than by reading three similar
+    names. Same box either way — the row must not reflow depending on whether a
+    project happens to have a photo. *@
+@{
+    RenderFragment<(ProjectRef Project, int Size, string Fallback)> mark = ctx =>
+    @<text>
+        @if (!string.IsNullOrEmpty(ctx.Project.Thumb) && !brokenThumbs.Contains(ctx.Project.Id))
+        {
+            <img class="rail__thumb" src="@ctx.Project.Thumb" alt="" loading="lazy"
+                 style="width:@(ctx.Size)px;height:@(ctx.Size)px"
+                 @onerror="() => ThumbFailed(ctx.Project.Id)" />
+        }
+        else
+        {
+            <Icon Name="@ctx.Fallback" Size="@ctx.Size" />
+        }
+    </text>;
+
+    RenderFragment<string> markers = projectId =>
+    @<text>
+        @if (Attention.Loaded)
+        {
+            var owed = Attention.OwedOn(projectId);
+
+            if (owed > 0)
+            {
+                <span class="al-spacer"></span>
+                <span class="al-count" title="@CountLabel(owed)" aria-label="@CountLabel(owed)">@owed</span>
+            }
+            else if (Attention.HasUnseen(projectId))
+            {
+                <span class="al-spacer"></span>
+                <span class="al-moved" role="img"
+                      title="@Attention.UnseenReason(projectId)"
+                      aria-label="@Attention.UnseenReason(projectId)"></span>
+            }
+        }
+    </text>;
+}
 
 <nav class="rail @(InDrawer ? "rail--drawer" : "rail--fixed")" aria-label="Projects and sections">
 
@@ -39,6 +92,14 @@
                 <a href="/needs-you" class="rail__link @Active("/needs-you")">
                     <Icon Name="decision" Size="18" />
                     <span>Needs you</span>
+                    @if (Attention.Loaded && Attention.Count > 0)
+                    {
+                        <span class="al-spacer"></span>
+                        <span class="al-count @(Attention.OverdueCount > 0 ? "al-count--overdue" : "")"
+                              title="@CountLabel(Attention.Count)" aria-label="@CountLabel(Attention.Count)">
+                            @Attention.Count
+                        </span>
+                    }
                 </a>
             </li>
             <li>
@@ -73,8 +134,9 @@
                 {
                     <li>
                         <a href="/project/@project.Id" class="rail__link @Active($"/project/{project.Id}")">
-                            <Icon Name="project" Size="18" />
+                            @mark((project, 18, "project"))
                             <span class="al-truncate">@project.Name</span>
+                            @markers(project.Id)
                         </a>
 
                         @if (project.Children.Count > 0)
@@ -84,8 +146,9 @@
                                 {
                                     <li>
                                         <a href="/project/@child.Id" class="rail__link rail__link--nested @Active($"/project/{child.Id}")">
-                                            <Icon Name="wing" Size="16" />
+                                            @mark((child, 16, "wing"))
                                             <span class="al-truncate">@child.Name</span>
+                                            @markers(child.Id)
                                         </a>
                                     </li>
                                 }
@@ -116,15 +179,25 @@
     /// <summary>True when rendered inside the mobile drawer rather than as the permanent rail.</summary>
     [Parameter] public bool InDrawer { get; set; }
 
+    /// <summary>
+    /// Thumbnails that failed to load. An artifact-backed cover sits behind an
+    /// authenticated endpoint, so an img src can legitimately answer 401 — and a
+    /// broken-image glyph in the chrome looks like a broken product. Falling back
+    /// to the mark leaves the row identical to one that never had a cover.
+    /// </summary>
+    private readonly HashSet<string> brokenThumbs = new(StringComparer.OrdinalIgnoreCase);
+
     protected override void OnInitialized()
     {
         Shell.OnChange += Refresh;
+        Attention.OnChange += Refresh;
         Nav.LocationChanged += OnLocationChanged;
     }
 
     public void Dispose()
     {
         Shell.OnChange -= Refresh;
+        Attention.OnChange -= Refresh;
         Nav.LocationChanged -= OnLocationChanged;
     }
 
@@ -132,6 +205,14 @@
 
     private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
         => InvokeAsync(StateHasChanged);
+
+    private void ThumbFailed(string projectId)
+    {
+        if (brokenThumbs.Add(projectId)) StateHasChanged();
+    }
+
+    private static string CountLabel(int n)
+        => n == 1 ? "1 item waiting on you" : $"{n} items waiting on you";
 
     private string Active(string href, bool exact = false)
     {
@@ -150,7 +231,19 @@
     // and can be replaced without the record moving (assetlen.md D1).
     private bool CanCreateProject => _sd.CurrentUser?.RolesDto is { } r && (r.Contractor || r.Manager || r.SystemAdmin);
 
-    private string FootNote => _sd.CurrentUser?.RolesDto?.IsExternal == true
-        ? "Client side"
-        : "Delivery side";
+    /// <summary>
+    /// The seat, not a side. A side is per project — the same person is client on
+    /// one and mediator on another (CLAUDE.md §5.5) — so this used to tell Peter,
+    /// who funds the work, that he was on the "Delivery side".
+    /// </summary>
+    private string FootNote => _sd.CurrentUser?.RolesDto switch
+    {
+        null => "Signed in",
+        { SystemAdmin: true } => "Platform",
+        { Contractor: true } => "Developer",
+        { Manager: true } => "Mediator",
+        { Client: true } => "Representative",
+        { Crew: true } => "Delivery",
+        _ => "Observer"
+    };
 }

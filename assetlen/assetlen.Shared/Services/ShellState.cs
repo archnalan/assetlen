@@ -53,7 +53,11 @@ public sealed class ShellState
             return;
         }
 
-        _projects[id] = new ProjectRef(id, name, parentId ?? existing?.ParentId);
+        // Keep whatever the dashboard already taught us. A name learned from a
+        // detail response must not blank the cover the rail is drawing with.
+        _projects[id] = new ProjectRef(
+            id, name, parentId ?? existing?.ParentId, existing?.Children, existing?.Thumb);
+
         Notify();
     }
 
@@ -64,10 +68,10 @@ public sealed class ShellState
         foreach (var card in cards)
         {
             var children = card.SubProjects
-                .Select(s => new ProjectRef(s.Id, s.ProjectName, card.Id))
+                .Select(s => new ProjectRef(s.Id, s.ProjectName, card.Id, Thumb: Cover(s)))
                 .ToList();
 
-            var root = new ProjectRef(card.Id, card.ProjectName, card.ParentProjectId, children);
+            var root = new ProjectRef(card.Id, card.ProjectName, card.ParentProjectId, children, Cover(card));
             roots.Add(root);
 
             _projects[card.Id] = root;
@@ -78,6 +82,16 @@ public sealed class ShellState
         ProjectsLoaded = true;
         Notify();
     }
+
+    /// <summary>
+    /// The one frame that stands for a project in the chrome. The dashboard's
+    /// carousel set is ordered newest-first, so its head is the most recent
+    /// thing anyone photographed here — which is what makes the rail row
+    /// recognisable at a glance.
+    /// </summary>
+    private static string? Cover(ProjectCardDto card)
+        => card.RecentImageUrls.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u))
+           ?? (string.IsNullOrWhiteSpace(card.LatestImageUrl) ? null : card.LatestImageUrl);
 
     /// <summary>Forget everything on sign-out. A cached project name surviving a user switch would show one account's work inside another's chrome.</summary>
     public void Clear()
@@ -96,7 +110,10 @@ public sealed record ProjectRef(
     string Id,
     string Name,
     string? ParentId = null,
-    IReadOnlyList<ProjectRef>? Children = null)
+    IReadOnlyList<ProjectRef>? Children = null,
+
+    /// <summary>Cover frame for the rail, if this project has one. Null is normal, not an error.</summary>
+    string? Thumb = null)
 {
     public IReadOnlyList<ProjectRef> Children { get; init; } = Children ?? Array.Empty<ProjectRef>();
     public bool IsSubProject => !string.IsNullOrEmpty(ParentId);

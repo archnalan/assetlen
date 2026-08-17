@@ -1,0 +1,109 @@
+/* The wrapper carries the hairline the strip used to carry itself, so the rule
+   runs the full width and the chevrons sit on it rather than breaking it.
+
+   --tabstrip-fade is the colour the chevrons fade from. It defaults to the page
+   background; a caller putting a strip inside a sheet overrides it, otherwise
+   the fade would be a pale rectangle on a darker ground. */
+.tabstrip {
+    --tabstrip-fade: var(--al-bg);
+    --tabstrip-edge-w: 30px;
+
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    border-bottom: 1px solid var(--al-border);
+}
+
+.tabstrip__rail {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    /* The wrapper draws the rule now; two hairlines 1px apart read as a smudge. */
+    border-bottom: 0;
+
+    /* Proximity, not mandatory: a deliberate flick should still be able to
+       overshoot. This only stops a chevron press resting mid-label. */
+    scroll-snap-type: x proximity;
+    scroll-behavior: smooth;
+    scroll-padding-inline: var(--tabstrip-edge-w);
+}
+
+/* ::deep because the tabs are the caller's markup and carry the caller's scope,
+   not this component's. Only tabs snap — snapping every inner span would make
+   the strip fight the reader. */
+.tabstrip__rail ::deep .al-tabs__tab { scroll-snap-align: start; }
+
+@media (prefers-reduced-motion: reduce) {
+    .tabstrip__rail { scroll-behavior: auto; }
+}
+
+/* ── The chevrons ──────────────────────────────────────────────────────────
+   Overlaid, not in the flow: in the flow they would take 60px out of a 360px
+   strip, which is a whole tab. The gradient is the affordance — the mark on top
+   of it only has to be findable, not loud. 30px wide against a 44px-tall strip
+   gives a 30×44 target hard against the edge of the screen, comfortable with a
+   thumb without reading as a third piece of navigation.
+   ────────────────────────────────────────────────────────────────────────── */
+.tabstrip__edge {
+    position: absolute;
+    top: 0;
+    bottom: 1px;                    /* clear the wrapper's hairline */
+    z-index: 1;
+    width: var(--tabstrip-edge-w);
+    display: flex;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    color: var(--al-text-muted);
+
+    /* Absent, not merely disabled. An inert arrow at the end of a strip is an
+       arrow the reader learns to ignore, and then does not see when it matters. */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--al-transition-fast) var(--al-ease);
+}
+
+.tabstrip__edge.is-live {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.tabstrip__edge--start {
+    left: 0;
+    justify-content: flex-start;
+    background: linear-gradient(
+        to right,
+        var(--tabstrip-fade) 0%,
+        var(--tabstrip-fade) 40%,
+        color-mix(in srgb, var(--tabstrip-fade) 70%, transparent) 72%,
+        transparent 100%);
+}
+
+.tabstrip__edge--end {
+    right: 0;
+    justify-content: flex-end;
+    background: linear-gradient(
+        to left,
+        var(--tabstrip-fade) 0%,
+        var(--tabstrip-fade) 40%,
+        color-mix(in srgb, var(--tabstrip-fade) 70%, transparent) 72%,
+        transparent 100%);
+}
+
+/* Engines without color-mix get a two-stop fade: a slightly harder edge, the
+   same message. */
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+    .tabstrip__edge--start { background: linear-gradient(to right, var(--tabstrip-fade) 58%, transparent 100%); }
+    .tabstrip__edge--end   { background: linear-gradient(to left,  var(--tabstrip-fade) 58%, transparent 100%); }
+}
+
+.tabstrip__edge:hover  { color: var(--al-text); }
+.tabstrip__edge:active { color: var(--al-accent); }
+
+/* Drawn inside, so the wrapper's overflow cannot clip it. */
+.tabstrip__edge:focus-visible {
+    outline: 2px solid var(--al-accent);
+    outline-offset: -2px;
+    border-radius: var(--al-radius-xs);
+}

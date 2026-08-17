@@ -1,0 +1,122 @@
+@*
+    A section strip that survives a thumb.
+
+    The strip already scrolled horizontally, and on a phone that was close to
+    unusable: a short drag across a row of links reads as a tap, so trying to
+    reveal "Settings" opened "Money" instead. Nine sections do not fit in 360px
+    and never will, so the reveal has to be something you can press.
+
+    Two chevrons, and they are honest — each one is present only while there is
+    more strip in that direction, so at either end only one is showing and its
+    absence tells you you are at the end. They sit on a fade in the page's own
+    background, so the tabs pass *under* them rather than being covered by a
+    slab: the fade is what makes "there is more" readable at a glance, and it
+    lets the chevron itself stay a hairline mark instead of a button that
+    competes with the tabs.
+
+    Pressing one moves by a tab, not by a percentage of the width — it brings
+    the first partly-hidden tab fully into view. Landing mid-label is what makes
+    most of these feel cheap.
+
+    Usage:
+        <TabStrip Class="projectpage__tabs" Label="Project sections">
+            ...<a class="al-tabs__tab">...</a>...
+        </TabStrip>
+*@
+
+@implements IAsyncDisposable
+
+<div class="tabstrip @Class">
+
+    <button type="button"
+            class="tabstrip__edge tabstrip__edge--start @(CanStepBack ? "is-live" : "")"
+            tabindex="@(CanStepBack ? 0 : -1)"
+            aria-hidden="@(CanStepBack ? "false" : "true")"
+            aria-label="Show earlier sections"
+            @onclick="() => StepAsync(-1)">
+        <Icon Name="chevron-left" Size="16" Weight="2" />
+    </button>
+
+    <nav class="al-tabs tabstrip__rail" @ref="rail" aria-label="@Label">
+        @ChildContent
+    </nav>
+
+    <button type="button"
+            class="tabstrip__edge tabstrip__edge--end @(CanStepOn ? "is-live" : "")"
+            tabindex="@(CanStepOn ? 0 : -1)"
+            aria-hidden="@(CanStepOn ? "false" : "true")"
+            aria-label="Show more sections"
+            @onclick="() => StepAsync(1)">
+        <Icon Name="chevron-right" Size="16" Weight="2" />
+    </button>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+
+    /// <summary>Extra class on the wrapper, for the caller's own spacing.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Sections";
+
+    private ElementReference rail;
+    private readonly string id = $"tabstrip-{Guid.NewGuid():N}";
+    private DotNetObjectReference<TabStrip>? selfRef;
+
+    private bool overflows;
+    private bool atStart = true;
+    private bool atEnd;
+    private bool registered;
+
+    private bool CanStepBack => overflows && !atStart;
+    private bool CanStepOn => overflows && !atEnd;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("assetlen.tabstrip.register", id, rail, selfRef);
+            await JS.InvokeVoidAsync("assetlen.tabstrip.revealActive", id);
+            registered = true;
+        }
+        catch
+        {
+            // No script, or a pre-render pass. The strip still scrolls by touch;
+            // it just loses the chevrons, which is a degradation and not a break.
+        }
+    }
+
+    /// <summary>
+    /// Called from JS on scroll and on resize, and only when the answer actually
+    /// changed — a render per scroll frame would be the expensive way to draw two
+    /// chevrons.
+    /// </summary>
+    [JSInvokable]
+    public void OnEdgesChanged(bool hasOverflow, bool isAtStart, bool isAtEnd)
+    {
+        overflows = hasOverflow;
+        atStart = isAtStart;
+        atEnd = isAtEnd;
+        StateHasChanged();
+    }
+
+    private async Task StepAsync(int direction)
+    {
+        try { await JS.InvokeVoidAsync("assetlen.tabstrip.step", id, direction); }
+        catch { /* the strip is still scrollable by hand */ }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (registered)
+        {
+            try { await JS.InvokeVoidAsync("assetlen.tabstrip.unregister", id); }
+            catch { /* teardown */ }
+        }
+
+        selfRef?.Dispose();
+    }
+}

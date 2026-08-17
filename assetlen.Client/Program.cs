@@ -23,7 +23,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 builder.Services.AddAuthorizationCore();
-builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 builder.Services.AddBlazoredLocalStorage();
 
 // Register a named HttpClient for refresh token without AuthHeaderHandler to avoid circular dependency
@@ -35,7 +34,19 @@ builder.Services.AddHttpClient("RefreshTokenClient", client =>
 // AuthHeaderHandler must be Transient because DelegatingHandlers cannot be reused
 builder.Services.AddTransient<AuthHeaderHandler>();
 builder.Services.AddTransient<IAppLifecycleHandler, AppLifecycleHandler>();
+// ONE instance, two service keys.
+//
+// This was registered twice — AddScoped<AuthenticationStateProvider,
+// CustomAuthStateProvider>() and AddScoped<CustomAuthStateProvider>() — which
+// built two unrelated objects. Login called MarkUserAsAuthenticated on the
+// concrete one, so NotifyAuthenticationStateChanged fired on an instance
+// CascadingAuthenticationState had never subscribed to: the cascading state
+// stayed anonymous, every [Authorize] page rendered "Not signed in", and only a
+// full reload (which re-reads the token from storage) recovered. The chrome
+// looked signed in the whole time because it resolves the concrete type.
 builder.Services.AddScoped<CustomAuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(
+    sp => sp.GetRequiredService<CustomAuthStateProvider>());
 builder.Services.AddScoped<IStorageService, StorageServiceWeb>();
 builder.Services.AddSingleton<BlazorNavigationService>();
 builder.Services.AddSingleton<NavigatorService>();
@@ -50,6 +61,11 @@ builder.Services.AddSingleton<IAppCloser, AppCloser>();
 // two never agreed on a colour, a radius or a motion curve.
 builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddScoped<ShellState>();
+
+// What is waiting on the reader, and where. One scan, read by the rail, the
+// bottom bar, Home and the Needs-you page — the last two each ran their own
+// copy of the same per-project loop and could disagree about the count.
+builder.Services.AddScoped<AttentionState>();
 
 // One registration helper — every ASSETLEN API client is registered the same way.
 void AddApi<T>() where T : class => builder.Services
@@ -78,7 +94,14 @@ AddApi<IIngestApi>();
 // is not Development, so registering it everywhere costs nothing.
 AddApi<IDevApi>();
 
-builder.Services.AddSingleton<IStreamHubService>(sp => new StreamHubService(
+// Scoped, not singleton. The hub needs IStorageService for the access token,
+// and IStorageService is scoped — a singleton factory resolves it from the root
+// provider, which the validating provider refuses. The throw landed inside
+// ComponentFactory while Blazor was instantiating EntryDetail mid-diff, so the
+// visible failure was a NullReferenceException out of RenderTreeDiffBuilder and
+// every "what moved" link took the app down. In WebAssembly scoped is one
+// instance for the app's lifetime anyway, so nothing is shared less than before.
+builder.Services.AddScoped<IStreamHubService>(sp => new StreamHubService(
     sp.GetRequiredService<IStorageService>(),
     sp.GetRequiredService<ILogger<StreamHubService>>(),
     baseAddressApi));

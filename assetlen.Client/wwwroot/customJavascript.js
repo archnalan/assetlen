@@ -1404,3 +1404,212 @@ window.assetlenTheme = {
     /* private mode, or storage disabled — the OS preference still governs */
   }
 })();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ASSETLEN — window.assetlen
+
+   Everything the Razor components reach for through IJSRuntime lives on this
+   one object. Two members so far: the lightbox key handler, and the tab-strip
+   edge helper.
+   ───────────────────────────────────────────────────────────────────────── */
+window.assetlen = window.assetlen || {};
+
+/* ── Lightbox ──────────────────────────────────────────────────────────────
+   PhotoLightbox calls attach/detach and expects arrow keys and Escape to come
+   back through [JSInvokable] OnKey. These were being called and did not exist,
+   so opening a frame threw out of OnAfterRenderAsync.
+   ────────────────────────────────────────────────────────────────────────── */
+window.assetlen.lightbox = (function () {
+  var ref = null;
+  var handler = null;
+
+  return {
+    attach: function (dotNetRef) {
+      if (handler) document.removeEventListener("keydown", handler);
+
+      ref = dotNetRef;
+      handler = function (e) {
+        if (e.key !== "Escape" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+
+        // Arrow keys scroll the page behind the lightbox otherwise.
+        e.preventDefault();
+        if (ref) ref.invokeMethodAsync("OnKey", e.key);
+      };
+
+      document.addEventListener("keydown", handler);
+    },
+
+    detach: function () {
+      if (handler) document.removeEventListener("keydown", handler);
+      handler = null;
+      ref = null;
+    },
+  };
+})();
+
+/* ── Tab strip edges ───────────────────────────────────────────────────────
+   A horizontally scrolling strip on a phone has one failure mode that matters:
+   the reader tries to swipe it and instead taps a tab, because a short drag on
+   a link reads as a tap. So the strip gets explicit chevrons — and a chevron
+   that is always visible is a chevron nobody trusts, so this reports which
+   direction actually has more strip left.
+
+   Scroll is driven off tab geometry rather than a fixed number of pixels: the
+   next press brings the first partly-hidden tab fully into view. Paging by a
+   percentage lands mid-label, which is what makes most of these feel cheap.
+   ────────────────────────────────────────────────────────────────────────── */
+window.assetlen.tabstrip = (function () {
+  var strips = new Map();
+  var SLACK = 2; // sub-pixel scroll positions never land exactly on 0
+
+  function measure(el) {
+    var max = el.scrollWidth - el.clientWidth;
+    return {
+      overflows: max > SLACK,
+      atStart: el.scrollLeft <= SLACK,
+      atEnd: el.scrollLeft >= max - SLACK,
+    };
+  }
+
+  function report(id) {
+    var entry = strips.get(id);
+    if (!entry) return;
+
+    var m = measure(entry.el);
+    if (entry.last &&
+        entry.last.overflows === m.overflows &&
+        entry.last.atStart === m.atStart &&
+        entry.last.atEnd === m.atEnd) {
+      return; // nothing changed — do not wake the renderer
+    }
+
+    entry.last = m;
+    entry.ref.invokeMethodAsync("OnEdgesChanged", m.overflows, m.atStart, m.atEnd);
+  }
+
+  /* Geometry from rects, not offsetLeft.
+     offsetLeft is measured against offsetParent, and the strip's wrapper is
+     position:relative — so the tabs answer relative to the wrapper rather than
+     to the scroller, every tab reports the same left as the strip's own, and
+     "the first tab past the right edge" is never found. Rects plus scrollLeft
+     are unambiguous whatever is positioned above. */
+  function tabs(el) {
+    var railLeft = el.getBoundingClientRect().left;
+    var scrolled = el.scrollLeft;
+
+    return Array.prototype.slice.call(el.children)
+      .filter(function (c) { return c.getBoundingClientRect().width > 0; })
+      .map(function (c) {
+        var r = c.getBoundingClientRect();
+        var start = r.left - railLeft + scrolled;   // position in the scroll content
+        return { el: c, start: start, end: start + r.width, width: r.width };
+      });
+  }
+
+  return {
+    register: function (id, el, dotNetRef) {
+      if (!el) return;
+
+      var entry = { el: el, ref: dotNetRef, last: null };
+      strips.set(id, entry);
+
+      entry.onScroll = function () { report(id); };
+      el.addEventListener("scroll", entry.onScroll, { passive: true });
+
+      if (window.ResizeObserver) {
+        entry.observer = new ResizeObserver(function () { report(id); });
+        entry.observer.observe(el);
+        // Adding or removing a tab changes the overflow without resizing the rail.
+        Array.prototype.forEach.call(el.children, function (c) { entry.observer.observe(c); });
+      }
+
+      report(id);
+    },
+
+    unregister: function (id) {
+      var entry = strips.get(id);
+      if (!entry) return;
+
+      entry.el.removeEventListener("scroll", entry.onScroll);
+      if (entry.observer) entry.observer.disconnect();
+      strips.delete(id);
+    },
+
+    /* direction: -1 back, 1 forward. Lands on a tab edge, never mid-label. */
+    step: function (id, direction) {
+      var entry = strips.get(id);
+      if (!entry) return;
+
+      var el = entry.el;
+      var children = tabs(el);
+      if (!children.length) return;
+
+      var viewStart = el.scrollLeft;
+      var viewEnd = viewStart + el.clientWidth;
+      var max = el.scrollWidth - el.clientWidth;
+
+      // The strip carries scroll-padding so a tab never lands under a chevron,
+      // and the tabs are snap-aligned to `start`. Every target below is
+      // therefore a tab's leading edge less that padding — i.e. an actual snap
+      // position. Aiming anywhere else is silently undone: an earlier version
+      // put the incoming tab flush against the *right* edge, which fell between
+      // two snap points, and proximity snapping pulled the strip straight back
+      // to where it started. The chevron looked dead.
+      var pad = parseFloat(getComputedStyle(el).scrollPaddingLeft) || 0;
+      var target = null;
+
+      if (direction > 0) {
+        // The first tab that is not fully in view becomes the leading tab.
+        // Nothing is skipped: it was already partly visible.
+        for (var i = 0; i < children.length; i++) {
+          if (children[i].end > viewEnd + SLACK) {
+            target = children[i].start - pad;
+            break;
+          }
+        }
+        if (target === null) target = max;
+      } else {
+        for (var j = children.length - 1; j >= 0; j--) {
+          if (children[j].start - pad < viewStart - SLACK) {
+            target = children[j].start - pad;
+            break;
+          }
+        }
+        if (target === null) target = 0;
+      }
+
+      target = Math.max(0, Math.min(target, max));
+
+      // One very wide tab can leave the computed target where we already are.
+      // Finish the journey rather than let a live chevron do nothing.
+      if (Math.abs(target - viewStart) <= SLACK) target = direction > 0 ? max : 0;
+
+      el.scrollTo({ left: target, behavior: "smooth" });
+    },
+
+    /* Landing on a section whose tab is scrolled out of sight reads as "this
+       section is not in the strip". Called once after the strip mounts. */
+    revealActive: function (id) {
+      var entry = strips.get(id);
+      if (!entry) return;
+
+      var el = entry.el;
+      var active = tabs(el).filter(function (t) {
+        return t.el.classList.contains("is-active");
+      })[0];
+      if (!active) return;
+
+      var viewStart = el.scrollLeft;
+      var viewEnd = viewStart + el.clientWidth;
+
+      if (active.start >= viewStart - SLACK && active.end <= viewEnd + SLACK) return;
+
+      // Centre it when there is room either side; otherwise just bring it in.
+      var centred = active.start - (el.clientWidth - active.width) / 2;
+      el.scrollTo({
+        left: Math.max(0, Math.min(centred, el.scrollWidth - el.clientWidth)),
+        behavior: "auto",
+      });
+    },
+  };
+})();

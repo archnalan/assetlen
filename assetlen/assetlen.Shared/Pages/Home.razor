@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject ShellState Shell
+@inject AttentionState Attention
 @inject ILogger<Home> Logger
 
 @*
@@ -73,16 +74,20 @@
         <ChildContent>
 
             @* ── 1. What needs you ─────────────────────────────────────── *@
-            @if (needsYou.Count > 0)
+            @if (Attention.Count > 0)
             {
                 <section class="home__section">
                     <div class="al-rule">
                         <span class="al-label">Needs you</span>
+                        @if (Attention.OverdueCount > 0)
+                        {
+                            <span class="al-badge al-badge--danger">@Attention.OverdueCount overdue</span>
+                        }
                     </div>
 
                     <div class="al-sheet al-sheet--ticked">
                         <div class="al-register">
-                            @foreach (var item in needsYou.Take(4))
+                            @foreach (var item in Attention.Owed.Take(4))
                             {
                                 <a class="al-register__row al-register__row--needs-you" href="@item.Href">
                                     <Icon Name="@item.Icon" Size="18" Class="home__need-icon" />
@@ -97,9 +102,9 @@
                                         </span>
                                     </span>
                                     <span class="al-register__end">
-                                        @if (item.DueLabel is not null)
+                                        @if (item.DueLabelShort is not null)
                                         {
-                                            <span class="al-badge @item.DueBadgeClass">@item.DueLabel</span>
+                                            <span class="al-badge @item.BadgeClass">@item.DueLabelShort</span>
                                         }
                                         <Icon Name="chevron-right" Size="16" Class="al-subtle" />
                                     </span>
@@ -107,11 +112,11 @@
                             }
                         </div>
 
-                        @if (needsYou.Count > 4)
+                        @if (Attention.Count > 4)
                         {
                             <div class="al-sheet__foot">
                                 <a class="al-btn al-btn--link" href="/needs-you">
-                                    @(needsYou.Count - 4) more waiting on you
+                                    @(Attention.Count - 4) more waiting on you
                                 </a>
                             </div>
                         }
@@ -193,13 +198,22 @@
 
 @code {
     private PortfolioSummaryDto? portfolio;
-    private readonly List<NeedsYouItem> needsYou = new();
     private readonly List<ProgressUpdateDto> recent = new();
     private LoadPhase phase = LoadPhase.Loading;
     private string? errorMessage;
 
-    protected override void OnInitialized() => _sd.OnUserUpdated += Refresh;
-    public void Dispose() => _sd.OnUserUpdated -= Refresh;
+    protected override void OnInitialized()
+    {
+        _sd.OnUserUpdated += Refresh;
+        Attention.OnChange += Refresh;
+    }
+
+    public void Dispose()
+    {
+        _sd.OnUserUpdated -= Refresh;
+        Attention.OnChange -= Refresh;
+    }
+
     private void Refresh() => InvokeAsync(StateHasChanged);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -208,7 +222,6 @@
     {
         phase = LoadPhase.Loading;
         errorMessage = null;
-        needsYou.Clear();
         recent.Clear();
         StateHasChanged();
 
@@ -237,8 +250,12 @@
 
             // The two secondary bands are additive: the page is usable the
             // moment the projects render, and neither of these can hold it up
-            // or take it down.
-            await Task.WhenAll(LoadNeedsYouAsync(), LoadRecentAsync());
+            // or take it down. "Needs you" is read from the shared scan the
+            // shell already ran — this page used to assemble its own copy, so
+            // the number here and the number in the rail were two answers.
+            await Task.WhenAll(
+                Attention.RefreshAsync(portfolio.Projects),
+                LoadRecentAsync());
         }
         catch (Exception ex)
         {
@@ -250,74 +267,6 @@
         {
             StateHasChanged();
         }
-    }
-
-    /// <summary>
-    /// Decisions owed and money awaiting confirmation, across every project.
-    /// <para>
-    /// Until the commitment model lands (plan.md P4) an open Flag is the closest
-    /// the schema has to "a decision Peter owes", so this reads Flags assigned
-    /// to the signed-in user plus their own unconfirmed funding.
-    /// </para>
-    /// </summary>
-    private async Task LoadNeedsYouAsync()
-    {
-        var me = _sd.CurrentUser?.Id;
-
-        foreach (var project in AllProjects())
-        {
-            try
-            {
-                var flags = await _flagsApi.GetFlagsByProject(project.Id, FlagStatus.Open);
-                if (!flags.IsSuccessStatusCode || flags.Content is null) continue;
-
-                foreach (var flag in flags.Content.Where(f => f.AssignedToId == me))
-                {
-                    needsYou.Add(new NeedsYouItem(
-                        Title: flag.Title ?? "Open question",
-                        ProjectName: project.ProjectName,
-                        Detail: flag.StageName,
-                        Href: $"/project/{project.Id}/register",
-                        Icon: "decision",
-                        Due: flag.DueDate));
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Could not read open questions for {ProjectId}", project.Id);
-            }
-        }
-
-        if (ShowMoney)
-        {
-            try
-            {
-                var pending = await _fundingApi.GetPendingConfirmations();
-                if (pending.IsSuccessStatusCode && pending.Content is not null)
-                {
-                    foreach (var entry in pending.Content)
-                    {
-                        needsYou.Add(new NeedsYouItem(
-                            Title: $"Confirm {Fmt.Money(entry.Amount)} on {entry.StageName ?? "a stage"}",
-                            ProjectName: entry.ProjectName ?? "—",
-                            Detail: $"Recorded {Fmt.Date(entry.PaymentDate)}",
-                            Href: $"/project/{entry.ProjectId}/money",
-                            Icon: "money",
-                            Due: null));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Could not read pending funding confirmations");
-            }
-        }
-
-        // Soonest first, undated last — an item with a real deadline outranks
-        // one someone can sit on (Law 4: speak only when waiting costs something).
-        needsYou.Sort((a, b) => (a.Due ?? DateTime.MaxValue).CompareTo(b.Due ?? DateTime.MaxValue));
-
-        StateHasChanged();
     }
 
     private async Task LoadRecentAsync()
@@ -389,17 +338,4 @@
             "What is open on site, and what has been captured against it."
     };
 
-    private sealed record NeedsYouItem(
-        string Title, string ProjectName, string? Detail, string Href, string Icon, DateTime? Due)
-    {
-        public string? DueLabel => Due is null
-            ? null
-            : Due.Value.Date < DateTime.Now.Date ? "Overdue" : $"By {Fmt.DateShort(Due)}";
-
-        public string DueBadgeClass => Due is null
-            ? "al-badge--neutral"
-            : Due.Value.Date < DateTime.Now.Date ? "al-badge--danger"
-            : (Due.Value - DateTime.Now).TotalDays <= 7 ? "al-badge--warning"
-            : "al-badge--neutral";
-    }
 }

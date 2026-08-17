@@ -100,6 +100,25 @@
 
 .rail__link--nested { min-height: 2.125rem; font-size: var(--al-font-size-sm); }
 
+/* A cover frame standing in for the project mark. Exactly the mark's box, so
+   rows with and without a photo line up; the hairline stops a pale sky
+   dissolving into the rail background. */
+.rail__thumb {
+    flex: 0 0 auto;
+    object-fit: cover;
+    border-radius: var(--al-radius-xs);
+    border: 1px solid var(--al-border);
+    background: var(--al-surface-2);
+}
+
+.rail__link.is-active .rail__thumb { border-color: var(--al-border-strong); }
+
+/* The dot's ring is painted in the row's own background, so it reads as a hole
+   punched in the row rather than a sticker on top of it. */
+.rail__link.is-active .al-moved { box-shadow: 0 0 0 2px var(--al-accent-soft); }
+.rail--drawer .al-moved { box-shadow: 0 0 0 2px var(--al-bg-elevated); }
+.rail--drawer .rail__link.is-active .al-moved { box-shadow: 0 0 0 2px var(--al-accent-soft); }
+
 .rail__link--muted { color: var(--al-text-subtle); font-weight: var(--al-weight-regular); }
 
 .rail__section {

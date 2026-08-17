@@ -18,7 +18,18 @@
         <span>Home</span>
     </a>
     <a href="/needs-you" class="bottombar__item @Active("/needs-you")">
-        <Icon Name="decision" Size="21" />
+        <span class="bottombar__mark">
+            <Icon Name="decision" Size="21" />
+            @* On a phone the rail is behind a tap, so this is the only place the
+               count is visible without opening the drawer. It must be here. *@
+            @if (Attention.Loaded && Attention.Count > 0)
+            {
+                <span class="al-count @(Attention.OverdueCount > 0 ? "al-count--overdue" : "") bottombar__count"
+                      aria-label="@(Attention.Count == 1 ? "1 item waiting on you" : $"{Attention.Count} items waiting on you")">
+                    @Attention.Count
+                </span>
+            }
+        </span>
         <span>Needs you</span>
     </a>
     <a href="/search" class="bottombar__item @Active("/search")">
@@ -33,9 +44,21 @@
 
 @code {
     [Inject] private ShellState Shell { get; set; } = default!;
+    [Inject] private AttentionState Attention { get; set; } = default!;
 
-    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Attention.OnChange += Refresh;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        Attention.OnChange -= Refresh;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
 
     private void OnLocationChanged(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __)
         => InvokeAsync(StateHasChanged);

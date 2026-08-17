@@ -1,5 +1,6 @@
 @using assetlen.Shared.Models.Models.RemoteSite
 @using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos
+@inject AttentionState Attention
 @inject ILogger<FlagCard> Logger
 
 <article class="flag-card flag-card--@SeverityClass flag-card--status-@StatusClass">
@@ -130,8 +131,14 @@
         try
         {
             var resp = await call();
-            if (resp.IsSuccessStatusCode && resp.Content is not null && OnChanged.HasDelegate)
-                await OnChanged.InvokeAsync(resp.Content);
+            if (!resp.IsSuccessStatusCode || resp.Content is null) return;
+
+            // A resolved question is no longer owed by anyone, so the badge that
+            // was counting it must drop in the same beat — not on the next boot.
+            if (resp.Content.Status is FlagStatus.Resolved or FlagStatus.Archived)
+                Attention.Retire(AttentionKind.Decision, resp.Content.Id);
+
+            if (OnChanged.HasDelegate) await OnChanged.InvokeAsync(resp.Content);
         }
         catch (Exception ex) { Logger.LogError(ex, "Error on flag {Action}", action); }
         finally

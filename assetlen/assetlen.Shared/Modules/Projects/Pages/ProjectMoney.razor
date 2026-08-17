@@ -1,5 +1,6 @@
 @page "/project/{ProjectId}/money"
 @attribute [Authorize]
+@inject AttentionState Attention
 @inject ILogger<ProjectMoney> Logger
 
 @*
@@ -346,6 +347,11 @@
 
             if (response.IsSuccessStatusCode)
             {
+                // Drop it from the chrome now, not on the next boot. A count
+                // that still says 3 after you have dealt with one teaches the
+                // reader the count is decorative.
+                Attention.Retire(AttentionKind.Money, entry.Id);
+
                 ToastService.ShowSuccess($"{Fmt.Money(entry.Amount)} confirmed against {entry.StageName ?? "the project"}.");
                 await LoadAsync();
             }

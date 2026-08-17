@@ -13,6 +13,7 @@
 
 @implements IDisposable
 @inject ShellState Shell
+@inject AttentionState Attention
 @inject NavigationManager Nav
 
 <div class="al-page">
@@ -71,7 +72,11 @@
                 </Below>
             </TitleBlock>
 
-            <nav class="al-tabs projectpage__tabs" aria-label="Project sections">
+            @* Nine sections do not fit in 360px, so the strip scrolls — and a
+               short drag across a row of links reads as a tap, which meant
+               reaching for "Settings" opened "Money". TabStrip adds the pressable
+               reveal. *@
+            <TabStrip Class="projectpage__tabs" Label="Project sections">
                 @foreach (var tab in VisibleTabs)
                 {
                     <a href="@Href(tab.Slug)"
@@ -79,9 +84,16 @@
                        aria-selected="@(tab.Slug == Section)">
                         <Icon Name="@tab.Icon" Size="16" />
                         <span>@tab.Label</span>
+                        @if (OwedOnTab(tab.Slug) is > 0 and var owed)
+                        {
+                            <span class="al-count al-tabs__mark"
+                                  aria-label="@(owed == 1 ? "1 item waiting on you here" : $"{owed} items waiting on you here")">
+                                @owed
+                            </span>
+                        }
                     </a>
                 }
-            </nav>
+            </TabStrip>
 
             <div class="projectpage__body">
                 @ChildContent(new ProjectPageContext(project, access!))
@@ -107,8 +119,19 @@
     private string? errorMessage;
     private string? loadedId;
 
-    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Attention.OnChange += Refresh;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        Attention.OnChange -= Refresh;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
 
     // Moving between sections keeps the same component instance, so a plain
     // OnParametersSet would refetch the project on every tab click.
@@ -156,6 +179,11 @@
                 Shell.Remember(project.ParentProjectId, project.ParentProjectName);
             foreach (var sub in project.SubProjects) Shell.Remember(sub.Id, sub.ProjectName, project.Id);
 
+            // Every project screen renders through here, so this is the one
+            // place that can say "the reader has now looked at this project" —
+            // and the rail's dot drops while they are still on the page.
+            await Attention.MarkSeenAsync(project.Id);
+
             loadedId = ProjectId;
             phase = LoadPhase.Ready;
         }
@@ -171,6 +199,18 @@
     }
 
     private string Href(string slug) => slug == "overview" ? $"/project/{ProjectId}" : $"/project/{ProjectId}/{slug}";
+
+    /// <summary>
+    /// Which tab is carrying work this reader owes. Only the two sections that
+    /// can actually hold such an item answer — a badge on a tab that cannot
+    /// resolve it would send the reader to the wrong screen.
+    /// </summary>
+    private int OwedOnTab(string slug) => slug switch
+    {
+        "register" => Attention.OwedOn(ProjectId, AttentionKind.Decision),
+        "money"    => Attention.OwedOn(ProjectId, AttentionKind.Money),
+        _          => 0
+    };
 
     private string SideLabel => access?.Side switch
     {

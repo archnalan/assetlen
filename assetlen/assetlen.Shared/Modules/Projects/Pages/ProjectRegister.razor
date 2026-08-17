@@ -1,5 +1,6 @@
 @page "/project/{ProjectId}/register"
 @attribute [Authorize]
+@inject AttentionState Attention
 @inject ILogger<ProjectRegister> Logger
 
 @*
@@ -261,6 +262,12 @@
 
             if (response.IsSuccessStatusCode)
             {
+                // Nothing is owed on it any more, so the rail's count, the
+                // bottom bar's and this project's tab mark all drop in the same
+                // beat. A badge that lags behind the action is a badge the
+                // reader stops believing.
+                Attention.Retire(AttentionKind.Decision, flag.Id);
+
                 // Resolution updates the item, not a message. That is the whole
                 // point: otherwise the answer becomes the next thing to scroll for.
                 await LoadAsync();

@@ -108,17 +108,22 @@
 
 .shell__avatar-btn:hover { border-color: var(--al-border-strong); }
 
+/* Both of these are rendered inside .shell__account, which sits inside the
+   header — and the header is a stacking context. So these two z-indexes are
+   compared only against each other and the header's other children, never
+   against the header itself. The catcher covers the viewport and the popup sits
+   on top of it; nothing outside the header can get between them. */
 .shell__click-away {
     position: fixed;
     inset: 0;
-    z-index: calc(var(--al-z-topbar) + 1);
+    z-index: 1;
 }
 
 .shell__menu-pop {
     position: absolute;
     top: calc(100% + var(--al-space-2));
     right: 0;
-    z-index: calc(var(--al-z-topbar) + 2);
+    z-index: 2;
     min-width: 15rem;
     background: var(--al-bg-elevated);
     border: 1px solid var(--al-border-strong);

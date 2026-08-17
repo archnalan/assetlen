@@ -18,8 +18,8 @@
 
 @using assetlen.Shared.Models.statics
 @inject ShellState Shell
+@inject AttentionState Attention
 @inject CustomAuthStateProvider _custAuth
-@inject IJSRuntime JS
 
 <div class="shell">
 
@@ -76,6 +76,15 @@
 
                 @if (_accountOpen)
                 {
+                    @* Inside the account cell, not a sibling of the header.
+                       As a sibling it needed a z-index above the header to
+                       catch an outside click, and the header is a stacking
+                       context — so the popup, whose z-index only counts
+                       *within* the header, ended up underneath the catcher and
+                       none of its items could be clicked. Here both live in the
+                       same context and the popup simply sits above. *@
+                    <div class="shell__click-away" @onclick="CloseAccount"></div>
+
                     <div class="shell__menu-pop" role="menu">
                         <div class="shell__menu-head">
                             <div class="shell__menu-name">@DisplayName</div>
@@ -114,11 +123,6 @@
         {
             <div class="al-scrim shell__scrim" @onclick="Shell.CloseDrawer"></div>
             <NavRail InDrawer="true" />
-        }
-
-        @if (_accountOpen)
-        {
-            <div class="shell__click-away" @onclick="CloseAccount"></div>
         }
     }
 </div>
@@ -207,6 +211,10 @@
             if (response.IsSuccessStatusCode && response.Content is not null)
             {
                 Shell.SetProjects(response.Content.Projects);
+
+                // Badges are additive: the rail is already usable with names
+                // alone, and this scan is one request per project.
+                await Attention.RefreshAsync(response.Content.Projects);
             }
         }
         catch
@@ -322,6 +330,7 @@
     {
         _accountOpen = false;
         Shell.Clear();
+        Attention.Clear();
         _sd.RemoveUser();
         await _custAuth.MarkUserAsLoggedOut();
         _nav.NavigateTo("/login", forceLoad: true);

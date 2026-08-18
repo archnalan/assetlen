@@ -190,9 +190,13 @@ namespace assetlen.Service.DbServices
                     await _context.SaveChangesAsync();
 
                     // Send SMS
-                    var smsResponse = await _pandoraSmsService.SendSmsAsync(user.PhoneNumber!, $"Your password reset code is: {otp}. Valid for 10 minutes.");
+                    var smsResponse = await _pandoraSmsService.SendSmsAsync(
+                        user.PhoneNumber!, OtpSms.PasswordReset(otp, 10));
+
                     if (!smsResponse.Success)
                     {
+                        _logger.LogError("SMS gateway refused the password reset code for {Phone}: {Reason}",
+                            user.PhoneNumber, smsResponse.ErrorMessage);
                         return ServiceResult<string>.Failure(new ServerErrorException("Failed to send SMS. Please try again."));
                     }
 
@@ -2154,7 +2158,7 @@ namespace assetlen.Service.DbServices
                         // Valid Ugandan number - send SMS via PandoraSms
                         try
                         {
-                            var smsMessage = $"Your verification code is {code}. Valid for 10 minutes. Do not share this code with anyone.";
+                            var smsMessage = OtpSms.Verification(code, 10);
                             var smsResult = await _pandoraSmsService.SendSmsAsync(phoneValidation.cleanedupNumber, smsMessage);
 
                             if (smsResult?.Success == true)
@@ -2163,7 +2167,11 @@ namespace assetlen.Service.DbServices
                             }
                             else
                             {
-                                _logger.LogError($"Failed to send SMS to {contact}: {smsResult.ErrorMessage}");
+                                // The gateway's own words. Without them a rejected
+                                // message type reads as a bad phone number, which
+                                // is where a day went once already.
+                                _logger.LogError("SMS gateway refused the verification code for {Contact}: {Reason}",
+                                    contact, smsResult?.ErrorMessage ?? "no response");
                                 return ServiceResult<IssuedCode>.Failure(new ServerErrorException("Failed to send SMS verification code"));
                             }
                         }
@@ -2452,9 +2460,15 @@ namespace assetlen.Service.DbServices
                     _context.VerificationCodes.Add(verificationCode);
                     await _context.SaveChangesAsync();
 
-                    var smsResponse = await _pandoraSmsService.SendSmsAsync(user.PhoneNumber!, $"Your password reset code is: {otp}. Valid for 10 minutes. Initiated by admin.");
+                    var smsResponse = await _pandoraSmsService.SendSmsAsync(
+                        user.PhoneNumber!, OtpSms.PasswordResetByAdmin(otp, 10));
+
                     if (!smsResponse.Success)
+                    {
+                        _logger.LogError("SMS gateway refused the admin-started reset code for {Phone}: {Reason}",
+                            user.PhoneNumber, smsResponse.ErrorMessage);
                         return ServiceResult<string>.Failure(new ServerErrorException("Failed to send SMS. Please try again."));
+                    }
 
                     return ServiceResult<string>.Success($"Reset OTP sent to {user.PhoneNumber}");
                 }

@@ -33,29 +33,30 @@ namespace assetlen.Service.DbServices
                     sender: _sender,
                     username: _username,
                     password: _password,
-                    messageType: "Info",
+                    // Lower case, and it matters. The gateway rejects "Info" —
+                    // and reports that rejection as "Invalid recipients", so the
+                    // failure reads as a bad phone number and sends you into the
+                    // number-cleaning code. The accepted values are "info" and
+                    // the category "bulk"; everything else answers 405.
+                    messageType: "info",
                     messageCategory: "bulk"
                 );
 
-                return response.Content;
+                // The gateway answers HTTP 200 for business failures too, so the
+                // status code says nothing; only the body does.
+                return response.Content ?? new PandoraSmsResponse
+                {
+                    Success = false,
+                    Messages = { $"Gateway returned {(int)response.StatusCode} with no body" }
+                };
             }
             catch (ApiException ex)
             {
-                // Handle API errors
-                return new PandoraSmsResponse
-                {
-                    Success = false,
-                    ErrorMessage = ex.Message
-                };
+                return new PandoraSmsResponse { Success = false, Messages = { ex.Message } };
             }
             catch (Exception ex)
             {
-                // Handle general errors
-                return new PandoraSmsResponse
-                {
-                    Success = false,
-                    ErrorMessage = $"Error sending SMS: {ex.Message}"
-                };
+                return new PandoraSmsResponse { Success = false, Messages = { $"Error sending SMS: {ex.Message}" } };
             }
         }
     }

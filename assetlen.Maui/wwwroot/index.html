@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#131518" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Your development, held to what was agreed. Every price, date, specification and approval on the build — on the record, with the evidence attached and a name against it." />
@@ -17,7 +17,6 @@
     <link rel="icon" href="favicon.ico" sizes="48x48" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-    <link rel="manifest" href="manifest.webmanifest" />
 
     <!-- Fonts. Fraunces carries the display voice, Inter the body; both are
          preconnected because the first paint after the splash uses them. -->
@@ -30,10 +29,9 @@
          here; none of them are rendered by a single component any more, and
          between them they were four competing opinions about what a button is. -->
     <link rel="stylesheet" href="_content/assetlen.Shared/app.css" />
-    <link href="assetlen.Client.styles.css" rel="stylesheet" />
+    <link href="assetlen.Maui.styles.css" rel="stylesheet" />
 
     <script src="customJavascript.js"></script>
-    <script src="_content/Blazored.LocalStorage/Blazored.LocalStorage.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <style>
@@ -316,7 +314,7 @@
         <a class="dismiss" onclick="this.closest('#blazor-error-ui').style.display='none'">Dismiss</a>
     </div>
 
-    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
     <script>
         // Retire the splash once Blazor's root has actually rendered something.
         // Watching #app's children rather than using a timer means a slow first

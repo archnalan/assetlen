@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shared="clr-namespace:assetlen.Shared;assembly=assetlen.Shared"
+             xmlns:web="clr-namespace:Microsoft.AspNetCore.Components.Web;assembly=Microsoft.AspNetCore.Components.Web"
+             x:Class="assetlen.Maui.MainPage"
+             BackgroundColor="#fafaf7">
+
+    <!-- The native head mounts the *same* Routes component the WASM client mounts.
+         There is no second copy of the app: every page, layout and .razor.css
+         under assetlen.Shared renders here unchanged. -->
+    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+        <BlazorWebView.RootComponents>
+            <RootComponent Selector="#app" ComponentType="{x:Type shared:Routes}" />
+            <RootComponent Selector="head::after" ComponentType="{x:Type web:HeadOutlet}" />
+        </BlazorWebView.RootComponents>
+    </BlazorWebView>
+
+</ContentPage>

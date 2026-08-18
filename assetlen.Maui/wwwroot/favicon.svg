@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="ASSETLEN">
+  <title>ASSETLEN</title>
+  <rect width="24" height="24" rx="5.2" fill="#16191c"/>
+  <g transform="translate(12 12) scale(0.78) translate(-12 -12)">
+    <path d="M3.2 20.2 L12 4.2 L20.8 20.2"
+          fill="none" stroke="#f6f5f1" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="6.9" y1="14.6" x2="17.1" y2="14.6"
+          stroke="#f6f5f1" stroke-width="1.9" stroke-linecap="round" opacity="0.55"/>
+    <circle cx="12" cy="4.2" r="2.1" fill="#dd7a58"/>
+  </g>
+</svg>

@@ -1,3 +1,4 @@
+using Blazored.LocalStorage;
 using assetlen.Maui.Services;
 using assetlen.Shared.Apicalls;
 using assetlen.Shared.Services;
@@ -35,11 +36,19 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        // ── Platform seams ──
+        // -- Platform seams --
         // Everything below this line is registered exactly as assetlen.Client
-        // registers it. The four services that differ are the four that touch
-        // the platform: storage, files, connectivity and closing the app.
+        // registers it. The services that differ are the ones that touch the
+        // platform: storage, files, connectivity and closing the app.
         builder.Services.AddSingleton<IFormFactor, Services.FormFactor>();
+
+        // Every component in the RCL inherits @inject ILocalStorageService from
+        // assetlen.Shared/_Imports.razor, so the container has to be able to
+        // answer for it or the root component never instantiates and the app
+        // sits on the splash forever. IStorageService below is what the app
+        // actually reads and writes through.
+        builder.Services.AddBlazoredLocalStorage();
+
         builder.Services.AddScoped<IStorageService, StorageServiceMaui>();
         builder.Services.AddScoped<ICustomFileSaver, FileSaverMaui>();
         builder.Services.AddScoped<IPrintService, PrintServiceMaui>();
@@ -48,11 +57,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<IAppCloser, AppCloser>();
         builder.Services.AddTransient<IAppLifecycleHandler, AppLifecycleHandler>();
 
-        // ── Auth ──
+        // -- Auth --
         builder.Services.AddAuthorizationCore();
         builder.Services.AddCascadingAuthenticationState();
 
-        // ONE instance, two service keys — the same bug the client's comment
+        // ONE instance, two service keys - the same bug the client's comment
         // records: two registrations build two unrelated providers, and the
         // cascading state stays anonymous after a successful sign-in.
         builder.Services.AddScoped<CustomAuthStateProvider>();
@@ -69,14 +78,14 @@ public static class MauiProgram
 
         builder.Services.AddScoped(sp => new HttpClient { BaseAddress = BaseAddressApi });
 
-        // ── Shared app services ──
+        // -- Shared app services --
         builder.Services.AddSingleton<BlazorNavigationService>();
         builder.Services.AddSingleton<NavigatorService>();
         builder.Services.AddSingleton<IApiResponseHandler, ApiResponseHandler>();
         builder.Services.AddSingleton<ISD, SD>();
         builder.Services.AddScoped<IUserSessionService, UserSessionService>();
 
-        // ── ASSETLEN chrome ──
+        // -- ASSETLEN chrome --
         builder.Services.AddScoped<IToastService, ToastService>();
         builder.Services.AddScoped<ShellState>();
         builder.Services.AddScoped<AttentionState>();
@@ -87,7 +96,7 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<GlobalContext>();
 
-        // ── API clients ──
+        // -- API clients --
         void AddApi<T>() where T : class => builder.Services
             .AddRefitClient<T>()
             .ConfigureHttpClient(c => c.BaseAddress = BaseAddressApi)

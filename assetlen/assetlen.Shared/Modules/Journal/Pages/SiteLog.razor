@@ -3,7 +3,7 @@
 @inject ILogger<SiteLog> Logger
 
 @*
-    The Site Log — the complete, unsanitised operational record.
+    The Site Diary — the complete, unsanitised operational record.
 
     Delivery side and mediators only. The clerk posts here without judgement
     about what the client wants; whatever intelligence Assetlen has runs *after*
@@ -12,9 +12,9 @@
     the question the two-surface model is there to avoid.
 *@
 
-<PageTitle>Site Log — ASSETLEN</PageTitle>
+<PageTitle>Site Diary — ASSETLEN</PageTitle>
 
-<ProjectPage ProjectId="@ProjectId" Section="log" Eyebrow="Site Log"
+<ProjectPage ProjectId="@ProjectId" Section="log" Eyebrow="Site Diary"
              Subtitle="Everything captured, in full. Nothing here is curated." Context="ctx">
 
     @if (!ctx.CanSeeSiteLog)
@@ -57,7 +57,7 @@
         </div>
 
         <StateBlock Phase="phase" OnRetry="LoadAsync"
-                    ErrorTitle="The Site Log didn't load"
+                    ErrorTitle="The Site Diary didn't load"
                     ErrorMessage="@errorMessage"
                     EmptyIcon="camera"
                     EmptyTitle="Nothing captured yet"
@@ -160,7 +160,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Site Log failed to load for {ProjectId}", ProjectId);
+            Logger.LogError(ex, "Site Diary failed to load for {ProjectId}", ProjectId);
             phase = LoadPhase.Error;
             errorMessage = ex.Message;
         }
@@ -184,7 +184,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Could not load more Site Log entries");
+            Logger.LogWarning(ex, "Could not load more Site Diary entries");
             ToastService.ShowError("Could not load older entries.");
         }
         finally

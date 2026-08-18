@@ -81,7 +81,7 @@ AddApi<IUsersAPI>();
 AddApi<IConfigurationsApi>();
 AddApi<ISubscriptionRequestApi>();
 
-// Projects + Site Log
+// Projects + Site Diary
 AddApi<IProjectsRSApi>();
 AddApi<IStagesApi>();
 AddApi<IFundingApi>();

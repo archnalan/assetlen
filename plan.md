@@ -209,7 +209,7 @@ invited an editor to overwrite the house's figure with the wing's.
 an unrelated principal: **48 assertions, 0 failures.** The same file uploaded twice yields
 one artifact; a client-side reader receives only exposed frames while the entry reports its
 true total; a crew entry answers 404 rather than 403, since a refusal would confirm the
-Site Log exists; the tier never rises without a person accepting it.
+Site Diary exists; the tier never rises without a person accepting it.
 
 **Documents (F4).** `DocumentRegister` is the drawing register: reissue supersedes rather
 than replaces, the superseded issue stays downloadable, and `SetDocumentChannel` lets the
@@ -284,7 +284,7 @@ importing them, so who each name belongs to stays a decision somebody makes.
   query per row when the project is not in the change tracker — 1,529 extra round trips.
   The project is loaded tracked and `TenantId` is stamped explicitly.
 
-**Who may read an import.** Everything ingested is Site Log material (assetlen.md §5), so
+**Who may read an import.** Everything ingested is Site Diary material (assetlen.md §5), so
 the contractor side and mediators read it. Beyond that **the importing side owns it**:
 `tbl_IngestBatch.ImportedSide` is captured at import time and stored, not re-derived, so
 material does not become readable — or stop being readable — because of a later roster
@@ -435,7 +435,7 @@ Only now, and only because nothing above depends on it.
 - Three-tap capture against today's deliverables; **bulk camera-roll import** as the primary
   path — real capture is thirteen to eighteen frames at 22:00, not one in the moment.
 - Offline queue with background sync.
-- **Site Log** — the complete unsanitised record, delivery side only.
+- **Site Diary** — the complete unsanitised record, delivery side only.
 - **Curation by exception**: the mediator drops, promotes and exposes **individual frames**;
   the brief publishes at the cutoff whether or not he touches it.
 - Mediator staffs the delivery side; Peter keeps the access roster.

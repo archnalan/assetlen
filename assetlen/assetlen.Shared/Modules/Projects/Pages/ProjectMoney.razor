@@ -28,14 +28,16 @@
 <ProjectPage ProjectId="@ProjectId" Section="money" Eyebrow="Stages &amp; money"
              Subtitle="One row per stage. Nothing combined." Context="ctx">
 
+    @* Only reachable by typing the URL — the tab is not rendered for this seat.
+       Say nothing about what is behind it: a seat is defined by what someone was
+       invited for, not by a list of what they were kept out of. *@
     @if (!CanSeeMoney)
     {
         <div class="al-empty">
-            <Icon Name="lock" Size="40" Class="al-empty__icon" Weight="1.25" />
-            <h3 class="al-empty__title">Money is not part of your seat</h3>
+            <Icon Name="arrow-up-right" Size="40" Class="al-empty__icon" Weight="1.25" />
+            <h3 class="al-empty__title">Nothing here for you</h3>
             <p class="al-empty__body">
-                The delivery side captures work and raises claims; what has been released against a
-                stage is between the developer and the mediator.
+                Everything you were invited for is on the tabs above.
             </p>
         </div>
     }

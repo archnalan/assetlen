@@ -50,7 +50,7 @@ public class tbl_IngestBatch : BaseEntity
     /// stood down as mediator — and material must not become readable, or stop
     /// being readable, because of a later roster edit. A client-side import is
     /// Peter's own forwarded record and is exactly as private as his phone
-    /// (assetlen.md §5); a contractor-side import is Site Log material.
+    /// (assetlen.md §5); a contractor-side import is Site Diary material.
     /// </para>
     /// </summary>
     public ProjectSide ImportedSide { get; set; } = ProjectSide.Client;

@@ -34,12 +34,16 @@ Use these terms everywhere — UI copy, file names, type names, route segments.
 | Stage checklist item | **Deliverable** | The thing capture is aimed at. Nothing floats. |
 | A stored file | **Artifact** | Uploaded once, permanent address, hash-matched. Later mentions are pointers, never copies. |
 | Markup on an artifact | **Annotation** | A versioned, attributed *layer* on the original. Never a new image. |
-| Nalan's full record | **Site Log** | Complete, unsanitised, internal. The clerk posts here without judgement. |
+| Nalan's full record | **Site Diary** | Complete, unsanitised, internal. The clerk posts here without judgement. The clerk-of-works daybook is what this already is on a real site, and it is the document that gets pulled in a dispute. |
 | Peter's daily page | **Client Brief** | One page per day, **grouped by deliverable, not by time**. Auto-drafted, publishes at the cutoff regardless. |
 | Non-curatable facts | **Truth floor** | Money, dates, agreed specs, blockers and decisions Peter owes reach Peter regardless of curation. |
 | The two channels | **Client channel** / **Crew channel** | Nalan controls emphasis, not truth. |
 
-**Retired terms** — do not reintroduce: *Site Journal* and *Entry* (→ Site Log / capture against a Deliverable), *Flag* (→ a Commitment in `QueryRaised`, or a blocker), *Lookbook*, *Client view* (→ Client Brief).
+**Retired terms** — do not reintroduce: *Site Journal* and *Entry* (→ Site Diary / capture against a Deliverable), *Site Log* (→ Site Diary), *Flag* (→ a Commitment in `QueryRaised`, or a blocker), *Lookbook*, *Client view* (→ Client Brief).
+
+**Site Log → Site Diary was renamed on 2026-08-18, in prose only.** "Log" is a computer word; a site keeps a diary. The identifiers did **not** move — `SiteLog.razor`, `Modules/Journal/`, `CanSeeSiteLog`, `canSeeSiteLog` and the `/log` route segment are all still spelled the old way, deliberately, so the standing model and the e2e assertions stayed still while the vocabulary changed. Match the surrounding code when you touch them; write **Site Diary** in anything a person reads.
+
+**Do not call the Site Diary a "digest".** A digest is a condensation, and the Diary's defining property is that nothing has been condensed out of it. The digest in this product is the **Client Brief**; naming both after the same idea collapses the one distinction the two-surface model rests on.
 
 If you propose to rename one of these, update this table and assetlen.md in the same change.
 
@@ -182,7 +186,7 @@ assetlen/assetlen.Shared/
 
 **Promotion rule:** A component lives in its owning module until **two** modules need it. Then it moves up to `Components/`. Don't pre-promote.
 
-**Module map vs. the vision.** The tree above predates the assetlen.md rewrite. `Lookbook/` is retired — do not build into it. `Journal/` becomes the **Site Log**, and gains siblings `Ingest/` (the front door — **landed in P3**), `Commitments/` (the one object, P4), `Documents/` (the drawing register — landed in P2) and `Brief/` (the Client Brief, P7). Rename as each phase lands rather than in one sweep.
+**Module map vs. the vision.** The tree above predates the assetlen.md rewrite. `Lookbook/` is retired — do not build into it. `Journal/` becomes the **Site Diary**, and gains siblings `Ingest/` (the front door — **landed in P3**), `Commitments/` (the one object, P4), `Documents/` (the drawing register — landed in P2) and `Brief/` (the Client Brief, P7). Rename as each phase lands rather than in one sweep.
 
 **Ingest is raw and stays raw.** `tbl_IngestedMessage` is written once by the importer and read by extraction (P5) and search (P6). Nothing edits it — the corpus contains fourteen edits and ten deletions, and a typo inverted a design verdict for nine hours ([whatsapp-evidence.md](whatsapp-evidence.md) F6). Do not build a nicer reader for it either: the pile is the problem, and the readable surface is the Client Brief in P7.
 
@@ -259,7 +263,7 @@ A user has access to a project if they are its owner, its manager, or an **activ
 **Tenant-level roles say what a user may do anywhere. `tbl_ProjectMember` says which projects, on which side, and whether they mediate.** All three must pass, and the side is **per project** — the same person is a client on one project and a mediator on another. Never infer a side from a tenant-level role; `ITenantProvider.IsExternal()` is global and using it for channel filtering was a bug, now removed.
 
 - `ProjectSide { Client, Contractor }` on every membership.
-- `IsMediator` — one, at most two per project. The mediator reads both surfaces, is the **only** person who may expose Site Log material to the client side, and is the **single accountable name** on everything that crosses (assetlen.md §10.1).
+- `IsMediator` — one, at most two per project. The mediator reads both surfaces, is the **only** person who may expose Site Diary material to the client side, and is the **single accountable name** on everything that crosses (assetlen.md §10.1).
 - Resolve once via `IProjectAccessService.ResolveAsync` → `ProjectAccess { Level, Side, IsMediator }`. Use `CanSeeSiteLog` and `CanExposeToClient`; do not re-derive them.
 
 **Roles collapse 6 → 4** — developer, representative, mediator, delivery — per assetlen.md §8. The six-role enum survives for now because collapsing it touches every controller, but **do not add a fifth concept**, and do not let a role check substitute for the membership check.

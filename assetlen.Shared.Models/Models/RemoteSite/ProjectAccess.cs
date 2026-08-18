@@ -9,8 +9,8 @@ namespace assetlen.Shared.Models.Models.RemoteSite;
 /// <see cref="IsMediator"/> is whether they may move material between the two,
 /// and <see cref="Specialization"/> is <em>what they were brought on to do</em>.
 /// Authorization needs all of them: a client-side principal with
-/// <c>Write</c> may comment and raise queries but must never see the Site Log,
-/// only a mediator may expose Site Log material to the Client channel, and a
+/// <c>Write</c> may comment and raise queries but must never see the Site Diary,
+/// only a mediator may expose Site Diary material to the Client channel, and a
 /// photographer with the same Write level sees neither the money nor the
 /// drawings.
 /// </para>
@@ -39,7 +39,7 @@ public readonly record struct ProjectAccess(
     public bool IsClientSide => Side == ProjectSide.Client;
 
     /// <summary>
-    /// True when this user may read the unsanitised Site Log — contractor-side
+    /// True when this user may read the unsanitised Site Diary — contractor-side
     /// members, and mediators regardless of which side they sit on.
     /// </summary>
     public bool CanSeeSiteLog => Level >= ProjectAccessLevel.Read
@@ -71,7 +71,7 @@ public readonly record struct ProjectAccess(
     /// </summary>
     public bool CanSeeHistory => CanSeeSiteLog && Seat == ProjectSeat.Principal;
 
-    /// <summary>Whether this seat posts to the Site Log.</summary>
+    /// <summary>Whether this seat posts to the Site Diary.</summary>
     public bool CanCapture => CanWrite && CanSeeSiteLog;
 
     /// <summary>

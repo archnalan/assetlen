@@ -9,7 +9,7 @@
 #   Project header  is the side per project, and is the mediator the one name?
 #   Money           who may see a position, and who must not?
 #   Brief           does a client-side reader get the exposed subset only?
-#   Site Log        is the delivery surface invisible rather than refused?
+#   Site Diary        is the delivery surface invisible rather than refused?
 #   History         does the ingested pile stay with the side that imported it?
 #   Register        can a question be raised, owed and resolved?
 #
@@ -126,11 +126,11 @@ eq "Nalan is the mediator"                       "true"  "$(jbool "$NST" isMedia
 eq "…so he may expose to the client side"        "true"  "$(jbool "$NST" canExposeToClient)"
 
 MST=$(req GET "/ProjectMembers/GetMyStanding?projectId=$PID" "$MUSA")
-eq "Musa reads the Site Log"                     "true"  "$(jbool "$MST" canSeeSiteLog)"
+eq "Musa reads the Site Diary"                     "true"  "$(jbool "$MST" canSeeSiteLog)"
 eq "…but does not mediate"                       "false" "$(jbool "$MST" isMediator)"
 
 DST=$(req GET "/ProjectMembers/GetMyStanding?projectId=$PID" "$DINAH")
-eq "Dinah never reaches the Site Log"            "false" "$(jbool "$DST" canSeeSiteLog)"
+eq "Dinah never reaches the Site Diary"            "false" "$(jbool "$DST" canSeeSiteLog)"
 
 # ═════════════════════════════════════════════════════════════════════════════
 head_ "Money — the screen that replaced a 9 AM meeting"
@@ -145,7 +145,7 @@ PENDING=$(count "$FUND" '"status":"Pending"')
                      || bad "at least one release is awaiting confirmation" "$PENDING" ">=1"
 
 # ═════════════════════════════════════════════════════════════════════════════
-head_ "Two surfaces — the brief and the Site Log"
+head_ "Two surfaces — the brief and the Site Diary"
 
 PLOG=$(req GET "/Progress/GetProgressUpdates?projectId=$PID&offset=0&limit=50" "$PETER")
 NLOG=$(req GET "/Progress/GetProgressUpdates?projectId=$PID&offset=0&limit=50" "$NALAN")
@@ -157,7 +157,7 @@ NN=$(count "$NLOG" '"description"')
                     || bad "the delivery side sees more than the client side" "$NN vs $PN" "delivery > client"
 
 # A Crew entry must 404 to a client-side reader — a refusal would confirm the
-# Site Log exists, which is the thing the two-surface model hides.
+# Site Diary exists, which is the thing the two-surface model hides.
 CREW_ID=$(printf '%s' "$NLOG" | grep -o '"id":"[^"]*","projectId"' | sed 's/"id":"//;s/","projectId"//' | head -1)
 if [ -n "$CREW_ID" ]; then
   ok "delivery-side entries are readable by the delivery side" "$CREW_ID"

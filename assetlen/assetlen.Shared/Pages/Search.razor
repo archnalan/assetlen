@@ -13,7 +13,7 @@
     **grouped by what kind of thing they are**, never returned as a flat message
     list, because a message list is what he already has and cannot read.
 
-    What this can reach today: projects, stages, Site Log entries and the
+    What this can reach today: projects, stages, Site Diary entries and the
     ingested record. What it cannot yet reach is text *inside* an image — the
     receipt photographed and sent, which is the reason he scrolls. That needs
     OCR on every artifact, and it is stated here rather than quietly missing,
@@ -50,7 +50,7 @@
     </div>
 
     <p class="search__scope">
-        Looking in projects, stages, the Site Log and the ingested record.
+        Looking in projects, stages, the Site Diary and the ingested record.
         Text inside photographs is not searchable yet.
     </p>
 
@@ -113,7 +113,7 @@
         @if (entryHits.Count > 0)
         {
             <section class="search__group">
-                <div class="al-rule"><span class="al-label">Site Log</span></div>
+                <div class="al-rule"><span class="al-label">Site Diary</span></div>
                 <div class="al-sheet">
                     <div class="al-register">
                         @foreach (var hit in entryHits)

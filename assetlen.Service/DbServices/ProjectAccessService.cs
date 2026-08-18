@@ -106,7 +106,7 @@ public class ProjectAccessService : IProjectAccessService
     /// A user who is somehow a member on both sides (member of the parent as
     /// client, of the sub-project as contractor) is treated as contractor-side:
     /// the side that sees <em>more</em> loses no information, and failing the
-    /// other way would hide the Site Log from someone entitled to it.
+    /// other way would hide the Site Diary from someone entitled to it.
     /// </summary>
     private static ProjectSide HighestSide(IEnumerable<ProjectSide> sides) =>
         sides.Any(s => s == ProjectSide.Contractor) ? ProjectSide.Contractor : ProjectSide.Client;

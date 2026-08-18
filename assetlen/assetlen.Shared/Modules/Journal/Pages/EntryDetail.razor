@@ -48,7 +48,7 @@
                         <span class="al-badge al-badge--warning"><Icon Name="alert" Size="11" /> Issue raised</span>
                     }
                     <span class="al-badge @(entry.Channel == Channel.Client ? "al-badge--client" : "al-badge--delivery")">
-                        @(entry.Channel == Channel.Client ? "Shared with the client" : "Site Log only")
+                        @(entry.Channel == Channel.Client ? "Shared with the client" : "Site Diary only")
                     </span>
                     @if (entry.CompletionPercentage is not null)
                     {
@@ -265,7 +265,7 @@
             if (!entryTask.Result.IsSuccessStatusCode || entryTask.Result.Content is null)
             {
                 // A Crew entry answers 404 rather than 403 to a client-side
-                // reader — a refusal would confirm the Site Log exists.
+                // reader — a refusal would confirm the Site Diary exists.
                 phase = (int)entryTask.Result.StatusCode is 404 or 403 ? LoadPhase.Empty : LoadPhase.Error;
                 errorMessage = _apiResponseHandler.GetApiErrorMessage(entryTask.Result);
                 return;
@@ -424,7 +424,7 @@
         }
     }
 
-    private string EyebrowText => entry?.StageName is { Length: > 0 } stage ? stage : "Site Log";
+    private string EyebrowText => entry?.StageName is { Length: > 0 } stage ? stage : "Site Diary";
 
     private string TitleText => Fmt.Date(entry?.DateTimeCreated);
 

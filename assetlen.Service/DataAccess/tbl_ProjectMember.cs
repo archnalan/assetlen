@@ -44,7 +44,7 @@ public class tbl_ProjectMember : BaseEntity
     /// <summary>
     /// True for the one — at most two — people who mediate between the sides.
     /// A mediator reads both surfaces and is the only member who may expose
-    /// Site Log material to the Client channel. Capped at
+    /// Site Diary material to the Client channel. Capped at
     /// <c>ProjectSideDefaults.MaxMediators</c> in <c>ProjectMemberDAL</c>.
     /// </summary>
     public bool IsMediator { get; set; }

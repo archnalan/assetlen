@@ -69,7 +69,7 @@ public class AssetlenHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, StreamGroup(streamId));
 
-        // Crew traffic is the unsanitised Site Log. Same test as the REST layer.
+        // Crew traffic is the unsanitised Site Diary. Same test as the REST layer.
         if (access.CanSeeSiteLog)
             await Groups.AddToGroupAsync(Context.ConnectionId, CrewStreamGroup(streamId));
     }

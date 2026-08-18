@@ -229,10 +229,10 @@
         new("register",  "Register",  "commitment", _ => true),
         new("documents", "Drawings",  "drawing",    _ => true),
 
-        // The Site Log is the delivery side's unsanitised record. A client-side
+        // The Site Diary is the delivery side's unsanitised record. A client-side
         // reader must not even see the tab: knowing it exists invites the
         // question the two-surface model exists to avoid (assetlen.md §5).
-        new("log",       "Site Log",  "log",        a => a?.CanSeeSiteLog == true),
+        new("log",       "Site Diary",  "log",        a => a?.CanSeeSiteLog == true),
 
         // Ingested material belongs to whoever imported it, and only the
         // delivery side and mediators read the raw pile.

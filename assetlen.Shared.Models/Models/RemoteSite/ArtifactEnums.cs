@@ -7,7 +7,7 @@ namespace assetlen.Shared.Models.Models.RemoteSite;
 /// </summary>
 public enum ArtifactTargetType
 {
-    /// <summary>A Site Log capture (<c>tbl_ProgressUpdate</c>).</summary>
+    /// <summary>A Site Diary capture (<c>tbl_ProgressUpdate</c>).</summary>
     ProgressUpdate = 0,
     /// <summary>A revision of a drawing, schedule or bill (<c>tbl_Document</c>).</summary>
     Document = 1,

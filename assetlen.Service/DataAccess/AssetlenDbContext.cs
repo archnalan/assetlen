@@ -45,7 +45,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public DbSet<tbl_SubscriptionSeat> tbl_SubscriptionSeats { get; set; }
     public virtual DbSet<tbl_EmployeeApproval> tbl_EmployeeApprovals { get; set; }
 
-    // ─── Projects + Site Log (ASSETLEN core) ───────────────────
+    // ─── Projects + Site Diary (ASSETLEN core) ───────────────────
     public virtual DbSet<tbl_Project> tbl_Projects_RS { get; set; }
     public virtual DbSet<tbl_Stage> tbl_Stages { get; set; }
     public virtual DbSet<tbl_FundingEntry> tbl_FundingEntries { get; set; }
@@ -139,9 +139,9 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         // it resolves ProjectAccess once and filters refs on
         // ProjectAccess.CanSeeSiteLog. Do not add a channel query filter here
         // and assume it covers the surface; it would silently miss the
-        // mediator, who is client-side yet entitled to the whole Site Log.
+        // mediator, who is client-side yet entitled to the whole Site Diary.
 
-        // ─── Projects + Site Log relationships ─────────────────────
+        // ─── Projects + Site Diary relationships ─────────────────────
         modelBuilder.Entity<tbl_Project>(entity =>
         {
             entity.ToTable("tbl_Projects_RS");

@@ -9,7 +9,7 @@ namespace assetlen.Shared.Models.Models.RemoteSite;
 /// </para>
 /// <para>
 /// This is the structural fact behind the Client / Crew channel split: a
-/// <see cref="Contractor"/> member writes to the Site Log; only what a mediator
+/// <see cref="Contractor"/> member writes to the Site Diary; only what a mediator
 /// exposes crosses to a <see cref="Client"/> member. Never infer the side from
 /// a tenant-level <c>UserRoles</c> value — a project's sides are per-project.
 /// </para>
@@ -18,13 +18,13 @@ public enum ProjectSide
 {
     /// <summary>
     /// The paying side: the developer who funds stages, plus their
-    /// representatives on the ground. Reads the Client Brief, never the Site Log.
+    /// representatives on the ground. Reads the Client Brief, never the Site Diary.
     /// </summary>
     Client = 0,
 
     /// <summary>
     /// The delivery side: site engineer, clerk of works, crews, subcontractors.
-    /// Captures into the Site Log without judgement about what the client wants.
+    /// Captures into the Site Diary without judgement about what the client wants.
     /// </summary>
     Contractor = 1
 }

@@ -162,7 +162,7 @@ silent. A muted Assetlen is just WhatsApp with extra steps.
 
 WhatsApp's structural failure with a live site is one channel serving two audiences.
 
-**The Site Log** — the complete, unsanitised operational record. Everything ingested or
+**The Site Diary** — the complete, unsanitised operational record. Everything ingested or
 captured lands here.
 
 **The Client Brief** — one page per day for Peter, **grouped by deliverable, not by time**.
@@ -252,7 +252,7 @@ faster because claims carry their own evidence. Everything above still works if 
 - Backlinks in both directions and a provenance strip: *agreed → evidence → invoiced →
   cleared → queried → resolved*
 - Parked ideas with dependency- and lead-time-driven surfacing; stage kickoff brief
-- Site Log and auto-assembling Client Brief with cutoff publishing
+- Site Diary and auto-assembling Client Brief with cutoff publishing
 - Current drawing revision, superseded archived
 - **Peter's multi-project home** — see the reversal below
 - Three-tap capture against a deliverable, and bulk camera-roll import *(tier 3)*
@@ -315,7 +315,7 @@ This produces three distinct lists, and conflating them is the mistake to avoid:
 |---|---|---|
 | **The accountable face** | Peter, on everything | One name. Every exposed frame, claim, commitment and answer is attributed to the mediator, whoever actually produced it. |
 | **True authorship** | Delivery side only | Who captured what, on which day. This is the mediator's own defensible record — *"when a wall cracks in November"* — and it is never sanitised. |
-| **The access roster** | Peter, always, as account owner | Every human holding a login on his project. Names and side, nothing more: no activity, no traffic, no Site Log. |
+| **The access roster** | Peter, always, as account owner | Every human holding a login on his project. Names and side, nothing more: no activity, no traffic, no Site Diary. |
 
 The access roster is not negotiable. A guest cannot silently add people to the owner's
 account — Peter pays the bill and carries the data. But the roster answers *"who has a

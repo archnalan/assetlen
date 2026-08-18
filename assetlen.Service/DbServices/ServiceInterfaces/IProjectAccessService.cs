@@ -55,7 +55,7 @@ public interface IProjectAccessService
     Task<bool> CanManageAsync(tbl_Project? project, string? userId, CancellationToken ct = default);
 
     /// <summary>
-    /// May this user move material from the Site Log to the Client channel?
+    /// May this user move material from the Site Diary to the Client channel?
     /// True for mediators and for owner/manager authority. This is the gate on
     /// every exposure decision — see <c>ArtifactDAL.SetRefChannel</c>.
     /// </summary>

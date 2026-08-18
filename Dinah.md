@@ -62,7 +62,7 @@ constraint on the Client Brief, not a nice-to-have.
 ## What she must never be given
 
 She is a **Client**, not a Manager. She sees the Client Brief and the commitments on her
-projects. She does not see the Site Log — the unsanitised operational record is precisely
+projects. She does not see the Site Diary — the unsanitised operational record is precisely
 what Nalan needs a private surface for, and *"if I add the clerk to the group he posts
 things the client shouldn't see raw"* applies to her too.
 

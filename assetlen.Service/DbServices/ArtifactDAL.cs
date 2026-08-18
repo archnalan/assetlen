@@ -606,7 +606,7 @@ public class ArtifactDAL : IArtifactDAL
             if (document is null)
                 return Fail<DocumentDto>(new NotFoundException("Document not found."));
 
-            // Same gate as a Site Log frame. Issuing a drawing to the client is
+            // Same gate as a Site Diary frame. Issuing a drawing to the client is
             // the act that makes it the drawing they build expectations on.
             if (!await _access.CanExposeToClientAsync(document.Project, userId, ct))
                 return Fail<DocumentDto>(new ForbiddenException(

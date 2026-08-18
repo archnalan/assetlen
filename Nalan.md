@@ -103,7 +103,7 @@ The person capturing opens the app, sees today's active deliverables, taps one, 
 
 Concurrent workstreams simply mean three destinations instead of one — main house, guest
 wing, external works ran simultaneously for five months. Everything lands in the
-**Site Log**: Nalan's complete operational record, never sanitised, never seen by Peter.
+**Site Diary**: Nalan's complete operational record, never sanitised, never seen by Peter.
 
 Whatever intelligence Assetlen has must run *after* capture, never during it.
 

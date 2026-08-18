@@ -25,7 +25,7 @@
 
 <div class="al-page al-page--reading">
 
-    <TitleBlock Eyebrow="Site Log" Title="Capture"
+    <TitleBlock Eyebrow="Site Diary" Title="Capture"
                 Subtitle="Pick the stage, add a line, attach what you shot. Nothing else is required.">
         <Actions>
             <a class="al-btn al-btn--quiet" href="/project/@ProjectId/log">Cancel</a>
@@ -119,7 +119,7 @@
                 <button type="button" class="al-segmented__item @(model.Channel == Channel.Crew ? "is-active" : "")"
                         aria-selected="@(model.Channel == Channel.Crew)"
                         @onclick="() => model.Channel = Channel.Crew">
-                    <Icon Name="eye-off" Size="14" /> Site Log only
+                    <Icon Name="eye-off" Size="14" /> Site Diary only
                 </button>
                 <button type="button" class="al-segmented__item @(model.Channel == Channel.Client ? "is-active" : "")"
                         aria-selected="@(model.Channel == Channel.Client)"
@@ -128,7 +128,7 @@
                 </button>
             </div>
             <span class="al-field__hint">
-                Site Log is the default and stays the default. Individual frames can be exposed later
+                Site Diary is the default and stays the default. Individual frames can be exposed later
                 from the entry — three of eighteen, rather than the whole batch.
             </span>
         </div>
@@ -161,7 +161,7 @@
                 }
                 else
                 {
-                    <Icon Name="check" Size="16" /><span>Post to the Site Log</span>
+                    <Icon Name="check" Size="16" /><span>Post to the Site Diary</span>
                 }
             </button>
         </div>
@@ -285,7 +285,7 @@
 
             if (response.IsSuccessStatusCode)
             {
-                ToastService.ShowSuccess("Posted to the Site Log.");
+                ToastService.ShowSuccess("Posted to the Site Diary.");
                 Nav.NavigateTo($"/project/{ProjectId}/log");
                 return;
             }

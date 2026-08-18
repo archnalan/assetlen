@@ -688,7 +688,7 @@ public sealed class DevSeedService : IDevSeedService
     }
 
     /// <summary>
-    /// A handful of Site Log entries so "what moved" is not empty on first open.
+    /// A handful of Site Diary entries so "what moved" is not empty on first open.
     /// Most are Crew — fail-closed is the rule, and a client-side reader seeing
     /// all of these would prove nothing about the channel boundary.
     /// </summary>

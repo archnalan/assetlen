@@ -988,7 +988,7 @@ public class IngestDAL : IIngestDAL
 
             var access = await _access.ResolveAsync(batch.ProjectId, userId, ct);
 
-            // 404, not 403, for the same reason the Site Log answers 404: a
+            // 404, not 403, for the same reason the Site Diary answers 404: a
             // refusal would confirm that an import exists on a project the
             // caller is not entitled to know about.
             if (!access.CanRead || !CanReadBatch(batch, access, userId))
@@ -1081,7 +1081,7 @@ public class IngestDAL : IIngestDAL
     /// <summary>
     /// Who may read a run's messages.
     /// <para>
-    /// Everything ingested is Site Log material (assetlen.md §5), so the
+    /// Everything ingested is Site Diary material (assetlen.md §5), so the
     /// contractor side and mediators read it. Beyond that, <b>the importing side
     /// owns it</b>: Peter's own forwarded record is readable by his side, and a
     /// delivery-side import is not — Peter has no business reading the crew's

@@ -159,14 +159,14 @@ PROMOTED=$(req PUT /ProjectMembers/UpdateMember "$PETER" \
 eq "Peter appoints Nalan mediator"          "true" "$(jbool "$PROMOTED" isMediator)"
 
 # Peter then steps back. This is the whole delegation gesture and it must be
-# possible: while he keeps a seat he still reads the raw Site Log, and "what
+# possible: while he keeps a seat he still reads the raw Site Diary, and "what
 # Peter sees is what the architect chose" is not yet true of the product.
 PETER_MID=$(printf '%s' "$ROSTER" | grep -o '"id":"[^"]*"' | tail -1 | sed 's/.*:"//;s/"$//')
 eq "Peter stands himself down"              "200" \
    "$(code PUT /ProjectMembers/UpdateMember "$PETER" "{\"MemberId\":\"$PETER_MID\",\"IsMediator\":false}")"
 
 AFTER=$(req GET "/ProjectMembers/GetMyStanding?projectId=$PID" "$PETER")
-eq "…and stops reading the Site Log"        "false" "$(jbool "$AFTER" canSeeSiteLog)"
+eq "…and stops reading the Site Diary"        "false" "$(jbool "$AFTER" canSeeSiteLog)"
 eq "…while keeping ownership of the project" "true"  "$(jbool "$AFTER" canManage)"
 
 # Nalan staffs his own side. Peter never touches the delivery roster.
@@ -213,7 +213,7 @@ KATO_SEEN=$(printf '%s' "$PROSTER" | grep -c 'Kato' || true)
                        || bad "Peter can see the foreman is on the project" "absent" "present"
 
 # ═════════════════════════════════════════════════════════════════════════════
-head_ "P2 — the Site Log is contractor-side; exposure is per frame"
+head_ "P2 — the Site Diary is contractor-side; exposure is per frame"
 
 # Request bodies stay ASCII. A curl -d argument carrying UTF-8 is re-encoded
 # crossing the Windows argv boundary, and the server rejects the whole body
@@ -240,7 +240,7 @@ else
 
   # Peter is client-side now. A crew-only entry does not merely refuse him —
   # it answers 404. Denying with 403 would confirm that something exists at
-  # that id, and the Site Log's existence is itself contractor-side.
+  # that id, and the Site Diary's existence is itself contractor-side.
   eq "a crew entry does not exist for the client" "404" \
      "$(code GET "/Progress/GetProgressUpdate?updateId=$EID" "$PETER")"
 
@@ -254,7 +254,7 @@ else
   eq "Peter receives the one exposed frame" "1" "$(frame_ids "$PSEE" | grep -c . | tr -d ' ')"
   eq "…and is told the true total (3)"      "3" "$(jnum "$PSEE" imageCount)"
 
-  # The foreman may write to the Site Log but must not be able to publish.
+  # The foreman may write to the Site Diary but must not be able to publish.
   IMG2=$(frame_ids "$NSEE" | sed -n 2p)
   if [ -n "$IMG2" ]; then
     eq "foreman cannot expose to the client" "403" \
@@ -292,7 +292,7 @@ else
   eq "content streams to the uploader"     "200" "$(code GET "/Artifacts/$AID/content" "$NALAN")"
   eq "thumbnail streams to the uploader"   "200" "$(code GET "/Artifacts/$AID/thumbnail" "$NALAN")"
   # Knowing an id must not be enough. 404 rather than 403 for the same reason
-  # as the Site Log: a refusal would confirm the artifact exists.
+  # as the Site Diary: a refusal would confirm the artifact exists.
   eq "guessing an id gets the client nowhere" "404" "$(code GET "/Artifacts/$AID/content" "$PETER")"
 
   REF=$(req POST /Artifacts/AddRef "$NALAN" \

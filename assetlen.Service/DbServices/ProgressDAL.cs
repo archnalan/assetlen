@@ -258,7 +258,7 @@ public class ProgressDAL : IProgressDAL
             if (!string.IsNullOrEmpty(stageId))
                 query = query.Where(u => u.StageId == stageId);
 
-            // Per-project side. A mediator reads the whole Site Log even though
+            // Per-project side. A mediator reads the whole Site Diary even though
             // they may sit on the client side of this project.
             if (!access.CanSeeSiteLog)
                 query = query.Where(u => u.Channel == Channel.Client);
@@ -555,7 +555,7 @@ public class ProgressDAL : IProgressDAL
     /// </para>
     /// <para>
     /// <paramref name="access"/> is per project, never the tenant-global role:
-    /// a mediator sitting on the client side still reads the whole Site Log.
+    /// a mediator sitting on the client side still reads the whole Site Diary.
     /// </para>
     /// </summary>
     private static ProgressUpdateDto MapUpdateToDto(tbl_ProgressUpdate u, ProjectAccess access)

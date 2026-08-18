@@ -699,7 +699,7 @@ public class ProjectDAL : IProjectDAL
             await _context.SaveChangesAsync();
 
             // Seat the creator. A root project must never exist without a
-            // mediator: the mediator is the only person who can expose Site Log
+            // mediator: the mediator is the only person who can expose Site Diary
             // material to the client side, so a project with none would leave
             // the client silently dark. The developer holds the seat until they
             // delegate it — assetlen.md D5, "Peter appoints the mediator".

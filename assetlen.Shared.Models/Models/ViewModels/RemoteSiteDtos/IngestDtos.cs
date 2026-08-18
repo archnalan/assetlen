@@ -36,7 +36,7 @@ public class IngestPreviewDto
     /// <summary>
     /// Which side this material will land on — the uploader's, resolved per
     /// project. Shown before the commit because it decides who can read the
-    /// result: a delivery-side import is Site Log material and does not cross to
+    /// result: a delivery-side import is Site Diary material and does not cross to
     /// the client, and Peter's own forwarded record does not cross the other way.
     /// </summary>
     public ProjectSide ImportedSide { get; set; } = ProjectSide.Client;

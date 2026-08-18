@@ -6,7 +6,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace assetlen.Service.DataAccess;
 
 /// <summary>
-/// One frame used on a Site Log entry: a pointer to a <see cref="tbl_Artifact"/>
+/// One frame used on a Site Diary entry: a pointer to a <see cref="tbl_Artifact"/>
 /// plus its caption, its order, and — the part that matters — <b>its own
 /// visibility</b>.
 /// <para>

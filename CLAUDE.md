@@ -15,6 +15,7 @@
 - **Never run `git commit` or `git push`.** The user commits manually. You may stage with `git add` only when the user explicitly asks; otherwise leave the working tree dirty after a change and let the user inspect the diff. This applies even when "the phase is done" or "the build is green" — the call to commit is the user's.
 - Update [plan.md](plan.md) when a phase completes, but **leave it unstaged** along with everything else. The user will batch all changes into a single commit on their side.
 - Verify CSS reachability in the browser DevTools after touching anything under `wwwroot/` or any `.razor.css` (see §4.1). A green `dotnet build` does not prove the styles loaded.
+- **Kill the API and the client dev server once you are done running the app.** A live `assetlen.API` holds `assetlen.Service.dll` and `assetlen.SqlServer.dll` open, so the next `dotnet build` fails with `MSB3027` / `MSB3021` copy errors that read like a code problem and are not. `dotnet run` spawns `assetlen.API.exe`, which **outlives the shell that launched it** — stopping the task is not enough, and neither is killing `dotnet`. Kill the port owners: `(Get-NetTCPConnection -LocalPort 7264,7025 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force }`. Leave nothing listening behind at the end of a session.
 
 ---
 

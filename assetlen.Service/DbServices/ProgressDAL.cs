@@ -19,19 +19,22 @@ public class ProgressDAL : IProgressDAL
     private readonly ITenantProvider _tenant;
     private readonly IHubContext<AssetlenHub> _hub;
     private readonly IProjectAccessService _access;
+    private readonly IActiveStageService _activeStage;
 
     public ProgressDAL(
         AssetlenDbContext context,
         ILogger<ProgressDAL> logger,
         ITenantProvider tenant,
         IHubContext<AssetlenHub> hub,
-        IProjectAccessService access)
+        IProjectAccessService access,
+        IActiveStageService activeStage)
     {
         _context = context;
         _logger = logger;
         _tenant = tenant;
         _hub = hub;
         _access = access;
+        _activeStage = activeStage;
     }
 
     public async Task<ServiceResult<ProgressUpdateDto>> AddProgressUpdate(ProgressUpdateCreateDto dto, string userId)
@@ -50,9 +53,16 @@ public class ProgressDAL : IProgressDAL
             if (!await _access.CanWriteAsync(project, userId))
                 return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
 
-            var stage = await _context.tbl_Stages.FindAsync(dto.StageId);
+            // Nothing floats (CLAUDE.md §1), but making the clerk pick a stage on
+            // every batch is the tax that sends people back to the chat. A
+            // capture with no stage named is filed against whatever the site is
+            // working on, and can be moved deliberately afterwards.
+            var stageId = await _activeStage.ResolveAsync(dto.ProjectId, dto.StageId);
+
+            var stage = stageId is null ? null : await _context.tbl_Stages.FindAsync(stageId);
             if (stage == null || stage.ProjectId != dto.ProjectId)
-                return ServiceResult<ProgressUpdateDto>.Failure(new BadRequestException("Invalid stage"));
+                return ServiceResult<ProgressUpdateDto>.Failure(
+                    new BadRequestException("This project has no stage to capture against."));
 
             if (dto.Images?.Count > 5)
                 return ServiceResult<ProgressUpdateDto>.Failure(new BadRequestException("Maximum 5 images per update"));
@@ -60,7 +70,7 @@ public class ProgressDAL : IProgressDAL
             var update = new tbl_ProgressUpdate
             {
                 ProjectId = dto.ProjectId,
-                StageId = dto.StageId,
+                StageId = stageId,
                 Description = dto.Description,
                 CompletionPercentage = dto.CompletionPercentage,
                 HasIssues = dto.HasIssues,

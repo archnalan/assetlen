@@ -1,0 +1,222 @@
+@inject IStagesApi _stagesApi
+@inject ILogger<StagePicker> Logger
+
+@*
+    Choosing which stage a thing belongs to — the one control every screen uses.
+
+    Nothing on a project floats (CLAUDE.md §1): a photograph, a release, a
+    drawing and a question all hang off a funded piece of work. The server
+    already fills in the active stage when nobody chooses, so this control opens
+    on the right answer and exists to *change* it, not to demand it.
+
+    The button at the foot of the list is the point. A project is not stuck with
+    whatever was typed on its first day — the catalogue is reachable from every
+    stage dropdown, for the whole life of the job.
+*@
+
+<div class="stagepick @(open ? "is-open" : "")">
+
+    <label class="al-label" for="@($"sp-{Id}")">@Label</label>
+
+    <div class="stagepick__control">
+        <button type="button" id="@($"sp-{Id}")" class="stagepick__trigger @(Selected?.AccentClass)"
+                aria-haspopup="listbox" aria-expanded="@open" @onclick="Toggle">
+            @if (Selected is { } chosen)
+            {
+                <span class="al-stage-dot"></span>
+                <span class="stagepick__name al-truncate">@chosen.StageName</span>
+                <span class="stagepick__phase">@chosen.PhaseName</span>
+            }
+            else
+            {
+                <span class="stagepick__name stagepick__name--empty">@Placeholder</span>
+            }
+            <Icon Name="chevron-down" Size="15" Class="stagepick__caret" />
+        </button>
+
+        @if (open)
+        {
+            <div class="stagepick__catch" @onclick="Close"></div>
+
+            <div class="stagepick__panel" role="listbox">
+
+                @if (!browsing)
+                {
+                    @* ── This project's own stages, majors with detail folded under ── *@
+                    <div class="stagepick__list">
+                        @if (Roots.Count == 0)
+                        {
+                            <p class="stagepick__none">
+                                No stages on this project yet. Open the catalogue below.
+                            </p>
+                        }
+
+                        @foreach (var stage in Roots)
+                        {
+                            <button type="button" class="stagepick__opt @stage.AccentClass @(stage.Id == StageId ? "is-active" : "")"
+                                    role="option" aria-selected="@(stage.Id == StageId)"
+                                    @onclick="() => ChooseAsync(stage)">
+                                <span class="al-stage-dot"></span>
+                                <span class="stagepick__opt-body">
+                                    <span class="stagepick__opt-name">@stage.StageName</span>
+                                    <span class="stagepick__opt-phase">@stage.PhaseName</span>
+                                </span>
+                                @if (stage.Status == StageStatus.InProgress)
+                                {
+                                    <span class="stagepick__live" title="Work is on this stage now">now</span>
+                                }
+                            </button>
+
+                            @* Visually nested, so a reader keeps a few majors in
+                               their head and the detail sits under them. *@
+                            @foreach (var sub in stage.SubStages.OrderBy(s => s.DisplayOrder))
+                            {
+                                <button type="button" class="stagepick__opt stagepick__opt--sub @stage.AccentClass @(sub.Id == StageId ? "is-active" : "")"
+                                        role="option" aria-selected="@(sub.Id == StageId)"
+                                        @onclick="() => ChooseAsync(sub)">
+                                    <span class="stagepick__tick"></span>
+                                    <span class="stagepick__opt-body">
+                                        <span class="stagepick__opt-name">@sub.StageName</span>
+                                    </span>
+                                    @if (sub.Status == StageStatus.InProgress)
+                                    {
+                                        <span class="stagepick__live">now</span>
+                                    }
+                                </button>
+                            }
+                        }
+                    </div>
+
+                    @if (CanAdd)
+                    {
+                        <button type="button" class="stagepick__browse" @onclick="OpenCatalogue">
+                            <Icon Name="plus" Size="15" />
+                            <span>Add a stage from the catalogue</span>
+                        </button>
+                    }
+                }
+                else
+                {
+                    <StageCataloguePanel ProjectId="@ProjectId"
+                                         Existing="Stages"
+                                         OnAdded="OnCatalogueAdded"
+                                         OnCancel="() => browsing = false" />
+                }
+            </div>
+        }
+    </div>
+
+    @if (Selected?.Description is { Length: > 0 } detail && ShowDetail)
+    {
+        <span class="al-field__hint">@detail</span>
+    }
+</div>
+
+@code {
+    /// <summary>The project whose stages are on offer.</summary>
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    /// <summary>The chosen stage. Two-way — the caller keeps the id.</summary>
+    [Parameter] public string? StageId { get; set; }
+    [Parameter] public EventCallback<string?> StageIdChanged { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Against which stage";
+    [Parameter] public string Placeholder { get; set; } = "Choose a stage…";
+
+    /// <summary>Whether this reader may extend the project's stages from here.</summary>
+    [Parameter] public bool CanAdd { get; set; } = true;
+
+    /// <summary>Show the chosen stage's description beneath the control.</summary>
+    [Parameter] public bool ShowDetail { get; set; } = true;
+
+    /// <summary>
+    /// Preselect the stage the site is working on when the caller has no
+    /// opinion. Matches what the server would fill in anyway, so the reader sees
+    /// the answer before they submit rather than after.
+    /// </summary>
+    [Parameter] public bool DefaultToActive { get; set; } = true;
+
+    private readonly string Id = Guid.NewGuid().ToString("N")[..6];
+
+    private List<StageDto> Stages = new();
+    private bool open;
+    private bool browsing;
+    private string? loadedFor;
+
+    private List<StageDto> Roots => Stages
+        .Where(s => string.IsNullOrEmpty(s.ParentStageId))
+        .OrderBy(s => s.DisplayOrder)
+        .ToList();
+
+    private StageDto? Selected => Stages.FirstOrDefault(s => s.Id == StageId);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedFor == ProjectId) return;
+        loadedFor = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var response = await _stagesApi.GetStagesByProjectId(ProjectId);
+            if (!response.IsSuccessStatusCode) return;
+
+            Stages = (response.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList();
+
+            if (DefaultToActive && string.IsNullOrEmpty(StageId))
+            {
+                var active = Stages.FirstOrDefault(s => s.Status == StageStatus.InProgress)
+                          ?? Stages.FirstOrDefault(s => s.Status == StageStatus.NotStarted)
+                          ?? Stages.FirstOrDefault();
+
+                if (active is not null) await SetAsync(active.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not load stages for the picker on {ProjectId}", ProjectId);
+        }
+    }
+
+    private void Toggle() => open = !open;
+
+    private void Close()
+    {
+        open = false;
+        browsing = false;
+    }
+
+    private void OpenCatalogue() => browsing = true;
+
+    private async Task ChooseAsync(StageDto stage)
+    {
+        await SetAsync(stage.Id);
+        Close();
+    }
+
+    private async Task SetAsync(string? id)
+    {
+        StageId = id;
+        await StageIdChanged.InvokeAsync(id);
+    }
+
+    /// <summary>A stage added from the catalogue is selected straight away — it is what the reader came for.</summary>
+    private async Task OnCatalogueAdded(StageDto added)
+    {
+        Stages.Add(added);
+        Stages = Stages.OrderBy(s => s.DisplayOrder).ToList();
+
+        if (added.ParentStageId is { } pid
+            && Stages.FirstOrDefault(s => s.Id == pid) is { } parent
+            && parent.SubStages.All(s => s.Id != added.Id))
+        {
+            parent.SubStages.Add(added);
+        }
+
+        await SetAsync(added.Id);
+        Close();
+    }
+}

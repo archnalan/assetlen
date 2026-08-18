@@ -71,6 +71,12 @@ public interface IFundingDAL
     Task<ServiceResult<List<FundingEntryDto>>> GetFundingByProject(string projectId, string userId);
     Task<ServiceResult<List<FundingEntryDto>>> GetFundingByStage(string stageId, string userId);
     Task<ServiceResult<List<FundingEntryDto>>> GetPendingConfirmations(string managerId);
+
+    /// <summary>The funder accepts a reported shortfall and closes the release at what landed.</summary>
+    Task<ServiceResult<FundingEntryDto>> SettleFunding(FundingSettleDto dto, string investorId);
+
+    /// <summary>Releases stalled on this reader, whichever end of the exchange they are on.</summary>
+    Task<ServiceResult<List<FundingEntryDto>>> GetFundingNeedingMe(string userId);
 }
 
 public interface IProgressDAL

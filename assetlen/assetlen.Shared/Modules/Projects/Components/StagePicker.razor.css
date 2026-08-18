@@ -1,0 +1,167 @@
+/* The stage control. A field, not a menu bar — it sits inside forms beside
+   plain inputs and must not shout louder than them. The only colour is the
+   phase dot and the hairline it carries. */
+
+.stagepick {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.stagepick__control { position: relative; }
+
+.stagepick__trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    width: 100%;
+    padding: var(--al-space-3);
+    background: var(--al-surface);
+    border: 1px solid var(--al-border-strong);
+    border-left: 2px solid var(--al-stage-accent, var(--al-border-strong));
+    border-radius: var(--al-radius-sm);
+    color: var(--al-text);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-base);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--al-transition-fast) var(--al-ease);
+}
+
+.stagepick__trigger:hover { border-color: var(--al-accent); }
+
+.stagepick__trigger:focus-visible {
+    outline: 2px solid var(--al-accent);
+    outline-offset: 1px;
+}
+
+.stagepick__name { flex: 1 1 auto; min-width: 0; }
+.stagepick__name--empty { color: var(--al-text-subtle); }
+
+.stagepick__phase {
+    flex: 0 0 auto;
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-xs);
+}
+
+.stagepick__caret {
+    flex: 0 0 auto;
+    color: var(--al-text-subtle);
+    transition: transform var(--al-transition-fast) var(--al-ease);
+}
+
+.stagepick.is-open .stagepick__caret { transform: rotate(180deg); }
+
+/* The catch sits under the panel and over everything else, so a click outside
+   closes rather than acting on whatever it landed on. */
+.stagepick__catch {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+}
+
+.stagepick__panel {
+    position: absolute;
+    z-index: 41;
+    top: calc(100% + var(--al-space-1));
+    left: 0;
+    right: 0;
+    max-height: 26rem;
+    overflow-y: auto;
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius);
+    box-shadow: var(--al-shadow);
+}
+
+.stagepick__list { padding: var(--al-space-2); }
+
+.stagepick__none {
+    margin: 0;
+    padding: var(--al-space-3);
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-sm);
+}
+
+.stagepick__opt {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    width: 100%;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: transparent;
+    border: 0;
+    border-radius: var(--al-radius-xs);
+    color: var(--al-text);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--al-transition-fast) var(--al-ease);
+}
+
+.stagepick__opt:hover { background: var(--al-surface-2); }
+
+.stagepick__opt.is-active {
+    background: color-mix(in srgb, var(--al-stage-accent, var(--al-accent)) 10%, transparent);
+}
+
+/* Nesting is shown, not indented into invisibility: a tick mark on the phase
+   hairline says "this belongs to the one above" at a glance. */
+.stagepick__opt--sub { padding-left: var(--al-space-5); }
+
+.stagepick__tick {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 1px;
+    background: var(--al-stage-accent, var(--al-border-strong));
+}
+
+.stagepick__opt-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.stagepick__opt-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stagepick__opt-phase {
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-xs);
+}
+
+.stagepick__live {
+    flex: 0 0 auto;
+    padding: 1px var(--al-space-2);
+    border-radius: var(--al-radius-pill);
+    background: var(--al-success-soft);
+    color: var(--al-success);
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* The button that makes the whole thing worth having: the catalogue is one tap
+   from every stage dropdown, for the life of the project. */
+.stagepick__browse {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    width: 100%;
+    padding: var(--al-space-3);
+    background: var(--al-surface-2);
+    border: 0;
+    border-top: 1px solid var(--al-border);
+    color: var(--al-accent);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.stagepick__browse:hover { background: var(--al-accent-soft); }

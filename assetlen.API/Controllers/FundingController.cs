@@ -86,4 +86,33 @@ public class FundingController : ControllerBase
         if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
         return Ok(result.Data);
     }
+
+    [HttpPut]
+    [ProducesResponseType(typeof(FundingEntryDto), 200)]
+    // Writing off a shortfall is the funder's call and nobody else's, so this is
+    // deliberately open to the client role the confirm endpoint excludes. The
+    // DAL still checks that this caller is the one whose money it was.
+    [Authorize(Roles = $"{UserRoles.Contractor},{UserRoles.Manager},{UserRoles.Client}",
+        AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<ActionResult> SettleFunding([FromBody] FundingSettleDto dto)
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _fundingDAL.SettleFunding(dto, userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
+
+    [HttpGet]
+    [ProducesResponseType(typeof(List<FundingEntryDto>), 200)]
+    // Both ends of the exchange read this one — the delivery side for releases
+    // to acknowledge, the funder for shortfalls to answer — so it carries no
+    // role gate beyond being signed in. The query only ever returns rows that
+    // name this caller.
+    public async Task<ActionResult> GetFundingNeedingMe()
+    {
+        var userId = _tenantProvider.GetUserId();
+        var result = await _fundingDAL.GetFundingNeedingMe(userId);
+        if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+        return Ok(result.Data);
+    }
 }

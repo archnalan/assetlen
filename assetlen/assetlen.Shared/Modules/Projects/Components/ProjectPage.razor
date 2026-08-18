@@ -186,6 +186,16 @@
 
             loadedId = ProjectId;
             phase = LoadPhase.Ready;
+
+            // The clerk with a camera opens a project to post what he just
+            // photographed, not to read a dashboard he has no use for
+            // (Nalan.md). Only from the overview, so every other tab stays
+            // reachable — this changes where the project opens, not what the
+            // reader may do.
+            if (Section == "overview" && access?.LandsOnCapture == true)
+            {
+                Nav.NavigateTo($"/project/{ProjectId}/capture", replace: true);
+            }
         }
         catch (Exception ex)
         {
@@ -221,25 +231,45 @@
 
     private sealed record Tab(string Slug, string Label, string Icon, Func<ProjectAccessDto?, bool> Visible);
 
+    // Every gate here reads standing on THIS project, never a tenant-level role.
+    // The bench a contractor staffs — fabricator, photographer, foreman — was
+    // brought on for one job and reports on it; the money, the drawing register
+    // and the raw thread are not part of that job (assetlen.md §10.1). A seat is
+    // defined by what someone was invited for, so a tab they have no business in
+    // is absent rather than present-and-refused.
     private static readonly Tab[] AllTabs =
     [
-        new("overview",  "Overview",  "project",    _ => true),
-        new("brief",     "Brief",     "brief",      _ => true),
-        new("money",     "Money",     "money",      a => a?.CanRead == true),
-        new("register",  "Register",  "commitment", _ => true),
-        new("documents", "Drawings",  "drawing",    _ => true),
+        new("overview",  "Overview",   "project",    a => a?.CanRead == true),
+        new("brief",     "Brief",      "brief",      a => a?.CanSeeBrief == true),
+
+        // Two people hold the budget between them — the one paying and the one
+        // being paid. A release a foreman can read is a wage negotiation nobody
+        // asked for.
+        new("money",     "Money",      "money",      a => a?.CanSeeMoney == true),
+
+        // A commitment is addressed to a decision-maker. A support seat has
+        // nothing to answer on the register.
+        new("register",  "Register",   "commitment", a => a?.CanSeeRegister == true),
+
+        // Whoever builds from a drawing or approves one reads it. A superseded
+        // revision in the wrong hands puts steel in the wrong place.
+        new("documents", "Drawings",   "drawing",    a => a?.CanSeeDocuments == true),
+
+        // Where the photographer's day actually starts, and the only tab some
+        // seats need at all.
+        new("capture",   "Capture",    "camera",     a => a?.CanCapture == true),
 
         // The Site Diary is the delivery side's unsanitised record. A client-side
         // reader must not even see the tab: knowing it exists invites the
         // question the two-surface model exists to avoid (assetlen.md §5).
-        new("log",       "Site Diary",  "log",        a => a?.CanSeeSiteLog == true),
+        new("log",       "Site Diary", "log",        a => a?.CanSeeSiteLog == true),
 
-        // Ingested material belongs to whoever imported it, and only the
-        // delivery side and mediators read the raw pile.
-        new("history",   "History",   "history",    a => a?.CanSeeSiteLog == true),
+        // Ingested material belongs to whoever imported it, and the raw pile is
+        // unsanitised twice over — nothing edits it and nobody curated it.
+        new("history",   "History",    "history",    a => a?.CanSeeHistory == true),
 
-        new("people",    "People",    "people",     _ => true),
-        new("settings",  "Settings",  "settings",   a => a?.CanManage == true)
+        new("people",    "People",     "people",     a => a?.CanRead == true),
+        new("settings",  "Settings",   "settings",   a => a?.CanManage == true)
     ];
 
     private IEnumerable<Tab> VisibleTabs => AllTabs.Where(t => t.Visible(access));

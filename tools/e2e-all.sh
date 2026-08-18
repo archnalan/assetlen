@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# ASSETLEN — the whole chain: P0 + P1 + P2 + P3 + the arrangement and the bin.
+# ASSETLEN — the whole chain: P0 + P1 + P2 + P3, the arrangement and the bin,
+# and P5 money and staging.
 #
-# Three suites, run in order, one exit code. They are kept separate because they
+# Four suites, run in order, one exit code. They are kept separate because they
 # answer different questions — e2e-p2-peter.sh asks whether the project belongs
 # to the person who funds it, e2e-p3-ingest.sh asks whether he can get his year
 # of history into it, e2e-p4-arrange.sh asks whether his screen is his own and
@@ -47,6 +48,7 @@ run() { # run LABEL SCRIPT
 run "P0 + P1 + P2 — ownership, sides, the artifact store" tools/e2e-p2-peter.sh
 run "P3 — ingest, the front door"                         tools/e2e-p3-ingest.sh
 run "The reader's own screen, and the bin"                tools/e2e-p4-arrange.sh
+run "P5 — the funding back-and-forth, and staging"        tools/e2e-p5-money-and-staging.sh
 
 printf "\n%s══ Whole chain %s\n" "$c_head" "$c_off"
 if [ "$FAILED" -eq 0 ]; then

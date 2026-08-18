@@ -1,0 +1,132 @@
+/* The catalogue. A reference list read by scanning, so the phase rules do the
+   organising and each row stays quiet — the accent is a dot and a hairline,
+   never a filled row (CLAUDE.md §2). */
+
+.cat {
+    display: flex;
+    flex-direction: column;
+    max-height: 30rem;
+}
+
+.cat__head {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.cat__search { flex: 1 1 auto; margin: 0; }
+
+.cat__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: var(--al-space-3);
+}
+
+.cat__group { margin-bottom: var(--al-space-4); }
+.cat__group:last-child { margin-bottom: 0; }
+
+.cat__item {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    width: 100%;
+    padding: var(--al-space-2) var(--al-space-3);
+    background: transparent;
+    border: 0;
+    border-left: 2px solid transparent;
+    border-radius: var(--al-radius-xs);
+    color: var(--al-text);
+    font-family: var(--al-font-body);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--al-transition-fast) var(--al-ease),
+                border-color var(--al-transition-fast) var(--al-ease);
+}
+
+.cat__item:hover:not(:disabled) {
+    background: var(--al-surface-2);
+    border-left-color: var(--al-stage-accent, var(--al-border-strong));
+}
+
+/* Already on this project. Greyed rather than hidden, so the reader can see
+   what the project already covers instead of wondering where it went. */
+.cat__item.is-used {
+    cursor: default;
+    opacity: 0.5;
+}
+
+.cat__item:disabled { cursor: default; }
+
+.cat__item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.cat__item-name { font-size: var(--al-font-size-sm); }
+
+.cat__item-detail {
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-xs);
+    line-height: 1.45;
+}
+
+.cat__used {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    color: var(--al-success);
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.cat__add { flex: 0 0 auto; color: var(--al-text-subtle); }
+.cat__item:hover:not(:disabled) .cat__add { color: var(--al-accent); }
+
+.cat__none {
+    margin: 0;
+    padding: var(--al-space-4) var(--al-space-3);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+    line-height: 1.5;
+}
+
+/* ── A stage the catalogue does not have ─────────────────────────────────── */
+
+.cat__custom { border-top: 1px solid var(--al-border); }
+
+.cat__custom-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    width: 100%;
+    padding: var(--al-space-3);
+    background: transparent;
+    border: 0;
+    color: var(--al-text-muted);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.cat__custom-toggle:hover { color: var(--al-text); }
+
+.cat__custom-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: 0 var(--al-space-3) var(--al-space-3);
+}
+
+.cat__custom-actions {
+    display: flex;
+    justify-content: flex-end;
+}

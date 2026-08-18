@@ -25,3 +25,19 @@
     flex-direction: column;
     gap: var(--al-space-2);
 }
+
+/* The phase edge on a result.
+
+   Results arrive from four different reads and a flat list of them is the pile
+   Peter already cannot read. The phase is the axis he thinks in, so each row
+   carries a hairline in its phase's accent — enough to see the shape of the
+   answer while scanning, not enough to become a colour-coded dashboard. */
+
+.al-register__row[class*="al-stage--"] {
+    border-left: 2px solid var(--al-stage-accent, transparent);
+    padding-left: calc(var(--al-space-4) - 2px);
+}
+
+.al-register__row[class*="al-stage--"]:hover {
+    background: color-mix(in srgb, var(--al-stage-accent) 6%, transparent);
+}

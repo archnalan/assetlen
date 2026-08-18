@@ -49,3 +49,66 @@
     padding-top: var(--al-space-3);
     border-top: 1px solid var(--al-border);
 }
+
+/* ── The back-and-forth on one release ───────────────────────────────────
+   The two answers sit together because they are one question: did all of it
+   arrive? The affirmative is the button, the exception is the quiet link. */
+
+.money__answer {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.money__evidence {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    max-width: 18rem;
+    padding: 0;
+    margin-top: var(--al-space-1);
+    color: var(--al-text-muted);
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-xs);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.money__evidence:hover { color: var(--al-accent); }
+
+.money__gap {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-1);
+    margin-top: var(--al-space-1);
+    color: var(--al-warning);
+    font-size: var(--al-font-size-xs);
+}
+
+.money__declare {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    margin-top: var(--al-space-3);
+    padding: var(--al-space-3);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+    max-width: 26rem;
+}
+
+.money__declare-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+}
+
+@media (max-width: 560px) {
+    .money__answer { justify-content: flex-start; }
+    .money__declare { max-width: none; }
+}

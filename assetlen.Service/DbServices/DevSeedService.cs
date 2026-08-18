@@ -89,17 +89,25 @@ public sealed class DevSeedService : IDevSeedService
         var nalan = await EnsureUserAsync("nalan@assetlen.dev", "nalan", "Nalan", "Kaggwa", UserRoles.Manager, result);
         var musa = await EnsureUserAsync("musa@assetlen.dev", "musa", "Musa", "Opio", UserRoles.Crew, result);
 
-        // One human, one login, many accounts (§10.2). All four hold standing in
-        // Peter's account because that is where the project lives — the delivery
-        // side are guests in it, exactly as the ownership model requires.
+        // The narrowest seat on the project, and the reason the seat model
+        // exists: Grace was brought on to photograph the work and report on it.
+        // She is not a decision-maker on either side, so the money, the register
+        // and the drawing set are not part of her job — and her project opens on
+        // Capture rather than on a dashboard she has no use for.
+        var grace = await EnsureUserAsync("grace@assetlen.dev", "grace", "Grace", "Nabirye", UserRoles.Crew, result);
+
+        // One human, one login, many accounts (§10.2). All of them hold standing
+        // in Peter's account because that is where the project lives — the
+        // delivery side are guests in it, exactly as the ownership model requires.
         await EnsureMembershipAsync(peter, UserRoles.Contractor, ct);
         await EnsureMembershipAsync(dinah, UserRoles.Client, ct);
         await EnsureMembershipAsync(nalan, UserRoles.Manager, ct);
         await EnsureMembershipAsync(musa, UserRoles.Crew, ct);
+        await EnsureMembershipAsync(grace, UserRoles.Crew, ct);
 
         await EnsureProjectsAsync(peter, nalan, ct);
         result.StageCount = await EnsureStagesAsync(ct);
-        result.MemberCount = await EnsureProjectMembersAsync(peter, dinah, nalan, musa, ct);
+        result.MemberCount = await EnsureProjectMembersAsync(peter, dinah, nalan, musa, grace, ct);
         await EnsureFundingAsync(peter, nalan, ct);
         await EnsureBudgetAsync(nalan, ct);
         await EnsureOpenQuestionsAsync(peter, dinah, nalan, ct);
@@ -400,11 +408,41 @@ public sealed class DevSeedService : IDevSeedService
              68_000_000m, new(2026, 9, 1), new(2026, 12, 20), StageStatus.NotStarted, 0m)
         };
 
+        // The phase each stage belongs to, which is what gives it an accent.
+        // Kept beside the list rather than inside the tuple, which is already
+        // ten fields wide. Two stages sharing a phase — plastering and finishes,
+        // the retaining wall and external works — share an accent, and that is
+        // the correct answer rather than a collision.
+        var phases = new Dictionary<string, StageGroup>
+        {
+            [StageId(1)] = StageGroup.Preliminaries,
+            [StageId(2)] = StageGroup.Substructure,
+            [StageId(3)] = StageGroup.Superstructure,
+            [StageId(4)] = StageGroup.ExternalWorks,
+            [StageId(5)] = StageGroup.Roofing,
+            [StageId(6)] = StageGroup.Envelope,
+            [StageId(7)] = StageGroup.Finishes,
+            [StageId(8)] = StageGroup.Finishes,
+            [StageId(9)] = StageGroup.ExternalWorks,
+            [WingStageId(1)] = StageGroup.Substructure,
+            [WingStageId(2)] = StageGroup.Superstructure,
+            [WingStageId(3)] = StageGroup.Finishes
+        };
+
         var existing = await _context.tbl_Stages.IgnoreQueryFilters()
             .Where(s => s.ProjectId == ProjectId || s.ProjectId == SubProjectId)
-            .Select(s => s.Id).ToListAsync(ct);
+            .ToListAsync(ct);
 
-        foreach (var s in stages.Where(s => !existing.Contains(s.Id)))
+        var existingIds = existing.Select(s => s.Id).ToList();
+
+        // A demo database seeded before phases existed would render every stage
+        // in the same neutral grey, which reads as the feature being broken.
+        foreach (var stage in existing.Where(s => s.Phase == StageGroup.Custom))
+        {
+            if (phases.TryGetValue(stage.Id, out var known)) stage.Phase = known;
+        }
+
+        foreach (var s in stages.Where(s => !existingIds.Contains(s.Id)))
         {
             _context.tbl_Stages.Add(new tbl_Stage
             {
@@ -421,7 +459,8 @@ public sealed class DevSeedService : IDevSeedService
                     : null,
                 CompletionPercentage = s.Complete,
                 DisplayOrder = s.Order,
-                Status = s.Status
+                Status = s.Status,
+                Phase = phases.TryGetValue(s.Id, out var phase) ? phase : StageGroup.Custom
             });
         }
 
@@ -435,7 +474,7 @@ public sealed class DevSeedService : IDevSeedService
     /// on everything that crosses, whoever actually produced it.
     /// </summary>
     private async Task<int> EnsureProjectMembersAsync(
-        AppUser peter, AppUser dinah, AppUser nalan, AppUser musa, CancellationToken ct)
+        AppUser peter, AppUser dinah, AppUser nalan, AppUser musa, AppUser grace, CancellationToken ct)
     {
         var members = new (string Id, string Project, string UserId, ProjectSide Side, bool Mediator,
                            ProjectMemberSpecialization Spec, string Title)[]
@@ -462,7 +501,13 @@ public sealed class DevSeedService : IDevSeedService
                 ProjectMemberSpecialization.Architect, "Architect-contractor"),
 
             (MemberId(8), SubProjectId, musa.Id, ProjectSide.Contractor, false,
-                ProjectMemberSpecialization.Foreman, "Site foreman")
+                ProjectMemberSpecialization.Foreman, "Site foreman"),
+
+            (MemberId(9), ProjectId, grace.Id, ProjectSide.Contractor, false,
+                ProjectMemberSpecialization.Photographer, "Progress photography"),
+
+            (MemberId(10), SubProjectId, grace.Id, ProjectSide.Contractor, false,
+                ProjectMemberSpecialization.Photographer, "Progress photography")
         };
 
         var existing = await _context.tbl_ProjectMembers.IgnoreQueryFilters()

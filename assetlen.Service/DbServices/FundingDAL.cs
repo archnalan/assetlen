@@ -13,12 +13,15 @@ public class FundingDAL : IFundingDAL
     private readonly AssetlenDbContext _context;
     private readonly ILogger<FundingDAL> _logger;
     private readonly IProjectAccessService _access;
+    private readonly IActiveStageService _activeStage;
 
-    public FundingDAL(AssetlenDbContext context, ILogger<FundingDAL> logger, IProjectAccessService access)
+    public FundingDAL(AssetlenDbContext context, ILogger<FundingDAL> logger,
+        IProjectAccessService access, IActiveStageService activeStage)
     {
         _context = context;
         _logger = logger;
         _access = access;
+        _activeStage = activeStage;
     }
 
     public async Task<ServiceResult<FundingEntryDto>> AddFundingEntry(FundingEntryCreateDto dto, string investorId)
@@ -35,19 +38,51 @@ public class FundingDAL : IFundingDAL
             if (!project.IsSubscriptionActive && !project.IsFirstFreeProject)
                 return ServiceResult<FundingEntryDto>.Failure(new BadRequestException("Project subscription is inactive"));
 
-            var stage = await _context.tbl_Stages.FindAsync(dto.StageId);
+            // A release with no stage named funds whatever the site is working
+            // on. "Too many stages combined" is the complaint this whole screen
+            // exists to answer (assetlen.md), so a release must never float.
+            var stageId = await _activeStage.ResolveAsync(dto.ProjectId, dto.StageId);
+
+            var stage = stageId is null ? null : await _context.tbl_Stages.FindAsync(stageId);
             if (stage == null || stage.ProjectId != dto.ProjectId)
-                return ServiceResult<FundingEntryDto>.Failure(new BadRequestException("Invalid stage"));
+                return ServiceResult<FundingEntryDto>.Failure(
+                    new BadRequestException("This project has no stage to fund."));
+
+            // The ledger is kept in one currency so totals mean something, but
+            // the figure the funder actually sent stays on the record beside it.
+            // Peter funds from abroad; "I sent 4,000" and "UGX 15.1M arrived" are
+            // both true and the difference is exactly what the two of them argue
+            // about later.
+            var declaredCurrency = string.IsNullOrWhiteSpace(dto.Currency)
+                ? project.Currency
+                : dto.Currency.Trim().ToUpperInvariant();
+
+            var converting = !string.Equals(declaredCurrency, project.Currency, StringComparison.OrdinalIgnoreCase);
+
+            if (converting && dto.ExchangeRate is not > 0)
+                return ServiceResult<FundingEntryDto>.Failure(
+                    new BadRequestException($"A rate is needed to record {declaredCurrency} against a {project.Currency} project"));
+
+            if (dto.Amount <= 0)
+                return ServiceResult<FundingEntryDto>.Failure(new BadRequestException("A release must be more than zero"));
+
+            var rate = converting ? dto.ExchangeRate!.Value : 1m;
+            var inProjectCurrency = decimal.Round(dto.Amount * rate, 2, MidpointRounding.AwayFromZero);
 
             var entry = new tbl_FundingEntry
             {
                 ProjectId = dto.ProjectId,
-                StageId = dto.StageId,
-                Amount = dto.Amount,
+                StageId = stageId,
+                Amount = inProjectCurrency,
+                DeclaredCurrency = declaredCurrency,
+                DeclaredAmount = dto.Amount,
+                ExchangeRate = converting ? rate : null,
                 PaymentDate = dto.PaymentDate,
                 PaidById = investorId,
                 Status = FundingStatus.Pending,
-                Notes = dto.Notes
+                Notes = dto.Notes,
+                EvidenceArtifactId = dto.EvidenceArtifactId,
+                EvidenceFileName = dto.EvidenceFileName
             };
 
             _context.tbl_FundingEntries.Add(entry);
@@ -81,11 +116,31 @@ public class FundingDAL : IFundingDAL
             if (entry.Status != FundingStatus.Pending)
                 return ServiceResult<FundingEntryDto>.Failure(new BadRequestException("Funding entry is not pending"));
 
-            entry.Status = dto.IsConfirmed ? FundingStatus.Confirmed : FundingStatus.Rejected;
+            if (dto.ReceivedAmount is < 0)
+                return ServiceResult<FundingEntryDto>.Failure(new BadRequestException("A received amount cannot be negative"));
+
             entry.ConfirmedById = managerId;
             entry.ConfirmationDate = DateTime.UtcNow;
-            if (!string.IsNullOrEmpty(dto.Notes))
-                entry.Notes = dto.Notes;
+            entry.ReceiptNote = dto.Notes;
+
+            if (!dto.IsConfirmed)
+            {
+                entry.Status = FundingStatus.Rejected;
+                entry.ReceivedAmount = 0m;
+            }
+            else
+            {
+                // Saying "yes, all of it" is one tap and stays one tap — that is
+                // the common case and the flow must not tax it. Naming a
+                // different figure is the honest answer when charges or a rate
+                // ate part of it, and it hands the decision back to the funder
+                // rather than quietly writing off the difference.
+                entry.ReceivedAmount = dto.ReceivedAmount ?? entry.Amount;
+
+                entry.Status = entry.ReceivedAmount == entry.Amount
+                    ? FundingStatus.Confirmed
+                    : FundingStatus.AmountQueried;
+            }
 
             await _context.SaveChangesAsync();
 
@@ -99,6 +154,89 @@ public class FundingDAL : IFundingDAL
         {
             _logger.LogError(ex, "Error confirming funding");
             return ServiceResult<FundingEntryDto>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
+    public async Task<ServiceResult<FundingEntryDto>> SettleFunding(FundingSettleDto dto, string investorId)
+    {
+        try
+        {
+            var entry = await _context.tbl_FundingEntries
+                .Include(f => f.Project)
+                .Include(f => f.Stage)
+                .Include(f => f.ConfirmedBy)
+                .FirstOrDefaultAsync(f => f.Id == dto.FundingEntryId);
+
+            if (entry == null)
+                return ServiceResult<FundingEntryDto>.Failure(new NotFoundException("Funding entry not found"));
+
+            // Only the person whose money it was may write off the difference.
+            if (entry.PaidById != investorId && entry.Project?.InvestorId != investorId)
+                return ServiceResult<FundingEntryDto>.Failure(new ForbiddenException("Only the funder can accept a shortfall"));
+
+            if (entry.Status != FundingStatus.AmountQueried)
+                return ServiceResult<FundingEntryDto>.Failure(new BadRequestException("There is no gap to accept on this release"));
+
+            // Accepting closes it at the figure that actually landed, which is
+            // what the stage is really funded by. The declared figure stays on
+            // the row so the shortfall is still answerable months later.
+            entry.Status = FundingStatus.Settled;
+            entry.SettledAt = DateTime.UtcNow;
+            entry.SettledById = investorId;
+            if (!string.IsNullOrEmpty(dto.Notes)) entry.Notes = dto.Notes;
+
+            await _context.SaveChangesAsync();
+
+            var result = MapToDto(entry, entry.Stage?.StageName, null,
+                entry.ConfirmedBy != null ? $"{entry.ConfirmedBy.FirstName} {entry.ConfirmedBy.LastName}" : null);
+
+            return ServiceResult<FundingEntryDto>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error settling funding entry {EntryId}", dto.FundingEntryId);
+            return ServiceResult<FundingEntryDto>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Releases waiting on this reader personally, whichever end of the exchange
+    /// they are on: declared-and-unacknowledged for the delivery side, and
+    /// reported-short-and-unanswered for the funder. One queue, because a
+    /// release stalls just as badly at either end.
+    /// </summary>
+    public async Task<ServiceResult<List<FundingEntryDto>>> GetFundingNeedingMe(string userId)
+    {
+        try
+        {
+            var entries = await _context.tbl_FundingEntries
+                .Include(f => f.Project)
+                .Include(f => f.PaidBy)
+                .Include(f => f.ConfirmedBy)
+                .Include(f => f.Stage)
+                .Where(f =>
+                    (f.Status == FundingStatus.Pending && f.Project!.ProjectManagerId == userId)
+                    || (f.Status == FundingStatus.AmountQueried
+                        && (f.PaidById == userId || f.Project!.InvestorId == userId)))
+                .OrderByDescending(f => f.PaymentDate)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var dtos = entries.Select(e =>
+            {
+                var dto = MapToDto(e, e.Stage?.StageName,
+                    e.PaidBy != null ? $"{e.PaidBy.FirstName} {e.PaidBy.LastName}" : null,
+                    e.ConfirmedBy != null ? $"{e.ConfirmedBy.FirstName} {e.ConfirmedBy.LastName}" : null);
+                dto.ProjectName = e.Project?.ProjectName;
+                return WithActions(dto, userId, e.Project?.ProjectManagerId, e.Project?.InvestorId);
+            }).ToList();
+
+            return ServiceResult<List<FundingEntryDto>>.Success(dtos);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting funding awaiting this reader");
+            return ServiceResult<List<FundingEntryDto>>.Failure(new ServerErrorException(ex.Message));
         }
     }
 
@@ -127,9 +265,11 @@ public class FundingDAL : IFundingDAL
                 .AsNoTracking()
                 .ToListAsync();
 
-            var dtos = entries.Select(e => MapToDto(e, e.Stage?.StageName,
-                e.PaidBy != null ? $"{e.PaidBy.FirstName} {e.PaidBy.LastName}" : null,
-                e.ConfirmedBy != null ? $"{e.ConfirmedBy.FirstName} {e.ConfirmedBy.LastName}" : null
+            var dtos = entries.Select(e => WithActions(
+                MapToDto(e, e.Stage?.StageName,
+                    e.PaidBy != null ? $"{e.PaidBy.FirstName} {e.PaidBy.LastName}" : null,
+                    e.ConfirmedBy != null ? $"{e.ConfirmedBy.FirstName} {e.ConfirmedBy.LastName}" : null),
+                userId, project.ProjectManagerId, project.InvestorId
             )).ToList();
 
             return ServiceResult<List<FundingEntryDto>>.Success(dtos);
@@ -165,9 +305,11 @@ public class FundingDAL : IFundingDAL
                 .AsNoTracking()
                 .ToListAsync();
 
-            var dtos = entries.Select(e => MapToDto(e, stage.StageName,
-                e.PaidBy != null ? $"{e.PaidBy.FirstName} {e.PaidBy.LastName}" : null,
-                e.ConfirmedBy != null ? $"{e.ConfirmedBy.FirstName} {e.ConfirmedBy.LastName}" : null
+            var dtos = entries.Select(e => WithActions(
+                MapToDto(e, stage.StageName,
+                    e.PaidBy != null ? $"{e.PaidBy.FirstName} {e.PaidBy.LastName}" : null,
+                    e.ConfirmedBy != null ? $"{e.ConfirmedBy.FirstName} {e.ConfirmedBy.LastName}" : null),
+                userId, stage.Project?.ProjectManagerId, stage.Project?.InvestorId
             )).ToList();
 
             return ServiceResult<List<FundingEntryDto>>.Success(dtos);
@@ -205,6 +347,26 @@ public class FundingDAL : IFundingDAL
         }
     }
 
+    /// <summary>
+    /// Stamp who may act on this release. Being on the money means following it;
+    /// moving it belongs to the named party on that side. The endpoints enforce
+    /// the same rule — this only stops the UI offering a button that would 403.
+    /// </summary>
+    private static FundingEntryDto WithActions(
+        FundingEntryDto dto, string? viewerId, string? managerId, string? investorId)
+    {
+        if (string.IsNullOrEmpty(viewerId)) return dto;
+
+        dto.CanConfirm = dto.Status == FundingStatus.Pending
+                         && viewerId == managerId
+                         && viewerId != dto.PaidById;
+
+        dto.CanSettle = dto.Status == FundingStatus.AmountQueried
+                        && (viewerId == dto.PaidById || viewerId == investorId);
+
+        return dto;
+    }
+
     private static FundingEntryDto MapToDto(tbl_FundingEntry e, string? stageName,
         string? paidByName = null, string? confirmedByName = null)
     {
@@ -220,6 +382,14 @@ public class FundingDAL : IFundingDAL
             ConfirmationDate = e.ConfirmationDate,
             Status = e.Status,
             Notes = e.Notes,
+            DeclaredCurrency = e.DeclaredCurrency,
+            DeclaredAmount = e.DeclaredAmount,
+            ExchangeRate = e.ExchangeRate,
+            ReceivedAmount = e.ReceivedAmount,
+            ReceiptNote = e.ReceiptNote,
+            EvidenceArtifactId = e.EvidenceArtifactId,
+            EvidenceFileName = e.EvidenceFileName,
+            SettledAt = e.SettledAt,
             PaidByName = paidByName,
             ConfirmedByName = confirmedByName,
             StageName = stageName,

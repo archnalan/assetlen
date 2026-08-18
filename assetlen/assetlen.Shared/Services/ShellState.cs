@@ -1,3 +1,4 @@
+using assetlen.Shared.Models.Models.RemoteSite;
 using assetlen.Shared.Apicalls;
 using assetlen.Shared.Models.Models.ViewModels.RemoteSiteDtos;
 using Microsoft.Extensions.Logging;
@@ -129,7 +130,14 @@ public sealed class ShellState
             LatestImageUrl = created.CoverImageUrl,
             IsSubscriptionActive = created.IsSubscriptionActive,
             ParentProjectId = created.ParentProjectId,
-            SortOrder = int.MaxValue
+            SortOrder = int.MaxValue,
+
+            // Whoever just created it is its investor, so they manage it. Said
+            // here because the card menu gates on standing, and without this the
+            // creator's own new project would offer them nothing until the next
+            // dashboard read replaced the card.
+            Standing = ProjectAccessDto.From(
+                new ProjectAccess(ProjectAccessLevel.Manage, ProjectSide.Client, true), created.Id)
         };
 
         if (!string.IsNullOrEmpty(created.ParentProjectId))

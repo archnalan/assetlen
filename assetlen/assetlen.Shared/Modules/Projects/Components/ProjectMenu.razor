@@ -47,12 +47,18 @@
             </button>
         }
 
-        <div class="pmenu__rule"></div>
+        @if (CanManage || CanResolveIssues)
+        {
+            <div class="pmenu__rule"></div>
+        }
 
-        <button type="button" class="pmenu__item" role="menuitem" @onclick="OpenCover">
-            <Icon Name="image" Size="16" />
-            <span>@(HasOwnCover(project) ? "Change image" : "Add an image")</span>
-        </button>
+        @if (CanManage)
+        {
+            <button type="button" class="pmenu__item" role="menuitem" @onclick="OpenCover">
+                <Icon Name="image" Size="16" />
+                <span>@(HasOwnCover(project) ? "Change image" : "Add an image")</span>
+            </button>
+        }
 
         @if (CanCreateSubProject)
         {
@@ -63,7 +69,7 @@
             </a>
         }
 
-        @if (CanWrite)
+        @if (CanResolveIssues)
         {
             <button type="button" class="pmenu__item" role="menuitem"
                     disabled="@(project.OpenIssueCount == 0 || resolving)"
@@ -80,7 +86,10 @@
                     }
                 </span>
             </button>
+        }
 
+        @if (CanManage)
+        {
             <a class="pmenu__item" role="menuitem"
                href="/project/@project.Id/settings" @onclick="Close">
                 <Icon Name="settings" Size="16" />
@@ -237,17 +246,34 @@
 
     // These mirror the server's gates so the menu never offers an action that
     // will 403. Arranging is everyone's; changing the record is not.
+    //
+    // Standing on THIS project decides, not a tenant-level role. Gating on roles
+    // put "project settings" and "change image" in front of every delivery-side
+    // reader on every project — a foreman right-clicking a house he photographs
+    // was offered its settings, and the refusal only arrived after the click.
+    // A seat is what someone was invited for; the rest is absent, not disabled.
+
+    private ProjectAccessDto? Standing => Menu.Project?.Standing;
 
     private UserRolesDto? Roles => _sd.CurrentUser?.RolesDto;
 
-    private bool CanWrite => Roles is { } r && (r.Contractor || r.Manager || r.Crew || r.SystemAdmin);
+    /// <summary>The project's own face and its settings — the owner's and the manager's call.</summary>
+    private bool CanManage => Standing?.CanManage == true;
+
+    /// <summary>
+    /// Closing out open questions is a decision-maker's act. A support seat
+    /// reports on its own work and has nothing to answer on the register.
+    /// </summary>
+    private bool CanResolveIssues => Standing is { CanWrite: true, CanSeeRegister: true };
 
     /// <summary>Nesting is one level. A wing cannot have a wing.</summary>
-    private bool CanCreateSubProject
-        => !Menu.IsSubProject && Roles is { } r && (r.Contractor || r.Manager || r.SystemAdmin);
+    private bool CanCreateSubProject => !Menu.IsSubProject && CanManage;
 
-    /// <summary>Binning an engagement is the owning account's call, not the mediator's.</summary>
-    private bool CanArchive => Roles is { } r && (r.Contractor || r.SystemAdmin);
+    /// <summary>
+    /// Binning an engagement is the owning account's call, not the mediator's —
+    /// so both must pass: manage standing here, and ownership of the account.
+    /// </summary>
+    private bool CanArchive => CanManage && Roles is { } r && (r.Contractor || r.SystemAdmin);
 
     // ── Actions ─────────────────────────────────────────────────────────────
 

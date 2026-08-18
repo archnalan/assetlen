@@ -23,14 +23,12 @@
 
 <PageTitle>Capture — ASSETLEN</PageTitle>
 
-<div class="al-page al-page--reading">
-
-    <TitleBlock Eyebrow="Site Diary" Title="Capture"
-                Subtitle="Pick the stage, add a line, attach what you shot. Nothing else is required.">
-        <Actions>
-            <a class="al-btn al-btn--quiet" href="/project/@ProjectId/log">Cancel</a>
-        </Actions>
-    </TitleBlock>
+@* Rendered inside the project frame rather than as a bare task page: for the
+   seat whose whole day is the camera this is the screen the project opens on,
+   and a landing page with no section strip leaves that reader with nowhere to
+   go. *@
+<ProjectPage ProjectId="@ProjectId" Section="capture" Eyebrow="Site Diary"
+             Subtitle="Pick the stage, add a line, attach what you shot. Nothing else is required.">
 
     @if (loadFailed)
     {
@@ -45,15 +43,11 @@
 
     <div class="capture">
 
+        @* Opens on whatever the site is working on, so the common case is no
+           taps at all. Changing it is deliberate, and the catalogue is one tap
+           down if the work has moved past the stages set at the start. *@
         <div class="al-field">
-            <label class="al-label" for="cap-stage">Against which stage</label>
-            <select id="cap-stage" class="al-select" @bind="model.StageId">
-                <option value="">Choose a stage…</option>
-                @foreach (var stage in stages)
-                {
-                    <option value="@stage.Id">@stage.DisplayOrder.ToString("D2") — @stage.StageName</option>
-                }
-            </select>
+            <StagePicker ProjectId="@ProjectId" @bind-StageId="model.StageId" CanAdd="false" />
             <span class="al-field__hint">Nothing floats. Every frame hangs off a funded piece of work.</span>
         </div>
 
@@ -166,7 +160,7 @@
             </button>
         </div>
     </div>
-</div>
+</ProjectPage>
 
 @code {
     [Parameter] public string ProjectId { get; set; } = "";

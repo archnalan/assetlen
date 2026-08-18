@@ -1,0 +1,214 @@
+@inject IStagesApi _stagesApi
+@inject ILogger<StageCataloguePanel> Logger
+
+@*
+    The catalogue of known construction stages.
+
+    Reusable on purpose — it opens from the foot of every stage dropdown and from
+    project creation, so a project is never stuck with the stages someone typed
+    on day one and a specific allocation of funds can always be named.
+
+    Two things earn their keep here:
+
+      · the search, because nobody scrolls forty-odd stages to find "plinth"; and
+      · the greying out of what this project already uses, so the same stage
+        cannot be added twice and the reader can see at a glance what is left.
+*@
+
+<div class="cat">
+
+    <div class="cat__head">
+        <div class="al-field cat__search">
+            <input class="al-input" type="search" placeholder="Search the catalogue — plinth, roofing, conduit…"
+                   aria-label="Search construction stages"
+                   @bind="query" @bind:event="oninput" />
+        </div>
+        <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="OnCancel">Back</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="al-alert al-alert--error" role="alert">
+            <Icon Name="error" Size="16" />
+            <span>@error</span>
+        </div>
+    }
+
+    <div class="cat__body">
+
+        @foreach (var group in StageCatalogue.Search(query))
+        {
+            <section class="cat__group al-stage--@((int)group.Key)">
+                <div class="al-stage-rule">
+                    <span class="al-stage-dot"></span>
+                    <span>@StageCatalogue.GroupName(group.Key)</span>
+                </div>
+
+                @foreach (var item in group)
+                {
+                    var used = UsedKeys.Contains(item.Key);
+
+                    <button type="button"
+                            class="cat__item @(used ? "is-used" : "") @(adding == item.Key ? "is-busy" : "")"
+                            disabled="@(used || adding is not null)"
+                            title="@(used ? "Already a stage on this project" : item.Detail)"
+                            @onclick="() => AddAsync(item)">
+                        <span class="cat__item-body">
+                            <span class="cat__item-name">@item.Name</span>
+                            <span class="cat__item-detail">@item.Detail</span>
+                        </span>
+
+                        @if (used)
+                        {
+                            <span class="cat__used"><Icon Name="check" Size="12" /> on this project</span>
+                        }
+                        else if (adding == item.Key)
+                        {
+                            <span class="al-spinner"></span>
+                        }
+                        else
+                        {
+                            <Icon Name="plus" Size="15" Class="cat__add" />
+                        }
+                    </button>
+                }
+            </section>
+        }
+
+        @if (!StageCatalogue.Search(query).Any())
+        {
+            <p class="cat__none">
+                Nothing in the catalogue matches “@query”. Name it yourself below — it will still
+                carry a phase, so it groups and colours like the rest.
+            </p>
+        }
+    </div>
+
+    @* The catalogue will never be complete. A stage named here behaves exactly
+       like a catalogued one: it takes a phase, and so an accent, and it can be
+       filed under a major stage. *@
+    <div class="cat__custom">
+        <button type="button" class="cat__custom-toggle" @onclick="() => custom = !custom">
+            <Icon Name="@(custom ? "chevron-down" : "chevron-right")" Size="14" />
+            <span>Name a stage the catalogue does not have</span>
+        </button>
+
+        @if (custom)
+        {
+            <div class="cat__custom-form">
+                <div class="al-field">
+                    <label class="al-label" for="cat-name">Stage name</label>
+                    <input id="cat-name" class="al-input" maxlength="200"
+                           placeholder="e.g. Borehole and pump house"
+                           @bind="customName" @bind:event="oninput" />
+                </div>
+
+                <div class="al-field">
+                    <label class="al-label" for="cat-phase">Which phase it belongs to</label>
+                    <select id="cat-phase" class="al-select" @bind="customPhase">
+                        @foreach (var g in StageCatalogue.Groups)
+                        {
+                            <option value="@g">@StageCatalogue.GroupName(g)</option>
+                        }
+                        <option value="@StageGroup.Custom">Custom</option>
+                    </select>
+                    <span class="al-field__hint">Decides its accent, so it reads apart from similar work in other phases.</span>
+                </div>
+
+                <div class="al-field">
+                    <label class="al-label" for="cat-parent">Put it under</label>
+                    <select id="cat-parent" class="al-select" @bind="customParentId">
+                        <option value="">Nothing — it is a major stage</option>
+                        @foreach (var major in Majors)
+                        {
+                            <option value="@major.Id">@major.StageName</option>
+                        }
+                    </select>
+                    <span class="al-field__hint">Keeps a few major stages with the detail folded underneath.</span>
+                </div>
+
+                <div class="cat__custom-actions">
+                    <button type="button" class="al-btn al-btn--primary al-btn--sm"
+                            disabled="@(string.IsNullOrWhiteSpace(customName) || adding is not null)"
+                            @onclick="AddCustomAsync">
+                        Add this stage
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    /// <summary>What this project already has — the source of the greying out.</summary>
+    [Parameter] public List<StageDto> Existing { get; set; } = new();
+
+    [Parameter] public EventCallback<StageDto> OnAdded { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string? query;
+    private string? error;
+    private string? adding;
+
+    private bool custom;
+    private string? customName;
+    private StageGroup customPhase = StageGroup.Superstructure;
+    private string? customParentId;
+
+    private HashSet<string> UsedKeys => Existing
+        .Where(s => !string.IsNullOrEmpty(s.CatalogueKey))
+        .Select(s => s.CatalogueKey!)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    private List<StageDto> Majors => Existing
+        .Where(s => string.IsNullOrEmpty(s.ParentStageId))
+        .OrderBy(s => s.DisplayOrder)
+        .ToList();
+
+    private Task AddAsync(StageCatalogueItem item) =>
+        CreateAsync(new StageCreateDto { CatalogueKey = item.Key }, item.Key);
+
+    private Task AddCustomAsync() =>
+        CreateAsync(new StageCreateDto
+        {
+            StageName = customName?.Trim(),
+            Phase = customPhase,
+            ParentStageId = string.IsNullOrEmpty(customParentId) ? null : customParentId
+        }, "custom");
+
+    private async Task CreateAsync(StageCreateDto dto, string busyKey)
+    {
+        if (adding is not null) return;
+
+        adding = busyKey;
+        error = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _stagesApi.CreateStage(ProjectId, dto);
+
+            if (response.IsSuccessStatusCode && response.Content is { } created)
+            {
+                customName = null;
+                custom = false;
+                await OnAdded.InvokeAsync(created);
+                return;
+            }
+
+            error = _apiResponseHandler.GetApiErrorMessage(response) ?? "That stage could not be added.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not add a stage to {ProjectId}", ProjectId);
+            error = "That stage could not be added. Nothing has changed.";
+        }
+        finally
+        {
+            adding = null;
+            StateHasChanged();
+        }
+    }
+}

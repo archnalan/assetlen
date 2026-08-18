@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using assetlen.Service.DataAccess;
 
@@ -11,9 +12,11 @@ using assetlen.Service.DataAccess;
 namespace assetlen.SqlServer.Migrations
 {
     [DbContext(typeof(AssetlenDbContext))]
-    partial class AssetlenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260818055423_P5_FundingSettlementAndMoneySeat")]
+    partial class P5_FundingSettlementAndMoneySeat
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1926,10 +1929,6 @@ namespace assetlen.SqlServer.Migrations
                     b.Property<decimal?>("BudgetAmount")
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<string>("CatalogueKey")
-                        .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)");
-
                     b.Property<decimal?>("CompletionPercentage")
                         .HasColumnType("decimal(5,2)");
 
@@ -1954,13 +1953,6 @@ namespace assetlen.SqlServer.Migrations
 
                     b.Property<string>("LastModifiedBy")
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("ParentStageId")
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<int>("Phase")
-                        .HasColumnType("int");
 
                     b.Property<string>("ProjectId")
                         .HasMaxLength(40)
@@ -1988,8 +1980,6 @@ namespace assetlen.SqlServer.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("LastModifiedBy");
-
-                    b.HasIndex("ParentStageId");
 
                     b.HasIndex("ProjectId")
                         .HasDatabaseName("IX_Stage_ProjectId");
@@ -3145,16 +3135,10 @@ namespace assetlen.SqlServer.Migrations
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Stage", b =>
                 {
-                    b.HasOne("assetlen.Service.DataAccess.tbl_Stage", "ParentStage")
-                        .WithMany("SubStages")
-                        .HasForeignKey("ParentStageId");
-
                     b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
                         .WithMany("Stages")
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("ParentStage");
 
                     b.Navigation("Project");
                 });
@@ -3249,8 +3233,6 @@ namespace assetlen.SqlServer.Migrations
                     b.Navigation("FundingEntries");
 
                     b.Navigation("ProgressUpdates");
-
-                    b.Navigation("SubStages");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_SubscriptionRequest", b =>

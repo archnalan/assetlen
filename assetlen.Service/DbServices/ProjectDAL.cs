@@ -49,7 +49,7 @@ public class ProjectDAL : IProjectDAL
             // as well as the project's own.
             var projects = await _context.tbl_Projects_RS
                 .Include(p => p.Stages)
-                .Include(p => p.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
+                .Include(p => p.FundingEntries.Where(f => (f.Status == FundingStatus.Confirmed || f.Status == FundingStatus.Settled)))
                 .Include(p => p.ProgressUpdates.OrderByDescending(u => u.DateTimeCreated).Take(3))
                     .ThenInclude(u => u.Images.OrderByDescending(i => i.DisplayOrder).Take(3))
                 .Where(p => p.ArchivedAt == null
@@ -82,6 +82,11 @@ public class ProjectDAL : IProjectDAL
                 .AsNoTracking()
                 .ToDictionaryAsync(p => p.ProjectId!, p => p);
 
+            // One membership query for the whole dashboard. The card chrome and
+            // its context menu are gated per project, so each tile needs its own
+            // standing — resolving them individually is a query per tile.
+            var standings = await _access.ResolveManyAsync(projects, userId);
+
             var cards = new List<ProjectCardDto>();
 
             foreach (var project in projects)
@@ -98,7 +103,7 @@ public class ProjectDAL : IProjectDAL
                 if (!string.IsNullOrEmpty(project.CoverImageUrl))
                     recentImages.Insert(0, project.CoverImageUrl);
 
-                var totalFunded = project.FundingEntries.Sum(f => f.Amount);
+                var totalFunded = project.FundingEntries.Sum(f => f.ReceivedAmount ?? f.Amount);
                 var fundedPct = _healthService.CalculateFundingPercentage(project.TotalBudget, totalFunded);
 
                 var stageDtos = project.Stages.Select(s => new StageDto
@@ -151,7 +156,10 @@ public class ProjectDAL : IProjectDAL
                     ParentProjectId = project.ParentProjectId,
                     OpenIssueCount = openIssues.TryGetValue(project.Id, out var open) ? open : 0,
                     IsPinned = pref?.IsPinned ?? false,
-                    SortOrder = pref?.SortOrder ?? int.MaxValue
+                    SortOrder = pref?.SortOrder ?? int.MaxValue,
+                    Standing = ProjectAccessDto.From(
+                        standings.TryGetValue(project.Id, out var standing) ? standing : ProjectAccess.None,
+                        project.Id)
                 });
             }
 
@@ -552,6 +560,7 @@ public class ProjectDAL : IProjectDAL
                 .ToDictionaryAsync(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim() is { Length: > 0 } n ? n : u.Email);
 
             var now = DateTime.UtcNow;
+            var standings = await _access.ResolveManyAsync(projects, userId);
 
             var cards = projects.Select(project =>
             {
@@ -582,7 +591,10 @@ public class ProjectDAL : IProjectDAL
                     PurgeDueAt = purgeDue,
                     DaysUntilPurge = purgeDue is null
                         ? null
-                        : Math.Max(0, (int)Math.Ceiling((purgeDue.Value - now).TotalDays))
+                        : Math.Max(0, (int)Math.Ceiling((purgeDue.Value - now).TotalDays)),
+                    Standing = ProjectAccessDto.From(
+                        standings.TryGetValue(project.Id, out var standing) ? standing : ProjectAccess.None,
+                        project.Id)
                 };
             }).ToList();
 
@@ -800,7 +812,7 @@ public class ProjectDAL : IProjectDAL
                 .Include(p => p.ParentProject)
                 .Include(p => p.SubProjects)
                 .Include(p => p.Stages.OrderBy(s => s.DisplayOrder))
-                    .ThenInclude(s => s.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
+                    .ThenInclude(s => s.FundingEntries.Where(f => (f.Status == FundingStatus.Confirmed || f.Status == FundingStatus.Settled)))
                 .Include(p => p.FundingEntries)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == projectId);
@@ -813,12 +825,12 @@ public class ProjectDAL : IProjectDAL
                 return ServiceResult<ProjectDto>.Failure(new ForbiddenException("Access denied"));
 
             var totalFunded = project.FundingEntries
-                .Where(f => f.Status == FundingStatus.Confirmed)
-                .Sum(f => f.Amount);
+                .Where(f => (f.Status == FundingStatus.Confirmed || f.Status == FundingStatus.Settled))
+                .Sum(f => f.ReceivedAmount ?? f.Amount);
 
             var stageDtos = project.Stages.Select(s =>
             {
-                var stageFunded = s.FundingEntries.Sum(f => f.Amount);
+                var stageFunded = s.FundingEntries.Sum(f => f.ReceivedAmount ?? f.Amount);
                 return new StageDto
                 {
                     Id = s.Id,
@@ -915,6 +927,16 @@ public class ProjectDAL : IProjectDAL
                 LatestImageUrl = project.CoverImageUrl
             };
             foreach (var sub in dto.SubProjects) InheritCover(parentFace, sub);
+
+            // The wings carry their own standing too, so the card menu on this
+            // page gates the same way it does on the dashboard.
+            var subStandings = await _access.ResolveManyAsync(
+                project.SubProjects.Where(sp => sp.IsDeleted != true && sp.ArchivedAt == null), userId);
+
+            foreach (var sub in dto.SubProjects)
+                sub.Standing = ProjectAccessDto.From(
+                    subStandings.TryGetValue(sub.Id, out var subStanding) ? subStanding : ProjectAccess.None,
+                    sub.Id);
 
             return ServiceResult<ProjectDto>.Success(dto);
         }
@@ -1087,7 +1109,7 @@ public class ProjectDAL : IProjectDAL
             // than the dashboard already shows.
             var query = _context.tbl_Projects_RS
                 .Include(p => p.Stages)
-                .Include(p => p.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
+                .Include(p => p.FundingEntries.Where(f => (f.Status == FundingStatus.Confirmed || f.Status == FundingStatus.Settled)))
                 .Where(p => p.ArchivedAt == null
                             && (p.ParentProject == null || p.ParentProject.ArchivedAt == null))
                 .Where(p =>
@@ -1115,9 +1137,11 @@ public class ProjectDAL : IProjectDAL
                 .Take(limit)
                 .ToListAsync(ct);
 
+            var standings = await _access.ResolveManyAsync(projects, userId, ct);
+
             var cards = projects.Select(project =>
             {
-                var totalFunded = project.FundingEntries.Sum(f => f.Amount);
+                var totalFunded = project.FundingEntries.Sum(f => f.ReceivedAmount ?? f.Amount);
                 var fundedPct = _healthService.CalculateFundingPercentage(project.TotalBudget, totalFunded);
                 var stageDtos = project.Stages.Select(s => new StageDto
                 {
@@ -1145,7 +1169,10 @@ public class ProjectDAL : IProjectDAL
                     Status = project.Status,
                     Currency = project.Currency,
                     TotalBudget = project.TotalBudget ?? 0,
-                    TotalFunded = totalFunded
+                    TotalFunded = totalFunded,
+                    Standing = ProjectAccessDto.From(
+                        standings.TryGetValue(project.Id, out var standing) ? standing : ProjectAccess.None,
+                        project.Id)
                 };
             }).ToList();
 

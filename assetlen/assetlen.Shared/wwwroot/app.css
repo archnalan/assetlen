@@ -212,6 +212,23 @@ hr { border: 0; }
     --al-side-delivery: #2f5d8c;
     --al-side-delivery-soft: #dfe8f2;
 
+    /* Stage phases — one accent per major phase of the build.
+       "Walling" happens three times on a house and reads identically each time;
+       the phase is the only thing that tells plinth from ground from parapet at
+       a glance. Used as a hairline, a dot or a tinted ground and never as a
+       fill — the paper stays the hero (CLAUDE.md §2). Muted deliberately: nine
+       saturated colours would be a different product. */
+    --al-stage-0: #6b6f76;   /* Custom         — neutral          */
+    --al-stage-1: #7c7f86;   /* Preliminaries  — site grey        */
+    --al-stage-2: #8a6a3f;   /* Substructure   — earth            */
+    --al-stage-3: #2f5d8c;   /* Superstructure — blueprint        */
+    --al-stage-4: #9c5230;   /* Roofing        — burnt clay       */
+    --al-stage-5: #3f7770;   /* Envelope       — glazed teal      */
+    --al-stage-6: #6a4d8f;   /* Services       — conduit violet   */
+    --al-stage-7: #a8781f;   /* Finishes       — brass            */
+    --al-stage-8: #4a7c3a;   /* External works — planting         */
+    --al-stage-9: #4a4f57;   /* Handover       — ink              */
+
     /* Elevation — almost flat */
     --al-shadow-xs: 0 1px 1px rgba(22, 25, 28, 0.04);
     --al-shadow-sm: 0 1px 2px rgba(22, 25, 28, 0.06), 0 1px 1px rgba(22, 25, 28, 0.04);
@@ -271,6 +288,19 @@ hr { border: 0; }
     --al-side-client-soft: #2a2137;
     --al-side-delivery: #6fa2d8;
     --al-side-delivery-soft: #1b2c3e;
+
+    /* Same nine phases, lifted for a dark ground. The hue is what identifies
+       the phase, so it is held and only the lightness moves. */
+    --al-stage-0: #9ca0a7;
+    --al-stage-1: #a5a8af;
+    --al-stage-2: #c39a63;
+    --al-stage-3: #6fa2d8;
+    --al-stage-4: #d4805a;
+    --al-stage-5: #6caba3;
+    --al-stage-6: #b39ad6;
+    --al-stage-7: #e2b559;
+    --al-stage-8: #85b872;
+    --al-stage-9: #9aa0aa;
 
     --al-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.30);
     --al-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36), 0 1px 1px rgba(0, 0, 0, 0.28);
@@ -1842,3 +1872,93 @@ table.al-table tfoot td {
 /* Blazor WASM boot progress (kept for the framework's own markup) */
 .loading-progress { display: none; }
 .loading-progress-text { display: none; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   26. STAGE ACCENTS
+   One colour per major phase of the build, so the same activity in different
+   phases is distinguishable at a glance — plinth walling from ground walling
+   from parapet walling.
+
+   The accent is carried on --al-stage-accent, set by .al-stage--n on any
+   ancestor. Everything below reads that one variable, so a chip, a rule and a
+   result row in search are unmistakably the same phase without any of them
+   knowing which phase it is.
+
+   Restraint is the rule (CLAUDE.md §2): a hairline, a dot, or a tint. Never a
+   filled block, never coloured body text.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.al-stage--0 { --al-stage-accent: var(--al-stage-0); }
+.al-stage--1 { --al-stage-accent: var(--al-stage-1); }
+.al-stage--2 { --al-stage-accent: var(--al-stage-2); }
+.al-stage--3 { --al-stage-accent: var(--al-stage-3); }
+.al-stage--4 { --al-stage-accent: var(--al-stage-4); }
+.al-stage--5 { --al-stage-accent: var(--al-stage-5); }
+.al-stage--6 { --al-stage-accent: var(--al-stage-6); }
+.al-stage--7 { --al-stage-accent: var(--al-stage-7); }
+.al-stage--8 { --al-stage-accent: var(--al-stage-8); }
+.al-stage--9 { --al-stage-accent: var(--al-stage-9); }
+
+/* The dot. The smallest possible carrier of the phase, for dense lists. */
+.al-stage-dot {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: var(--al-radius-pill);
+    background: var(--al-stage-accent, var(--al-text-subtle));
+}
+
+/* The chip. A dot plus the stage name, for anywhere a stage is named. */
+.al-stage-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    max-width: 100%;
+    padding: 2px var(--al-space-2) 2px var(--al-space-1);
+    border: 1px solid var(--al-border);
+    border-left: 2px solid var(--al-stage-accent, var(--al-border-strong));
+    border-radius: var(--al-radius-xs);
+    background: var(--al-bg-elevated);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+    line-height: 1.6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.al-stage-chip__phase {
+    color: var(--al-text-subtle);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The edge. A phase-coloured rule down the side of a grouped block — how the
+   search page separates one phase's results from the next. */
+.al-stage-edge {
+    border-left: 2px solid var(--al-stage-accent, var(--al-border-strong));
+    padding-left: var(--al-space-3);
+}
+
+/* The tint. A phase-coloured ground, at the lowest opacity that still reads. */
+.al-stage-tint {
+    background: color-mix(in srgb, var(--al-stage-accent, transparent) 8%, transparent);
+}
+
+.al-stage-rule {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    margin-bottom: var(--al-space-2);
+    color: var(--al-stage-accent, var(--al-text-muted));
+    font-size: var(--al-font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.al-stage-rule::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: color-mix(in srgb, var(--al-stage-accent, var(--al-border)) 34%, transparent);
+}

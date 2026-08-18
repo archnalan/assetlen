@@ -51,6 +51,20 @@ public class tbl_ProjectMember : BaseEntity
 
     public ProjectMemberSpecialization Specialization { get; set; } = ProjectMemberSpecialization.Other;
 
+    /// <summary>
+    /// Whether money is part of this person's seat <em>on this project</em>.
+    /// Null means "whatever the seat implies" — the two principals and the
+    /// mediator, nobody else.
+    /// <para>
+    /// Set explicitly when somebody is put on the money who would not otherwise
+    /// be: a consulting engineer asked to follow releases and account for them
+    /// alongside the architect. It is per project on purpose — the same engineer
+    /// is chasing accountability on one job and merely inspecting on another,
+    /// and a tenant-level "can see financials" flag cannot tell those apart.
+    /// </para>
+    /// </summary>
+    public bool? HandlesMoney { get; set; }
+
     [MaxLength(120)]
     public string? Title { get; set; }   // free-form override when Specialization = Other
 

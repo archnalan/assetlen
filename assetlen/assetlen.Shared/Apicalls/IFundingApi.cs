@@ -20,6 +20,14 @@ namespace assetlen.Shared.Apicalls
 
         [Get("/api/Funding/GetPendingConfirmations")]
         Task<IApiResponse<List<FundingEntryDto>>> GetPendingConfirmations();
+
+        /// <summary>The funder accepts the figure the delivery side says landed.</summary>
+        [Put("/api/Funding/SettleFunding")]
+        Task<IApiResponse<FundingEntryDto>> SettleFunding([Body] FundingSettleDto dto);
+
+        /// <summary>Releases stalled on this reader, at either end of the exchange.</summary>
+        [Get("/api/Funding/GetFundingNeedingMe")]
+        Task<IApiResponse<List<FundingEntryDto>>> GetFundingNeedingMe();
     }
 
 }

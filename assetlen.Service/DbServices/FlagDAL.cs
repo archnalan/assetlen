@@ -15,13 +15,16 @@ public class FlagDAL : IFlagDAL
     private readonly ILogger<FlagDAL> _logger;
     private readonly ITenantProvider _tenant;
     private readonly IProjectAccessService _access;
+    private readonly IActiveStageService _activeStage;
 
-    public FlagDAL(AssetlenDbContext context, ILogger<FlagDAL> logger, ITenantProvider tenant, IProjectAccessService access)
+    public FlagDAL(AssetlenDbContext context, ILogger<FlagDAL> logger, ITenantProvider tenant,
+        IProjectAccessService access, IActiveStageService activeStage)
     {
         _context = context;
         _logger = logger;
         _tenant = tenant;
         _access = access;
+        _activeStage = activeStage;
     }
 
     public async Task<ServiceResult<FlagDto>> AddFlag(FlagCreateDto dto, string actingUserId)
@@ -40,10 +43,15 @@ public class FlagDAL : IFlagDAL
             if (!access.CanRead)
                 return ServiceResult<FlagDto>.Failure(new ForbiddenException("Access denied."));
 
+            // A question raised while standing in front of the work belongs to
+            // the work. Filed against the active stage unless the reader named
+            // one, so the register can be read a phase at a time later.
+            var stageId = await _activeStage.ResolveAsync(dto.ProjectId, dto.StageId);
+
             var flag = new tbl_Flag
             {
                 ProjectId = dto.ProjectId,
-                StageId = dto.StageId,
+                StageId = stageId,
                 ProgressUpdateId = dto.ProgressUpdateId,
                 ProgressImageId = dto.ProgressImageId,
                 Title = dto.Title,

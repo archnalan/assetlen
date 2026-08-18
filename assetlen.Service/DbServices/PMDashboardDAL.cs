@@ -37,7 +37,7 @@ public class PMDashboardDAL : IPMDashboardDAL
             // Assigned projects
             var projects = await _context.tbl_Projects_RS
                 .Include(p => p.Stages)
-                .Include(p => p.FundingEntries.Where(f => f.Status == FundingStatus.Confirmed))
+                .Include(p => p.FundingEntries.Where(f => (f.Status == FundingStatus.Confirmed || f.Status == FundingStatus.Settled)))
                 .Where(p => p.ProjectManagerId == managerId && p.Status == ProjectStatus.Active)
                 .OrderByDescending(p => p.DateTimeCreated)
                 .AsNoTracking()
@@ -45,7 +45,7 @@ public class PMDashboardDAL : IPMDashboardDAL
 
             var cards = projects.Select(project =>
             {
-                var totalFunded = project.FundingEntries.Sum(f => f.Amount);
+                var totalFunded = project.FundingEntries.Sum(f => f.ReceivedAmount ?? f.Amount);
                 var fundedPct = _healthService.CalculateFundingPercentage(project.TotalBudget, totalFunded);
                 var stageDtos = project.Stages.Select(s => new StageDto
                 {

@@ -184,6 +184,14 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasIndex(e => e.StageId).HasDatabaseName("IX_FundingEntry_StageId");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_FundingEntry_Status");
             entity.Property(e => e.Amount).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.DeclaredAmount).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.ReceivedAmount).HasColumnType("decimal(18,4)");
+
+            // Wider than the money columns on purpose: a rate the other way round
+            // (USD per UGX) is 0.00026, and rounding that to four places turns a
+            // release into a different number than the one the funder sent.
+            entity.Property(e => e.ExchangeRate).HasColumnType("decimal(18,8)");
+
             entity.HasOne(e => e.Project).WithMany(p => p.FundingEntries).HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.Stage).WithMany(s => s.FundingEntries).HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.PaidBy).WithMany().HasForeignKey(e => e.PaidById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);

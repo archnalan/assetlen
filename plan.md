@@ -332,6 +332,50 @@ address they know.
 Peter's second-worst pain and the one that cost him a 9 AM meeting
 ([evidence](whatsapp-evidence.md) F3).
 
+> **Landed ahead of the rest of P4 on 2026-08-18** — the seat model, the funding
+> back-and-forth and the staging spine. All three are covered by
+> `tools/e2e-p5-money-and-staging.sh`, and the whole chain runs at **186
+> assertions, 0 failures**.
+>
+> **Seats.** `ProjectSeat { Principal, Support }`, derived from the existing
+> `Specialization` column rather than stored, so an existing roster classifies
+> itself. It is the second half of assetlen.md §10.1: the developer names the two
+> principals and the contractor staffs their own bench underneath. The bench —
+> fabricator, photographer, foreman — reports on its own work and sees no money,
+> no register, no raw thread. Tabs and the ⋮ menu are now driven off standing on
+> *this project*, never a tenant-level role, and a tab a seat has no business in
+> is **absent, not present-and-refused**. `ProjectCardDto.Standing` carries the
+> same answer to the dashboard, resolved in one membership query by
+> `IProjectAccessService.ResolveManyAsync` rather than a query per tile.
+>
+> **Money is assignable per project.** `tbl_ProjectMember.HandlesMoney` (nullable
+> — null follows the seat) puts a consulting engineer on the releases for the one
+> job where they are chasing accountability, without promoting them everywhere
+> else. Reading the ledger and moving it are separate rights: `CanConfirm` /
+> `CanSettle` are stamped per release by the server, so the UI never offers a
+> button that would 403.
+>
+> **The funding back-and-forth.** `FundingStatus` gains `AmountQueried` and
+> `Settled`. The funder declares what they sent — in UGX or USD with a rate, both
+> figures kept — with optional transfer evidence stored as an artifact. The
+> delivery side answers in one tap ("yes, all of it") or names what actually
+> landed, which opens the gap for the funder to accept or take up. Totals count
+> what arrived, not what was sent.
+>
+> **Staging runs across the app.** `tbl_Stage` gains `ParentStageId` (one level,
+> as with sub-projects), `CatalogueKey` and `Phase`. `StageCatalogue` holds 40-odd
+> known stages of construction with their detail and aliases, grouped into nine
+> phases; the panel is reachable from the foot of every stage dropdown for the
+> life of the project, greys out what this project already uses, and accepts a
+> custom stage filed under a major one. `IActiveStageService` fills in the active
+> stage on anything created without one — captures, questions, releases — so
+> nothing floats without taxing the clerk. Each phase carries a muted accent
+> (`--al-stage-0…9`), used as a hairline or a dot in the picker, the catalogue and
+> the search results, which is what tells plinth walling from parapet walling.
+>
+> Still open in P4: the Commitment and Deliverable tables themselves, the
+> variation register, and verbal decisions.
+
 - `tbl_Deliverable { StageId, Title, DisplayOrder, Status }` — 5–8 per funded stage.
 - `tbl_Commitment { ProjectId, DeliverableId?, Kind (Spec|Price|Date|Material|Choice), Title, Body, Maturity, QueryState, SourceChannel (App|Ingested|Verbal|Meeting), AccountableMemberId, AgreedById, AgreedWithPartyName?, AgreedAt, Amount?, Currency?, DueDate?, LeadTimeDays?, SupersedesId?, CounterpartyConfirmedAt? }`.
 - `tbl_CommitmentLink { CommitmentId, TargetType, TargetId, Relation }` — backlinks both ways.

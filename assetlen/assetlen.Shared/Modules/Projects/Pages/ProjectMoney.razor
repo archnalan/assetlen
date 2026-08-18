@@ -1,6 +1,7 @@
 @page "/project/{ProjectId}/money"
 @attribute [Authorize]
 @inject AttentionState Attention
+@inject IArtifactDownloadService _downloads
 @inject ILogger<ProjectMoney> Logger
 
 @*
@@ -31,7 +32,7 @@
     @* Only reachable by typing the URL — the tab is not rendered for this seat.
        Say nothing about what is behind it: a seat is defined by what someone was
        invited for, not by a list of what they were kept out of. *@
-    @if (!CanSeeMoney)
+    @if (!ctx.CanSeeMoney)
     {
         <div class="al-empty">
             <Icon Name="arrow-up-right" Size="40" Class="al-empty__icon" Weight="1.25" />
@@ -191,12 +192,24 @@
                     }
                     else
                     {
+                        @* One release, and whichever half of the exchange is this
+                           reader's to answer. Saying "yes, all of it" stays one
+                           tap — that is the common case, and taxing it is what
+                           sends people back to the phone. Naming a different
+                           figure is the second button, never the default. *@
                         <div class="al-sheet">
                             <div class="al-register">
                                 @foreach (var entry in funding)
                                 {
-                                    <div class="al-register__row @(entry.Status == FundingStatus.Pending ? "al-register__row--needs-you" : "")">
+                                    // The server names who may act — being on the money means following
+                                    // every release, not moving one. Guessing from CanWrite
+                                    // offered a foreman a button that answers 403.
+                                    var iConfirm = entry.CanConfirm;
+                                    var iAnswerGap = entry.CanSettle;
+
+                                    <div class="al-register__row @(iConfirm || iAnswerGap ? "al-register__row--needs-you" : "")">
                                         <span class="al-register__index">@Fmt.DateShort(entry.PaymentDate)</span>
+
                                         <span class="al-register__main">
                                             <span class="al-register__title">@(entry.StageName ?? "Project-wide")</span>
                                             <span class="al-register__sub">
@@ -204,37 +217,123 @@
                                                 {
                                                     <span>from @entry.PaidByName</span>
                                                 }
+                                                @if (entry.WasConverted)
+                                                {
+                                                    <span title="Converted when it was recorded">
+                                                        @Fmt.Money(entry.DeclaredAmount ?? 0, entry.DeclaredCurrency) sent
+                                                    </span>
+                                                }
                                                 @if (!string.IsNullOrEmpty(entry.Notes))
                                                 {
                                                     <span>@entry.Notes</span>
                                                 }
                                             </span>
+
+                                            @if (!string.IsNullOrEmpty(entry.EvidenceArtifactId))
+                                            {
+                                                <button type="button" class="money__evidence"
+                                                        @onclick="() => OpenEvidenceAsync(entry)">
+                                                    <Icon Name="document" Size="13" />
+                                                    <span class="al-truncate">@(entry.EvidenceFileName ?? "Transfer slip")</span>
+                                                </button>
+                                            }
+
+                                            @if (entry.ReceivedAmount is not null && entry.Shortfall != 0)
+                                            {
+                                                <span class="money__gap">
+                                                    <Icon Name="alert" Size="13" />
+                                                    <span>
+                                                        @Fmt.Money(entry.SettledAmount, ctx.Currency) arrived —
+                                                        @Fmt.Money(Math.Abs(entry.Shortfall), ctx.Currency)
+                                                        @(entry.Shortfall > 0 ? "short" : "over").
+                                                        @entry.ReceiptNote
+                                                    </span>
+                                                </span>
+                                            }
+
+                                            @if (confirmingGapOn == entry.Id)
+                                            {
+                                                <div class="money__declare">
+                                                    <div class="al-field">
+                                                        <label class="al-label" for="got-@entry.Id">What actually landed (@ctx.Currency)</label>
+                                                        <input id="got-@entry.Id" class="al-input al-input--money" type="number"
+                                                               min="0" step="1000" @bind="receivedAmount" @bind:event="oninput" />
+                                                    </div>
+                                                    <div class="al-field">
+                                                        <label class="al-label" for="why-@entry.Id">Why it differs</label>
+                                                        <input id="why-@entry.Id" class="al-input" maxlength="500"
+                                                               placeholder="e.g. bank charges on the transfer"
+                                                               @bind="receiptNote" @bind:event="oninput" />
+                                                    </div>
+                                                    <div class="money__declare-actions">
+                                                        <button type="button" class="al-btn al-btn--quiet al-btn--sm"
+                                                                @onclick="CancelDeclare">Cancel</button>
+                                                        <button type="button" class="al-btn al-btn--primary al-btn--sm"
+                                                                disabled="@(confirming == entry.Id || receivedAmount < 0)"
+                                                                @onclick="() => ConfirmAsync(entry, receivedAmount, receiptNote)">
+                                                            Report this figure
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
                                         </span>
+
                                         <span class="al-register__end">
-                                            <span class="al-register__amount">@Fmt.Amount(entry.Amount)</span>
+                                            <span class="al-register__amount">@Fmt.Amount(entry.SettledAmount)</span>
+
                                             @if (entry.Status == FundingStatus.Confirmed)
                                             {
                                                 <span class="al-badge al-badge--success" title="Acknowledged @Fmt.Date(entry.ConfirmationDate)">
                                                     <Icon Name="check" Size="11" /> Confirmed
                                                 </span>
                                             }
+                                            else if (entry.Status == FundingStatus.Settled)
+                                            {
+                                                <span class="al-badge al-badge--success" title="Accepted @Fmt.Date(entry.SettledAt) at what landed">
+                                                    <Icon Name="check" Size="11" /> Settled
+                                                </span>
+                                            }
                                             else if (entry.Status == FundingStatus.Rejected)
                                             {
-                                                <span class="al-badge al-badge--danger">Disputed</span>
+                                                <span class="al-badge al-badge--danger">Never arrived</span>
                                             }
-                                            else if (ctx.CanWrite && !IsMyOwnPayment(entry))
+                                            else if (iAnswerGap)
                                             {
-                                                <button type="button" class="al-btn al-btn--default al-btn--sm"
+                                                <button type="button" class="al-btn al-btn--primary al-btn--sm"
                                                         disabled="@(confirming == entry.Id)"
-                                                        @onclick="() => ConfirmAsync(entry)">
+                                                        @onclick="() => SettleAsync(entry)">
                                                     @if (confirming == entry.Id)
                                                     {
                                                         <span class="al-spinner"></span>
                                                     }
-                                                    Confirm receipt
+                                                    Accept @Fmt.MoneyShort(entry.SettledAmount, null)
                                                 </button>
                                             }
-                                            else
+                                            else if (entry.HasGap)
+                                            {
+                                                <span class="al-badge al-badge--warning">
+                                                    Waiting on @(entry.PaidByName ?? "the funder")
+                                                </span>
+                                            }
+                                            else if (iConfirm && confirmingGapOn != entry.Id)
+                                            {
+                                                <span class="money__answer">
+                                                    <button type="button" class="al-btn al-btn--primary al-btn--sm"
+                                                            disabled="@(confirming == entry.Id)"
+                                                            @onclick="() => ConfirmAsync(entry, null, null)">
+                                                        @if (confirming == entry.Id)
+                                                        {
+                                                            <span class="al-spinner"></span>
+                                                        }
+                                                        Yes, all of it
+                                                    </button>
+                                                    <button type="button" class="al-btn al-btn--link al-btn--sm"
+                                                            @onclick="() => StartDeclare(entry)">
+                                                        A different amount
+                                                    </button>
+                                                </span>
+                                            }
+                                            else if (entry.Status == FundingStatus.Pending)
                                             {
                                                 <span class="al-badge al-badge--warning">Awaiting confirmation</span>
                                             }
@@ -267,13 +366,54 @@
     private string? confirming;
     private string? loadedId;
 
-    private bool CanSeeMoney => _sd.CurrentUser?.RolesDto?.CanSeeFinancials == true;
+    // The gap the delivery side is reporting, while they are typing it.
+    private string? confirmingGapOn;
+    private decimal receivedAmount;
+    private string? receiptNote;
 
     protected override async Task OnParametersSetAsync()
     {
         if (loadedId == ProjectId) return;
         loadedId = ProjectId;
-        if (CanSeeMoney) await LoadAsync();
+
+        // Loaded unconditionally: the server decides who may read this, and the
+        // old tenant-role guard here (CanSeeFinancials) was global where the
+        // question is per project — it let a foreman through on every project
+        // and would have shut a client-side principal out of their own.
+        await LoadAsync();
+    }
+
+    private void StartDeclare(FundingEntryDto entry)
+    {
+        confirmingGapOn = entry.Id;
+        receivedAmount = entry.Amount;
+        receiptNote = null;
+    }
+
+    private void CancelDeclare()
+    {
+        confirmingGapOn = null;
+        receiptNote = null;
+    }
+
+    /// <summary>
+    /// The slip is an artifact, so it cannot go straight in an href — the
+    /// browser would send that request without the bearer token. Fetch it and
+    /// hand the browser a blob, as every other artifact view here does.
+    /// </summary>
+    private async Task OpenEvidenceAsync(FundingEntryDto entry)
+    {
+        if (string.IsNullOrEmpty(entry.EvidenceArtifactId)) return;
+
+        try
+        {
+            await _downloads.OpenAsync(entry.EvidenceArtifactId, entry.EvidenceFileName ?? "transfer-slip");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not open transfer evidence {ArtifactId}", entry.EvidenceArtifactId);
+            ToastService.ShowError("That attachment could not be opened.");
+        }
     }
 
     private async Task LoadAsync()
@@ -327,14 +467,28 @@
         rows = stages.Select(stage =>
         {
             var forStage = funding.Where(f => f.StageId == stage.Id).ToList();
-            var confirmed = forStage.Where(f => f.Status == FundingStatus.Confirmed).Sum(f => f.Amount);
-            var pending = forStage.Where(f => f.Status == FundingStatus.Pending).Sum(f => f.Amount);
+
+            // A settled release counts at what landed, not at what was sent —
+            // otherwise a stage that lost money in transit reads as funded to a
+            // level it never reached.
+            var confirmed = forStage
+                .Where(f => f.Status is FundingStatus.Confirmed or FundingStatus.Settled)
+                .Sum(f => f.SettledAmount);
+
+            // Still unanswered at one end or the other: recorded, not agreed.
+            var pending = forStage
+                .Where(f => f.Status is FundingStatus.Pending or FundingStatus.AmountQueried)
+                .Sum(f => f.SettledAmount);
 
             return new StageMoneyRow(stage, stage.BudgetAmount ?? 0, confirmed + pending, confirmed, pending);
         }).ToList();
     }
 
-    private async Task ConfirmAsync(FundingEntryDto entry)
+    /// <summary>
+    /// The delivery side's answer. <paramref name="received"/> null means the
+    /// declared figure arrived in full; a value opens the gap for the funder.
+    /// </summary>
+    private async Task ConfirmAsync(FundingEntryDto entry, decimal? received, string? why)
     {
         confirming = entry.Id;
         StateHasChanged();
@@ -344,7 +498,9 @@
             var response = await _fundingApi.ConfirmFunding(new FundingConfirmDto
             {
                 FundingEntryId = entry.Id,
-                IsConfirmed = true
+                IsConfirmed = true,
+                ReceivedAmount = received,
+                Notes = why
             });
 
             if (response.IsSuccessStatusCode)
@@ -353,8 +509,15 @@
                 // that still says 3 after you have dealt with one teaches the
                 // reader the count is decorative.
                 Attention.Retire(AttentionKind.Money, entry.Id);
+                confirmingGapOn = null;
+                receiptNote = null;
 
-                ToastService.ShowSuccess($"{Fmt.Money(entry.Amount)} confirmed against {entry.StageName ?? "the project"}.");
+                var landed = received ?? entry.Amount;
+
+                ToastService.ShowSuccess(landed == entry.Amount
+                    ? $"{Fmt.Money(landed)} confirmed against {entry.StageName ?? "the project"}."
+                    : $"{Fmt.Money(landed)} reported. {entry.PaidByName ?? "The funder"} has been asked about the difference.");
+
                 await LoadAsync();
             }
             else
@@ -374,8 +537,38 @@
         }
     }
 
-    /// <summary>The payer does not confirm their own release — the point is acknowledgement by the other side.</summary>
-    private bool IsMyOwnPayment(FundingEntryDto entry) => entry.PaidById == _sd.CurrentUser?.Id;
+    /// <summary>The funder's answer: accept what landed and close the release at that figure.</summary>
+    private async Task SettleAsync(FundingEntryDto entry)
+    {
+        confirming = entry.Id;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _fundingApi.SettleFunding(new FundingSettleDto { FundingEntryId = entry.Id });
+
+            if (response.IsSuccessStatusCode)
+            {
+                Attention.Retire(AttentionKind.Money, entry.Id);
+                ToastService.ShowSuccess($"Settled at {Fmt.Money(entry.SettledAmount)}. The stage now shows what arrived.");
+                await LoadAsync();
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not settle funding {FundingId}", entry.Id);
+            ToastService.ShowError("Could not accept that figure.");
+        }
+        finally
+        {
+            confirming = null;
+            StateHasChanged();
+        }
+    }
 
     private decimal TotalBudget => rows.Sum(r => r.Budget);
     private decimal TotalFunded => rows.Sum(r => r.Funded);

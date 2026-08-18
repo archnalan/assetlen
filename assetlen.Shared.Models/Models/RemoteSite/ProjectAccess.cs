@@ -19,7 +19,8 @@ public readonly record struct ProjectAccess(
     ProjectAccessLevel Level,
     ProjectSide? Side,
     bool IsMediator,
-    ProjectMemberSpecialization? Specialization = null)
+    ProjectMemberSpecialization? Specialization = null,
+    bool? HandlesMoney = null)
 {
     public static readonly ProjectAccess None = new(ProjectAccessLevel.None, null, false);
 
@@ -52,11 +53,29 @@ public readonly record struct ProjectAccess(
     public bool CanExposeToClient => IsMediator || Level >= ProjectAccessLevel.Manage;
 
     /// <summary>
-    /// Whether money is part of this seat. Two people on a project hold the
-    /// budget between them — the one paying and the one being paid — and a
-    /// release that a foreman can read is a wage negotiation nobody asked for.
+    /// Whether money is part of this seat. By default the two parties'
+    /// decision-makers and the mediator between them — a release a foreman can
+    /// read is a wage negotiation nobody asked for.
+    /// <para>
+    /// Gated on the seat rather than on <see cref="Level"/>, so a second
+    /// principal who does not own the project — the representative who settles
+    /// finishes — is still one of the people the budget is between.
+    /// </para>
+    /// <para>
+    /// <see cref="HandlesMoney"/> overrides it in either direction, per project.
+    /// Somebody put on the money deliberately — an engineer asked to follow
+    /// releases and account for them alongside the architect — gets it without
+    /// being promoted to a principal everywhere else.
+    /// </para>
     /// </summary>
-    public bool CanSeeMoney => CanRead && (Level >= ProjectAccessLevel.Manage || IsMediator);
+    public bool CanSeeMoney => CanRead && (HandlesMoney ?? (Seat == ProjectSeat.Principal || IsMediator));
+
+    /// <summary>
+    /// Whether the Client Brief is part of this seat. It is written *for* the
+    /// client side, so they read it and whoever publishes it reads it; the bench
+    /// doing the work has its own surface and does not need the curated one.
+    /// </summary>
+    public bool CanSeeBrief => CanRead && (IsClientSide || CanExposeToClient);
 
     /// <summary>
     /// Whether the drawing register is part of this seat. Whoever builds from a

@@ -15,11 +15,35 @@ namespace assetlen.Shared.Models.Models.RemoteSite
         Completed = 2
     }
 
+    /// <summary>
+    /// Where one release has got to between the two people who care about it.
+    /// <para>
+    /// A transfer is declared by whoever sent it and acknowledged by whoever was
+    /// meant to receive it, and the two figures are not always the same — bank
+    /// charges, a bad rate, a partial transfer. The gap is the whole point:
+    /// somebody has to say out loud what actually landed, and the other party
+    /// has to accept it or take it up. Nothing here is settled by one side.
+    /// </para>
+    /// </summary>
     public enum FundingStatus
     {
+        /// <summary>Declared by the funder. Waiting on the delivery side to say what landed.</summary>
         Pending = 0,
+
+        /// <summary>The delivery side confirmed the declared figure arrived in full.</summary>
         Confirmed = 1,
-        Rejected = 2
+
+        /// <summary>The delivery side says nothing arrived.</summary>
+        Rejected = 2,
+
+        /// <summary>
+        /// The delivery side reported a different figure. Waiting on the funder
+        /// to accept it or take up the shortfall.
+        /// </summary>
+        AmountQueried = 3,
+
+        /// <summary>The funder accepted a received figure that differed from what they sent.</summary>
+        Settled = 4
     }
 
     public enum ApprovalStatus

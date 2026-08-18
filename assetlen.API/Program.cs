@@ -147,6 +147,7 @@ builder.Services.AddScoped<ISubscriptionRequestDAL, SubscriptionRequestDAL>();
 // ── Remote Site services ──
 // The single authority on per-project access. Every ASSETLEN DAL depends on it.
 builder.Services.AddScoped<IProjectAccessService, ProjectAccessService>();
+builder.Services.AddScoped<IActiveStageService, ActiveStageService>();
 builder.Services.AddScoped<IProjectDAL, ProjectDAL>();
 builder.Services.AddScoped<IProjectMemberDAL, ProjectMemberDAL>();
 builder.Services.AddScoped<IStageDAL, StageDAL>();

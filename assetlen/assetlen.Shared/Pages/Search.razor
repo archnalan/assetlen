@@ -94,7 +94,7 @@
                     <div class="al-register">
                         @foreach (var hit in projectHits)
                         {
-                            <a class="al-register__row" href="@hit.Href">
+                            <a class="al-register__row @hit.AccentClass" href="@hit.Href">
                                 <Icon Name="@hit.Icon" Size="18" Class="al-subtle" />
                                 <span class="al-register__main">
                                     <span class="al-register__title">@hit.Title</span>
@@ -118,7 +118,7 @@
                     <div class="al-register">
                         @foreach (var hit in entryHits)
                         {
-                            <a class="al-register__row" href="@hit.Href">
+                            <a class="al-register__row @hit.AccentClass" href="@hit.Href">
                                 <span class="al-register__index">@hit.Stamp</span>
                                 <span class="al-register__main">
                                     <span class="al-register__title al-clamp-2">@hit.Title</span>
@@ -142,7 +142,7 @@
                     <div class="al-register">
                         @foreach (var hit in messageHits)
                         {
-                            <a class="al-register__row" href="@hit.Href">
+                            <a class="al-register__row @hit.AccentClass" href="@hit.Href">
                                 <span class="al-register__index">@hit.Stamp</span>
                                 <span class="al-register__main">
                                     <span class="al-register__title al-clamp-2">@hit.Title</span>
@@ -208,6 +208,7 @@
         projectHits.Clear();
         entryHits.Clear();
         messageHits.Clear();
+        phaseByStage.Clear();
         StateHasChanged();
 
         try
@@ -245,15 +246,21 @@
             var response = await _stagesApi.GetStagesByProjectId(project.Id);
             if (!response.IsSuccessStatusCode || response.Content is null) return;
 
+            // Every stage, not only the matches — the entries found next borrow
+            // their stage's phase from here, and they are read straight after.
+            foreach (var s in response.Content.Where(s => !string.IsNullOrEmpty(s.Id)))
+                phaseByStage[s.Id!] = s.Phase;
+
             foreach (var stage in response.Content
                 .Where(s => Contains(s.StageName, needle) || Contains(s.Description, needle)))
             {
                 projectHits.Add(new Hit(
                     stage.StageName ?? "Stage",
-                    $"Stage · {project.Name}",
+                    $"{stage.PhaseName} · {project.Name}",
                     $"/project/{project.Id}/stage/{stage.Id}",
                     "stage",
-                    null));
+                    null,
+                    stage.Phase));
             }
         }
         catch (Exception ex)
@@ -276,7 +283,8 @@
                     $"{project.Name}{(string.IsNullOrEmpty(entry.StageName) ? "" : " · " + entry.StageName)}",
                     $"/project/{project.Id}/entry/{entry.Id}",
                     "log",
-                    Fmt.DateShort(entry.DateTimeCreated)));
+                    Fmt.DateShort(entry.DateTimeCreated),
+                    entry.StageId is { } sid && phaseByStage.TryGetValue(sid, out var phase) ? phase : null));
             }
         }
         catch (Exception ex)
@@ -320,5 +328,18 @@
         => !string.IsNullOrEmpty(haystack)
            && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
 
-    private sealed record Hit(string Title, string Context, string Href, string Icon, string? Stamp);
+    /// <summary>
+    /// One result. <paramref name="Phase"/> is what organises the page: results
+    /// arrive from four different reads and mean nothing as a flat list, but the
+    /// phase they belong to is the axis a reader already thinks in — and the one
+    /// thing that tells plinth walling from parapet walling at a glance.
+    /// </summary>
+    private sealed record Hit(
+        string Title, string Context, string Href, string Icon, string? Stamp, StageGroup? Phase = null)
+    {
+        public string AccentClass => Phase is { } p ? $"al-stage--{(int)p}" : "";
+    }
+
+    /// <summary>Phase per stage id, filled as each project's stages are read, so entries can borrow their stage's accent.</summary>
+    private readonly Dictionary<string, StageGroup> phaseByStage = new();
 }

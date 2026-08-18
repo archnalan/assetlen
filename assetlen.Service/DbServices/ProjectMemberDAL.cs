@@ -89,6 +89,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
             if (existing is not null)
             {
                 existing.Specialization = dto.Specialization;
+                existing.HandlesMoney = dto.HandlesMoney;
                 existing.Title = dto.Title;
                 existing.Side = side;
                 existing.IsMediator = isMediator;
@@ -106,6 +107,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
                     UserId = user?.Id,
                     PartyName = user is null ? dto.PartyName?.Trim() : null,
                     Specialization = dto.Specialization,
+                    HandlesMoney = dto.HandlesMoney,
                     Title = dto.Title,
                     Side = side,
                     IsMediator = isMediator,
@@ -307,6 +309,10 @@ public class ProjectMemberDAL : IProjectMemberDAL
 
             if (dto.Side is not null) member.Side = dto.Side.Value;
             if (dto.Specialization is not null) member.Specialization = dto.Specialization.Value;
+
+            // Money is granted per project, so it is changed here and nowhere
+            // else — an engineer put on releases for this job only.
+            if (dto.HandlesMoney is not null) member.HandlesMoney = dto.HandlesMoney;
             if (dto.Title is not null) member.Title = string.IsNullOrWhiteSpace(dto.Title) ? null : dto.Title.Trim();
 
             member.AssignedById = actingUserId;
@@ -326,18 +332,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
         try
         {
             var access = await _access.ResolveAsync(projectId, actingUserId);
-            return ServiceResult<ProjectAccessDto>.Success(new ProjectAccessDto
-            {
-                ProjectId = projectId,
-                Level = access.Level,
-                Side = access.Side,
-                IsMediator = access.IsMediator,
-                CanRead = access.CanRead,
-                CanWrite = access.CanWrite,
-                CanManage = access.CanManage,
-                CanSeeSiteLog = access.CanSeeSiteLog,
-                CanExposeToClient = access.CanExposeToClient
-            });
+            return ServiceResult<ProjectAccessDto>.Success(ProjectAccessDto.From(access, projectId));
         }
         catch (Exception ex)
         {
@@ -355,6 +350,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
         Side = m.Side,
         IsMediator = m.IsMediator,
         Specialization = m.Specialization,
+        HandlesMoney = m.HandlesMoney,
         Title = m.Title,
         IsActive = m.IsActive,
         JoinedAt = m.JoinedAt,

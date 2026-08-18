@@ -96,6 +96,10 @@ public class ProjectMemberDto : BaseDto
     public bool IsMediator { get; set; }
 
     public ProjectMemberSpecialization Specialization { get; set; }
+
+    /// <summary>Money on this project, assigned explicitly. Null follows the seat.</summary>
+    public bool? HandlesMoney { get; set; }
+
     public string? Title { get; set; }
     public bool IsActive { get; set; }
     public DateTime? JoinedAt { get; set; }
@@ -135,6 +139,13 @@ public class ProjectMemberCreateDto
     public ProjectSide? Side { get; set; }
 
     /// <summary>
+    /// Put this person on the money for this project regardless of their seat —
+    /// an engineer asked to follow releases alongside the architect. Null leaves
+    /// it to the seat: principals and the mediator.
+    /// </summary>
+    public bool? HandlesMoney { get; set; }
+
+    /// <summary>
     /// Null defaults from <see cref="Specialization"/>. Setting true when the
     /// project already has two mediators is rejected with 409.
     /// </summary>
@@ -165,6 +176,9 @@ public class ProjectMemberUpdateDto
     public bool? IsMediator { get; set; }
 
     public ProjectMemberSpecialization? Specialization { get; set; }
+
+    /// <summary>Grant or withdraw money on this project. Null leaves it unchanged.</summary>
+    public bool? HandlesMoney { get; set; }
 
     [MaxLength(120)]
     public string? Title { get; set; }
@@ -197,6 +211,49 @@ public class ProjectAccessDto
 
     /// <summary>The exposure gate — mediator, owner or manager.</summary>
     public bool CanExposeToClient { get; set; }
+
+    /// <summary>What this member was brought on to do. Null for an owner with no membership row.</summary>
+    public ProjectMemberSpecialization? Specialization { get; set; }
+
+    /// <summary>How deep the seat reaches — a principal sees the engagement, a support seat sees their own job.</summary>
+    public ProjectSeat Seat { get; set; }
+
+    public bool CanSeeMoney { get; set; }
+    public bool CanSeeBrief { get; set; }
+    public bool CanSeeDocuments { get; set; }
+    public bool CanSeeHistory { get; set; }
+    public bool CanCapture { get; set; }
+    public bool CanSeeRegister { get; set; }
+
+    /// <summary>The photographer's day starts at the camera, not at a dashboard.</summary>
+    public bool LandsOnCapture { get; set; }
+
+    /// <summary>
+    /// Mirror one resolved standing. Every capability is copied from
+    /// <see cref="ProjectAccess"/> rather than re-derived here — a second copy of
+    /// these rules on the wire is how a tab and its endpoint start disagreeing.
+    /// </summary>
+    public static ProjectAccessDto From(ProjectAccess access, string? projectId) => new()
+    {
+        ProjectId = projectId,
+        Level = access.Level,
+        Side = access.Side,
+        IsMediator = access.IsMediator,
+        CanRead = access.CanRead,
+        CanWrite = access.CanWrite,
+        CanManage = access.CanManage,
+        CanSeeSiteLog = access.CanSeeSiteLog,
+        CanExposeToClient = access.CanExposeToClient,
+        Specialization = access.Specialization,
+        Seat = access.Seat,
+        CanSeeMoney = access.CanSeeMoney,
+        CanSeeBrief = access.CanSeeBrief,
+        CanSeeDocuments = access.CanSeeDocuments,
+        CanSeeHistory = access.CanSeeHistory,
+        CanCapture = access.CanCapture,
+        CanSeeRegister = access.CanSeeRegister,
+        LandsOnCapture = access.LandsOnCapture
+    };
 }
 
 // ─── Stage DTOs ──────────────────────────────────────────────
@@ -219,6 +276,25 @@ public class StageDto : BaseDto
     public int DisplayOrder { get; set; }
     public StageStatus Status { get; set; }
 
+    // ─── Grouping and phase ──────────────────────────────────────
+
+    /// <summary>The major stage this one sits under. One level only.</summary>
+    public string? ParentStageId { get; set; }
+
+    /// <summary>Set when this stage came from the catalogue — drives deduplication.</summary>
+    public string? CatalogueKey { get; set; }
+
+    /// <summary>Which phase of the build this is, and therefore which accent it wears.</summary>
+    public StageGroup Phase { get; set; } = StageGroup.Custom;
+
+    /// <summary>Sub-stages, filled in when the caller asked for the grouped shape.</summary>
+    public List<StageDto> SubStages { get; set; } = new();
+
+    /// <summary>The class that carries this stage's accent — see app.css §26.</summary>
+    public string AccentClass => $"al-stage--{(int)Phase}";
+
+    public string PhaseName => StageCatalogue.GroupName(Phase);
+
     // Computed
     public decimal FundedAmount { get; set; }
     public decimal FundedPercentage { get; set; }
@@ -239,6 +315,20 @@ public class StageCreateDto
     public DateTime? StartDate { get; set; }
     public DateTime? ExpectedEndDate { get; set; }
     public int DisplayOrder { get; set; }
+
+    /// <summary>Nest this under an existing major stage. One level only; a sub-stage cannot take a sub-stage.</summary>
+    public string? ParentStageId { get; set; }
+
+    /// <summary>
+    /// The catalogue entry being used, when it came from the catalogue. Name,
+    /// description and phase are filled in from it if the caller leaves them
+    /// blank, and it is what stops the same stage being added twice.
+    /// </summary>
+    [MaxLength(60)]
+    public string? CatalogueKey { get; set; }
+
+    /// <summary>Only consulted for a custom stage — a catalogue stage brings its own phase.</summary>
+    public StageGroup? Phase { get; set; }
 }
 
 // ─── Funding DTOs ────────────────────────────────────────────
@@ -255,11 +345,62 @@ public class FundingEntryDto : BaseDto
     public FundingStatus Status { get; set; }
     public string? Notes { get; set; }
 
+    // ─── The back-and-forth ──────────────────────────────────────
+
+    /// <summary>The currency the funder typed in; null on entries recorded before it was asked for.</summary>
+    public string? DeclaredCurrency { get; set; }
+
+    /// <summary>The figure as typed, before conversion.</summary>
+    public decimal? DeclaredAmount { get; set; }
+
+    public decimal? ExchangeRate { get; set; }
+
+    /// <summary>What the delivery side says landed, in the project's currency. Null until they answer.</summary>
+    public decimal? ReceivedAmount { get; set; }
+
+    public string? ReceiptNote { get; set; }
+    public string? EvidenceArtifactId { get; set; }
+    public string? EvidenceFileName { get; set; }
+    public DateTime? SettledAt { get; set; }
+
     // Populated by service
     public string? PaidByName { get; set; }
     public string? ConfirmedByName { get; set; }
     public string? StageName { get; set; }
     public string? ProjectName { get; set; }
+
+    // ─── Who may act on this one ─────────────────────────────────
+    // Reading the ledger and moving it are different rights. Anyone the project
+    // put on the money follows every release here; acting on one belongs to the
+    // named party on that side and nobody else, so the server says so rather
+    // than the client guessing and earning a 403.
+
+    /// <summary>True only for the delivery side's responsible party, on a release still pending.</summary>
+    public bool CanConfirm { get; set; }
+
+    /// <summary>True only for the funder whose money it was, on a release reported short.</summary>
+    public bool CanSettle { get; set; }
+
+    /// <summary>
+    /// The figure this release is worth to the project — what landed once
+    /// somebody has said, otherwise what was sent. This is the number totals are
+    /// built from, so a release that lost money in transit stops overstating the
+    /// stage the moment it is acknowledged.
+    /// </summary>
+    public decimal SettledAmount => ReceivedAmount ?? Amount;
+
+    /// <summary>How far the received figure fell short. Zero when they agree or nobody has answered.</summary>
+    public decimal Shortfall => ReceivedAmount is { } got ? Amount - got : 0m;
+
+    /// <summary>True while the two figures disagree and the funder has not accepted the gap.</summary>
+    public bool HasGap => Status == FundingStatus.AmountQueried;
+
+    /// <summary>Nothing more is owed on this one — it is agreed, one way or the other.</summary>
+    public bool IsClosed => Status is FundingStatus.Confirmed or FundingStatus.Settled or FundingStatus.Rejected;
+
+    /// <summary>True when the funder converted from another currency, so the UI can show both figures.</summary>
+    public bool WasConverted =>
+        DeclaredAmount is not null && !string.IsNullOrEmpty(DeclaredCurrency) && DeclaredAmount != Amount;
 }
 
 public class FundingEntryCreateDto
@@ -268,12 +409,31 @@ public class FundingEntryCreateDto
 
     public string? StageId { get; set; }
 
+    /// <summary>The figure as typed, in <see cref="Currency"/>.</summary>
     public decimal Amount { get; set; }
+
+    /// <summary>
+    /// What the funder typed in. Defaults to the project's currency; anything
+    /// else must carry <see cref="ExchangeRate"/> so the ledger stays in one
+    /// currency and the original figure is still on the record.
+    /// </summary>
+    [MaxLength(3)]
+    public string? Currency { get; set; }
+
+    /// <summary>Project-currency units per one unit of <see cref="Currency"/>. Ignored when they match.</summary>
+    public decimal? ExchangeRate { get; set; }
 
     public DateTime? PaymentDate { get; set; } = DateTime.UtcNow;
 
     [MaxLength(500)]
     public string? Notes { get; set; }
+
+    /// <summary>Optional proof of the transfer, as a stored artifact id.</summary>
+    [MaxLength(40)]
+    public string? EvidenceArtifactId { get; set; }
+
+    [MaxLength(260)]
+    public string? EvidenceFileName { get; set; }
 }
 
 public class FundingConfirmDto
@@ -281,6 +441,22 @@ public class FundingConfirmDto
     public string? FundingEntryId { get; set; }
 
     public bool IsConfirmed { get; set; } = true;
+
+    /// <summary>
+    /// What actually landed, in the project's currency. Null means "the declared
+    /// figure arrived in full" — the one-tap answer, which is the common case.
+    /// A different figure opens the gap for the funder to accept or take up.
+    /// </summary>
+    public decimal? ReceivedAmount { get; set; }
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
+}
+
+/// <summary>The funder's answer to a reported shortfall: accept the figure and close it.</summary>
+public class FundingSettleDto
+{
+    public string? FundingEntryId { get; set; }
 
     [MaxLength(500)]
     public string? Notes { get; set; }
@@ -732,6 +908,18 @@ public class ProjectCardDto
 
     /// <summary>Whole days left before the purge, floored at zero. Null while live.</summary>
     public int? DaysUntilPurge { get; set; }
+
+    /// <summary>
+    /// This reader's standing on this project, resolved server-side with the card.
+    /// <para>
+    /// The context menu and the card chrome have to know whether to offer
+    /// settings, a cover change or the open-question count, and the dashboard is
+    /// the one screen that renders many projects at once — a per-card round trip
+    /// to <c>GetMyStanding</c> would be one request per tile. Null only on a card
+    /// assembled without a caller.
+    /// </para>
+    /// </summary>
+    public ProjectAccessDto? Standing { get; set; }
 }
 
 // ─── Arranging and binning projects ──────────────────────────

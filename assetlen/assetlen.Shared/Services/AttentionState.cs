@@ -180,37 +180,41 @@ public sealed class AttentionState
                 }
             }
 
-            // This queue is "releases waiting for ME to say the money landed",
-            // which only the delivery side can answer. Gating it on
-            // CanSeeFinancials included the client, whom the server refuses —
-            // and the refusal used to navigate the whole app away.
-            if (_sd.CurrentUser?.RolesDto is { } roles && (roles.Contractor || roles.Manager || roles.SystemAdmin))
+            // A release stalls just as badly at either end — unacknowledged by
+            // the delivery side, or reported short and unanswered by the funder —
+            // so one queue serves both and the server decides which rows name
+            // this reader. The earlier version asked only the delivery side's
+            // question and had to be role-gated to avoid a refusal.
+            try
             {
-                try
+                var waiting = await _funding.GetFundingNeedingMe();
+                if (waiting.IsSuccessStatusCode && waiting.Content is not null)
                 {
-                    var pending = await _funding.GetPendingConfirmations();
-                    if (pending.IsSuccessStatusCode && pending.Content is not null)
+                    foreach (var entry in waiting.Content)
                     {
-                        foreach (var entry in pending.Content)
-                        {
-                            found.Add(new AttentionItem(
-                                Key: $"funding:{entry.Id}",
-                                Kind: AttentionKind.Money,
-                                Title: $"Confirm {Fmt.Money(entry.Amount)} on {entry.StageName ?? "this project"}",
-                                ProjectId: entry.ProjectId ?? "",
-                                ProjectName: entry.ProjectName ?? "—",
-                                Detail: $"Recorded {Fmt.Date(entry.PaymentDate)}",
-                                Consequence: Trim(entry.Notes),
-                                Href: $"/project/{entry.ProjectId}/money",
-                                Icon: "money",
-                                Due: null));
-                        }
+                        var mine = entry.HasGap;
+
+                        found.Add(new AttentionItem(
+                            Key: $"funding:{entry.Id}",
+                            Kind: AttentionKind.Money,
+                            Title: mine
+                                ? $"{Fmt.Money(entry.Shortfall)} less arrived than you sent on {entry.StageName ?? "this project"}"
+                                : $"Confirm {Fmt.Money(entry.Amount)} on {entry.StageName ?? "this project"}",
+                            ProjectId: entry.ProjectId ?? "",
+                            ProjectName: entry.ProjectName ?? "—",
+                            Detail: mine
+                                ? $"They received {Fmt.Money(entry.SettledAmount)}"
+                                : $"Recorded {Fmt.Date(entry.PaymentDate)}",
+                            Consequence: Trim(mine ? entry.ReceiptNote ?? entry.Notes : entry.Notes),
+                            Href: $"/project/{entry.ProjectId}/money",
+                            Icon: "money",
+                            Due: null));
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not read pending funding confirmations");
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not read the funding waiting on this reader");
             }
 
             // Soonest first, undated last — an item with a real deadline

@@ -35,15 +35,12 @@
 
     <div class="funding">
 
+        @* The catalogue is reachable from here, not only at project creation:
+           naming a specific allocation of funds is exactly when a reader
+           discovers the stage they need was never set up. *@
         <div class="al-field">
-            <label class="al-label" for="fund-stage">Against which stage</label>
-            <select id="fund-stage" class="al-select" @bind="model.StageId">
-                <option value="">Project-wide</option>
-                @foreach (var stage in stages)
-                {
-                    <option value="@stage.Id">@stage.DisplayOrder.ToString("D2") — @stage.StageName</option>
-                }
-            </select>
+            <StagePicker ProjectId="@ProjectId" @bind-StageId="model.StageId"
+                         Label="Against which stage" ShowDetail="false" />
             @if (SelectedStage is { } selected)
             {
                 <span class="al-field__hint">
@@ -53,14 +50,65 @@
             }
         </div>
 
+        @* Peter funds from abroad. He knows what he sent — in dollars — and the
+           ledger is kept in the project's currency, so the conversion happens
+           here once, in the open, rather than in a WhatsApp message nobody can
+           find later. *@
         <div class="al-field">
-            <label class="al-label" for="fund-amount">Amount (@currency)</label>
-            <input id="fund-amount" class="al-input al-input--money" type="number" min="0" step="1000"
+            <div class="funding__amount-head">
+                <label class="al-label" for="fund-amount">Amount</label>
+                <div class="funding__ccy" role="group" aria-label="Currency sent in">
+                    @foreach (var option in CurrencyOptions)
+                    {
+                        <button type="button"
+                                class="funding__ccy-opt @(option == sentCurrency ? "is-active" : "")"
+                                aria-pressed="@(option == sentCurrency)"
+                                @onclick="() => SetCurrency(option)">
+                            @option
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <input id="fund-amount" class="al-input al-input--money" type="number" min="0" step="@AmountStep"
                    placeholder="0"
-                   @bind="model.Amount" @bind:event="oninput" />
-            @if (model.Amount > 0)
+                   @bind="sentAmount" @bind:event="oninput" />
+
+            @if (IsConverting)
             {
-                <span class="al-field__hint">@Fmt.Money(model.Amount, currency)</span>
+                <div class="funding__rate">
+                    <label class="al-label" for="fund-rate">Rate — 1 @sentCurrency buys</label>
+                    <div class="funding__rate-row">
+                        <input id="fund-rate" class="al-input al-input--money" type="number" min="0" step="0.01"
+                               placeholder="0"
+                               @bind="exchangeRate" @bind:event="oninput" />
+                        <span class="funding__rate-ccy">@currency</span>
+                    </div>
+                </div>
+            }
+
+            @if (ConvertedAmount > 0)
+            {
+                <span class="al-field__hint">
+                    @if (IsConverting)
+                    {
+                        <text>
+                            @Fmt.Money(sentAmount, sentCurrency) sent
+                            → <strong>@Fmt.Money(ConvertedAmount, currency)</strong> against this stage.
+                            Both figures stay on the record.
+                        </text>
+                    }
+                    else
+                    {
+                        <text>@Fmt.Money(ConvertedAmount, currency)</text>
+                    }
+                </span>
+            }
+            else if (IsConverting && sentAmount > 0)
+            {
+                <span class="al-field__hint funding__hint--warn">
+                    Add the rate you got and this becomes a @currency figure the other side can confirm.
+                </span>
             }
         </div>
 
@@ -77,6 +125,39 @@
             <span class="al-field__hint">
                 A line here is what stops the next reconciliation turning into "too many stages combined".
             </span>
+        </div>
+
+        @* Optional, and it stays optional — a required receipt would stop the
+           release being recorded at all. When there is one it is shown to the
+           delivery side while they decide, which is when it settles the
+           question rather than after. *@
+        <div class="al-field">
+            <label class="al-label">Transaction evidence <span class="funding__optional">optional</span></label>
+
+            @if (evidence is null)
+            {
+                <label class="funding__attach">
+                    <InputFile OnChange="OnEvidenceSelected" accept="image/*,application/pdf" class="al-sr-only" />
+                    <Icon Name="upload" Size="16" />
+                    <span>Attach the transfer slip</span>
+                </label>
+                <span class="al-field__hint">
+                    A screenshot or slip. The other side sees it while they confirm what landed.
+                </span>
+            }
+            else
+            {
+                <div class="funding__attached">
+                    <Icon Name="document" Size="16" />
+                    <span class="funding__attached-name al-truncate">@evidence.Name</span>
+                    <button type="button" class="al-btn al-btn--link" @onclick="ClearEvidence">Remove</button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(evidenceError))
+            {
+                <span class="al-field__hint funding__hint--warn">@evidenceError</span>
+            }
         </div>
 
         @if (!string.IsNullOrEmpty(errorMessage))
@@ -115,7 +196,59 @@
     private bool saving;
     private string? errorMessage;
 
+    // What the funder typed, and in what. Kept apart from model.Amount so the
+    // conversion is applied once at submit and the typed figure is never
+    // silently overwritten while they are still editing the rate.
+    private decimal sentAmount;
+    private string sentCurrency = "UGX";
+    private decimal exchangeRate;
+
+    private IBrowserFile? evidence;
+    private string? evidenceError;
+
+    private const long MaxEvidenceBytes = 8 * 1024 * 1024;
+
+    private string[] CurrencyOptions => new[] { currency, "USD" }.Distinct().ToArray();
+
+    private bool IsConverting => !string.Equals(sentCurrency, currency, StringComparison.OrdinalIgnoreCase);
+
+    private string AmountStep => IsConverting ? "1" : "1000";
+
+    /// <summary>What this release is worth in the project's currency — the figure the ledger keeps.</summary>
+    private decimal ConvertedAmount => IsConverting
+        ? (exchangeRate > 0 ? decimal.Round(sentAmount * exchangeRate, 2, MidpointRounding.AwayFromZero) : 0m)
+        : sentAmount;
+
+    private bool CanSubmit => sentAmount > 0 && ConvertedAmount > 0 && !saving;
+
     private StageDto? SelectedStage => stages.FirstOrDefault(s => s.Id == model.StageId);
+
+    private void SetCurrency(string next)
+    {
+        sentCurrency = next;
+        if (!IsConverting) exchangeRate = 0m;
+    }
+
+    private async Task OnEvidenceSelected(InputFileChangeEventArgs e)
+    {
+        evidenceError = null;
+        var file = e.File;
+
+        if (file.Size > MaxEvidenceBytes)
+        {
+            evidenceError = "That file is over 8 MB. A screenshot of the slip is enough.";
+            return;
+        }
+
+        evidence = file;
+        await Task.CompletedTask;
+    }
+
+    private void ClearEvidence()
+    {
+        evidence = null;
+        evidenceError = null;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,11 +279,44 @@
 
     /// <summary>What has already gone out against a stage. Shown while typing so a double release is visible before it is made.</summary>
     private decimal ReleasedOn(string stageId)
-        => existing.Where(f => f.StageId == stageId && f.Status != FundingStatus.Rejected).Sum(f => f.Amount);
+        => existing.Where(f => f.StageId == stageId && f.Status != FundingStatus.Rejected).Sum(f => f.SettledAmount);
+
+    /// <summary>
+    /// Store the slip once in the artifact store and carry its id. Files are
+    /// hash-matched there, so re-attaching the same screenshot does not make a
+    /// second copy (CLAUDE.md §1).
+    /// </summary>
+    private async Task<bool> AttachEvidenceAsync()
+    {
+        try
+        {
+            await using var stream = evidence!.OpenReadStream(MaxEvidenceBytes);
+            var part = new Refit.StreamPart(stream, evidence.Name, evidence.ContentType);
+
+            var upload = await _artifactsApi.Upload(part, ProjectId);
+
+            if (!upload.IsSuccessStatusCode || upload.Content is null)
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(upload)
+                    ?? "That attachment could not be stored. Remove it and the release will still record.";
+                return false;
+            }
+
+            model.EvidenceArtifactId = upload.Content.Id;
+            model.EvidenceFileName = evidence.Name;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not store transfer evidence on {ProjectId}", ProjectId);
+            errorMessage = "That attachment could not be stored. Remove it and the release will still record.";
+            return false;
+        }
+    }
 
     private async Task SubmitAsync()
     {
-        if (saving || model.Amount <= 0) return;
+        if (!CanSubmit) return;
 
         saving = true;
         errorMessage = null;
@@ -161,11 +327,20 @@
             model.PaymentDate = DateTime.SpecifyKind(paymentDate, DateTimeKind.Utc);
             if (string.IsNullOrEmpty(model.StageId)) model.StageId = null;
 
+            // The server converts too, from the same two numbers. Sending the
+            // typed figure and the rate rather than the product keeps the
+            // arithmetic in one place and the original figure on the record.
+            model.Amount = sentAmount;
+            model.Currency = sentCurrency;
+            model.ExchangeRate = IsConverting ? exchangeRate : null;
+
+            if (evidence is not null && !await AttachEvidenceAsync()) return;
+
             var response = await _fundingApi.AddFundingEntry(model);
 
             if (response.IsSuccessStatusCode)
             {
-                ToastService.ShowSuccess($"{Fmt.Money(model.Amount, currency)} recorded. It shows as awaiting confirmation until the other side acknowledges it.");
+                ToastService.ShowSuccess($"{Fmt.Money(ConvertedAmount, currency)} recorded. It shows as awaiting confirmation until the other side says what landed.");
                 Nav.NavigateTo($"/project/{ProjectId}/money");
                 return;
             }

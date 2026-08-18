@@ -35,6 +35,16 @@ public interface IProjectAccessService
     /// <inheritdoc cref="ResolveAsync(string?, string?, CancellationToken)"/>
     Task<ProjectAccess> ResolveAsync(tbl_Project? project, string? userId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Resolve standing on many projects in one membership query, keyed by
+    /// project id. For the dashboard, which renders every project the reader can
+    /// see and needs each one's standing to decide what the card and its context
+    /// menu may offer — resolving them one at a time is a query per tile.
+    /// <para>Each project must carry its <c>ParentProject</c>, as for the single-project overload.</para>
+    /// </summary>
+    Task<IReadOnlyDictionary<string, ProjectAccess>> ResolveManyAsync(
+        IEnumerable<tbl_Project> projects, string? userId, CancellationToken ct = default);
+
     /// <summary>Resolve the caller's level in a project by id. One query.</summary>
     Task<ProjectAccessLevel> GetAccessAsync(string? projectId, string? userId, CancellationToken ct = default);
 
@@ -60,4 +70,22 @@ public interface IProjectAccessService
     /// every exposure decision — see <c>ArtifactDAL.SetRefChannel</c>.
     /// </summary>
     Task<bool> CanExposeToClientAsync(tbl_Project? project, string? userId, CancellationToken ct = default);
+}
+
+/// <summary>
+/// The stage a newly created thing belongs to when the reader did not choose one.
+/// <para>
+/// Nothing on a project floats (CLAUDE.md §1). Asking "which stage?" on every
+/// capture is the tax that drives people back to the chat, so the answer is
+/// filled in and stays changeable.
+/// </para>
+/// </summary>
+public interface IActiveStageService
+{
+    /// <summary>
+    /// <paramref name="preferredStageId"/> when it is real and on this project,
+    /// otherwise the project's active stage. Null only when the project has no
+    /// stages at all.
+    /// </summary>
+    Task<string?> ResolveAsync(string? projectId, string? preferredStageId, CancellationToken ct = default);
 }

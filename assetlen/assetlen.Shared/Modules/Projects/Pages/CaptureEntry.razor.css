@@ -1,4 +1,7 @@
 .capture {
+    /* Keeps the comfortable measure the standalone page had, now that the
+       form renders inside the full-width project frame. */
+    max-width: var(--al-reading-max);
     display: flex;
     flex-direction: column;
     gap: var(--al-space-5);

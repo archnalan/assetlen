@@ -37,4 +37,23 @@ public sealed record ProjectPageContext(ProjectDto Project, ProjectAccessDto? Ac
 
     /// <summary>The exposure gate — mediator, owner or manager.</summary>
     public bool CanExposeToClient => Access?.CanExposeToClient == true;
+
+    // ─── Seat depth ──────────────────────────────────────────────
+    // A side says which party you answer to; a seat says how much of the
+    // engagement is yours. The bench the contractor staffs — fabricator,
+    // photographer, foreman — reports on its own work and no more
+    // (assetlen.md §10.1).
+
+    /// <summary>A decision-maker for one of the two parties, as opposed to a trade brought on for one job.</summary>
+    public bool IsPrincipal => Access?.Seat == ProjectSeat.Principal;
+
+    public bool CanSeeMoney => Access?.CanSeeMoney == true;
+    public bool CanSeeBrief => Access?.CanSeeBrief == true;
+    public bool CanSeeDocuments => Access?.CanSeeDocuments == true;
+    public bool CanSeeHistory => Access?.CanSeeHistory == true;
+    public bool CanCapture => Access?.CanCapture == true;
+    public bool CanSeeRegister => Access?.CanSeeRegister == true;
+
+    /// <summary>Whose day starts at the camera. Changes where the project opens, not what they may do.</summary>
+    public bool LandsOnCapture => Access?.LandsOnCapture == true;
 }

@@ -1,6 +1,6 @@
 # ASSETLEN — Design & Engineering Charter
 
-**Status (2026-08-13):** P0, P1, P2 and P3 done — `bash tools/e2e-all.sh` runs the whole chain at 116 assertions, 0 failures. **Peter — the developer — is the buyer** (assetlen.md §0); the phase plan was reordered around that. P4 next. See [plan.md](plan.md).
+**Status (2026-08-18):** P0, P1, P2 and P3 done; the seat model, the funding back-and-forth and the staging spine landed ahead of the rest of P4. `bash tools/e2e-all.sh https://localhost:7264/api` runs the whole chain at **186 assertions, 0 failures**. **Peter — the developer — is the buyer** (assetlen.md §0); the phase plan was reordered around that. P4 next. See [plan.md](plan.md).
 
 > **Precedence.** [assetlen.md](assetlen.md) is the product truth, with [Peter.md](Peter.md), [Nalan.md](Nalan.md) and [Dinah.md](Dinah.md) as the user truth, all three grounded in [whatsapp-evidence.md](whatsapp-evidence.md) — a real 1,529-message project thread. **This file is the engineering charter** — aesthetic, CSS, folder layout, multi-tenancy — and **defers to assetlen.md wherever they disagree.** Read assetlen.md first, then this file, then plan.md.
 >
@@ -76,6 +76,8 @@ Warm-neutral graphite + a single bold terracotta accent + a structural blueprint
 | `--al-danger` | `#b54545` | `#d46060` | Overdue, destructive. |
 
 **Rule:** Never hard-code a color in a `.razor.css` file. Always go through a token.
+
+**Stage phase accents** — `--al-stage-0` … `--al-stage-9`, one per `StageGroup`. Muted on purpose: nine saturated colours would be a different product. Applied by putting `.al-stage--n` on an ancestor, which sets `--al-stage-accent`; everything downstream reads that one variable, so a chip, a rule and a search result are unmistakably the same phase without any of them knowing which phase it is. Use as a hairline, a dot or an 8% tint only. See app.css §26 and §5.5 below.
 
 ### 2.2 Typography
 
@@ -267,6 +269,27 @@ A user has access to a project if they are its owner, its manager, or an **activ
 - Resolve once via `IProjectAccessService.ResolveAsync` → `ProjectAccess { Level, Side, IsMediator }`. Use `CanSeeSiteLog` and `CanExposeToClient`; do not re-derive them.
 
 **Roles collapse 6 → 4** — developer, representative, mediator, delivery — per assetlen.md §8. The six-role enum survives for now because collapsing it touches every controller, but **do not add a fifth concept**, and do not let a role check substitute for the membership check.
+
+#### Seats — how deep a membership reaches (2026-08-18)
+
+A **side** says which party you answer to. A **seat** says how much of the engagement is yours to see. `ProjectSeat { Principal, Support }` is **derived** from `Specialization` by `ProjectSeatDefaults`, not stored — an existing roster classifies itself and no migration was needed.
+
+Both principals' decision-makers hold the whole picture. The bench the contractor staffs — fabricator, photographer, foreman — was brought on for one job and reports on it; the money, the drawing register and the raw thread are not part of that job (assetlen.md §10.1). Peter never asked to meet the aluminium fabricator.
+
+- Every capability lives on `ProjectAccess` and is mirrored to the client on `ProjectAccessDto` — `CanSeeMoney`, `CanSeeBrief`, `CanSeeDocuments`, `CanSeeHistory`, `CanCapture`, `CanSeeRegister`, `LandsOnCapture`. **Derive nothing a second time in a component.**
+- **Money is assignable per project.** `tbl_ProjectMember.HandlesMoney` is nullable: null follows the seat, `true` puts someone on the releases for this project alone. A tenant-level "can see financials" flag cannot tell one project from another and must never be used for this.
+- **Reading the money is not moving it.** `FundingEntryDto.CanConfirm` / `CanSettle` are stamped by the server per release; the endpoints enforce the same rule. Never infer either from `CanWrite`.
+- A tab a seat has no business in is **absent, not present-and-refused**, and the refusal page says nothing about what is behind it. A seat is defined by what someone was invited for, not by a list of what they were kept out of.
+
+#### Staging — the spine everything hangs off (2026-08-18)
+
+`tbl_Stage` carries `ParentStageId` (**one level only**, as with sub-projects), `CatalogueKey` and `Phase`.
+
+- **`StageCatalogue`** (in `assetlen.Shared.Models`) is a code-held reference list of the known stages of construction, grouped into nine `StageGroup` phases. It is not a table: it is identical for every tenant, and a stage a reader uses is copied onto their project as an ordinary row. Reachable from the foot of **every** stage dropdown, not only at project creation.
+- **Deduplication** is on `CatalogueKey`: the catalogue greys out what the project already has, and the server answers 409 for anything that arrives another way.
+- **`StageGroup.Custom = 0` deliberately.** A column added to a table of existing stages defaults to 0, and an unset phase must read as "nobody has said" rather than silently claiming every stage is preliminaries. Do not renumber this enum.
+- **`IActiveStageService`** fills in the stage on anything created without one — capture, question, release. Nothing floats (§1), but asking "which stage?" on every capture is the tax that sends people back to the chat. An explicitly named stage always wins.
+- **Phase accents** are `--al-stage-0` … `--al-stage-9`, carried through `--al-stage-accent` by the `.al-stage--n` class. Use them as a hairline, a dot or an 8% tint — **never a filled block, never coloured body text**. They exist so the same activity in different phases reads apart; the paper stays the hero (§2).
 
 #### Module access matrix
 

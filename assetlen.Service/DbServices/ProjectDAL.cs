@@ -769,6 +769,8 @@ public class ProjectDAL : IProjectDAL
                         BudgetAmount = stageDto.BudgetAmount,
                         StartDate = stageDto.StartDate,
                         ExpectedEndDate = stageDto.ExpectedEndDate,
+                        BaselineStartDate = stageDto.StartDate,
+                        BaselineEndDate = stageDto.ExpectedEndDate,
                         DisplayOrder = stageDto.DisplayOrder > 0 ? stageDto.DisplayOrder : order++,
                         Status = StageStatus.NotStarted
                     };
@@ -1049,6 +1051,15 @@ public class ProjectDAL : IProjectDAL
         var budgets = await _context.tbl_BudgetLineItems.IgnoreQueryFilters().Where(b => ids.Contains(b.ProjectId!)).ToListAsync();
         var subs = await _context.tbl_ProjectSubscriptions.IgnoreQueryFilters().Where(s => ids.Contains(s.ProjectId!)).ToListAsync();
         var prefs = await _context.tbl_ProjectPreferences.IgnoreQueryFilters().Where(p => ids.Contains(p.ProjectId!)).ToListAsync();
+        var deliverables = await _context.tbl_Deliverables.IgnoreQueryFilters().Where(d => ids.Contains(d.ProjectId!)).ToListAsync();
+        var commitments = await _context.tbl_Commitments.IgnoreQueryFilters().Where(c => ids.Contains(c.ProjectId!)).ToListAsync();
+        var links = await _context.tbl_CommitmentLinks.IgnoreQueryFilters().Where(l => ids.Contains(l.ProjectId!)).ToListAsync();
+        var variations = await _context.tbl_Variations.IgnoreQueryFilters().Where(v => ids.Contains(v.ProjectId!)).ToListAsync();
+        var claims = await _context.tbl_StageClaims.IgnoreQueryFilters().Where(c => ids.Contains(c.ProjectId!)).ToListAsync();
+        var proposals = await _context.tbl_ExtractionProposals.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
+        var runs = await _context.tbl_ExtractionRuns.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
+        var readings = await _context.tbl_ProgressReadings.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
+        var bindings = await _context.tbl_MediaBindings.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
 
         var updateIds = updates.Select(u => u.Id).ToList();
         var images = await _context.tbl_ProgressImages
@@ -1058,7 +1069,9 @@ public class ProjectDAL : IProjectDAL
 
         foreach (var e in stages.Cast<IBaseEntity>()
             .Concat(funding).Concat(updates).Concat(images).Concat(flags)
-            .Concat(members).Concat(budgets).Concat(subs).Concat(prefs))
+            .Concat(members).Concat(budgets).Concat(subs).Concat(prefs)
+            .Concat(deliverables).Concat(commitments).Concat(links).Concat(variations).Concat(claims)
+            .Concat(proposals).Concat(runs).Concat(readings).Concat(bindings))
         {
             e.IsDeleted = true;
         }

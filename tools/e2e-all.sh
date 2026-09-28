@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # ASSETLEN — the whole chain: P0 + P1 + P2 + P3, the arrangement and the bin,
-# and P5 money and staging.
+# P5 money and staging, the P4 commitment register and stage ledger, P5
+# extraction — the forwarded pile read into a register — and P6 retrieval.
 #
-# Four suites, run in order, one exit code. They are kept separate because they
+# Seven suites, run in order, one exit code. They are kept separate because they
 # answer different questions — e2e-p2-peter.sh asks whether the project belongs
 # to the person who funds it, e2e-p3-ingest.sh asks whether he can get his year
 # of history into it, e2e-p4-arrange.sh asks whether his screen is his own and
-# whether deleting destroys the record — but a phase is only done when all of
-# them are green together.
+# whether deleting destroys the record, e2e-p4-commitments.sh asks whether he
+# can hold a past commitment against present reality, e2e-p5-extraction.sh
+# asks whether his pile becomes that register with nobody else lifting a finger,
+# e2e-p6-search.sh asks whether he can find any of it again in one search — a
+# receipt that only ever existed as a photo included — but a phase is only
+# done when all of them are green together.
 #
 # Usage:  bash tools/e2e-all.sh [api-base] [tenant-admin-email] [password]
 # Needs:  the API running, and pwsh for the P3 fixtures. Run from the repo root.
@@ -49,6 +54,9 @@ run "P0 + P1 + P2 — ownership, sides, the artifact store" tools/e2e-p2-peter.s
 run "P3 — ingest, the front door"                         tools/e2e-p3-ingest.sh
 run "The reader's own screen, and the bin"                tools/e2e-p4-arrange.sh
 run "P5 — the funding back-and-forth, and staging"        tools/e2e-p5-money-and-staging.sh
+run "P4 — the commitment model and the money ledger"     tools/e2e-p4-commitments.sh
+run "P5 — extraction: pile into register"                 tools/e2e-p5-extraction.sh
+run "P6 — retrieval, Peter's four searches"              tools/e2e-p6-search.sh
 
 printf "\n%s══ Whole chain %s\n" "$c_head" "$c_off"
 if [ "$FAILED" -eq 0 ]; then

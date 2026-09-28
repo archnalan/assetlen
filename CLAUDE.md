@@ -1,6 +1,6 @@
 # ASSETLEN — Design & Engineering Charter
 
-**Status (2026-08-18):** P0, P1, P2 and P3 done; the seat model, the funding back-and-forth and the staging spine landed ahead of the rest of P4. `bash tools/e2e-all.sh https://localhost:7264/api` runs the whole chain at **186 assertions, 0 failures**. **Peter — the developer — is the buyer** (assetlen.md §0); the phase plan was reordered around that. P4 next. See [plan.md](plan.md).
+**Status (2026-09-29):** P0–P3 done; **P4 built** (its §11 test 1 is Peter's to answer); **P5 built** — extraction reads the ingested thread into a review queue (money, materials, dates incl. "tomorrow / by Tuesday / this week", decisions, blockers; acknowledgements yield nothing), cleared in bulk with the accept rate instrumented per rule; summary-post percentages become progress readings; every new file is OCR'd on a Hangfire queue; loose footage re-joins its `<Media omitted>` lines by filename stamp. Measured on the real export (outside the repo): 15/16 on the retaining-wall list, but held-out recall is 25–60 % — see plan.md P5. **P6 built** — one search (`/search`, `SearchController`) across commitments, OCR text, the imported thread, files, the Site Diary and stages, grouped by object with a provenance strip on every result and each source filtered by its own surface's rule; a receipt that exists only as a photo inside an export is found by its vendor's name. SQL Server Full-Text is not installed on the dev instance, so matching is substring with in-memory ranking. `bash tools/e2e-all.sh https://localhost:7264/api` runs the whole chain at **457 assertions, 0 failures**. **Peter — the developer — is the buyer** (assetlen.md §0). P7 next. See [plan.md](plan.md).
 
 > **Precedence.** [assetlen.md](assetlen.md) is the product truth, with [Peter.md](Peter.md), [Nalan.md](Nalan.md) and [Dinah.md](Dinah.md) as the user truth, all three grounded in [whatsapp-evidence.md](whatsapp-evidence.md) — a real 1,529-message project thread. **This file is the engineering charter** — aesthetic, CSS, folder layout, multi-tenancy — and **defers to assetlen.md wherever they disagree.** Read assetlen.md first, then this file, then plan.md.
 >
@@ -15,7 +15,7 @@
 - **Never run `git commit` or `git push`.** The user commits manually. You may stage with `git add` only when the user explicitly asks; otherwise leave the working tree dirty after a change and let the user inspect the diff. This applies even when "the phase is done" or "the build is green" — the call to commit is the user's.
 - Update [plan.md](plan.md) when a phase completes, but **leave it unstaged** along with everything else. The user will batch all changes into a single commit on their side.
 - Verify CSS reachability in the browser DevTools after touching anything under `wwwroot/` or any `.razor.css` (see §4.1). A green `dotnet build` does not prove the styles loaded.
-- **Kill the API and the client dev server once you are done running the app.** A live `assetlen.API` holds `assetlen.Service.dll` and `assetlen.SqlServer.dll` open, so the next `dotnet build` fails with `MSB3027` / `MSB3021` copy errors that read like a code problem and are not. `dotnet run` spawns `assetlen.API.exe`, which **outlives the shell that launched it** — stopping the task is not enough, and neither is killing `dotnet`. Kill the port owners: `(Get-NetTCPConnection -LocalPort 7264,7025 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force }`. Leave nothing listening behind at the end of a session.
+- **Kill the API and the client dev server once you are done running the app.** A live `assetlen.API` holds `assetlen.Service.dll` and `assetlen.SqlServer.dll` open, so the next `dotnet build` fails with `MSB3027` / `MSB3021` copy errors that read like a code problem and are not. `dotnet run` spawns `assetlen.API.exe`, which **outlives the shell that launched it** — stopping the task is not enough, and neither is killing `dotnet`. Kill the port owners: `(Get-NetTCPConnection -LocalPort 7264,7025 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force }`. Leave nothing listening behind at the end of a session. **`pwsh tools/start-dev.ps1`** (add `-ApiOnly` for e2e) builds once and brings the app up on the right profiles; **`pwsh tools/stop-dev.ps1`** stops it and shuts down the CLI build servers (`-KeepIde` spares the IDEs' nodes). `Directory.Build.rsp` turns off MSBuild node reuse, so builds no longer leave idle worker processes behind.
 
 ---
 
@@ -37,6 +37,7 @@ Use these terms everywhere — UI copy, file names, type names, route segments.
 | Markup on an artifact | **Annotation** | A versioned, attributed *layer* on the original. Never a new image. |
 | Nalan's full record | **Site Diary** | Complete, unsanitised, internal. The clerk posts here without judgement. The clerk-of-works daybook is what this already is on a real site, and it is the document that gets pulled in a dispute. |
 | Peter's daily page | **Client Brief** | One page per day, **grouped by deliverable, not by time**. Auto-drafted, publishes at the cutoff regardless. |
+| Point-in-time account of a project | **Works Report** | What is and what is scheduled — stage board, schedule, decisions, blockers, money, footage. **Issued and frozen**, unlike the Client Brief. See [works-report.md](works-report.md). |
 | Non-curatable facts | **Truth floor** | Money, dates, agreed specs, blockers and decisions Peter owes reach Peter regardless of curation. |
 | The two channels | **Client channel** / **Crew channel** | Nalan controls emphasis, not truth. |
 
@@ -189,7 +190,7 @@ assetlen/assetlen.Shared/
 
 **Promotion rule:** A component lives in its owning module until **two** modules need it. Then it moves up to `Components/`. Don't pre-promote.
 
-**Module map vs. the vision.** The tree above predates the assetlen.md rewrite. `Lookbook/` is retired — do not build into it. `Journal/` becomes the **Site Diary**, and gains siblings `Ingest/` (the front door — **landed in P3**), `Commitments/` (the one object, P4), `Documents/` (the drawing register — landed in P2) and `Brief/` (the Client Brief, P7). Rename as each phase lands rather than in one sweep.
+**Module map vs. the vision.** The tree above predates the assetlen.md rewrite. `Lookbook/` is retired — do not build into it. `Journal/` becomes the **Site Diary**, and gains siblings `Ingest/` (the front door — **landed in P3**), `Commitments/` (the one object — **landed in P4**), `Extraction/` (the review queue — **landed in P5**), `Documents/` (the drawing register — landed in P2) and `Brief/` (the Client Brief, P7). Rename as each phase lands rather than in one sweep.
 
 **Ingest is raw and stays raw.** `tbl_IngestedMessage` is written once by the importer and read by extraction (P5) and search (P6). Nothing edits it — the corpus contains fourteen edits and ten deletions, and a typo inverted a design verdict for nine hours ([whatsapp-evidence.md](whatsapp-evidence.md) F6). Do not build a nicer reader for it either: the pile is the problem, and the readable surface is the Client Brief in P7.
 
@@ -207,6 +208,15 @@ assetlen/assetlen.Shared/
 - A User belongs to **exactly one Tenant**. Cross-tenant access doesn't exist (except system-admin ops, which are not user-facing).
 - **Clients are a role inside the Contractor's Tenant** — not their own tenant. They see only projects they're explicitly invited to, filtered further by the `ClientVisible` flag.
 - Domain: `Tenant`, `User`, `Project { TenantId, ParentProjectId?, ... }` (one-level sub-project nesting via self-ref), `tbl_ProjectMember { ProjectId, UserId, Role }` (per-project specialization — Phase 1.2). Tenant-level roles in `UserRoles` enum (6 roles — see §5.5).
+
+### 5.1.1 Database — PostgreSQL is the target (decided 2026-09-29)
+
+ASSETLEN moves from SQL Server to **PostgreSQL** (Npgsql EF Core provider, Hangfire.PostgreSql). The switch lands as its own phase once the P7–P9 rollout finishes; until then the dev database is still SQL Server, and **everything written from now on must run unchanged on both**:
+
+- No new raw SQL. No `FromSqlRaw` / `ExecuteSqlRaw` / `SqlQueryRaw` with T-SQL, no `NEWID()`, `GETUTCDATE()`, `SERVERPROPERTY`, `[brackets]`, `TOP`, `OUTPUT`, `datetime2` / `nvarchar` column types, `SqlConnection` / `SqlException`. Use LINQ; if raw SQL is truly unavoidable, isolate it behind one method and say so in plan.md.
+- **Case-insensitivity is not free on Postgres.** SQL Server's default collation hides it; Postgres compares case-sensitively. Normalise explicitly (`ToLower()` on both sides, or a stored normalised column) for search, emails, names and keys.
+- **Dates are UTC.** Npgsql rejects a `DateTime` of `Kind.Local`/`Unspecified` for `timestamptz`. Write `DateTime.UtcNow`, never `DateTime.Now`, into anything persisted.
+- Search: keep the substring fallback provider-neutral; the Postgres phase replaces it with `tsvector` + `pg_trgm`, which also gives the fuzzy matching OCR misreads need.
 
 ### 5.2 Media — hybrid storage
 

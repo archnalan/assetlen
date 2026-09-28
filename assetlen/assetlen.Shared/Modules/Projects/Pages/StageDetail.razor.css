@@ -20,3 +20,10 @@
 }
 
 .stage__stats { margin-top: var(--al-space-5); }
+
+.stage__slip {
+    margin-left: var(--al-space-1);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-warning);
+    font-variant-numeric: tabular-nums;
+}

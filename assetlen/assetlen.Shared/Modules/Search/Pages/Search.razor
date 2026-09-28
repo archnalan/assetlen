@@ -1,0 +1,352 @@
+@page "/search"
+@attribute [Authorize]
+@implements IDisposable
+@inject ShellState Shell
+@inject ILogger<Search> Logger
+
+@*
+    Peter's four searches — the promise document, the photo that proves a
+    promise, the material agreed, the sketch-and-ask — are one act: holding a
+    past commitment up against present reality (assetlen.md §2). So one box,
+    one question, and the answer comes back grouped by what each thing is,
+    commitments first, never as a message list: a message list is the pile he
+    already has and cannot read.
+
+    The server decides what each reader may see on each project. This page
+    renders it, and says where it could not look.
+*@
+
+<PageTitle>Search — ASSETLEN</PageTitle>
+
+<div class="al-page">
+
+    <TitleBlock Eyebrow="Across your projects"
+                Title="Search"
+                Subtitle="What did I approve on the balustrade? Ask it the way you would say it." />
+
+    <form class="search__bar" role="search" @onsubmit="SubmitNow" @onsubmit:preventDefault>
+        <div class="al-inputwrap search__input">
+            <Icon Name="search" Size="16" />
+            <input class="al-input" type="search" autofocus
+                   aria-label="Search"
+                   placeholder="Balustrade, a supplier's name, CEM II, the receipt…"
+                   value="@term"
+                   @oninput="OnTermChanged" />
+        </div>
+
+        @if (projectChoices.Count > 1)
+        {
+            <select class="al-select search__scope-select" aria-label="Which projects"
+                    value="@(ProjectParam ?? "")" @onchange="OnScopeChanged">
+                <option value="">All projects</option>
+                @foreach (var p in projectChoices)
+                {
+                    <option value="@p.Id">@p.Label</option>
+                }
+            </select>
+        }
+
+        <button type="submit" class="al-btn al-btn--primary" disabled="@(phase == LoadPhase.Loading || term.Trim().Length < 2)">
+            @if (phase == LoadPhase.Loading)
+            {
+                <span class="al-spinner"></span>
+            }
+            Search
+        </button>
+    </form>
+
+    @if (string.IsNullOrWhiteSpace(Q))
+    {
+        <div class="al-empty">
+            <Icon Name="search" Size="40" Class="al-empty__icon" Weight="1.25" />
+            <h3 class="al-empty__title">Type what you remember</h3>
+            <p class="al-empty__body">
+                A word from the spec, a supplier's name off a receipt, the stage it was on. Photos of
+                receipts are read for their text, so a vendor's name finds the picture it was printed on.
+            </p>
+            <div class="search__examples">
+                @foreach (var example in Examples)
+                {
+                    <button type="button" class="al-chip search__example" @onclick="() => Ask(example)">@example</button>
+                }
+            </div>
+        </div>
+    }
+    else if (phase == LoadPhase.Loading && result is null)
+    {
+        <div class="search__ghosts" aria-hidden="true">
+            <div class="al-shimmer al-ghost-line al-ghost-line--short"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+        </div>
+    }
+    else if (phase == LoadPhase.Error)
+    {
+        <div class="al-alert al-alert--error" role="alert">
+            <Icon Name="error" Size="18" />
+            <div class="search__error">
+                <strong class="al-alert__title">The search did not complete</strong>
+                <span>@(errorMessage ?? "The server didn't answer. Nothing has been changed.")</span>
+                <button type="button" class="al-btn al-btn--default al-btn--sm" @onclick="RunAsync">
+                    <Icon Name="refresh" Size="14" /> Try again
+                </button>
+            </div>
+        </div>
+    }
+    else if (result is not null)
+    {
+        <p class="search__summary @(phase == LoadPhase.Loading ? "is-stale" : "")" aria-live="polite">
+            @if (result.Terms.Count > 0)
+            {
+                <span>Looked for</span>
+                @foreach (var t in result.Terms)
+                {
+                    <strong class="search__term">@t</strong>
+                }
+            }
+            <span>in @result.ProjectsSearched @(result.ProjectsSearched == 1 ? "project" : "projects")</span>
+            @if (result.SetAside.Count > 0)
+            {
+                <span class="search__aside">· set aside “@string.Join(" ", result.SetAside)”</span>
+            }
+        </p>
+
+        @if (result.TotalHits == 0)
+        {
+            <div class="al-empty">
+                <Icon Name="search" Size="40" Class="al-empty__icon" Weight="1.25" />
+                <h3 class="al-empty__title">Nothing matched “@result.Query”</h3>
+                <p class="al-empty__body">
+                    Try one word instead of a phrase, or a supplier's name. Commitments, the imported thread,
+                    the text read from photos and files, the Site Diary and stages were all searched.
+                </p>
+            </div>
+        }
+        else
+        {
+            <nav class="search__jump" aria-label="Kinds of result">
+                @foreach (var g in result.Groups)
+                {
+                    <a class="search__jump-item" href="@($"search?q={Uri.EscapeDataString(Q ?? "")}{ScopeQuery}#g-{g.Kind}")"
+                       @onclick="() => JumpTo(g.Kind)" @onclick:preventDefault>
+                        @g.Label <span class="al-num search__jump-count">@g.Total</span>
+                    </a>
+                }
+            </nav>
+
+            @foreach (var g in result.Groups)
+            {
+                <section class="search__group" id="@($"g-{g.Kind}")">
+                    <div class="al-rule">
+                        <span class="al-label">@g.Label</span>
+                        <span class="search__count al-num">
+                            @(g.Total > g.Hits.Count ? $"{g.Hits.Count} of {g.Total}" : g.Total.ToString())
+                        </span>
+                    </div>
+                    <div class="al-sheet search__sheet">
+                        @foreach (var hit in g.Hits)
+                        {
+                            <SearchResult @key="@($"{hit.Kind}:{hit.Id}")" Hit="hit" Terms="result.Terms"
+                                          ShowProject="result.ProjectsSearched > 1" />
+                        }
+                    </div>
+                    @if (g.Total > g.Hits.Count)
+                    {
+                        <p class="search__more">
+                            @(g.Total - g.Hits.Count) more — add a word, or search one project, to narrow it.
+                        </p>
+                    }
+                </section>
+            }
+        }
+
+        <p class="search__where">
+            @WhereItLooked
+        </p>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
+    [SupplyParameterFromQuery(Name = "project")] public string? ProjectParam { get; set; }
+
+    private static readonly string[] Examples =
+    [
+        "What did I approve on the balustrade?",
+        "cement",
+        "receipt",
+        "retaining wall labour"
+    ];
+
+    private string term = "";
+    private LoadPhase phase = LoadPhase.Empty;
+    private SearchResultDto? result;
+    private string? errorMessage;
+    private string? lastKey;
+    private CancellationTokenSource? debounce;
+    private List<(string Id, string Label)> projectChoices = new();
+
+    private string ScopeQuery => string.IsNullOrEmpty(ProjectParam) ? "" : $"&project={Uri.EscapeDataString(ProjectParam)}";
+
+    protected override void OnInitialized()
+    {
+        Shell.OnChange += OnShellChanged;
+        BuildChoices();
+    }
+
+    public void Dispose()
+    {
+        Shell.OnChange -= OnShellChanged;
+        debounce?.Cancel();
+    }
+
+    private void OnShellChanged()
+    {
+        BuildChoices();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void BuildChoices() =>
+        projectChoices = Shell.Roots
+            .SelectMany(r => new[] { (r.Id, r.Name) }
+                .Concat((r.Children ?? Array.Empty<ProjectRef>()).Select(c => (c.Id, $"{r.Name} / {c.Name}"))))
+            .ToList();
+
+    /// <summary>
+    /// The query lives in the address, so a result can be shared, the back
+    /// button returns to it, and a refresh does not lose it.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{Q}|{ProjectParam}";
+        if (key == lastKey) return;
+        lastKey = key;
+        term = Q ?? "";
+
+        if (string.IsNullOrWhiteSpace(Q))
+        {
+            result = null;
+            phase = LoadPhase.Empty;
+            return;
+        }
+
+        await RunAsync();
+    }
+
+    private async Task OnTermChanged(ChangeEventArgs e)
+    {
+        term = e.Value?.ToString() ?? "";
+
+        // Debounced: a phone on a site connection should not spend the session cancelling its own requests.
+        debounce?.Cancel();
+        debounce = new CancellationTokenSource();
+        var token = debounce.Token;
+        try
+        {
+            await Task.Delay(450, token);
+            if (!token.IsCancellationRequested && term.Trim().Length >= 2) Navigate();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private void SubmitNow()
+    {
+        debounce?.Cancel();
+        if (term.Trim().Length >= 2) Navigate();
+    }
+
+    private void Ask(string example)
+    {
+        term = example;
+        Navigate();
+    }
+
+    private void OnScopeChanged(ChangeEventArgs e)
+    {
+        var project = e.Value?.ToString();
+        _nav.NavigateTo(Url(term, string.IsNullOrEmpty(project) ? null : project), replace: true);
+    }
+
+    private void Navigate() => _nav.NavigateTo(Url(term, ProjectParam), replace: true);
+
+    private static string Url(string q, string? project) =>
+        $"/search?q={Uri.EscapeDataString(q.Trim())}" + (string.IsNullOrEmpty(project) ? "" : $"&project={Uri.EscapeDataString(project)}");
+
+    private async Task RunAsync()
+    {
+        var q = Q?.Trim();
+        if (string.IsNullOrEmpty(q)) return;
+
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _searchApi.Query(q, string.IsNullOrEmpty(ProjectParam) ? null : ProjectParam);
+            if ($"{Q}|{ProjectParam}" != lastKey) return;          // a newer question has been asked
+
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                result = response.Content;
+                phase = LoadPhase.Ready;
+            }
+            else if ((int)response.StatusCode == 400)
+            {
+                // Only question words ("what did the") — nothing to look for.
+                result = new SearchResultDto { Query = q };
+                phase = LoadPhase.Ready;
+            }
+            else
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                phase = LoadPhase.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Search failed for {Term}", q);
+            errorMessage = null;
+            phase = LoadPhase.Error;
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task JumpTo(SearchHitKind kind)
+    {
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/assetlen.Shared/reveal.js");
+            await module.InvokeVoidAsync("reveal", $"g-{kind}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not jump to {Kind}", kind);
+        }
+    }
+
+    /// <summary>
+    /// A search that silently fails to look somewhere is worse than one that
+    /// says where it could not look.
+    /// </summary>
+    private string WhereItLooked
+    {
+        get
+        {
+            if (result is null) return "";
+            var parts = new List<string>
+            {
+                "Searched commitments, the imported thread, text read from photos and files, file names and captions, the Site Diary and stages — only what you can open on each project."
+            };
+            if (result.OcrEngine is null)
+                parts.Add("This server cannot read text in photos yet, so a receipt is found only by its caption or file name.");
+            else if (result.FilesAwaitingText > 0)
+                parts.Add($"{result.FilesAwaitingText} {(result.FilesAwaitingText == 1 ? "file is" : "files are")} still waiting to be read and could not be searched by content.");
+            return string.Join(" ", parts);
+        }
+    }
+}

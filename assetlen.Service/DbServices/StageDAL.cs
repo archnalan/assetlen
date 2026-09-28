@@ -26,11 +26,13 @@ public class StageDAL : IStageDAL
     {
         try
         {
-            var project = await _context.tbl_Projects_RS.FindAsync(projectId);
+            var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
+                .FirstOrDefaultAsync(p => p.Id == projectId);
             if (project == null)
                 return ServiceResult<StageDto>.Failure(new NotFoundException("Project not found"));
 
-            if (project.InvestorId != userId && project.ProjectManagerId != userId)
+            if (!await _access.CanManageAsync(project, userId))
                 return ServiceResult<StageDto>.Failure(new ForbiddenException("Access denied"));
 
             var maxOrder = await _context.tbl_Stages
@@ -83,6 +85,8 @@ public class StageDAL : IStageDAL
                 BudgetAmount = dto.BudgetAmount,
                 StartDate = dto.StartDate,
                 ExpectedEndDate = dto.ExpectedEndDate,
+                BaselineStartDate = dto.StartDate,
+                BaselineEndDate = dto.ExpectedEndDate,
                 DisplayOrder = dto.DisplayOrder > 0 ? dto.DisplayOrder : maxOrder + 1,
                 Status = StageStatus.NotStarted,
                 ParentStageId = string.IsNullOrEmpty(dto.ParentStageId) ? null : dto.ParentStageId,
@@ -111,12 +115,13 @@ public class StageDAL : IStageDAL
         {
             var stage = await _context.tbl_Stages
                 .Include(s => s.Project)
+                    .ThenInclude(p => p!.ParentProject)
                 .FirstOrDefaultAsync(s => s.Id == dto.Id);
 
             if (stage == null)
                 return ServiceResult<StageDto>.Failure(new NotFoundException("Stage not found"));
 
-            if (stage.Project?.InvestorId != userId && stage.Project?.ProjectManagerId != userId)
+            if (!await _access.CanManageAsync(stage.Project, userId))
                 return ServiceResult<StageDto>.Failure(new ForbiddenException("Access denied"));
 
             stage.StageName = dto.StageName;
@@ -124,7 +129,28 @@ public class StageDAL : IStageDAL
             stage.BudgetAmount = dto.BudgetAmount;
             stage.StartDate = dto.StartDate;
             stage.ExpectedEndDate = dto.ExpectedEndDate;
+
+            // The first dates a stage is given are the plan as agreed. Later edits
+            // move the forecast, never the baseline, so re-planning stays visible.
+            stage.BaselineStartDate ??= dto.StartDate;
+            stage.BaselineEndDate ??= dto.ExpectedEndDate;
             stage.ActualEndDate = dto.ActualEndDate;
+
+            // Progress over time is append-only (works-report.md §4.2): the stage
+            // row holds the latest figure, the reading keeps the one it replaced.
+            if (dto.CompletionPercentage is { } pct && pct != stage.CompletionPercentage)
+                _context.tbl_ProgressReadings.Add(new tbl_ProgressReading
+                {
+                    ProjectId = stage.ProjectId,
+                    TenantId = stage.TenantId,
+                    StageId = stage.Id,
+                    Subject = stage.StageName,
+                    Percent = Math.Clamp(pct, 0, 100),
+                    ObservedAt = DateTime.UtcNow,
+                    SourceKind = ProgressReadingSource.Stage,
+                    SourceId = stage.Id
+                });
+
             stage.CompletionPercentage = dto.CompletionPercentage;
             stage.DisplayOrder = dto.DisplayOrder;
             stage.Status = dto.Status;
@@ -216,6 +242,8 @@ public class StageDAL : IStageDAL
                     ParentStageId = s.ParentStageId,
                     CatalogueKey = s.CatalogueKey,
                     Phase = s.Phase,
+                    BaselineStartDate = s.BaselineStartDate,
+                    BaselineEndDate = s.BaselineEndDate,
                     FundedAmount = funded,
                     FundedPercentage = (s.BudgetAmount ?? 0) > 0
                         ? Math.Round(funded / (s.BudgetAmount ?? 1) * 100, 2) : 0,
@@ -276,6 +304,8 @@ public class StageDAL : IStageDAL
                 ParentStageId = stage.ParentStageId,
                 CatalogueKey = stage.CatalogueKey,
                 Phase = stage.Phase,
+                BaselineStartDate = stage.BaselineStartDate,
+                BaselineEndDate = stage.BaselineEndDate,
                 ActualEndDate = stage.ActualEndDate,
                 CompletionPercentage = stage.CompletionPercentage,
                 DisplayOrder = stage.DisplayOrder,

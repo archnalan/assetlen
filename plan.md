@@ -90,6 +90,9 @@ against the *real* export, which is a validation task, not a build one.
 | **P1** | Scaffold strip + migration baseline | **Done** — 18/18 from empty | Fine |
 | **P2** | Ownership, sides, artifact store | **Done** — 65/65 | — |
 | **P3** | Ingest — the front door | **Done** — 51/51 | — |
+| **P4** | Commitments, deliverables, ledger, variations | **Built** — 128/128 | Exit criterion is a human test; see P4 below |
+| **P5** | Extraction, OCR, progress readings, media re-join | **Built** — 78/78 | Measured on the real export; see P5 below |
+| **P6** | Retrieval — one search, grouped, with provenance | **Built** — 65/65 | Exit met on a synthetic export; see P6 below |
 
 P0 and P1 were both right and both invisible. The detail of what landed in each is
 preserved in git history and in the audit script; it is not repeated here because it no
@@ -106,12 +109,24 @@ must work with the contractor silent.
 |---|---|---|---|
 | P2 | Ownership, sides, and the artifact store | 1 | **Done** |
 | P3 | Ingest — the front door | 1 | **Done** |
-| P4 | Commitment model + the money ledger | 1 | Planned |
-| P5 | Extraction — pile into register | 1 | Planned |
-| P6 | Retrieval — Peter's four searches | 1 | Planned |
+| P4 | Commitment model + the money ledger | 1 | **Built** — exit awaits Peter (§11 test 1) |
+| P5 | Extraction — pile into register | 1 | **Built** — measured on the real export; real accept rate awaits Peter |
+| P6 | Retrieval — Peter's four searches | 1 | **Built** — exit met on a synthetic export; real-export run awaits Peter |
 | P7 | Peter's surfaces — home and the daily brief | 1 | Planned |
 | P8 | Markup, query state, parked ideas | 1–2 | Planned |
 | P9 | The contractor tier | 3 | Planned |
+| R | **Works Report** — track across P3–P7, slices R0–R5 ([works-report.md](works-report.md)) | 1 | R0 next; R1's media re-join, filename captions and progress readings landed with P5 |
+
+> **Added 2026-09-28.** Peter asked for *"a full works report … do you need more time and
+> how long?"* two days before his 30 Sep completion date. The report is the §8 ship test in
+> his own words, so it runs as a track through the phases rather than waiting for P7:
+> **R0** hand-build the 28 Sep report before any schema (doubles as the P4 hand test) ·
+> **R1** as-built report from existing data, media re-join, progress readings, issued
+> snapshots · **R2** schedule — baselines, date commitments, pace forecast (needs P4) ·
+> **R3** decisions, variations, blockers by owner (P4) · **R4** drafted descriptions with
+> cited sources + extraction feeds (P5) · **R5** weekly and milestone issuing.
+> Numbers never come from the drafting model; the report must issue with the contractor
+> silent and with the model switched off.
 
 ---
 
@@ -373,8 +388,8 @@ Peter's second-worst pain and the one that cost him a 9 AM meeting
 > (`--al-stage-0…9`), used as a hairline or a dot in the picker, the catalogue and
 > the search results, which is what tells plinth walling from parapet walling.
 >
-> Still open in P4: the Commitment and Deliverable tables themselves, the
-> variation register, and verbal decisions.
+> ~~Still open in P4: the Commitment and Deliverable tables themselves, the
+> variation register, and verbal decisions.~~ Landed 2026-09-28 — see below.
 
 - `tbl_Deliverable { StageId, Title, DisplayOrder, Status }` — 5–8 per funded stage.
 - `tbl_Commitment { ProjectId, DeliverableId?, Kind (Spec|Price|Date|Material|Choice), Title, Body, Maturity, QueryState, SourceChannel (App|Ingested|Verbal|Meeting), AccountableMemberId, AgreedById, AgreedWithPartyName?, AgreedAt, Amount?, Currency?, DueDate?, LeadTimeDays?, SupersedesId?, CounterpartyConfirmedAt? }`.
@@ -395,6 +410,95 @@ Peter's second-worst pain and the one that cost him a 9 AM meeting
 **Exit:** assetlen.md §11 test 1 — hand-enter the sixteen retaining-wall commitments already
 drafted in [whatsapp-evidence.md](whatsapp-evidence.md) §7, show Peter the page, and ask
 whether it saves the scrolling. **Run the hand version before writing the schema.**
+
+**Landed (2026-09-28).** Migration `20260928193443_P4_CommitmentsAndLedger`, **applied to the
+dev database**, purely additive. `CommitmentDAL` / `LedgerDAL`, `CommitmentsController` /
+`LedgerController`, the Refit clients `ICommitmentsApi` / `ILedgerApi`, and a new
+`Modules/Commitments/` (`CommitmentCard`, `CommitmentForm`, `CommitmentRegister`,
+`AccountabilityPanel`, `DeliverableChecklist`) plus `StageLedger`, `ClaimsPanel`,
+`VariationRegister` in `Modules/Finance/`.
+
+- **`tbl_Deliverable`**, **`tbl_Commitment`** (all plan fields, plus `RecordedBySide` so the
+  counterparty is computable, `OwedBySide` for decisions owed, dispute / resolution / cleared /
+  delivered / verified stamps), **`tbl_CommitmentLink`** (one row, both directions — `GetLinks`
+  returns outgoing and citing commitments, `GetBacklinks` answers "what is this photo
+  evidence for"; a link never reaches across the channel boundary or off the project),
+  **`tbl_Variation`**, and **`tbl_StageClaim`**.
+- **Restated, never overwritten.** A new date, figure or wording is a new row that
+  `SupersedesId` the old one; the register shows heads, `GetChain` shows every statement,
+  `RestatementCount` is on the card. A commitment never moves backwards in maturity.
+- **Verbal decisions.** `LogDecision` lands at Agreed, `Verbal` or `Meeting`, attributed to
+  both parties (defaulting the counterparty to the other side's principal). Only a principal
+  on the *other* side may **Confirm** or say **That's not what we said** — the server stamps
+  `CanConfirm` / `CanDispute`, never the client. A dispute is a query flag assigned back to
+  whoever wrote it down; **resolving writes into the item** — a changed figure becomes a
+  successor statement, so the questioned figure stays on record beside the agreed one.
+- **Flags folded in, not replaced.** `tbl_Flag` gains `CommitmentId`, `OwnerMemberId`,
+  `OwnerPartyName`. A flag with a commitment *is* that commitment in QueryRaised — raising
+  and resolving keep the two in step, including `ResolveProjectFlags`. A flag without one is
+  a **blocker**, grouped by whoever has to move. Every earlier flag assertion is unchanged.
+- **Accountability is a query.** `AccountableMemberId` is stamped with the mediator (the
+  parent's, for a sub-project); `GetAccountability` is a group-by by maturity, open queries,
+  unconfirmed and overdue, with blockers by owner beside it.
+- **The ledger.** Per stage, computed from rows, never stored: funded (acknowledged releases
+  at what landed) → claimed → cleared → carried forward. Only a **closed** stage carries its
+  balance to the next ("issue a receipt and carry the balance towards the next stage"); an
+  open one holds it in hand. Cleared beyond funding shows as negative, not hidden. The plan's
+  `tbl_Stage.FundedAmount / FundedAt` columns were **not** added: funding already lives in
+  `tbl_FundingEntry` with its back-and-forth, and a second stored total would drift from it.
+  Claims and extras are decided by the **funder** (client side, money seat) — the side
+  claiming or proposing never approves its own. Every variation is also a commitment; an
+  uncosted one is a visible gap, never a zero.
+- **Works-report fields (works-report.md §4.2):** `tbl_Stage.BaselineStartDate/EndDate`, set
+  once when a stage first gets dates (create, project-create, or first update) and never
+  moved; the migration backfills existing stages from their current dates — honest best
+  available, re-planning before today is invisible. The stage page shows *First planned* and
+  the slip once it differs. Blocker owner = `OwnerMemberId` / `OwnerPartyName` on the flag.
+- **Seats.** The register, accountability and commitment writes are principal-only
+  (`CanSeeRegister`); the bench reads the deliverable checklist it works to and nothing
+  else, and gets 404, not 403. Amounts on commitments are masked for a principal off the money
+  (`HandlesMoney = false`) with `AmountHidden` saying one exists.
+- **Also fixed on the way:** `StageDAL.Create/UpdateStage` did its own owner check inline
+  (plan finding A1's pattern) — now `IProjectAccessService.CanManageAsync`; `StageDetail`
+  gated money on the tenant-level `CanSeeFinancials` — now per-project `CanSeeMoney`;
+  project purge now soft-deletes the P4 tables with the rest of the tree; and
+  `SyncDAL.UpdateConfigSettings` is serialised — Hangfire draining a backlog of sync jobs
+  after a restart corrupted `IConfiguration`'s dictionary and every request, sign-in
+  included, answered 500.
+
+**The §11 test-1 page exists and is seeded.** `DevSeedService` now writes the retaining wall
+as Peter would see it — seven deliverables, the fifteen commitments and one blocker of
+[whatsapp-evidence.md](whatsapp-evidence.md) §7, the stone-pitching statement #1 superseded,
+#7's "too high" dispute open as a query, #14 as a decision Peter owes, the delivery items
+linked to what they deliver — all filed by Peter from his own import (Law 0), Nalan the
+accountable face on every one. Plus eight claims and five variations from F4 across the
+other stages, so the ledger carries a balance forward. Pseudonymised like the rest of the
+seed: brands, quantities and dates kept; the cement's place-name brand, the sand pit, people
+and accounts are not. Open **`/project/de300000-0000-4000-8000-000000000010/register`** as
+Peter.
+
+**Exit — not met, and cannot be by a build.** The page is ready to put in front of Peter;
+the question *"would this have saved the scrolling?"* has not been asked. The plan's "run
+the hand version before writing the schema" was not honoured either — the schema followed
+the plan's field list directly, so if Peter's answer reshapes the object, the migration is
+additive and cheap to follow. `tools/e2e-p4-commitments.sh`: **128 assertions, 0 failures**;
+`tools/e2e-all.sh` runs the whole chain at **314, 0 failures**.
+
+**Outstanding.**
+- A second project is not on the free tier, so `AddFundingEntry` refuses it; the suite
+  therefore proves the funded column on the seeded project and runs its own ledger with
+  claims only. Funding confirmation is still `ProjectManagerId`-only, not per-project standing.
+- `GetFundingByProject` / `GetFundingByStage` still gate on `CanRead`, not `CanSeeMoney` —
+  the money tab is absent for the bench but the endpoint answers. Pre-existing.
+- Pending confirmations and owed decisions show on the register's *Needs you* filter but
+  do not yet feed `AttentionState` (the rail count); disputes do, because they are flags.
+- Links are created by API only — there is no "link evidence" picker in the UI yet (P6/P8
+  surface it with the provenance strip). Raising a query on a *cleared* item works; the
+  markup-driven version is P8.
+- The accountability table scrolls sideways at 360 px rather than reflowing.
+- The dev seed sweeps the money suite's "Chain test" / "Conversion test" releases on each
+  call; it does not reset demo state a person has clicked through (the suite reads the
+  retaining wall's two release columns together for that reason).
 
 ---
 
@@ -419,6 +523,115 @@ hand-extracted commitments. Report precision and recall honestly. **This is the 
 phase in the plan** — tier 1's entire value rests on it, and the old thesis had the
 contractor's structured posting as a safety net that no longer exists.
 
+**Landed (2026-09-29).** Migration `20260928204700_P5_Extraction`, **applied to the dev
+database**, additive: `tbl_ArtifactText`, `tbl_ExtractionRun`, `tbl_ExtractionProposal`,
+`tbl_ProgressReading`, `tbl_MediaBinding`, and `tbl_IngestBatch.BoundMediaCount`. The
+migration gives every existing stage one reading at its current percentage — the honest
+best available, as P4 did for baselines. `ExtractionDAL` / `ExtractionController` /
+`IExtractionApi`; `RejoinMedia` on `IngestController`; a new `Modules/Extraction/`
+(`ProposalQueue`) shown as **From the thread** on the register, and `MediaRejoinPanel` on
+History.
+
+- **Extraction is deterministic by default.** `RuleMessageExtractor` (pure, in
+  `FileProcessingServices/Extraction/`) reads money (`MoneyReader`: "UGX 12M", "12M",
+  "4,578,100/="), materials (schedule lines, quantities, rebar, deliveries), dates
+  (`DatePhraseReader`: "tomorrow", "2morrow", "by Tuesday", "this week", "end of September",
+  pinned to the day the message was **sent**, never import day), decisions (instructions,
+  "chosen / settled on / agreed", changes of spec, decisions one side is waiting on, a "yes"
+  to a proposal) and blockers with a named owner. Acknowledgements yield nothing. Every
+  proposal names the rule that fired it.
+- **Replies are read in context.** "Tomorrow" answering "When do you intend to cast?" is a
+  dated promise; "Yes, all the space up there" answering "We recommend terrazzo in the
+  laundry too" is one agreed decision, and the bare recommendation is dropped; a decision
+  owed that the other side makes within two days is not queued. "UGX 12M is too high for
+  labour" does not add a proposal — it marks the 12M one **contested**, which lands it In
+  discussion.
+- **Summary updates write progress readings.** Percentages in the contractor's bulleted
+  posts ("Guest wing plastering is currently at 90%") go straight to `tbl_ProgressReading`
+  — an observation with a source, not a commitment — with a subject borrowed from the
+  previous sentence when the bullet has none ("90% is already done"). Stage and capture
+  percentage changes now append readings too (works-report §4.2, the R1 half).
+- **The review queue** runs on import, unasked (Law 0), and is idempotent: a fingerprint
+  per message, rule and wording means a re-run never re-proposes anything — including what
+  was rejected. Peter clears it in bulk; accepting goes through `CommitmentDAL.AddCommitment`
+  (source `Ingested`, a Source link to the message, the message quoted in the body) or, for
+  a blocker, `FlagDAL.AddFlag` with the owner. **Accept rate is instrumented** overall and
+  per rule; under two-thirds with at least ten decided, the queue says so and lists the
+  weakest trigger first.
+- **Privacy follows the source.** A proposal or reading is exactly as readable as its
+  message (`ImportedSide` rule from P3, stored on the row); the bench gets 404; amounts are
+  masked for a principal off the money.
+- **OCR** runs on its own Hangfire queue (`ocr`, two workers) for every new artifact:
+  text files are read as-is, images go to Tesseract when configured or on the PATH, else to
+  Windows' built-in OCR through PowerShell. With no engine the row says
+  `EngineUnavailable`, never "no text"; `QueueOcr` backfills once one exists.
+- **Claude, behind the same interface, off by default.** `ClaudeMessageExtractor`
+  (`claude-sonnet-5-5`, structured output) runs only when an API key **and**
+  `Extraction:UseClaude=true` are set — sending a client's thread out is the owner's call.
+  It sends sides, not names; every item must quote its message verbatim, a figure must be
+  one `MoneyReader` finds there, a date one `DatePhraseReader` resolves there; a failed or
+  refused window falls back to the rules. **Untested live — no key on this machine.**
+- **Media re-join (works-report §5).** `WhatsAppMediaName` reads `WhatsApp Image
+  2026-09-28 at 7.58.25 PM.jpeg` and its copies (`Image2`, `WhatsApp2`, `(1)`);
+  `MediaRejoinPlanner` binds by minute, seconds order against transcript order, then the
+  neighbouring minute; folder names are ignored. Human names become captions; byte-identical
+  copies collapse (Law 2); unbound files are kept with a pointer and reported. Bindings are
+  their own rows — the raw record is never edited. Because the stored body has the marker
+  removed, the media lines are re-derived by re-parsing each export's own stored archive.
+
+**Exit — the measurement as written is done; judged against the real export.** Run offline
+over the private export (outside the repo) with the same `RuleMessageExtractor`; no real
+name, place or account entered any repo file.
+
+| Window | Messages | Proposals | Recall | Precision | Notes |
+|---|---|---|---|---|---|
+| 11 Jun – 5 Jul, vs the sixteen of [evidence](whatsapp-evidence.md) §7 | 165 | 24 | **15 / 16** | **19 / 24 strict** | Missed #16, "first half cast" — delivery of *work* is none of the four kinds. The 5 outside the list are genuine commitments from the two interleaved workstreams (a steel-team no-show and its next-morning date, two "casting tomorrow" promises, a burglar-proof design owed). 4 proposals restate an item already proposed. |
+| 5 Aug – 28 Sep, vs a 32-item reference | 778 | 33 | **30 / 32** | **33 / 33** | Reference: works-report §11's decisions, variations and blockers plus the dated promises in the thread. Missed a restated "setting up tomorrow" and "wall tiles secured". 3 restate. All four readings of §11 (80 %, 70 %, 90 %, 90 %) recorded. |
+| 6 Jul – 4 Aug, held out, **before** tuning | 238 | 7 | ≈ 3 / 12 | 4 / 7 | Figures with no currency, "Ush", a "yes" paired with the wrong question, an added floor, and **a real wrong figure**: "UGX 4,578,100?" read as 4,578 by a clause split. All fixed; the window is now in-sample. |
+| 1 Apr – 10 Jun, held out, **after** tuning | 274 | 6 | ≈ 5 / 8 | 5 / 6 | Missed "300m" in lowercase, "saved approximately 15M", "let me remove them", a "90% completed" with no subject. Left untuned on purpose. |
+| Whole thread | 2,227 | 109 | — | — | 0 proposals from acknowledgement-only messages. |
+
+**Read these honestly.** The first two rows are in-sample: the rules were written against
+those windows, and the second reference was compiled by the same agent after seeing the
+output (from works-report §11, which predates it). The held-out rows are the real estimate:
+**precision around 60–80 %, recall around 25–60 %** on unseen weeks. That is inside the
+plan's tripwire only if Peter accepts at least two in three, and the per-rule instrumentation
+exists precisely so that is measured rather than assumed.
+
+**Media re-join on the real footage** (91 files, 15–28 Sep): **84 bound, 3 byte-duplicates
+collapsed, 4 human-named files kept as captions**; of 11 files sitting in another day's
+folder, 10 bound to their stamp's day and 1 was a duplicate. Accuracy is to the minute —
+which frame belongs to which of eighteen lines inside one minute is ordered by seconds and
+cannot be checked without the sender's phone.
+
+`tools/e2e-p5-extraction.sh`: **78 assertions, 0 failures**, on a synthetic thread and
+footage from `tools/make-extraction-fixtures.sh` (pseudonyms only, the real shape); the OCR
+assertion reads a generated receipt with the engine this host has and **skips**, rather than
+fails, where there is none. `tools/e2e-all.sh`: **392, 0 failures**.
+
+**Configuration** (`appsettings.json` is gitignored): `Ocr:Engine` = `auto` (default) |
+`tesseract` | `windows` | `none`; `Ocr:TesseractPath`; `Extraction:Engine` = `auto` |
+`rules`; `Extraction:UseClaude` (default false); `Extraction:Model` (default
+`claude-sonnet-5-5`); `Anthropic:ApiKey` or `ANTHROPIC_API_KEY`.
+
+**Outstanding.**
+- **Peter has not cleared a real queue.** The accept rate that decides whether the trigger
+  is narrow enough exists only on synthetic data. Import the real export into his account and
+  let him decide it — that is the P5 number that matters.
+- Recall on unseen weeks is the weak side. Worth trying the Claude extractor under the
+  validator once a key and consent exist; it has not run.
+- Extraction runs inside the import request. Fine for the rules (milliseconds); with Claude
+  enabled it belongs on the Hangfire queue.
+- OCR text is stored, not yet searchable (P6). *Searchable since P6.* OCR was validated on a generated receipt,
+  not on a real one — the real footage is site photos. No video posters yet (works-report
+  §5.3, R1).
+- Re-join holds each upload in memory and inherits the 40 MB artifact ceiling, so a long
+  video is reported unbound rather than stored.
+- Pending proposals do not feed the rail's *Needs you* count. At 360 px the register's view
+  switcher scrolls sideways and the new tab starts off-screen.
+- The dev database now holds a synthetic demo project, *Guest wing thread review*, under
+  the Peter persona.
+
 ---
 
 ### P6 — Retrieval *(Peter's four searches)*
@@ -432,6 +645,79 @@ contractor's structured posting as a safety net that no longer exists.
 
 **Exit:** a receipt that only ever existed as a photo inside a WhatsApp export is findable
 by its vendor name.
+
+**Landed (2026-09-29).** No migration — retrieval reads what P2–P5 already store. `SearchDAL` /
+`SearchController` (`GET /api/Search/Query?q=&projectId=&take=`) / `ISearchApi`; a new
+`Modules/Search/` holding the page (moved from `Pages/Search.razor`, which fanned out one
+request per project per source from the browser) and `SearchResult`, `ProvenanceStrip`,
+`SearchThumb`. `/search?q=` keeps the question in the address; `/project/{id}/history?day=`
+opens the thread on the day a result was said; `/project/{id}/register?commitment=` opens the
+register scrolled to, and ringed around, the commitment.
+
+- **Sources.** Commitments (current statements only, title / body / counterparty), the text
+  OCR read out of every artifact (`tbl_ArtifactText`, `Done` rows), file names and captions,
+  the imported thread, the Site Diary, projects and stages. The uploaded transcript itself
+  is excluded — its text is already searchable message by message.
+- **Grouped by object, commitments first.** A message that is where a commitment was agreed
+  (`IngestedMessageId`, or a `Source` link) is folded into that commitment rather than
+  listed twice; a restated commitment answers with its current statement. Other messages stay
+  under *From the thread*. Question words and the verbs of agreeing ("what did I **approve**
+  on the") are set aside, shown, and bias the ranking toward commitments.
+- **Provenance strip on every result.** A source chip (thread / shared / email / capture /
+  drawing register / register / call / meeting, who, when — the accountable face for the
+  client side) and, for commitments, *agreed → evidence → invoiced → cleared → queried →
+  resolved* from its own dates and the links the reader may open. A photo or diary entry
+  borrows the strip of the commitment it proves, bills or settles, with its own step marked
+  (the receipt *is* the tiles' "invoiced"); a file tied to nothing says **"Not tied to any
+  commitment yet"**.
+- **Strictly side- and seat-filtered, one rule per source, via `IProjectAccessService`.**
+  Register → `CanSeeRegister`; money → `CanSeeMoney` (a principal off the money gets
+  `amountHidden`, no figure); the thread → principal seat plus the importing side's claim
+  (IngestDAL's rule, narrowed by `CanSeeHistory`); files → at least one way they reached the
+  project that the reader may see (their message, an exposed capture, a client-channel
+  drawing); Diary → `CanSeeSiteLog`, or exposed and `CanSeeBrief`. A link to a crew-only
+  photo does not light "evidence" for the client side. A stranger searches no project and
+  naming one returns 404.
+- **Says where it could not look**: files still waiting for OCR are counted, and a server
+  with no OCR engine says so on the page.
+- **Matching — the documented fallback.** SQL Server Full-Text Search is **not installed**
+  on the dev instance (`SERVERPROPERTY('IsFullTextInstalled') = 0`). Matching is a
+  case-insensitive substring per term (the collation is CI), unioned per term, scored in
+  memory (coverage, then a word in the title, then recency); three or more words need all but
+  one. The answer reports `backend` and `fullTextInstalled`. `SearchDAL.CandidatesAsync` is
+  the one seam where a `CONTAINS` query replaces the `LIKE` once full-text is installed —
+  worth it only when a tenant's corpus reaches hundreds of thousands of rows.
+
+**Exit — met, on a synthetic export.** `tools/make-search-fixtures.sh` draws **ZENTARA TILES**
+into the pixels of `IMG-20260805-WA0012.jpg` inside a WhatsApp export zip; the name is in no
+message and no file name. After Peter imports it, the OCR queue reads it (Windows OCR on this
+host) and a search for *zentara*, *zentara tiles* or *where is the receipt from Zentara?*
+returns exactly that photo, matched in "the text read from the photo", with its chip *From
+the thread · Nalan · 5 Aug 2026, 16:14* and a link to that day of the thread — while the
+thread itself has no message containing the word. Verified in the browser at 360 / 768 /
+1280, light and dark: no console errors, every CSS bundle 200, no horizontal overflow,
+thumbnails through the authenticated pipeline, both deep links land.
+
+`tools/e2e-p6-search.sh`: **65 assertions, 0 failures** — the exit, the balustrade question,
+provenance (invoiced / cleared / queried / resolved, the gap), seats (money, the bench, a
+stranger), sides (a crew export Peter cannot find once he stands down as mediator), and the
+Diary. It skips rather than fails where the host has no OCR engine. `tools/e2e-all.sh`:
+**457, 0 failures**.
+
+**Outstanding.**
+- **Not run against the real export.** The exit was proven on a clean, synthesised receipt;
+  a real photographed receipt (angle, glare, thermal print) is harder for OCR, and the real
+  footage is site photos. Import Peter's export and search for a vendor he remembers — that
+  is the P6 number that matters.
+- Substring matching finds "cement" in "cementitious" and misses OCR misreads ("ZENTARA" read
+  as "ZENTAHA"); there is no fuzzy match. Numbers must be typed as written ("4,578,100", not
+  "4578100").
+- Variations, releases and claims are not searched yet (their notes); nor are flags.
+- The provenance strip lives only on search results. The register's `CommitmentCard` still
+  shows its maturity strip; putting `ProvenanceStrip` there means promoting it to
+  `Components/` (two modules) — and the evidence picker is still P8.
+- The dev database now holds a synthetic P6 project per suite run under the
+  `peter.buyer@assetlen.test` pseudonym, as the earlier suites do.
 
 ---
 
@@ -543,7 +829,7 @@ Only now, and only because nothing above depends on it.
 ## Update protocol
 
 1. Build green, no new errors.
-2. Run **`bash tools/e2e-all.sh`** — P0+P1+P2+P3 in one command, currently 116 assertions.
+2. Run **`bash tools/e2e-all.sh https://localhost:7264/api`** — every suite in one command, currently **457 assertions**.
    No row regresses. (`tools/e2e-access-audit.sh` is superseded: it still casts the
    contractor as project owner, which the buyer decision reverses.)
 3. Update the phase table above; add rows for sub-phases.

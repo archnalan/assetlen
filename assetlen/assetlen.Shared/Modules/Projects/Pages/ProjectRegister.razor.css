@@ -3,9 +3,44 @@
     align-items: center;
     gap: var(--al-space-3);
     flex-wrap: wrap;
+    margin-bottom: var(--al-space-5);
 }
 
-.register__raise { margin-top: var(--al-space-4); }
+.register__bar > .al-segmented {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.register__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+}
+
+.register__raise { margin-bottom: var(--al-space-5); }
+
+.register__sub {
+    margin-bottom: var(--al-space-4);
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* The commitment a query is about — one tap back to the item. */
+.register__on {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: var(--al-space-1);
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+    text-decoration: underline;
+    text-decoration-color: var(--al-border-strong);
+    cursor: pointer;
+}
 
 .register__item {
     display: flex;
@@ -90,11 +125,3 @@
 
 .register__resolved { font-size: var(--al-font-size-xs); }
 
-.register__note {
-    font-size: var(--al-font-size-xs);
-    color: var(--al-text-subtle);
-    max-width: 64ch;
-    padding-top: var(--al-space-4);
-    border-top: 1px solid var(--al-border);
-    line-height: var(--al-leading-relaxed);
-}

@@ -1,0 +1,70 @@
+.prov {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2) var(--al-space-3);
+    min-width: 0;
+}
+
+/* The source chip: kind, who, when. Tap targets live on the result, not here. */
+.prov__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    min-width: 0;
+    max-width: 100%;
+    padding: 1px var(--al-space-2);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-pill);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+    flex-wrap: wrap;
+}
+
+.prov__sep { color: var(--al-text-subtle); }
+
+.prov__who { color: var(--al-text); }
+
+.prov__when { font-variant-numeric: tabular-nums; }
+
+.prov__role {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    min-width: 0;
+}
+
+.prov__link {
+    color: var(--al-text);
+    text-decoration: underline;
+    text-decoration-color: var(--al-border-strong);
+    text-underline-offset: 2px;
+    transition: text-decoration-color var(--al-transition-fast) var(--al-ease);
+}
+
+.prov__link:hover { text-decoration-color: var(--al-accent); }
+
+.prov__steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A step not reached is drawn, not hidden: "not invoiced" is part of the answer. */
+.prov__step--open { opacity: 0.7; }
+
+/* A gap is a finding (works-report §3.1): dashed, muted, never alarming. */
+.prov__gap {
+    padding: 1px var(--al-space-2);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius-xs);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+}
+
+/* On a phone the strip wraps; a connector at the start of a line points at nothing. */
+@media (max-width: 560px) {
+    .prov__chip { border-radius: var(--al-radius-sm); }
+    .prov__steps { gap: var(--al-space-1) var(--al-space-3); }
+    .prov__steps .al-provenance__step::before { display: none; }
+    .prov__steps .al-provenance__step { padding-left: 0; }
+}

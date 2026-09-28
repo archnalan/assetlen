@@ -115,9 +115,14 @@ public static class MauiProgram
         AddApi<IProgressApi>();
         AddApi<IProjectMembersApi>();
         AddApi<IFlagsApi>();
+        AddApi<ICommitmentsApi>();
+        AddApi<ILedgerApi>();
         AddApi<IBudgetApi>();
         AddApi<IArtifactsApi>();
         AddApi<IIngestApi>();
+        AddApi<IExtractionApi>();
+        AddApi<ISearchApi>();
+        AddApi<IBriefApi>();
         AddApi<IDevApi>();
 
         // Scoped for the same reason as in the client: the hub needs the scoped

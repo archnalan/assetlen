@@ -1,0 +1,168 @@
+@*
+    Accountability is a query, not a feature (plan.md P4). "What did this
+    contractor commit to on this project, and what state is each in" is a
+    group-by on the accountable face — and the blockers beside it are grouped by
+    whoever has to move, because "stuck" without an owner is only a mood.
+*@
+
+@inject ILogger<AccountabilityPanel> Logger
+
+<StateBlock Phase="phase" OnRetry="LoadAsync"
+            ErrorTitle="Accountability didn't load"
+            ErrorMessage="@errorMessage"
+            EmptyIcon="shield"
+            EmptyTitle="Nothing to account for yet"
+            EmptyBody="Once commitments are on the register, each one sits under the mediator who is accountable for it.">
+    <ChildContent>
+        <section class="acct">
+            <div class="al-rule"><span class="al-label">By accountable face</span></div>
+
+            @if (data!.Commitments.Count == 0)
+            {
+                <p class="al-subtle">No commitments on the register yet.</p>
+            }
+            else
+            {
+                <div class="al-sheet al-sheet--ticked">
+                    <div class="al-table-wrap">
+                        <table class="al-table acct__table">
+                            <thead>
+                                <tr>
+                                    <th>Accountable</th>
+                                    <th class="num">On record</th>
+                                    <th class="num">Idea</th>
+                                    <th class="num">In discussion</th>
+                                    <th class="num">Agreed</th>
+                                    <th class="num">Delivered</th>
+                                    <th class="num">Verified</th>
+                                    <th class="num">Queried</th>
+                                    <th class="num">Unconfirmed</th>
+                                    <th class="num">Overdue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in data.Commitments)
+                                {
+                                    <tr>
+                                        <td>
+                                            <span class="acct__who">
+                                                <Icon Name="shield" Size="13" />
+                                                <span>@row.Name</span>
+                                                @if (row.IsMediator && row.IsActive)
+                                                {
+                                                    <span class="al-badge al-badge--outline">Mediator</span>
+                                                }
+                                                else if (!row.IsActive)
+                                                {
+                                                    <span class="al-badge al-badge--neutral">No longer on the project</span>
+                                                }
+                                            </span>
+                                        </td>
+                                        <td class="num">@row.Total</td>
+                                        <td class="num">@Dash(row.Idea)</td>
+                                        <td class="num">@Dash(row.InDiscussion)</td>
+                                        <td class="num">@Dash(row.Agreed)</td>
+                                        <td class="num">@Dash(row.Delivered)</td>
+                                        <td class="num">@Dash(row.Verified)</td>
+                                        <td class="num @(row.OpenQueries > 0 ? "acct__warn" : "")">@Dash(row.OpenQueries)</td>
+                                        <td class="num @(row.AwaitingConfirmation > 0 ? "acct__warn" : "")">@Dash(row.AwaitingConfirmation)</td>
+                                        <td class="num @(row.Overdue > 0 ? "acct__danger" : "")">@Dash(row.Overdue)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="acct__note">
+                    Replacing a contractor loses none of this — the record belongs to the project, and every line keeps the
+                    name that was accountable when it was agreed.
+                </p>
+            }
+        </section>
+
+        <section class="acct">
+            <div class="al-rule"><span class="al-label">Blockers, by who has to move</span></div>
+
+            @if (data.Blockers.Count == 0)
+            {
+                <div class="al-empty">
+                    <Icon Name="check-circle" Size="32" Class="al-empty__icon" Weight="1.25" />
+                    <h3 class="al-empty__title">Nothing is blocked</h3>
+                </div>
+            }
+            else
+            {
+                <div class="acct__lanes">
+                    @foreach (var lane in data.Blockers)
+                    {
+                        <div class="acct__lane">
+                            <div class="acct__lane-head">
+                                <Icon Name="blocked" Size="14" />
+                                <span class="acct__lane-name">@(lane.OwnerName ?? "Nobody named")</span>
+                                <span class="al-spacer"></span>
+                                <span class="al-num al-subtle" title="Oldest open">@lane.OldestDaysOpen d</span>
+                            </div>
+                            <ul class="acct__items">
+                                @foreach (var b in lane.Items)
+                                {
+                                    <li>
+                                        <a href="/project/@ProjectId/register?view=questions#@b.Id">@b.Title</a>
+                                        <span class="al-subtle">
+                                            @(b.StageName is null ? "" : $"{b.StageName} · ")since @Fmt.DateShort(b.DateTimeCreated)
+                                        </span>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    </ChildContent>
+</StateBlock>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public int Version { get; set; }
+
+    private AccountabilityDto? data;
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}/{Version}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var response = await _commitmentsApi.GetAccountability(ProjectId);
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+            data = response.Content;
+            phase = data.Commitments.Count == 0 && data.Blockers.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Accountability failed for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private static string Dash(int n) => n == 0 ? "—" : n.ToString();
+}

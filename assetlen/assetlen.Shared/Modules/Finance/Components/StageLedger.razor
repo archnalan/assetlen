@@ -1,0 +1,203 @@
+@*
+    The cost report, one row per stage: funded → claimed → cleared → carried
+    forward (assetlen.md §6). It answers the sentence the evidence thread turns
+    on — "Too many stages combined. I want to know if they were cleared or not."
+    Figures are exact and never abbreviated; somebody reconciles them against a
+    bank statement. Every figure is computed by the server from rows.
+*@
+
+@inject ILogger<StageLedger> Logger
+
+<StateBlock Phase="phase" OnRetry="LoadAsync"
+            ErrorTitle="The stage ledger didn't load"
+            ErrorMessage="@errorMessage"
+            EmptyIcon="ledger"
+            EmptyTitle="No stages to report on"
+            EmptyBody="Add a stage and its funded → claimed → cleared position appears here.">
+    <Loading>
+        <div class="al-shimmer al-ghost-row"></div>
+        <div class="al-shimmer al-ghost-row"></div>
+        <div class="al-shimmer al-ghost-row"></div>
+    </Loading>
+    <ChildContent>
+        <div class="al-statrow ledger__stats">
+            <div class="al-stat">
+                <span class="al-label">Funded</span>
+                <span class="al-stat__value">@Fmt.Money(data!.TotalFunded, data.Currency)</span>
+                <span class="al-stat__note">acknowledged, at what landed</span>
+            </div>
+            <div class="al-stat">
+                <span class="al-label">Claimed</span>
+                <span class="al-stat__value">@Fmt.Money(data.TotalClaimed, data.Currency)</span>
+                <span class="al-stat__note">against evidence of work</span>
+            </div>
+            <div class="al-stat">
+                <span class="al-label">Cleared</span>
+                <span class="al-stat__value">@Fmt.Money(data.TotalCleared, data.Currency)</span>
+                <span class="al-stat__note">accepted by the funder</span>
+            </div>
+            <div class="al-stat @(data.TotalInHand < 0 ? "al-stat--danger" : "")">
+                <span class="al-label">@(data.TotalInHand < 0 ? "Owed to the contractor" : "Held, not yet cleared")</span>
+                <span class="al-stat__value">@Fmt.Money(Math.Abs(data.TotalInHand), data.Currency)</span>
+                <span class="al-stat__note">funded less cleared, all stages</span>
+            </div>
+        </div>
+
+        <div class="al-sheet al-sheet--ticked">
+            <div class="al-table-wrap">
+                <table class="al-table ledger__table">
+                    <thead>
+                        <tr>
+                            <th>Stage</th>
+                            <th class="num">Budget</th>
+                            <th class="num">Funded</th>
+                            <th class="num">Claimed</th>
+                            <th class="num">Cleared</th>
+                            <th class="num">Carried forward</th>
+                            <th>Extras</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in data.Rows)
+                        {
+                            <tr class="al-stage--@((int)row.Phase) @(row.ParentStageId is null ? "" : "ledger__sub")">
+                                <td>
+                                    <a class="ledger__stage" href="/project/@ProjectId/stage/@row.StageId">
+                                        <span class="al-stage-dot"></span>
+                                        <span>
+                                            <span class="ledger__stage-name">@row.StageName</span>
+                                            <span class="ledger__stage-note">@StatusLabel(row.Status)</span>
+                                        </span>
+                                    </a>
+                                </td>
+                                <td class="num">@Fmt.Amount(row.Budget)</td>
+                                <td class="num">
+                                    @Fmt.Amount(row.Funded)
+                                    @if (row.CarriedIn != 0)
+                                    {
+                                        <span class="ledger__carry" title="Carried in from the stage before">
+                                            @(row.CarriedIn > 0 ? "+" : "−")@Fmt.Amount(Math.Abs(row.CarriedIn)) in
+                                        </span>
+                                    }
+                                    @if (row.PendingFunding > 0)
+                                    {
+                                        <span class="ledger__pending" title="Released, not yet acknowledged">
+                                            @Fmt.Amount(row.PendingFunding) unconfirmed
+                                        </span>
+                                    }
+                                </td>
+                                <td class="num">
+                                    @Fmt.Amount(row.Claimed)
+                                    @if (row.AwaitingClearance > 0)
+                                    {
+                                        <span class="ledger__pending">@Fmt.Amount(row.AwaitingClearance) awaiting</span>
+                                    }
+                                </td>
+                                <td class="num">@Fmt.Amount(row.Cleared)</td>
+                                <td class="num">
+                                    @if (row.CarriedForward is { } cf)
+                                    {
+                                        <span class="@(cf < 0 ? "ledger__owed" : "")">@(cf < 0 ? "−" : "")@Fmt.Amount(Math.Abs(cf))</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="ledger__open" title="Still open — held against the work in progress">
+                                            @(row.InHand < 0 ? "−" : "")@Fmt.Amount(Math.Abs(row.InHand)) in hand
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="ledger__extras">
+                                        @if (row.VariationsApproved != 0)
+                                        {
+                                            <span class="al-num">@(row.VariationsApproved > 0 ? "+" : "−")@Fmt.Amount(Math.Abs(row.VariationsApproved))</span>
+                                        }
+                                        @if (row.VariationsProposed > 0)
+                                        {
+                                            <span class="al-badge al-badge--warning">@row.VariationsProposed proposed</span>
+                                        }
+                                        @if (row.VariationsUncosted > 0)
+                                        {
+                                            <span class="ledger__gap">@row.VariationsUncosted not costed</span>
+                                        }
+                                        @if (row.VariationsApproved == 0 && row.VariationsProposed == 0 && row.VariationsUncosted == 0)
+                                        {
+                                            <span class="al-subtle">—</span>
+                                        }
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>Total · @data.Currency</td>
+                            <td class="num">@Fmt.Amount(data.TotalBudget)</td>
+                            <td class="num">@Fmt.Amount(data.TotalFunded)</td>
+                            <td class="num">@Fmt.Amount(data.TotalClaimed)</td>
+                            <td class="num">@Fmt.Amount(data.TotalCleared)</td>
+                            <td class="num">@(data.TotalInHand < 0 ? "−" : "")@Fmt.Amount(Math.Abs(data.TotalInHand))</td>
+                            <td class="num">@(data.TotalVariationsApproved == 0 ? "—" : Fmt.Amount(data.TotalVariationsApproved))</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <p class="ledger__foot">
+            A closed stage carries its balance to the next one — “issue a receipt and carry the balance towards the next
+            stage”. An open stage holds it against the work in progress. A negative figure is cleared work the funding
+            has not yet caught up with.
+        </p>
+    </ChildContent>
+</StateBlock>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public int Version { get; set; }
+
+    private StageLedgerDto? data;
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}/{Version}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (data is null) phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var response = await _ledgerApi.GetStageLedger(ProjectId);
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+            data = response.Content;
+            phase = data.Rows.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Stage ledger failed for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private static string StatusLabel(StageStatus s) => s switch
+    {
+        StageStatus.Completed => "Closed",
+        StageStatus.InProgress => "Open",
+        _ => "Not started"
+    };
+}

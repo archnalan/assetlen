@@ -22,6 +22,7 @@ public class IngestDAL : IIngestDAL
     private readonly IArtifactStorage _storage;
     private readonly IProjectAccessService _access;
     private readonly IConfiguration _config;
+    private readonly IExtractionDAL _extraction;
 
     /// <summary>
     /// A year of photos is a large file. Well above the 40 MB single-artifact
@@ -50,7 +51,8 @@ public class IngestDAL : IIngestDAL
         IArtifactDAL artifacts,
         IArtifactStorage storage,
         IProjectAccessService access,
-        IConfiguration config)
+        IConfiguration config,
+        IExtractionDAL extraction)
     {
         _context = context;
         _logger = logger;
@@ -58,6 +60,7 @@ public class IngestDAL : IIngestDAL
         _storage = storage;
         _access = access;
         _config = config;
+        _extraction = extraction;
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -311,6 +314,20 @@ public class IngestDAL : IIngestDAL
                     "Ingest {BatchId}: {Imported} new of {Parsed} parsed, {NewArtifacts} new artifacts, " +
                     "{DupArtifacts} de-duplicated, {Missing} media markers with no file",
                     batch.Id, imported, parsed.Messages.Count, newArtifacts, dupArtifacts, batch.UnmatchedMediaCount);
+            }
+
+            // Law 3: a new record is read for commitments straight away, so the
+            // queue is waiting when Peter next looks. Best effort — the import
+            // stands whether or not extraction runs, and it can be re-run.
+            try
+            {
+                var run = await _extraction.RunAsync(new ExtractionRunRequestDto { ProjectId = batch.ProjectId }, userId, ct);
+                if (!run.IsSuccess)
+                    _logger.LogInformation("Extraction after import {BatchId} did not run: {Reason}", batch.Id, run.Error.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Extraction after import {BatchId} failed", batch.Id);
             }
 
             return ServiceResult<IngestBatchDto>.Success(ToDto(batch, null));
@@ -943,6 +960,274 @@ public class IngestDAL : IIngestDAL
     }
 
     // ═════════════════════════════════════════════════════════════════════
+    // Loose media re-join (works-report.md §5)
+    // ═════════════════════════════════════════════════════════════════════
+
+    public async Task<ServiceResult<MediaRejoinReportDto>> RejoinMediaAsync(
+        IReadOnlyList<LooseUpload> files, string projectId, string userId, CancellationToken ct = default)
+    {
+        try
+        {
+            if (files.Count == 0)
+                return Fail<MediaRejoinReportDto>(new BadRequestException("Send at least one file or a zip of them."));
+
+            var project = await _context.tbl_Projects_RS
+                .Include(p => p.ParentProject)
+                .FirstOrDefaultAsync(p => p.Id == projectId, ct);
+            if (project is null)
+                return Fail<MediaRejoinReportDto>(new NotFoundException("Project not found."));
+
+            var access = await _access.ResolveAsync(project, userId, ct);
+            if (!access.CanWrite)
+                return Fail<MediaRejoinReportDto>(new ForbiddenException("Access denied."));
+
+            var batch = new tbl_IngestBatch
+            {
+                ProjectId = projectId,
+                TenantId = project.OwnerTenantId,
+                SourceType = IngestSourceType.LooseMedia,
+                Status = IngestBatchStatus.Importing,
+                ImportedById = userId,
+                ImportedSide = access.Side ?? ProjectSide.Client,
+                StartedAt = DateTime.UtcNow,
+                OriginalFileName = files.Count == 1 ? Truncate(files[0].FileName, 260) : $"{files.Count} files"
+            };
+            _context.tbl_IngestBatches.Add(batch);
+            await _context.SaveChangesAsync(ct);
+
+            var report = new MediaRejoinReportDto { BatchId = batch.Id, ProjectId = projectId };
+            var loose = new List<LooseFile>();
+            var stored = new Dictionary<string, (string ArtifactId, bool Deduplicated)>();
+
+            // Store every file first — Law 2 decides what is a duplicate, and the
+            // artifact id stands in for the hash in the plan.
+            foreach (var entry in ExpandUploads(files))
+            {
+                report.FilesReceived++;
+                var name = WhatsAppMediaName.Parse(entry.FileName);
+
+                await using (entry.Content)
+                {
+                    var result = await _artifacts.IngestAsync(entry.Content, name.FileName, entry.ContentType,
+                        projectId, userId, name.StampedAt, ct);
+
+                    if (!result.IsSuccess)
+                    {
+                        report.Files.Add(new MediaRejoinFileDto
+                        {
+                            FileName = name.FileName, Outcome = MediaRejoinOutcome.Unbound,
+                            Reason = $"Could not be stored: {result.Error.Message}", StampedAt = name.StampedAt
+                        });
+                        report.Unbound++;
+                        continue;
+                    }
+
+                    var key = $"{entry.FileName}#{report.FilesReceived}";
+                    stored[key] = (result.Data!.Id!, result.Data.WasDeduplicated);
+                    loose.Add(new LooseFile(key, name, result.Data.Id!));
+                }
+            }
+
+            // A file already bound by an earlier run binds nothing new.
+            var artifactIds = loose.Select(l => l.Sha256).Distinct().ToList();
+            var alreadyBound = (await _context.tbl_MediaBindings
+                    .Where(b => b.ProjectId == projectId && artifactIds.Contains(b.ArtifactId!))
+                    .Select(b => b.ArtifactId!)
+                    .ToListAsync(ct))
+                .Concat(await _context.tbl_IngestedMessages
+                    .Where(m => m.ProjectId == projectId && m.ArtifactId != null && artifactIds.Contains(m.ArtifactId))
+                    .Select(m => m.ArtifactId!)
+                    .ToListAsync(ct))
+                .ToHashSet();
+
+            foreach (var file in loose.Where(l => alreadyBound.Contains(l.Sha256)))
+            {
+                report.Files.Add(new MediaRejoinFileDto
+                {
+                    FileName = file.Name.FileName, Outcome = MediaRejoinOutcome.AlreadyBound,
+                    Reason = "Already on its message from an earlier upload.",
+                    StampedAt = file.Name.StampedAt, ArtifactId = file.Sha256
+                });
+                report.AlreadyBound++;
+            }
+
+            var openLines = await OpenMediaLinesAsync(projectId, access, userId, ct);
+            var plan = MediaRejoinPlanner.Plan(openLines, loose.Where(l => !alreadyBound.Contains(l.Sha256)).ToList());
+            var channel = batch.ImportedSide == ProjectSide.Client ? Channel.Client : Channel.Crew;
+
+            foreach (var decision in plan)
+            {
+                var file = decision.File;
+                var caption = file.Name.Caption;
+                var dto = new MediaRejoinFileDto
+                {
+                    FileName = file.Name.FileName,
+                    Outcome = decision.Outcome,
+                    Reason = decision.Reason,
+                    StampedAt = file.Name.StampedAt,
+                    Caption = caption,
+                    ArtifactId = file.Sha256,
+                    MessageId = decision.Line?.MessageId,
+                    MessageSentAt = decision.Line?.SentAt
+                };
+                report.Files.Add(dto);
+
+                switch (decision.Outcome)
+                {
+                    case MediaRejoinOutcome.Duplicate:
+                        report.Duplicates++;
+                        continue;
+
+                    case MediaRejoinOutcome.Bound:
+                        _context.tbl_MediaBindings.Add(new tbl_MediaBinding
+                        {
+                            ProjectId = projectId,
+                            TenantId = project.OwnerTenantId,
+                            IngestedMessageId = decision.Line!.MessageId,
+                            ArtifactId = file.Sha256,
+                            BatchId = batch.Id,
+                            FileName = Truncate(file.Name.FileName, 300),
+                            StampedAt = file.Name.StampedAt
+                        });
+                        report.Bound++;
+                        break;
+
+                    default:
+                        report.Unbound++;
+                        break;
+                }
+
+                if (caption is not null) report.Captioned++;
+
+                // Bound or not, the file is on the project with a pointer — an
+                // unbound photo of "intended stoppage line" is still evidence.
+                await EnsureRefAsync(file.Sha256, batch, channel, caption ?? file.Name.FileName, ct);
+            }
+
+            batch.MediaMessageCount = report.FilesReceived;
+            batch.NewArtifactCount = stored.Values.Where(v => !v.Deduplicated).Select(v => v.ArtifactId).Distinct().Count();
+            batch.DuplicateArtifactCount = stored.Count - batch.NewArtifactCount;
+            batch.BoundMediaCount = report.Bound;
+            batch.UnmatchedMediaCount = report.Unbound;
+            batch.Status = IngestBatchStatus.Completed;
+            batch.CompletedAt = DateTime.UtcNow;
+            batch.Notes = Truncate(
+                $"Bound {report.Bound}, unbound {report.Unbound}, duplicates {report.Duplicates}, already bound {report.AlreadyBound}, captioned {report.Captioned}.", 4000);
+            await _context.SaveChangesAsync(ct);
+
+            report.LinesStillOpen = openLines.Count - report.Bound;
+            report.Files = report.Files
+                .OrderBy(f => f.Outcome == MediaRejoinOutcome.Bound ? 1 : 0)
+                .ThenBy(f => f.StampedAt ?? DateTime.MaxValue)
+                .ToList();
+
+            return ServiceResult<MediaRejoinReportDto>.Success(report);
+        }
+        catch (InvalidDataException ex)
+        {
+            _logger.LogWarning(ex, "Corrupt media zip for project {ProjectId}", projectId);
+            return Fail<MediaRejoinReportDto>(new BadRequestException("That zip could not be opened. Zip the folder again and retry."));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error re-joining loose media for project {ProjectId}", projectId);
+            return Fail<MediaRejoinReportDto>(new ServerErrorException(ex.Message));
+        }
+    }
+
+    /// <summary>Uploads with any zip expanded to its files. Folder names inside the zip are dropped.</summary>
+    private static IEnumerable<LooseUpload> ExpandUploads(IReadOnlyList<LooseUpload> files)
+    {
+        foreach (var file in files)
+        {
+            var buffer = new MemoryStream();
+            file.Content.CopyTo(buffer);
+            buffer.Position = 0;
+
+            var isZip = buffer.Length > 4 && buffer.ReadByte() == 'P' && buffer.ReadByte() == 'K';
+            buffer.Position = 0;
+
+            if (!isZip)
+            {
+                yield return file with { Content = buffer };
+                continue;
+            }
+
+            using var zip = new System.IO.Compression.ZipArchive(buffer, System.IO.Compression.ZipArchiveMode.Read);
+            foreach (var entry in zip.Entries.Where(e => e.Length > 0 && !e.FullName.EndsWith('/')))
+            {
+                if (entry.Name.StartsWith('.') || entry.FullName.Contains("__MACOSX", StringComparison.Ordinal)) continue;
+                if (entry.Name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) continue;
+
+                var copy = new MemoryStream();
+                using (var s = entry.Open()) s.CopyTo(copy);
+                copy.Position = 0;
+                yield return new LooseUpload(entry.Name, copy, null);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The <c>&lt;Media omitted&gt;</c> lines the caller may see that no file has
+    /// reached yet.
+    /// <para>
+    /// The stored body has the marker removed, so an empty row could be a media
+    /// line or one of WhatsApp's empty album headers. Rather than guess, each
+    /// export's own archive is read again and its media lines named by dedupe key
+    /// — the raw record stays exactly as it was imported.
+    /// </para>
+    /// </summary>
+    private async Task<List<OpenMediaLine>> OpenMediaLinesAsync(
+        string projectId, ProjectAccess access, string userId, CancellationToken ct)
+    {
+        var batches = await _context.tbl_IngestBatches.AsNoTracking()
+            .Where(b => b.ProjectId == projectId
+                        && b.SourceType == IngestSourceType.WhatsAppExport
+                        && b.Status == IngestBatchStatus.Completed
+                        && b.ArchiveArtifactId != null)
+            .ToListAsync(ct);
+
+        var mediaKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var b in batches.Where(b => CanReadBatch(b, access, userId)))
+        {
+            var stream = await OpenArchiveAsync(b.ArchiveArtifactId, ct);
+            if (stream is null) continue;
+
+            await using (stream)
+            {
+                using var export = IngestArchive.Open(stream);
+                if (!export.HasTranscript) continue;
+                var parsed = WhatsAppExportParser.Parse(export.ReadTranscript());
+                var keys = ComputeDedupeKeys(parsed.Messages);
+                for (var i = 0; i < parsed.Messages.Count; i++)
+                    if (parsed.Messages[i].HasMediaMarker && !export.HasMedia(parsed.Messages[i].MediaFileName))
+                        mediaKeys.Add(keys[i]);
+            }
+        }
+
+        if (mediaKeys.Count == 0) return new List<OpenMediaLine>();
+
+        var bound = (await _context.tbl_MediaBindings.AsNoTracking()
+            .Where(b => b.ProjectId == projectId)
+            .Select(b => b.IngestedMessageId!)
+            .ToListAsync(ct)).ToHashSet();
+
+        var lines = new List<OpenMediaLine>();
+        foreach (var chunk in mediaKeys.Chunk(500))
+        {
+            var rows = await _context.tbl_IngestedMessages.AsNoTracking()
+                .Where(m => m.ProjectId == projectId && m.ArtifactId == null && m.DedupeKey != null && chunk.Contains(m.DedupeKey))
+                .Select(m => new { m.Id, m.SentAt, m.ExternalAuthor, m.SequenceNo })
+                .ToListAsync(ct);
+
+            lines.AddRange(rows.Where(r => !bound.Contains(r.Id))
+                .Select(r => new OpenMediaLine(r.Id, r.SentAt, r.ExternalAuthor ?? "", r.SequenceNo)));
+        }
+
+        return lines;
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
     // Reading the raw record
     // ═════════════════════════════════════════════════════════════════════
 
@@ -1063,9 +1348,29 @@ public class IngestDAL : IIngestDAL
                 .Take(take)
                 .ToListAsync(ct);
 
+            // Re-joined media is shown on its line without the line itself changing.
+            var rowIds = rows.Where(r => r.ArtifactId == null).Select(r => r.Id).ToList();
+            var bindings = rowIds.Count == 0
+                ? new Dictionary<string, tbl_Artifact>()
+                : await _context.tbl_MediaBindings.AsNoTracking()
+                    .Include(b => b.Artifact)
+                    .Where(b => rowIds.Contains(b.IngestedMessageId!) && b.Artifact != null)
+                    .ToDictionaryAsync(b => b.IngestedMessageId!, b => b.Artifact!, ct);
+
             return ServiceResult<IngestedMessagePageDto>.Success(new IngestedMessagePageDto
             {
-                Messages = rows.Select(m => ToDto(m, m.AuthorMember, m.Artifact)).ToList(),
+                Messages = rows.Select(m =>
+                {
+                    if (m.ArtifactId is null && bindings.TryGetValue(m.Id, out var bound))
+                    {
+                        var dto = ToDto(m, m.AuthorMember, bound);
+                        dto.ArtifactId = bound.Id;
+                        dto.MediaFileName = bound.OriginalFileName;
+                        dto.ThumbnailUrl = bound.ThumbnailPath is null ? null : $"/api/Artifacts/{bound.Id}/thumbnail";
+                        return dto;
+                    }
+                    return ToDto(m, m.AuthorMember, m.Artifact);
+                }).ToList(),
                 TotalCount = total,
                 Skip = Math.Max(0, query.Skip),
                 Take = take
@@ -1217,6 +1522,7 @@ public class IngestDAL : IIngestDAL
         NewArtifactCount = b.NewArtifactCount,
         DuplicateArtifactCount = b.DuplicateArtifactCount,
         UnmatchedMediaCount = b.UnmatchedMediaCount,
+        BoundMediaCount = b.BoundMediaCount,
         ParticipantCount = b.ParticipantCount,
         FirstMessageAt = b.FirstMessageAt,
         LastMessageAt = b.LastMessageAt,

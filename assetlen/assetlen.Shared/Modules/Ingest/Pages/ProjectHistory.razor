@@ -25,15 +25,22 @@
                         CanManage="ctx.CanManage"
                         OnImported="OnImported" />
 
+    <MediaRejoinPanel ProjectId="@ProjectId" CanWrite="ctx.CanWrite" OnRejoined="OnImported" />
+
     <section>
         <div class="al-rule"><span class="al-label">The raw record</span></div>
-        <IngestedThread @key="threadKey" ProjectId="@ProjectId" />
+        <IngestedThread @key="@($"{threadKey}:{DayParam}")" ProjectId="@ProjectId" Day="Day" />
     </section>
 
 </ProjectPage>
 
 @code {
     [Parameter] public string ProjectId { get; set; } = "";
+
+    /// <summary>yyyy-MM-dd — a search result opens the record at the day it was said.</summary>
+    [SupplyParameterFromQuery(Name = "day")] public string? DayParam { get; set; }
+
+    private DateTime? Day => DateTime.TryParseExact(DayParam, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
 
     private int threadKey;
 

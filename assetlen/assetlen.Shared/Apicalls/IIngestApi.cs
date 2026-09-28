@@ -30,6 +30,16 @@ public interface IIngestApi
     [Post("/api/Ingest/CommitImport")]
     Task<IApiResponse<IngestBatchDto>> CommitImport([Body] IngestCommitDto dto);
 
+    /// <summary>
+    /// Loose photos and videos — or a zip of the folder they sit in — re-joined to
+    /// their &lt;Media omitted&gt; lines by the stamp in each file name.
+    /// </summary>
+    [Multipart]
+    [Post("/api/Ingest/RejoinMedia")]
+    Task<IApiResponse<MediaRejoinReportDto>> RejoinMedia(
+        [AliasAs("files")] IEnumerable<StreamPart> files,
+        [AliasAs("projectId")] string projectId);
+
     /// <summary>One item from the share sheet: a file, some text, or both.</summary>
     [Multipart]
     [Post("/api/Ingest/CaptureShare")]

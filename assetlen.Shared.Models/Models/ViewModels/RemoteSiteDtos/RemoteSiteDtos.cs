@@ -287,6 +287,10 @@ public class StageDto : BaseDto
     /// <summary>Which phase of the build this is, and therefore which accent it wears.</summary>
     public StageGroup Phase { get; set; } = StageGroup.Custom;
 
+    /// <summary>The plan as first agreed. Never moved by a later edit to the dates above.</summary>
+    public DateTime? BaselineStartDate { get; set; }
+    public DateTime? BaselineEndDate { get; set; }
+
     /// <summary>Sub-stages, filled in when the caller asked for the grouped shape.</summary>
     public List<StageDto> SubStages { get; set; } = new();
 
@@ -764,6 +768,20 @@ public class FlagDto : BaseDto
     public string? CreatedByName { get; set; }
     public string? AssignedToName { get; set; }
     public string? ResolvedByName { get; set; }
+
+    // ─── Folded into the commitment model (P4) ───────────────────
+
+    /// <summary>The commitment this questions. Null for a blocker.</summary>
+    public string? CommitmentId { get; set; }
+    public string? CommitmentTitle { get; set; }
+
+    public string? OwnerMemberId { get; set; }
+
+    /// <summary>Whoever has to move — a roster name or a free-text party. Null when nobody was named.</summary>
+    public string? OwnerName { get; set; }
+
+    /// <summary>A flag is either a query on a commitment or a blocker.</summary>
+    public bool IsBlocker => CommitmentId is null;
 }
 
 public class FlagCreateDto
@@ -795,6 +813,18 @@ public class FlagCreateDto
     public string? AssignedToId { get; set; }
 
     public DateTime? DueDate { get; set; }
+
+    /// <summary>Raise this as a query on a commitment, which moves it to QueryRaised. Omit for a blocker.</summary>
+    [MaxLength(40)]
+    public string? CommitmentId { get; set; }
+
+    /// <summary>Who has to move for a blocker to clear, when they are on the roster.</summary>
+    [MaxLength(40)]
+    public string? OwnerMemberId { get; set; }
+
+    /// <summary>Who has to move, when they are not on the roster — "the epoxy team".</summary>
+    [MaxLength(200)]
+    public string? OwnerPartyName { get; set; }
 }
 
 public class FlagUpdateDto
@@ -816,6 +846,12 @@ public class FlagUpdateDto
     public string? AssignedToId { get; set; }
 
     public DateTime? DueDate { get; set; }
+
+    [MaxLength(40)]
+    public string? OwnerMemberId { get; set; }
+
+    [MaxLength(200)]
+    public string? OwnerPartyName { get; set; }
 }
 
 // ─── Subscription DTOs ───────────────────────────────────────

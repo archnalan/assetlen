@@ -84,6 +84,19 @@ public class ProgressDAL : IProgressDAL
             _context.tbl_ProgressUpdates.Add(update);
             await _context.SaveChangesAsync();
 
+            if (dto.CompletionPercentage != stage.CompletionPercentage)
+                _context.tbl_ProgressReadings.Add(new tbl_ProgressReading
+                {
+                    ProjectId = stage.ProjectId,
+                    TenantId = stage.TenantId,
+                    StageId = stage.Id,
+                    Subject = stage.StageName,
+                    Percent = Math.Clamp((decimal)dto.CompletionPercentage, 0, 100),
+                    ObservedAt = DateTime.UtcNow,
+                    SourceKind = ProgressReadingSource.Capture,
+                    SourceId = update.Id
+                });
+
             // Update stage completion %
             stage.CompletionPercentage = dto.CompletionPercentage;
             if (dto.CompletionPercentage >= 100)

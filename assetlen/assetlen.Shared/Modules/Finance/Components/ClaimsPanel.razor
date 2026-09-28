@@ -1,0 +1,307 @@
+@*
+    Progress claims — "claim stage, Peter approves" (assetlen.md §6). The side
+    claiming never clears its own claim. Under Law 0 the developer may record a
+    claim he was forwarded and clear it himself; the ledger reconciles either way.
+*@
+
+@inject ILogger<ClaimsPanel> Logger
+
+<section class="claims">
+    <div class="al-rule">
+        <span class="al-label">Claims</span>
+        @if (CanWrite && !adding)
+        {
+            <button type="button" class="al-btn al-btn--link" @onclick="() => adding = true">Record a claim</button>
+        }
+    </div>
+
+    @if (adding)
+    {
+        <div class="al-sheet claims__form">
+            <div class="al-sheet__body">
+                <div class="claims__row">
+                    <div class="al-field">
+                        <label class="al-label" for="cl-stage">Stage</label>
+                        <select id="cl-stage" class="al-select" @bind="stageId">
+                            <option value="">Choose a stage</option>
+                            @foreach (var s in stages)
+                            {
+                                <option value="@s.Id">@s.StageName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="al-field">
+                        <label class="al-label" for="cl-amount">Amount (@Currency)</label>
+                        <input id="cl-amount" class="al-input al-input--money" type="number" min="0" step="1000" @bind="amount" />
+                    </div>
+                </div>
+                <div class="al-field">
+                    <label class="al-label" for="cl-note">For what</label>
+                    <input id="cl-note" class="al-input" maxlength="500" placeholder="e.g. First half cast"
+                           @bind="note" @bind:event="oninput" />
+                </div>
+                @if (!string.IsNullOrEmpty(formError))
+                {
+                    <div class="al-alert al-alert--error" role="alert"><Icon Name="error" Size="16" /><span>@formError</span></div>
+                }
+                <div class="claims__actions">
+                    <button type="button" class="al-btn al-btn--quiet" @onclick="() => adding = false">Cancel</button>
+                    <button type="button" class="al-btn al-btn--primary"
+                            disabled="@(saving || string.IsNullOrEmpty(stageId) || amount is null or <= 0)" @onclick="AddAsync">
+                        @if (saving) { <span class="al-spinner"></span> }
+                        Record claim
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="Claims didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="money"
+                EmptyTitle="No claims yet"
+                EmptyBody="A claim is the contractor asking to be paid for work done on a stage. Clearing it is the funder's word that the work is there.">
+        <Loading>
+            <div class="al-shimmer al-ghost-row"></div>
+        </Loading>
+        <ChildContent>
+            <div class="al-sheet">
+                <div class="al-register claims__list">
+                    @foreach (var c in items)
+                    {
+                        <div class="al-register__row @(c.CanClear ? "al-register__row--needs-you" : "")">
+                            <span class="al-register__index">@Fmt.DateShort(c.ClaimedAt)</span>
+                            <span class="al-register__main">
+                                <span class="al-register__title">@(c.Note ?? "Claim")</span>
+                                <span class="al-register__sub">
+                                    <span>@c.StageName</span>
+                                    @if (!string.IsNullOrEmpty(c.ClaimedByName)) { <span>by @c.ClaimedByName</span> }
+                                    @if (c.Status == ClaimStatus.Cleared && c.ClearedAmount is not null)
+                                    {
+                                        <span>cleared at @Fmt.Money(c.ClearedAmount.Value, Currency)</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(c.QueryNote) && c.Status == ClaimStatus.Queried)
+                                    {
+                                        <span>queried: “@c.QueryNote”</span>
+                                    }
+                                </span>
+
+                                @if (queryingId == c.Id)
+                                {
+                                    <span class="claims__query">
+                                        <input class="al-input" maxlength="500" placeholder="What is being queried"
+                                               @bind="queryNote" @bind:event="oninput" />
+                                        <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => queryingId = null">Cancel</button>
+                                        <button type="button" class="al-btn al-btn--default al-btn--sm"
+                                                disabled="@string.IsNullOrWhiteSpace(queryNote)" @onclick="() => DecideAsync(c, false)">Send query</button>
+                                    </span>
+                                }
+                            </span>
+                            <span class="al-register__end">
+                                <span class="al-register__amount">@Fmt.Amount(c.Amount)</span>
+                                @switch (c.Status)
+                                {
+                                    case ClaimStatus.Cleared:
+                                        <span class="al-badge al-badge--success"><Icon Name="check" Size="11" /> Cleared</span>
+                                        break;
+                                    case ClaimStatus.Withdrawn:
+                                        <span class="al-badge al-badge--neutral">Withdrawn</span>
+                                        break;
+                                    case ClaimStatus.Queried:
+                                        <span class="al-badge al-badge--accent">Queried</span>
+                                        break;
+                                    default:
+                                        <span class="al-badge al-badge--warning">Awaiting the funder</span>
+                                        break;
+                                }
+                                @if (c.CanClear)
+                                {
+                                    <button type="button" class="al-btn al-btn--primary al-btn--sm" disabled="@(busy == c.Id)"
+                                            @onclick="() => DecideAsync(c, true)">Clear</button>
+                                }
+                                @if (c.CanQuery && queryingId != c.Id)
+                                {
+                                    <button type="button" class="al-btn al-btn--link al-btn--sm" @onclick="() => { queryingId = c.Id; queryNote = string.Empty; }">Query</button>
+                                }
+                                @if (c.CanWithdraw && !c.CanClear)
+                                {
+                                    <button type="button" class="al-btn al-btn--link al-btn--sm" disabled="@(busy == c.Id)"
+                                            @onclick="() => WithdrawAsync(c)">Withdraw</button>
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </ChildContent>
+    </StateBlock>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public bool CanWrite { get; set; }
+    [Parameter] public string Currency { get; set; } = "UGX";
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<StageClaimDto> items = new();
+    private List<StageDto> stages = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? loadedId;
+
+    private bool adding;
+    private bool saving;
+    private string? formError;
+    private string stageId = "";
+    private decimal? amount;
+    private string note = "";
+
+    private string? busy;
+    private string? queryingId;
+    private string queryNote = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var claimsTask = _ledgerApi.GetClaims(ProjectId);
+            var stagesTask = _stagesApi.GetStagesByProjectId(ProjectId);
+            await Task.WhenAll(claimsTask, stagesTask);
+            if (!claimsTask.Result.IsSuccessStatusCode || claimsTask.Result.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(claimsTask.Result);
+                return;
+            }
+            items = claimsTask.Result.Content;
+            stages = stagesTask.Result.IsSuccessStatusCode
+                ? (stagesTask.Result.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList()
+                : new();
+            phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Claims failed for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task AddAsync()
+    {
+        saving = true;
+        formError = null;
+        try
+        {
+            var response = await _ledgerApi.AddClaim(new StageClaimCreateDto
+            {
+                ProjectId = ProjectId,
+                StageId = stageId,
+                Amount = amount ?? 0,
+                Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
+            });
+            if (response.IsSuccessStatusCode)
+            {
+                adding = false;
+                amount = null;
+                note = "";
+                ToastService.ShowSuccess("Claim recorded. It waits on the funder to clear it.");
+                await AfterChangeAsync();
+            }
+            else
+            {
+                formError = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not record that claim.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not record a claim on {ProjectId}", ProjectId);
+            formError = "Could not record that claim.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DecideAsync(StageClaimDto c, bool clear)
+    {
+        busy = c.Id;
+        try
+        {
+            var response = await _ledgerApi.DecideClaim(new StageClaimDecisionDto
+            {
+                ClaimId = c.Id,
+                Clear = clear,
+                Note = clear ? null : queryNote.Trim()
+            });
+            if (response.IsSuccessStatusCode)
+            {
+                queryingId = null;
+                ToastService.ShowSuccess(clear ? "Cleared. The stage ledger now counts it." : "Queried. The claim waits on an answer.");
+                await AfterChangeAsync();
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not decide claim {Id}", c.Id);
+            ToastService.ShowError("That did not go through.");
+        }
+        finally
+        {
+            busy = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task WithdrawAsync(StageClaimDto c)
+    {
+        busy = c.Id;
+        try
+        {
+            var response = await _ledgerApi.WithdrawClaim(c.Id!);
+            if (response.IsSuccessStatusCode)
+            {
+                ToastService.ShowSuccess("Withdrawn. It stays on record, and out of the totals.");
+                await AfterChangeAsync();
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not withdraw claim {Id}", c.Id);
+            ToastService.ShowError("That did not go through.");
+        }
+        finally
+        {
+            busy = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AfterChangeAsync()
+    {
+        await LoadAsync();
+        if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
+    }
+}

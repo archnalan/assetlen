@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using assetlen.Service.DataAccess;
 using assetlen.Service.DbServices.ServiceInterfaces;
+using assetlen.Service.FileProcessingServices.Ocr;
 using assetlen.ServiceHandler;
 using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.RemoteSite;
@@ -18,6 +19,7 @@ public class ArtifactDAL : IArtifactDAL
     private readonly IArtifactStorage _storage;
     private readonly IThumbnailGenerator _thumbnails;
     private readonly IProjectAccessService _access;
+    private readonly IArtifactTextQueue _textQueue;
 
     private const int ThumbnailMaxEdge = 480;
     private const long MaxUploadBytes = 40L * 1024 * 1024;
@@ -27,13 +29,15 @@ public class ArtifactDAL : IArtifactDAL
         ILogger<ArtifactDAL> logger,
         IArtifactStorage storage,
         IThumbnailGenerator thumbnails,
-        IProjectAccessService access)
+        IProjectAccessService access,
+        IArtifactTextQueue textQueue)
     {
         _context = context;
         _logger = logger;
         _storage = storage;
         _thumbnails = thumbnails;
         _access = access;
+        _textQueue = textQueue;
     }
 
     // ─── Ingest ──────────────────────────────────────────────────────────
@@ -150,6 +154,9 @@ public class ArtifactDAL : IArtifactDAL
                 winnerDto.WasDeduplicated = true;
                 return ServiceResult<ArtifactDto>.Success(winnerDto);
             }
+
+            // Law 3: every new file is read for text, off the request path.
+            _textQueue.Enqueue(artifact.Id!);
 
             return ServiceResult<ArtifactDto>.Success(ToDto(artifact, 0));
         }

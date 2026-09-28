@@ -22,7 +22,14 @@ public enum IngestSourceType
     Email = 2,
 
     /// <summary>Typed straight in. Present so nothing has to lie about its origin.</summary>
-    Manual = 3
+    Manual = 3,
+
+    /// <summary>
+    /// Loose photos and videos sent alongside a transcript that was exported
+    /// without media, re-joined to their <c>&lt;Media omitted&gt;</c> lines by the
+    /// stamp in the file name (works-report.md §5).
+    /// </summary>
+    LooseMedia = 4
 }
 
 /// <summary>

@@ -1,0 +1,24 @@
+/* Architectural work isn't square (CLAUDE.md §2.5): 3/2, like every thumbnail. Contained, not
+   cropped: a result is usually a receipt or a page, and its edges carry the vendor and the total. */
+.athumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: var(--al-aspect-thumb);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface-2);
+    border: 1px solid var(--al-border);
+    overflow: hidden;
+}
+
+.athumb__img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.athumb ::deep .athumb__icon { color: var(--al-text-subtle); }
+
+.athumb--cover .athumb__img { object-fit: cover; }

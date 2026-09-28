@@ -1,0 +1,29 @@
+@*
+    Same view, then and now. On 25 February seventeen chronological frames
+    were answered with "Nothing much changed" (whatsapp-evidence.md F2); one
+    pair taken from the same spot does not read that way.
+*@
+
+<figure class="vpair">
+    <div class="vpair__frames">
+        <a class="vpair__frame" href="@Pair.Before.Href">
+            <ArtifactThumb ArtifactId="@Pair.Before.ArtifactId" HasThumbnail="Pair.Before.HasThumbnail" MimeType="@Pair.Before.MimeType" Cover="true" />
+            <span class="vpair__tag">Before · @BriefFormat.Day(Pair.Before.At)</span>
+        </a>
+        <a class="vpair__frame" href="@Pair.After.Href">
+            <ArtifactThumb ArtifactId="@Pair.After.ArtifactId" HasThumbnail="Pair.After.HasThumbnail" MimeType="@Pair.After.MimeType" Cover="true" />
+            <span class="vpair__tag vpair__tag--now">Now · @BriefFormat.Day(Pair.After.At)</span>
+        </a>
+    </div>
+    <figcaption class="vpair__caption">
+        Same view, @(Pair.DaysApart == 1 ? "a day" : $"{Pair.DaysApart} days") apart
+        @if (Pair.After.Caption is not null)
+        {
+            <span> — @Pair.After.Caption</span>
+        }
+    </figcaption>
+</figure>
+
+@code {
+    [Parameter, EditorRequired] public VantagePairDto Pair { get; set; } = new();
+}

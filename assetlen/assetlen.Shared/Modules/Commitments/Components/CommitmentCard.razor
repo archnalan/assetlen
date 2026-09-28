@@ -1,0 +1,604 @@
+@*
+    One commitment: what was agreed, who agreed it with whom, when, where it
+    was said, and where it has got to. Every action offered is one the server
+    stamped for this reader — a spoken agreement is confirmed by the other side,
+    never by the person who wrote it down (assetlen.md §3).
+*@
+
+@inject ILogger<CommitmentCard> Logger
+
+<article class="commitment @(Item.IsSuperseded ? "commitment--superseded" : "") @(NeedsReader ? "commitment--needs-you" : "") @(Focused ? "commitment--focused" : "")" id="c-@Item.Id">
+
+    <header class="commitment__head">
+        <span class="commitment__kind" title="@KindLabel(Item.Kind)">
+            <Icon Name="@KindIcon(Item.Kind)" Size="14" />
+            <span>@KindLabel(Item.Kind)</span>
+        </span>
+
+        <div class="commitment__badges">
+            @if (Item.QueryState == CommitmentQueryState.QueryRaised)
+            {
+                <span class="al-badge al-badge--accent"><Icon Name="query" Size="11" /> Query raised</span>
+            }
+            else if (Item.QueryState == CommitmentQueryState.Resolved)
+            {
+                <span class="al-badge al-badge--success">Resolved</span>
+            }
+            else if (Item.QueryState == CommitmentQueryState.Cleared)
+            {
+                <span class="al-badge al-badge--success"><Icon Name="check" Size="11" /> Cleared</span>
+            }
+
+            @if (Item.CanConfirm)
+            {
+                <span class="al-badge al-badge--warning">Needs your word</span>
+            }
+            else if (Item.IsAwaitingCounterparty)
+            {
+                <span class="al-badge al-badge--neutral">Awaiting the other side</span>
+            }
+
+            @if (Item.IsOverdue)
+            {
+                <span class="al-badge al-badge--danger"><Icon Name="clock" Size="11" /> Overdue</span>
+            }
+            @if (Item.VariationStatus is not null)
+            {
+                <span class="al-badge al-badge--outline" title="On the variation register">
+                    <Icon Name="variation" Size="11" /> Variation · @Fmt.Humanise(Item.VariationStatus.ToString())
+                </span>
+            }
+            @if (Item.IsSuperseded)
+            {
+                <span class="al-badge al-badge--neutral">Superseded</span>
+            }
+        </div>
+    </header>
+
+    <h3 class="commitment__title">@Item.Title</h3>
+
+    @if (!string.IsNullOrWhiteSpace(Item.Body))
+    {
+        <p class="commitment__body">@Item.Body</p>
+    }
+
+    <dl class="commitment__facts">
+        @if (Item.Amount is not null)
+        {
+            <div class="commitment__fact">
+                <dt class="al-label">Amount</dt>
+                <dd class="al-num">@Fmt.Money(Item.Amount.Value, Item.Currency)</dd>
+            </div>
+        }
+        else if (Item.AmountHidden)
+        {
+            <div class="commitment__fact">
+                <dt class="al-label">Amount</dt>
+                <dd class="al-subtle">Priced — not on your seat</dd>
+            </div>
+        }
+        @if (Item.DueDate is not null)
+        {
+            <div class="commitment__fact">
+                <dt class="al-label">@(Item.Kind == CommitmentKind.Date ? "Promised for" : "Due")</dt>
+                <dd class="al-num">@Fmt.Date(Item.DueDate)</dd>
+            </div>
+        }
+        <div class="commitment__fact">
+            <dt class="al-label">@(Item.Maturity >= CommitmentMaturity.Agreed ? "Agreed" : "Raised")</dt>
+            <dd class="al-num">@Fmt.Date(Item.AgreedAt ?? Item.DateTimeCreated)</dd>
+        </div>
+        <div class="commitment__fact">
+            <dt class="al-label">Between</dt>
+            <dd>@(Item.AgreedByName ?? "—")@if (!string.IsNullOrEmpty(Item.AgreedWithName)) {<text> and @Item.AgreedWithName</text>}</dd>
+        </div>
+        <div class="commitment__fact">
+            <dt class="al-label">Where</dt>
+            <dd>@SourceLabel(Item.SourceChannel)</dd>
+        </div>
+        @if (Item.OwedBySide is not null && Item.Maturity < CommitmentMaturity.Agreed)
+        {
+            <div class="commitment__fact">
+                <dt class="al-label">Decision owed by</dt>
+                <dd>@(Item.OwedBySide == ProjectSide.Client ? "the client side" : "the delivery side")</dd>
+            </div>
+        }
+    </dl>
+
+    @* Idea → In discussion → Agreed → Delivered → Verified *@
+    <div class="al-provenance commitment__prov" aria-label="Maturity">
+        @foreach (var step in Steps)
+        {
+            <span class="al-provenance__step @StepClass(step)">@StepLabel(step)</span>
+        }
+    </div>
+
+    @if (Item.DisputedAt is not null)
+    {
+        <p class="commitment__note commitment__note--dispute">
+            <Icon Name="alert" Size="14" />
+            <span>
+                <strong>@(Item.DisputedByName ?? "The other side") said that is not what was agreed</strong>
+                on @Fmt.Date(Item.DisputedAt)@if (!string.IsNullOrWhiteSpace(Item.DisputeNote)) {<text>: “@Item.DisputeNote”</text>}
+            </span>
+        </p>
+    }
+    @if (!string.IsNullOrWhiteSpace(Item.ResolutionNote))
+    {
+        <p class="commitment__note commitment__note--resolved">
+            <Icon Name="check-circle" Size="14" />
+            <span><strong>Resolved @Fmt.Date(Item.ResolvedAt):</strong> @Item.ResolutionNote</span>
+        </p>
+    }
+    @if (Item.CounterpartyConfirmedAt is not null)
+    {
+        <p class="commitment__note">
+            <Icon Name="check" Size="14" />
+            <span>Confirmed by @(Item.CounterpartyConfirmedByName ?? "the other side") on @Fmt.Date(Item.CounterpartyConfirmedAt)</span>
+        </p>
+    }
+
+    <footer class="commitment__foot">
+        <span class="commitment__face" title="The single accountable name on everything that crosses">
+            <Icon Name="shield" Size="13" /> @(Item.AccountableName ?? "No mediator appointed")
+        </span>
+
+        @if (Item.RestatementCount > 0 || Item.IsSuperseded)
+        {
+            <button type="button" class="al-btn al-btn--link al-btn--sm" @onclick="ToggleHistoryAsync">
+                <Icon Name="history" Size="13" />
+                @(Item.RestatementCount > 0 ? $"Restated {Times(Item.RestatementCount)}" : "History")
+            </button>
+        }
+        @if (Item.LinkCount > 0)
+        {
+            <button type="button" class="al-btn al-btn--link al-btn--sm" @onclick="ToggleLinksAsync">
+                <Icon Name="link" Size="13" /> @Item.LinkCount @(Item.LinkCount == 1 ? "link" : "links")
+            </button>
+        }
+        @if (Item.OpenQueryFlagId is not null)
+        {
+            <a class="al-btn al-btn--link al-btn--sm" href="/project/@Item.ProjectId/register?view=questions#@Item.OpenQueryFlagId">
+                <Icon Name="query" Size="13" /> The question
+            </a>
+        }
+
+        <span class="al-spacer"></span>
+
+        @if (!ReadOnly)
+        {
+            <div class="commitment__actions">
+                @if (Item.CanConfirm)
+                {
+                    <button type="button" class="al-btn al-btn--primary al-btn--sm" disabled="@busy" @onclick="ConfirmAsync">
+                        <Icon Name="check" Size="14" /> Confirm
+                    </button>
+                }
+                @if (Item.CanDispute)
+                {
+                    <button type="button" class="al-btn al-btn--default al-btn--sm" disabled="@busy" @onclick="() => Open(Pane.Dispute)">
+                        That’s not what we said
+                    </button>
+                }
+                @if (Item.CanResolveQuery)
+                {
+                    <button type="button" class="al-btn al-btn--primary al-btn--sm" disabled="@busy" @onclick="() => Open(Pane.Resolve)">
+                        Resolve
+                    </button>
+                }
+                @if (Item.CanClear)
+                {
+                    <button type="button" class="al-btn al-btn--default al-btn--sm" disabled="@busy" @onclick="ClearAsync">
+                        Mark cleared
+                    </button>
+                }
+                @if (Item.CanAdvance || Item.CanVerify || Item.CanRaiseQuery || Item.CanRestate)
+                {
+                    <button type="button" class="al-iconbtn al-iconbtn--sm" aria-label="More actions" aria-expanded="@menuOpen"
+                            @onclick="() => menuOpen = !menuOpen">
+                        <Icon Name="more" Size="16" />
+                    </button>
+                }
+            </div>
+        }
+    </footer>
+
+    @if (menuOpen && !ReadOnly)
+    {
+        <div class="commitment__menu" role="menu">
+            @if (Item.CanAdvance && NextStep is { } next)
+            {
+                <button type="button" role="menuitem" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => AdvanceAsync(next)">
+                    Move to @StepLabel(next)
+                </button>
+            }
+            @if (Item.CanVerify)
+            {
+                <button type="button" role="menuitem" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => AdvanceAsync(CommitmentMaturity.Verified)">
+                    Verified against the work
+                </button>
+            }
+            @if (Item.CanRaiseQuery)
+            {
+                <button type="button" role="menuitem" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => Open(Pane.Query)">
+                    Raise a query
+                </button>
+            }
+            @if (Item.CanRestate)
+            {
+                <button type="button" role="menuitem" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => Open(Pane.Restate)">
+                    Restate — a new date, figure or wording
+                </button>
+            }
+        </div>
+    }
+
+    @if (pane != Pane.None)
+    {
+        <div class="commitment__pane">
+            @switch (pane)
+            {
+                case Pane.Dispute:
+                    <label class="al-label" for="dis-@Item.Id">What was actually said</label>
+                    <textarea id="dis-@Item.Id" class="al-textarea" rows="2" maxlength="1000"
+                              placeholder="e.g. We said 10M on the call, not 10.5M."
+                              @bind="note" @bind:event="oninput"></textarea>
+                    <span class="al-field__hint">It becomes a query on this item, owed back to whoever wrote it down.</span>
+                    break;
+
+                case Pane.Query:
+                    <label class="al-label" for="q-@Item.Id">Your question</label>
+                    <textarea id="q-@Item.Id" class="al-textarea" rows="2" maxlength="1000"
+                              @bind="note" @bind:event="oninput"></textarea>
+                    <span class="al-field__hint">Asking is not an accusation. The answer will land on this item, not in a message.</span>
+                    break;
+
+                case Pane.Resolve:
+                    <label class="al-label" for="r-@Item.Id">How it was resolved</label>
+                    <textarea id="r-@Item.Id" class="al-textarea" rows="2" maxlength="1000"
+                              placeholder="e.g. Revised to 4 bags, agreed on site 6 Aug."
+                              @bind="note" @bind:event="oninput"></textarea>
+                    <div class="commitment__pane-row">
+                        @if (Item.Amount is not null || Item.Kind == CommitmentKind.Price)
+                        {
+                            @if (!Item.AmountHidden)
+                            {
+                                <div class="al-field">
+                                    <label class="al-label" for="ra-@Item.Id">Revised figure (optional)</label>
+                                    <input id="ra-@Item.Id" class="al-input al-input--money" type="number" min="0" step="1000" @bind="amount" />
+                                </div>
+                            }
+                        }
+                        @if (Item.Kind == CommitmentKind.Date)
+                        {
+                            <div class="al-field">
+                                <label class="al-label" for="rd-@Item.Id">Revised date (optional)</label>
+                                <input id="rd-@Item.Id" class="al-input" type="date" @bind="due" />
+                            </div>
+                        }
+                    </div>
+                    <span class="al-field__hint">A changed figure becomes a new statement; the questioned one stays on record beside it.</span>
+                    break;
+
+                case Pane.Restate:
+                    <label class="al-label" for="rt-@Item.Id">Wording</label>
+                    <input id="rt-@Item.Id" class="al-input" maxlength="200" @bind="title" @bind:event="oninput" />
+                    <div class="commitment__pane-row">
+                        @if (!Item.AmountHidden && (Item.Amount is not null || Item.Kind == CommitmentKind.Price))
+                        {
+                            <div class="al-field">
+                                <label class="al-label" for="rsa-@Item.Id">Figure</label>
+                                <input id="rsa-@Item.Id" class="al-input al-input--money" type="number" min="0" step="1000" @bind="amount" />
+                            </div>
+                        }
+                        <div class="al-field">
+                            <label class="al-label" for="rsd-@Item.Id">@(Item.Kind == CommitmentKind.Date ? "New date" : "Due")</label>
+                            <input id="rsd-@Item.Id" class="al-input" type="date" @bind="due" />
+                        </div>
+                    </div>
+                    <span class="al-field__hint">The current statement is kept and marked superseded. Nothing is overwritten.</span>
+                    break;
+            }
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="al-alert al-alert--error" role="alert"><Icon Name="error" Size="16" /><span>@error</span></div>
+            }
+
+            <div class="commitment__pane-actions">
+                <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="Close">Cancel</button>
+                <button type="button" class="al-btn al-btn--primary al-btn--sm" disabled="@(busy || !PaneReady)" @onclick="SubmitPaneAsync">
+                    @if (busy) { <span class="al-spinner"></span> }
+                    @PaneAction
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (historyOpen)
+    {
+        <div class="commitment__drawer">
+            <span class="al-label">Every statement, oldest first</span>
+            @if (history is null)
+            {
+                <div class="al-shimmer al-ghost-row"></div>
+            }
+            else
+            {
+                <ol class="commitment__history">
+                    @foreach (var h in history)
+                    {
+                        <li class="@(h.Id == Item.Id ? "is-this" : "")">
+                            <span class="al-num commitment__history-date">@Fmt.DateShort(h.AgreedAt ?? h.DateTimeCreated)</span>
+                            <span>
+                                @h.Title
+                                @if (h.Amount is not null) {<text> · <span class="al-num">@Fmt.Money(h.Amount.Value, h.Currency)</span></text>}
+                                @if (h.DueDate is not null) {<text> · for <span class="al-num">@Fmt.Date(h.DueDate)</span></text>}
+                            </span>
+                        </li>
+                    }
+                </ol>
+            }
+        </div>
+    }
+
+    @if (linksOpen)
+    {
+        <div class="commitment__drawer">
+            <span class="al-label">Evidence and backlinks</span>
+            @if (links is null)
+            {
+                <div class="al-shimmer al-ghost-row"></div>
+            }
+            else if (links.Count == 0)
+            {
+                <span class="al-subtle">Nothing you can see is linked.</span>
+            }
+            else
+            {
+                <ul class="commitment__links">
+                    @foreach (var l in links)
+                    {
+                        <li>
+                            <Icon Name="@LinkIcon(l.TargetType)" Size="13" />
+                            <span class="commitment__link-rel">@Fmt.Humanise(l.Relation.ToString())</span>
+                            @if (l.TargetType == CommitmentLinkTarget.Commitment)
+                            {
+                                <a href="/project/@Item.ProjectId/register#c-@l.TargetId">@l.TargetLabel</a>
+                            }
+                            else
+                            {
+                                <span>@l.TargetLabel</span>
+                            }
+                            @if (l.TargetDate is not null)
+                            {
+                                <span class="al-subtle al-num">@Fmt.DateShort(l.TargetDate)</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public CommitmentDto Item { get; set; } = default!;
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>The item a search result pointed at — marked so the reader sees which one they came for.</summary>
+    [Parameter] public bool Focused { get; set; }
+
+    /// <summary>Raised with the fresh item after any change — a restatement or resolution may hand back a new id.</summary>
+    [Parameter] public EventCallback<CommitmentDto> OnChanged { get; set; }
+
+    private enum Pane { None, Dispute, Query, Resolve, Restate }
+
+    private Pane pane;
+    private bool menuOpen;
+    private bool busy;
+    private string? error;
+    private string note = "";
+    private string title = "";
+    private decimal? amount;
+    private DateTime? due;
+
+    private bool historyOpen;
+    private List<CommitmentDto>? history;
+    private bool linksOpen;
+    private List<CommitmentLinkDto>? links;
+
+    private static readonly CommitmentMaturity[] Steps = Enum.GetValues<CommitmentMaturity>();
+
+    private bool NeedsReader => Item.CanConfirm;
+
+    private CommitmentMaturity? NextStep => Item.Maturity switch
+    {
+        CommitmentMaturity.Idea => CommitmentMaturity.InDiscussion,
+        CommitmentMaturity.InDiscussion => CommitmentMaturity.Agreed,
+        CommitmentMaturity.Agreed => CommitmentMaturity.Delivered,
+        _ => null
+    };
+
+    private string StepClass(CommitmentMaturity step)
+        => Item.Maturity > step ? "is-done" : Item.Maturity == step ? "is-current" : "";
+
+    private static string StepLabel(CommitmentMaturity m) => m switch
+    {
+        CommitmentMaturity.InDiscussion => "In discussion",
+        _ => m.ToString()
+    };
+
+    private void Open(Pane p)
+    {
+        pane = p;
+        menuOpen = false;
+        error = null;
+        note = "";
+        title = Item.Title ?? "";
+        amount = Item.Amount;
+        due = Item.DueDate?.ToLocalTime().Date;
+    }
+
+    private void Close() { pane = Pane.None; error = null; }
+
+    private bool PaneReady => pane switch
+    {
+        Pane.Dispute => true,
+        Pane.Query or Pane.Resolve => !string.IsNullOrWhiteSpace(note),
+        Pane.Restate => !string.IsNullOrWhiteSpace(title),
+        _ => false
+    };
+
+    private string PaneAction => pane switch
+    {
+        Pane.Dispute => "Send back as a query",
+        Pane.Query => "Raise query",
+        Pane.Resolve => "Resolve on the item",
+        Pane.Restate => "Restate",
+        _ => ""
+    };
+
+    private static DateTime? Utc(DateTime? d) => d is null ? null : DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Utc);
+
+    private Task SubmitPaneAsync() => pane switch
+    {
+        Pane.Dispute => RunAsync(() => _commitmentsApi.Dispute(new CommitmentNoteDto { CommitmentId = Item.Id, Note = Clean(note) }),
+                                 "Sent back. It stays a query until it is resolved on the item."),
+        Pane.Query => RunAsync(() => _commitmentsApi.RaiseQuery(new CommitmentNoteDto { CommitmentId = Item.Id, Note = note.Trim() }),
+                               "Query raised. The answer will land on this item."),
+        Pane.Resolve => RunAsync(() => _commitmentsApi.ResolveQuery(new CommitmentResolveDto
+                                 {
+                                     CommitmentId = Item.Id,
+                                     Note = note.Trim(),
+                                     Amount = amount != Item.Amount ? amount : null,
+                                     DueDate = Utc(due) != Utc(Item.DueDate?.ToLocalTime()) ? Utc(due) : null
+                                 }), "Resolved. The answer now lives on the item."),
+        Pane.Restate => RunAsync(() => _commitmentsApi.Restate(new CommitmentRestateDto
+                                 {
+                                     CommitmentId = Item.Id,
+                                     Title = title.Trim() != Item.Title ? title.Trim() : null,
+                                     Amount = amount != Item.Amount ? amount : null,
+                                     DueDate = Utc(due) != Utc(Item.DueDate?.ToLocalTime()) ? Utc(due) : null
+                                 }), "Restated. The earlier statement is kept beside it."),
+        _ => Task.CompletedTask
+    };
+
+    private static string? Clean(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private Task ConfirmAsync() => RunAsync(() => _commitmentsApi.Confirm(Item.Id!), "Confirmed. It is now agreed on both sides.");
+    private Task ClearAsync() => RunAsync(() => _commitmentsApi.Clear(Item.Id!), "Cleared. It can still be queried later.");
+    private Task AdvanceAsync(CommitmentMaturity to)
+        => RunAsync(() => _commitmentsApi.SetMaturity(new CommitmentMaturityDto { CommitmentId = Item.Id, Maturity = to }),
+                    $"Moved to {StepLabel(to)}.");
+
+    private async Task RunAsync(Func<Task<Refit.IApiResponse<CommitmentDto>>> call, string done)
+    {
+        busy = true;
+        error = null;
+        menuOpen = false;
+        StateHasChanged();
+
+        try
+        {
+            var response = await call();
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                pane = Pane.None;
+                history = null;
+                historyOpen = false;
+                ToastService.ShowSuccess(done);
+                if (OnChanged.HasDelegate) await OnChanged.InvokeAsync(response.Content);
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.";
+                if (pane == Pane.None) ToastService.ShowError(error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Commitment action failed on {Id}", Item.Id);
+            error = "That did not go through.";
+            if (pane == Pane.None) ToastService.ShowError(error);
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleHistoryAsync()
+    {
+        historyOpen = !historyOpen;
+        if (!historyOpen || history is not null) return;
+        try
+        {
+            var response = await _commitmentsApi.GetChain(Item.Id!);
+            history = response.IsSuccessStatusCode ? response.Content ?? new() : new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "History failed for {Id}", Item.Id);
+            history = new();
+        }
+    }
+
+    private async Task ToggleLinksAsync()
+    {
+        linksOpen = !linksOpen;
+        if (!linksOpen || links is not null) return;
+        try
+        {
+            var response = await _commitmentsApi.GetLinks(Item.Id!);
+            links = response.IsSuccessStatusCode ? response.Content ?? new() : new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Links failed for {Id}", Item.Id);
+            links = new();
+        }
+    }
+
+    private static string Times(int n) => n == 1 ? "once" : n == 2 ? "twice" : $"{n} times";
+
+    public static string KindLabel(CommitmentKind k) => k switch
+    {
+        CommitmentKind.Spec => "Spec",
+        CommitmentKind.Price => "Price",
+        CommitmentKind.Date => "Date",
+        CommitmentKind.Material => "Material",
+        _ => "Choice"
+    };
+
+    public static string KindIcon(CommitmentKind k) => k switch
+    {
+        CommitmentKind.Spec => "drawing",
+        CommitmentKind.Price => "money",
+        CommitmentKind.Date => "calendar",
+        CommitmentKind.Material => "stage",
+        _ => "decision"
+    };
+
+    private static string SourceLabel(CommitmentSource s) => s switch
+    {
+        CommitmentSource.Verbal => "On a call",
+        CommitmentSource.Meeting => "At a meeting",
+        CommitmentSource.Ingested => "In the thread",
+        _ => "Recorded here"
+    };
+
+    private static string LinkIcon(CommitmentLinkTarget t) => t switch
+    {
+        CommitmentLinkTarget.Commitment => "commitment",
+        CommitmentLinkTarget.Artifact => "image",
+        CommitmentLinkTarget.IngestedMessage => "message",
+        CommitmentLinkTarget.ProgressUpdate => "camera",
+        CommitmentLinkTarget.FundingEntry or CommitmentLinkTarget.Claim => "money",
+        CommitmentLinkTarget.Flag => "query",
+        CommitmentLinkTarget.Document => "drawing",
+        CommitmentLinkTarget.Variation => "variation",
+        _ => "link"
+    };
+}

@@ -74,6 +74,11 @@ public sealed class DevSeedService : IDevSeedService
     private static string FlagId(int n) => $"de300000-0000-4000-8000-0000000005{n:D2}";
     private static string EntryId(int n) => $"de300000-0000-4000-8000-0000000006{n:D2}";
     private static string BudgetId(int n) => $"de300000-0000-4000-8000-0000000007{n:D2}";
+    private static string DeliverableId(int n) => $"de300000-0000-4000-8000-0000000008{n:D2}";
+    private static string CommitmentId(int n) => $"de300000-0000-4000-8000-0000000009{n:D2}";
+    private static string VariationId(int n) => $"de300000-0000-4000-8000-0000000010{n:D2}";
+    private static string ClaimId(int n) => $"de300000-0000-4000-8000-0000000011{n:D2}";
+    private static string LinkId(int n) => $"de300000-0000-4000-8000-0000000012{n:D2}";
 
     public async Task<DevSeedResult> SeedAsync(CancellationToken ct = default)
     {
@@ -112,6 +117,8 @@ public sealed class DevSeedService : IDevSeedService
         await EnsureBudgetAsync(nalan, ct);
         await EnsureOpenQuestionsAsync(peter, dinah, nalan, ct);
         await EnsureSiteLogAsync(nalan, musa, ct);
+        await EnsureRegisterAsync(peter, nalan, ct);
+        await EnsureLedgerAsync(peter, nalan, ct);
 
         await _context.SaveChangesAsync(ct);
 
@@ -454,6 +461,8 @@ public sealed class DevSeedService : IDevSeedService
                 BudgetAmount = s.Budget,
                 StartDate = DateTime.SpecifyKind(s.Start, DateTimeKind.Utc),
                 ExpectedEndDate = DateTime.SpecifyKind(s.End, DateTimeKind.Utc),
+                BaselineStartDate = DateTime.SpecifyKind(s.Start, DateTimeKind.Utc),
+                BaselineEndDate = DateTime.SpecifyKind(s.End, DateTimeKind.Utc),
                 ActualEndDate = s.Status == StageStatus.Completed
                     ? DateTime.SpecifyKind(s.End, DateTimeKind.Utc)
                     : null,
@@ -797,5 +806,351 @@ public sealed class DevSeedService : IDevSeedService
                 new object[] { DateTime.SpecifyKind(e.When, DateTimeKind.Utc), e.Id },
                 ct);
         }
+    }
+
+    private static DateTime Utc(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+    /// <summary>
+    /// The register for assetlen.md §11 test 1: the sixteen retaining-wall
+    /// commitments hand-extracted in whatsapp-evidence.md §7, as Peter would see
+    /// them. Pseudonymised like the rest of this seed — the brands and figures
+    /// the extraction has to work on are kept; people, suppliers' locations and
+    /// accounts are not.
+    /// <para>
+    /// Filed by Peter from his own import (Law 0): the contractor never logged in
+    /// to make this page. Nalan is the accountable face on every item because
+    /// he is the mediator, not because he typed it.
+    /// </para>
+    /// </summary>
+    private async Task EnsureRegisterAsync(AppUser peter, AppUser nalan, CancellationToken ct)
+    {
+        var wall = StageId(4);
+
+        // ── The checklist of the retaining wall ─────────────────────────────
+        var deliverables = new (int N, string Title, DeliverableStatus Status, DateTime? Due)[]
+        {
+            (1, "Design and specification agreed", DeliverableStatus.Done, null),
+            (2, "Excavation, first half", DeliverableStatus.Done, Utc(2026, 6, 12)),
+            (3, "Materials specified and on site", DeliverableStatus.InProgress, null),
+            (4, "Drainage pipes placed", DeliverableStatus.Done, null),
+            (5, "First half cast", DeliverableStatus.Done, null),
+            (6, "Second half cast", DeliverableStatus.InProgress, null),
+            (7, "Backfill and close the excavation", DeliverableStatus.NotStarted, null)
+        };
+
+        var haveDeliverables = await _context.tbl_Deliverables.IgnoreQueryFilters()
+            .Where(d => d.ProjectId == ProjectId).Select(d => d.Id).ToListAsync(ct);
+        foreach (var d in deliverables.Where(d => !haveDeliverables.Contains(DeliverableId(d.N))))
+        {
+            _context.tbl_Deliverables.Add(new tbl_Deliverable
+            {
+                Id = DeliverableId(d.N),
+                TenantId = TenantId,
+                ProjectId = ProjectId,
+                StageId = wall,
+                Title = d.Title,
+                DisplayOrder = d.N,
+                Status = d.Status,
+                DueDate = d.Due,
+                CompletedAt = d.Status == DeliverableStatus.Done ? Utc(2026, 6, 29) : null,
+                CompletedById = d.Status == DeliverableStatus.Done ? peter.Id : null
+            });
+        }
+
+        // ── The sixteen (evidence §7), fifteen commitments and one blocker ──
+        const string mediator = "de300000-0000-4000-8000-000000000303"; // MemberId(3), Nalan
+        const string developer = "de300000-0000-4000-8000-000000000301"; // MemberId(1), Peter
+
+        var items = new (int N, int? Deliv, CommitmentKind Kind, string Title, string? Body,
+                         CommitmentMaturity Maturity, CommitmentSource Source, DateTime Agreed,
+                         decimal? Amount, DateTime? Due, string? Supersedes)[]
+        {
+            // #1 — the spec change the wall exists because of, re-confirmed in June.
+            (1, 1, CommitmentKind.Spec, "Reinforced concrete retaining wall, not stone pitching",
+                "Conserves compound space. Agreed 3 Dec; re-confirmed 11 Jun before excavation. "
+                + "\"Except for the change in retaining wall… nothing else is affected.\"",
+                CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2025, 12, 3), null, null, CommitmentId(17)),
+            (2, 3, CommitmentKind.Material, "Do not procure YOGI; minimum Plumol",
+                null, CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 6, 11), null, null, null),
+            (3, 3, CommitmentKind.Material, "Cement: CEM II, the named works brand",
+                null, CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 6, 11), null, null, null),
+            (4, 4, CommitmentKind.Material, "6-inch drainage pipe: heavy-duty Gentex",
+                null, CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2026, 6, 11), null, null, null),
+            (5, 3, CommitmentKind.Material, "Aggregate machine-crushed, not hand-crushed",
+                null, CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 6, 11), null, null, null),
+            (6, 3, CommitmentKind.Material, "Sand: lake sand from the named pit",
+                null, CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 6, 11), null, null, null),
+            (7, null, CommitmentKind.Price, "Labour: formwork, earthworks and concrete",
+                "Quoted as one figure for the three trades.",
+                CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 6, 11), 12_000_000m, null, null),
+            (8, 2, CommitmentKind.Date, "Excavation phased; first half ready by 12 Jun",
+                null, CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2026, 6, 11), null, Utc(2026, 6, 12), null),
+            (9, 3, CommitmentKind.Material, "150 bags cement for the excavated section",
+                null, CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2026, 6, 13), null, null, null),
+            (10, 3, CommitmentKind.Material, "5 trucks hardcore, first",
+                "Outstanding when the other materials were confirmed on site (17 Jun).",
+                CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 6, 13), null, null, null),
+            (11, 3, CommitmentKind.Material, "1 sinotruck sand, 1 sinotruck aggregate",
+                null, CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2026, 6, 13), null, null, null),
+            (12, 3, CommitmentKind.Material, "Steel: 20 × T16, 160 × T12, 30 × R8",
+                null, CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2026, 6, 13), null, null, null),
+            // #13 is the blocker — seeded as a flag below, because that is what a blocker is.
+            (14, 1, CommitmentKind.Choice, "Electrical points on the interior face of the wall",
+                "Raised 25 Jun. The conduits go in before the second half is cast, so the answer is owed before then.",
+                CommitmentMaturity.InDiscussion, CommitmentSource.Ingested, Utc(2026, 6, 25), null, null, null),
+            (15, 3, CommitmentKind.Material, "Materials confirmed on site; hardcore outstanding",
+                "Cement, sand, aggregate and steel delivered against the 13 Jun order.",
+                CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2026, 6, 17), null, null, null),
+            (16, 5, CommitmentKind.Spec, "First half cast; formwork struck to place the drainage pipes",
+                null, CommitmentMaturity.Delivered, CommitmentSource.Ingested, Utc(2026, 6, 29), null, null, null),
+
+            // The statement #1 replaced — kept, because the old spec is the reason for the variation.
+            (17, 1, CommitmentKind.Spec, "Stone-pitched retaining structure (original bill)",
+                null, CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2025, 10, 2), null, null, null),
+
+            // Outside the sixteen: one spoken agreement awaiting Peter, and a date
+            // restated once — the two shapes the register exists to hold.
+            (18, null, CommitmentKind.Spec, "Terrace units follow in the second shipment",
+                "Agreed on site with the windows contractor. Two terrace units were not in the first container.",
+                CommitmentMaturity.Agreed, CommitmentSource.Verbal, Utc(2026, 9, 23), null, null, null),
+            (19, null, CommitmentKind.Date, "Main house complete by 30 Sep",
+                "Set by the developer.",
+                CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 8, 13), null, Utc(2026, 9, 30), null),
+            (20, null, CommitmentKind.Date, "Main house complete by 30 Sep — on track",
+                "Restated by the contractor.",
+                CommitmentMaturity.Agreed, CommitmentSource.Ingested, Utc(2026, 8, 22), null, Utc(2026, 9, 30), CommitmentId(19))
+        };
+
+        var haveCommitments = await _context.tbl_Commitments.IgnoreQueryFilters()
+            .Where(c => c.ProjectId == ProjectId).Select(c => c.Id).ToListAsync(ct);
+
+        foreach (var i in items.Where(i => !haveCommitments.Contains(CommitmentId(i.N))))
+        {
+            // #18 and #20 were said by the contractor; the rest Peter filed from
+            // the thread he forwarded himself.
+            var byContractor = i.N is 18 or 20;
+            var stage = i.N switch { 18 => StageId(6), 19 or 20 => StageId(7), _ => wall };
+
+            _context.tbl_Commitments.Add(new tbl_Commitment
+            {
+                Id = CommitmentId(i.N),
+                TenantId = TenantId,
+                ProjectId = ProjectId,
+                StageId = stage,
+                DeliverableId = i.Deliv is { } dn ? DeliverableId(dn) : null,
+                Kind = i.Kind,
+                Title = i.Title,
+                Body = i.Body,
+                Maturity = i.Maturity,
+                QueryState = CommitmentQueryState.None,
+                SourceChannel = i.Source,
+                AccountableMemberId = mediator,
+                AgreedById = i.N == 19 ? peter.Id : nalan.Id,
+                AgreedWithMemberId = i.N == 18 ? MemberId(20) : i.N == 19 ? mediator : developer,
+                AgreedAt = i.Agreed,
+                RecordedById = byContractor ? nalan.Id : peter.Id,
+                RecordedBySide = byContractor ? ProjectSide.Contractor : ProjectSide.Client,
+                Amount = i.Amount,
+                Currency = i.Amount is null ? null : "UGX",
+                DueDate = i.Due,
+                OwedBySide = i.Kind == CommitmentKind.Choice ? ProjectSide.Client : null,
+                SupersedesId = i.Supersedes,
+                DeliveredAt = i.Maturity >= CommitmentMaturity.Delivered ? i.Agreed.AddDays(i.N == 15 ? 0 : 4) : null
+            });
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        // The superseded statements, now that their successors exist.
+        foreach (var (oldN, newN, when) in new[] { (17, 1, Utc(2025, 12, 3)), (19, 20, Utc(2026, 8, 22)) })
+        {
+            var old = await _context.tbl_Commitments.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == CommitmentId(oldN), ct);
+            if (old is not null && old.SupersededAt is null)
+            {
+                old.SupersededAt = when;
+                old.SupersededById = CommitmentId(newN);
+            }
+        }
+
+        // ── #13 the blocker, #7's dispute, and a third-party blocker ────────
+        var flags = new (int N, string Title, string Desc, string? Commitment, string? OwnerMember, string? OwnerParty,
+                         string CreatedBy, string? AssignedTo, DateTime Raised, FlagSeverity Sev)[]
+        {
+            (7, "Open excavation is a danger to neighbours and children",
+                "\"I need this closed.\" Raised again on 1 Jul.", null, mediator, null,
+                peter.Id, nalan.Id, Utc(2026, 7, 1), FlagSeverity.High),
+            (8, "UGX 12M is too high for labour",
+                "Queried the same day it was quoted; renegotiated on a call. No figure on record since.",
+                CommitmentId(7), null, null, peter.Id, nalan.Id, Utc(2026, 6, 11), FlagSeverity.High),
+            (9, "Guest-wing aluminium not fabricated; four openings without windows",
+                "Window team slow to respond.", null, MemberId(20), null,
+                nalan.Id, nalan.Id, Utc(2026, 9, 23), FlagSeverity.Medium)
+        };
+
+        var haveFlags = await _context.tbl_Flags.IgnoreQueryFilters()
+            .Where(f => f.ProjectId == ProjectId).Select(f => f.Id).ToListAsync(ct);
+        foreach (var f in flags.Where(f => !haveFlags.Contains(FlagId(f.N))))
+        {
+            _context.tbl_Flags.Add(new tbl_Flag
+            {
+                Id = FlagId(f.N),
+                TenantId = TenantId,
+                ProjectId = ProjectId,
+                StageId = f.N == 9 ? StageId(6) : wall,
+                Title = f.Title,
+                Description = f.Desc,
+                Severity = f.Sev,
+                Channel = Channel.Client,
+                Status = FlagStatus.Open,
+                CreatedById = f.CreatedBy,
+                AssignedToId = f.AssignedTo,
+                CommitmentId = f.Commitment,
+                OwnerMemberId = f.OwnerMember,
+                OwnerPartyName = f.OwnerParty
+            });
+        }
+
+        // A query on #7 is #7 in QueryRaised — the two must never disagree.
+        var labour = await _context.tbl_Commitments.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == CommitmentId(7), ct);
+        if (labour is not null && labour.QueryState == CommitmentQueryState.None)
+        {
+            labour.QueryState = CommitmentQueryState.QueryRaised;
+            labour.DisputeNote = "UGX 12M is too high for labour.";
+        }
+
+        // ── Backlinks: the deliveries point at what they deliver ────────────
+        var links = new (int N, int From, CommitmentLinkTarget Type, string Target, CommitmentLinkRelation Rel)[]
+        {
+            (1, 15, CommitmentLinkTarget.Commitment, CommitmentId(9), CommitmentLinkRelation.Evidence),
+            (2, 15, CommitmentLinkTarget.Commitment, CommitmentId(11), CommitmentLinkRelation.Evidence),
+            (3, 15, CommitmentLinkTarget.Commitment, CommitmentId(12), CommitmentLinkRelation.Evidence),
+            (4, 16, CommitmentLinkTarget.Commitment, CommitmentId(8), CommitmentLinkRelation.Evidence),
+            (5, 16, CommitmentLinkTarget.Commitment, CommitmentId(4), CommitmentLinkRelation.Evidence),
+            (6, 1, CommitmentLinkTarget.Variation, VariationId(1), CommitmentLinkRelation.Relates)
+        };
+
+        var haveLinks = await _context.tbl_CommitmentLinks.IgnoreQueryFilters()
+            .Where(l => l.ProjectId == ProjectId).Select(l => l.Id).ToListAsync(ct);
+        foreach (var l in links.Where(l => !haveLinks.Contains(LinkId(l.N))))
+        {
+            _context.tbl_CommitmentLinks.Add(new tbl_CommitmentLink
+            {
+                Id = LinkId(l.N),
+                TenantId = TenantId,
+                ProjectId = ProjectId,
+                CommitmentId = CommitmentId(l.From),
+                TargetType = l.Type,
+                TargetId = l.Target,
+                Relation = l.Rel,
+                CreatedById = peter.Id
+            });
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        // Blockers have an age, and the age is the finding. Backdated round EF
+        // for the same reason as the site diary above.
+        foreach (var f in flags)
+        {
+            await _context.Database.ExecuteSqlRawAsync(
+                "UPDATE tbl_Flags SET DateTimeCreated = {0} WHERE Id = {1}",
+                new object[] { f.Raised, FlagId(f.N) }, ct);
+        }
+    }
+
+    /// <summary>
+    /// Claims and variations, so the stage ledger reads funded → claimed →
+    /// cleared → carried forward with real movement in it — including the one
+    /// sentence the evidence thread turns on: <i>"issue a receipt and carry the
+    /// balance towards the next stage."</i>
+    /// </summary>
+    private async Task EnsureLedgerAsync(AppUser peter, AppUser nalan, CancellationToken ct)
+    {
+        // The money suite leaves a release on the first stage every run. On a
+        // developer database that reads as the drawings stage being funded five
+        // times over, and the carried-forward column turns into fiction. Only
+        // the suite's own rows are swept, and only here.
+        var debris = await _context.tbl_FundingEntries.IgnoreQueryFilters()
+            .Where(f => f.ProjectId == ProjectId && (f.Notes == "Chain test" || f.Notes == "Conversion test") && f.IsDeleted != true)
+            .ToListAsync(ct);
+        foreach (var d in debris) d.IsDeleted = true;
+
+        var claims = new (int N, string Stage, decimal Amount, DateTime At, ClaimStatus Status, string Note)[]
+        {
+            (1, StageId(1), 42_000_000m, Utc(2025, 11, 28), ClaimStatus.Cleared, "Drawing set and approvals, final account."),
+            (2, StageId(2), 60_000_000m, Utc(2026, 1, 10), ClaimStatus.Cleared, "Substructure to slab level."),
+            (3, StageId(2), 56_500_000m, Utc(2026, 2, 14), ClaimStatus.Cleared, "Substructure, final account."),
+            (4, StageId(3), 180_000_000m, Utc(2026, 4, 1), ClaimStatus.Cleared, "Frame and first-floor slab."),
+            (5, StageId(3), 85_000_000m, Utc(2026, 5, 30), ClaimStatus.Cleared, "Added floor, as varied."),
+            (6, StageId(4), 38_000_000m, Utc(2026, 6, 30), ClaimStatus.Cleared, "First half cast."),
+            (7, StageId(4), 20_000_000m, Utc(2026, 8, 16), ClaimStatus.Claimed, "Second lift."),
+            (8, StageId(5), 94_000_000m, Utc(2026, 7, 10), ClaimStatus.Cleared, "Roofing, final account.")
+        };
+
+        var haveClaims = await _context.tbl_StageClaims.IgnoreQueryFilters()
+            .Where(c => c.ProjectId == ProjectId).Select(c => c.Id).ToListAsync(ct);
+        foreach (var c in claims.Where(c => !haveClaims.Contains(ClaimId(c.N))))
+        {
+            _context.tbl_StageClaims.Add(new tbl_StageClaim
+            {
+                Id = ClaimId(c.N),
+                TenantId = TenantId,
+                ProjectId = ProjectId,
+                StageId = c.Stage,
+                Amount = c.Amount,
+                ClaimedAt = c.At,
+                ClaimedById = nalan.Id,
+                Note = c.Note,
+                Status = c.Status,
+                ClearedAt = c.Status == ClaimStatus.Cleared ? c.At.AddDays(3) : null,
+                ClearedById = c.Status == ClaimStatus.Cleared ? peter.Id : null
+            });
+        }
+
+        // The variations the thread agreed and never recorded (evidence F4).
+        var variations = new (int N, string Stage, string Title, string Reason, decimal? Cost, DateTime Raised,
+                              VariationStatus Status, DateTime? Decided, string? Commitment)[]
+        {
+            (1, StageId(4), "Stone pitching → reinforced concrete retaining wall",
+                "Conserves compound space. Impact assessed in a chat message; never priced.",
+                null, Utc(2025, 12, 3), VariationStatus.Approved, Utc(2025, 12, 3), CommitmentId(1)),
+            (2, StageId(1), "Washroom removed from the first-floor common room",
+                "Landing claimed as room; new window W05 added to the schedule.",
+                null, Utc(2025, 11, 21), VariationStatus.Approved, Utc(2025, 11, 21), null),
+            (3, StageId(3), "Additional floor",
+                "\"Let me know the additional cost.\"",
+                85_000_000m, Utc(2026, 1, 30), VariationStatus.Approved, Utc(2026, 4, 9), null),
+            (4, StageId(3), "Balconies deleted",
+                "\"We have saved approximately 15M.\"",
+                -15_000_000m, Utc(2026, 5, 25), VariationStatus.Approved, Utc(2026, 5, 25), null),
+            (5, StageId(8), "Floor tiles pulled from the quote pending the epoxy decision",
+                "Deferred to phase 3 of the finishes.",
+                null, Utc(2026, 7, 29), VariationStatus.Proposed, null, null)
+        };
+
+        var haveVariations = await _context.tbl_Variations.IgnoreQueryFilters()
+            .Where(v => v.ProjectId == ProjectId).Select(v => v.Id).ToListAsync(ct);
+        foreach (var v in variations.Where(v => !haveVariations.Contains(VariationId(v.N))))
+        {
+            _context.tbl_Variations.Add(new tbl_Variation
+            {
+                Id = VariationId(v.N),
+                TenantId = TenantId,
+                ProjectId = ProjectId,
+                StageId = v.Stage,
+                CommitmentId = v.Commitment,
+                Title = v.Title,
+                Reason = v.Reason,
+                CostDelta = v.Cost,
+                Currency = "UGX",
+                Status = v.Status,
+                RaisedById = nalan.Id,
+                RaisedAt = v.Raised,
+                ApprovedById = v.Decided is null ? null : peter.Id,
+                ApprovedAt = v.Decided
+            });
+        }
+
+        await _context.SaveChangesAsync(ct);
     }
 }

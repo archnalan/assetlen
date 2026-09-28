@@ -73,6 +73,17 @@ public interface IIngestDAL
     Task<ServiceResult<ProjectInboxDto>> ResetInboxAsync(
         string projectId, string userId, CancellationToken ct = default);
 
+    // ─── Loose media re-join (works-report.md §5) ─────────────────────────
+
+    /// <summary>
+    /// Bind loose photos and videos to the <c>&lt;Media omitted&gt;</c> lines of an
+    /// already imported transcript, by the stamp in each file name. Zips are
+    /// expanded; folder names are ignored. Files that bind to nothing are kept
+    /// and reported, never dropped.
+    /// </summary>
+    Task<ServiceResult<MediaRejoinReportDto>> RejoinMediaAsync(
+        IReadOnlyList<LooseUpload> files, string projectId, string userId, CancellationToken ct = default);
+
     // ─── Reading the raw record ──────────────────────────────────────────
 
     Task<ServiceResult<List<IngestBatchDto>>> GetBatchesAsync(
@@ -88,3 +99,6 @@ public interface IIngestDAL
     Task<ServiceResult<IngestedMessagePageDto>> GetMessagesAsync(
         IngestedMessageQueryDto query, string userId, CancellationToken ct = default);
 }
+
+/// <summary>One uploaded file offered to the re-join. The stream is read once.</summary>
+public sealed record LooseUpload(string FileName, Stream Content, string? ContentType);

@@ -88,9 +88,14 @@ AddApi<IFundingApi>();
 AddApi<IProgressApi>();
 AddApi<IProjectMembersApi>();
 AddApi<IFlagsApi>();
+AddApi<ICommitmentsApi>();
+AddApi<ILedgerApi>();
 AddApi<IBudgetApi>();
 AddApi<IArtifactsApi>();
 AddApi<IIngestApi>();
+AddApi<IExtractionApi>();
+AddApi<ISearchApi>();
+AddApi<IBriefApi>();
 
 // Development demo world. The endpoint behind this answers 404 on any host that
 // is not Development, so registering it everywhere costs nothing.

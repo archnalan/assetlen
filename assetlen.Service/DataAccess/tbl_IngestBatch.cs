@@ -87,6 +87,9 @@ public class tbl_IngestBatch : BaseEntity
     /// </summary>
     public int UnmatchedMediaCount { get; set; }
 
+    /// <summary>For a loose-media re-join: files bound to a <c>&lt;Media omitted&gt;</c> line by their filename stamp.</summary>
+    public int BoundMediaCount { get; set; }
+
     public int ParticipantCount { get; set; }
 
     public DateTime? FirstMessageAt { get; set; }

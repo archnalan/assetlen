@@ -1,0 +1,84 @@
+@*
+    Where a result came from, and where it has got to (assetlen.md §8):
+    agreed → evidence → invoiced → cleared → queried → resolved.
+
+    A photo or a message borrows the strip of the commitment it proves or
+    bills, with its own step marked, because the receipt *is* the "invoiced"
+    step of the tiles. A file tied to nothing says so — a gap is a finding,
+    not an empty state (works-report §3.1).
+*@
+
+<div class="prov">
+    <span class="prov__chip">
+        <Icon Name="@OriginIcon" Size="13" />
+        <span>@Provenance.OriginLabel</span>
+        @if (!string.IsNullOrEmpty(Provenance.Who))
+        {
+            <span class="prov__sep" aria-hidden="true">·</span>
+            <span class="prov__who">@Provenance.Who</span>
+        }
+        @if (Provenance.At is { } at)
+        {
+            <span class="prov__sep" aria-hidden="true">·</span>
+            <time class="prov__when" datetime="@at.ToString("s")">@SearchFormat.When(at)</time>
+        }
+    </span>
+
+    @if (!string.IsNullOrEmpty(Provenance.CommitmentTitle) && ShowCommitment)
+    {
+        <span class="prov__role">
+            @(Provenance.Role ?? "Tied to")
+            <a class="prov__link" href="@($"/project/{ProjectId}/register?commitment={Provenance.CommitmentId}")">@Provenance.CommitmentTitle</a>
+        </span>
+    }
+
+    @if (Provenance.Steps.Count > 0)
+    {
+        <ol class="al-provenance prov__steps" aria-label="Where it has got to">
+            @foreach (var s in Provenance.Steps)
+            {
+                <li class="al-provenance__step @(s.IsThis ? "is-current" : s.Reached ? "is-done" : "prov__step--open")"
+                    title="@StepTitle(s)">
+                    @if (s.Reached)
+                    {
+                        <Icon Name="check" Size="11" />
+                    }
+                    @s.Label
+                </li>
+            }
+        </ol>
+    }
+
+    @if (!string.IsNullOrEmpty(Provenance.Gap))
+    {
+        <span class="prov__gap">@Provenance.Gap</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SearchProvenanceDto Provenance { get; set; } = new();
+
+    /// <summary>For the link to the commitment a file or message is tied to.</summary>
+    [Parameter] public string? ProjectId { get; set; }
+
+    /// <summary>False on the commitment's own result, which is already the thing named.</summary>
+    [Parameter] public bool ShowCommitment { get; set; } = true;
+
+    private string OriginIcon => Provenance.Origin switch
+    {
+        SearchOrigin.Thread => "message",
+        SearchOrigin.Shared => "upload",
+        SearchOrigin.Email => "mail",
+        SearchOrigin.Capture => "camera",
+        SearchOrigin.Document => "drawing",
+        SearchOrigin.Spoken => "phone",
+        SearchOrigin.Meeting => "people",
+        SearchOrigin.Project => "project",
+        _ => "commitment"
+    };
+
+    private static string StepTitle(ProvenanceStepDto s) =>
+        s.IsThis ? $"{s.Label} — this result" + (s.At is { } a ? $", {SearchFormat.When(a)}" : "")
+        : s.Reached ? s.Label + (s.At is { } d ? $", {SearchFormat.When(d)}" : "")
+        : $"Not {s.Label.ToLowerInvariant()} yet";
+}

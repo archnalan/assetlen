@@ -30,6 +30,16 @@ public class IngestArchiveRequest
     public string? ProjectId { get; set; }
 }
 
+/// <summary>The multipart body of <see cref="IngestController.RejoinMedia"/>: loose files, a zip of them, or both.</summary>
+public class MediaRejoinRequest
+{
+    [Required]
+    public List<IFormFile> Files { get; set; } = new();
+
+    [Required]
+    public string? ProjectId { get; set; }
+}
+
 /// <summary>The multipart body of <see cref="IngestController.CaptureShare"/>.</summary>
 public class ShareCaptureRequest
 {
@@ -115,6 +125,37 @@ public class IngestController : ControllerBase
         var result = await _dal.CommitImportAsync(dto, _tenantProvider.GetUserId(), ct);
         if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
         return Ok(result.Data);
+    }
+
+    // ─── Loose media re-join (works-report.md §5) ─────────────────────────
+
+    /// <summary>
+    /// Photos and videos that arrived separately from a transcript exported
+    /// without media, bound to their <c>&lt;Media omitted&gt;</c> lines by the stamp
+    /// in each file name. Folder names are ignored; unbound files are kept and reported.
+    /// </summary>
+    [HttpPost]
+    [RequestSizeLimit(IngestDAL.MaxArchiveBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = IngestDAL.MaxArchiveBytes)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(MediaRejoinReportDto), 200)]
+    public async Task<ActionResult> RejoinMedia([FromForm] MediaRejoinRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.ProjectId)) return BadRequest("projectId is required.");
+        var files = request.Files.Where(f => f.Length > 0).ToList();
+        if (files.Count == 0) return BadRequest("Send at least one file.");
+
+        var uploads = files.Select(f => new LooseUpload(f.FileName, f.OpenReadStream(), f.ContentType)).ToList();
+        try
+        {
+            var result = await _dal.RejoinMediaAsync(uploads, request.ProjectId, _tenantProvider.GetUserId(), ct);
+            if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Error.Message);
+            return Ok(result.Data);
+        }
+        finally
+        {
+            foreach (var u in uploads) await u.Content.DisposeAsync();
+        }
     }
 
     // ─── The ongoing trickle ─────────────────────────────────────────────

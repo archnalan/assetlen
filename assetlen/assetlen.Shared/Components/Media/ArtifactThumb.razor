@@ -1,0 +1,73 @@
+@implements IDisposable
+@inject ILogger<ArtifactThumb> Logger
+
+@*
+    A stored picture — a search result, a frame in the brief. Artifact bytes sit behind the authenticated endpoint,
+    so an <img src> cannot reach them — the frame is fetched through the Refit
+    pipeline and shown from memory. Shimmer while it comes, an icon when there
+    is no picture to show.
+*@
+
+<span class="athumb @(Cover ? "athumb--cover" : "") @(phase == LoadPhase.Loading ? "al-shimmer" : "")">
+    @if (phase == LoadPhase.Ready && src is not null)
+    {
+        <img class="athumb__img" src="@src" alt="" loading="lazy" />
+    }
+    else if (phase != LoadPhase.Loading)
+    {
+        <Icon Name="@(IsImage ? "image" : "document")" Size="22" Class="athumb__icon" Weight="1.5" />
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string ArtifactId { get; set; } = "";
+    [Parameter] public bool HasThumbnail { get; set; }
+    [Parameter] public string? MimeType { get; set; }
+
+    /// <summary>Fill the frame rather than fit it — for a site photo, where the edges are sky, not the total on a receipt.</summary>
+    [Parameter] public bool Cover { get; set; }
+
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? src;
+    private string? loadedId;
+    private readonly CancellationTokenSource cts = new();
+
+    private bool IsImage => MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ArtifactId) return;
+        loadedId = ArtifactId;
+        src = null;
+
+        if (!HasThumbnail)
+        {
+            phase = LoadPhase.Empty;
+            return;
+        }
+
+        phase = LoadPhase.Loading;
+        try
+        {
+            using var response = await _artifactsApi.DownloadThumbnail(ArtifactId);
+            if (cts.IsCancellationRequested) return;
+            if (!response.IsSuccessStatusCode)
+            {
+                phase = LoadPhase.Error;
+                return;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var type = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+            src = $"data:{type};base64,{Convert.ToBase64String(bytes)}";
+            phase = LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Thumbnail {ArtifactId} did not load", ArtifactId);
+            phase = LoadPhase.Error;
+        }
+    }
+
+    public void Dispose() => cts.Cancel();
+}

@@ -55,6 +55,31 @@
         </div>
     </div>
 
+    @* A blocker is only actionable with an owner — "stuck" without one is a mood.
+       Off-platform parties count: the window team never signs in, but it is
+       the window team that has to move. *@
+    <div class="raise__row">
+        <div class="al-field raise__field">
+            <label class="al-label" for="raise-blocker">If it is a blocker, who has to move</label>
+            <select id="raise-blocker" class="al-select" @bind="ownerMemberId">
+                <option value="">Not a blocker</option>
+                @foreach (var member in members.Where(m => m.IsActive))
+                {
+                    <option value="@member.Id">@(member.UserFullName ?? member.PartyName)@(member.IsOffPlatform ? " — no login" : "")</option>
+                }
+                <option value="@OtherOwner">Someone not on the roster…</option>
+            </select>
+        </div>
+        @if (ownerMemberId == OtherOwner)
+        {
+            <div class="al-field raise__field">
+                <label class="al-label" for="raise-party">Who</label>
+                <input id="raise-party" class="al-input" maxlength="200" placeholder="e.g. the epoxy team"
+                       @bind="ownerPartyName" @bind:event="oninput" />
+            </div>
+        }
+    </div>
+
     <div class="raise__row">
         <div class="al-field raise__field">
             <label class="al-label" for="raise-due">Answer by</label>
@@ -132,6 +157,9 @@
     private string description = "";
     private string stageId = "";
     private string assignedToId = "";
+    private string ownerMemberId = "";
+    private string ownerPartyName = "";
+    private const string OtherOwner = "__other";
     private DateTime? dueDate;
     private FlagSeverity severity = FlagSeverity.Medium;
     private Channel channel = Channel.Client;
@@ -198,7 +226,9 @@
                 Severity = severity,
                 Channel = channel,
                 AssignedToId = string.IsNullOrEmpty(assignedToId) ? null : assignedToId,
-                DueDate = dueDate is null ? null : DateTime.SpecifyKind(dueDate.Value, DateTimeKind.Utc)
+                DueDate = dueDate is null ? null : DateTime.SpecifyKind(dueDate.Value, DateTimeKind.Utc),
+                OwnerMemberId = ownerMemberId is "" or OtherOwner ? null : ownerMemberId,
+                OwnerPartyName = ownerMemberId == OtherOwner && !string.IsNullOrWhiteSpace(ownerPartyName) ? ownerPartyName.Trim() : null
             };
 
             var response = await _flagsApi.AddFlag(dto);
@@ -229,6 +259,8 @@
         title = "";
         description = "";
         assignedToId = "";
+        ownerMemberId = "";
+        ownerPartyName = "";
         dueDate = null;
         severity = FlagSeverity.Medium;
         channel = Channel.Client;

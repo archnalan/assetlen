@@ -35,6 +35,12 @@
             <input type="checkbox" checked="@mediaOnly" @onchange="OnMediaOnlyChanged" />
             <span>Attachments only</span>
         </label>
+        @if (dayFilter is { } d)
+        {
+            <button type="button" class="thread__day-chip" @onclick="ShowAllDays" title="Show every day">
+                <Icon Name="calendar" Size="13" /> @d.ToString("d MMM yyyy") only <Icon Name="close" Size="13" />
+            </button>
+        }
     </div>
 
     @if (loading)
@@ -160,13 +166,25 @@
     /// <summary>Restrict to one import run. Null shows everything the caller may read.</summary>
     [Parameter] public string? BatchId { get; set; }
 
+    /// <summary>Open on one day of the record — where a search result points. The reader can widen it again.</summary>
+    [Parameter] public DateTime? Day { get; set; }
+
     private const int PageSize = 100;
 
     private IngestedMessagePageDto? records;
     private bool loading = true, loadError, mediaOnly;
     private string? search;
 
-    private bool HasFilter => mediaOnly || !string.IsNullOrWhiteSpace(search);
+    private bool HasFilter => mediaOnly || dayFilter is not null || !string.IsNullOrWhiteSpace(search);
+    private DateTime? dayFilter;
+
+    protected override void OnInitialized() => dayFilter = Day?.Date;
+
+    private async Task ShowAllDays()
+    {
+        dayFilter = null;
+        await Load(0);
+    }
 
     protected override async Task OnInitializedAsync() => await Load(0);
 
@@ -202,6 +220,8 @@
                 BatchId = BatchId,
                 Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
                 MediaOnly = mediaOnly,
+                From = dayFilter,
+                To = dayFilter?.AddDays(1).AddTicks(-1),
                 Skip = Math.Max(0, skip),
                 Take = PageSize
             });

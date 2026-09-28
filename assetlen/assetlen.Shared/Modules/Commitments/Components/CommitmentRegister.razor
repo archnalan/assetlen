@@ -1,0 +1,212 @@
+@*
+    The register, grouped the way the work is: stage, then deliverable, then
+    what was agreed against it — never a list in the order things were said.
+    Seventeen items in posting order communicate less than the same items under
+    the line of work they belong to (whatsapp-evidence.md F2).
+*@
+
+@inject ILogger<CommitmentRegister> Logger
+
+<div class="cregister">
+
+    @if (ShowFilters && phase == LoadPhase.Ready)
+    {
+        <div class="cregister__filters al-scroll-x">
+            <div class="al-segmented" role="group" aria-label="Show">
+                @foreach (var f in Filters)
+                {
+                    <button type="button" class="al-segmented__item @(filter == f.Key ? "is-active" : "")"
+                            aria-selected="@(filter == f.Key)" @onclick="() => filter = f.Key">
+                        @f.Label
+                        @if (CountFor(f.Key) > 0 && f.Key != "all")
+                        {
+                            <span class="al-tabs__count">@CountFor(f.Key)</span>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The register didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="commitment"
+                EmptyTitle="Nothing agreed on record yet"
+                EmptyBody="@EmptyBody">
+        <Loading>
+            <div class="al-stack">
+                <div class="al-shimmer al-ghost-line al-ghost-line--short"></div>
+                <div class="al-shimmer al-ghost-card"></div>
+                <div class="al-shimmer al-ghost-card"></div>
+            </div>
+        </Loading>
+        <ChildContent>
+            @if (Visible.Count == 0)
+            {
+                <div class="al-empty">
+                    <Icon Name="check-circle" Size="40" Class="al-empty__icon" Weight="1.25" />
+                    <h3 class="al-empty__title">Nothing in this view</h3>
+                    <p class="al-empty__body">There are @items.Count items on the register; try “All”.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var stage in Visible.GroupBy(c => c.StageId ?? ""))
+                {
+                    var first = stage.First();
+                    <section class="cregister__stage @(first.StagePhase is { } p ? $"al-stage--{(int)p}" : "")">
+                        @if (!HideStageHeadings)
+                        {
+                            <div class="cregister__stage-head">
+                                <span class="al-stage-dot"></span>
+                                <h2 class="cregister__stage-name">@(first.StageName ?? "Not filed against a stage")</h2>
+                                <span class="al-subtle cregister__count">@stage.Count() @(stage.Count() == 1 ? "item" : "items")</span>
+                            </div>
+                        }
+
+                        @foreach (var group in stage.GroupBy(c => c.DeliverableId ?? ""))
+                        {
+                            <div class="cregister__deliv">
+                                <h3 class="cregister__deliv-name">
+                                    @if (string.IsNullOrEmpty(group.Key))
+                                    {
+                                        <span class="al-subtle">Stage-wide</span>
+                                    }
+                                    else
+                                    {
+                                        <Icon Name="check" Size="13" /> @group.First().DeliverableTitle
+                                    }
+                                </h3>
+                                <div class="al-stack al-stack--tight">
+                                    @foreach (var item in group)
+                                    {
+                                        <CommitmentCard @key="item.Id" Item="item" ReadOnly="ReadOnly" Focused="@(item.Id == FocusId)" OnChanged="OnItemChanged" />
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </section>
+                }
+            }
+        </ChildContent>
+    </StateBlock>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    /// <summary>Narrow to one stage — the stage page uses the same register.</summary>
+    [Parameter] public string? StageId { get; set; }
+
+    /// <summary>The reader's side on this project, for "decisions you owe".</summary>
+    [Parameter] public ProjectSide? ReaderSide { get; set; }
+
+    [Parameter] public bool ShowFilters { get; set; } = true;
+    [Parameter] public bool HideStageHeadings { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Bump to reload from outside, after a form elsewhere on the page saves.</summary>
+    [Parameter] public int Version { get; set; }
+
+    [Parameter] public string? InitialFilter { get; set; }
+
+    /// <summary>Scroll to and mark one commitment — where a search result opens the register.</summary>
+    [Parameter] public string? FocusId { get; set; }
+    [Parameter] public EventCallback<int> OnNeedsYouCount { get; set; }
+
+    private List<CommitmentDto> items = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string filter = "all";
+    private string? loadedKey;
+
+    private static readonly (string Key, string Label)[] Filters =
+    [
+        ("all", "All"), ("you", "Needs you"), ("owed", "Decisions owed"),
+        ("queries", "Open queries"), ("spoken", "Spoken"), ("dates", "Dates")
+    ];
+
+    private string EmptyBody => StageId is null
+        ? "Log a decision from a call, or put a spec, price, date, material or choice on the register. Each keeps who agreed, when, and the evidence."
+        : "Nothing has been agreed against this stage yet.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}/{StageId}/{Version}";
+        if (loadedKey == key) return;
+        var first = loadedKey is null;
+        loadedKey = key;
+        if (first && !string.IsNullOrEmpty(InitialFilter)) filter = InitialFilter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (items.Count == 0) phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _commitmentsApi.GetCommitments(ProjectId, StageId);
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+
+            items = response.Content;
+            phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+
+            if (OnNeedsYouCount.HasDelegate) await OnNeedsYouCount.InvokeAsync(CountFor("you"));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Register failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task OnItemChanged(CommitmentDto _) => await LoadAsync();
+
+    private string? revealedId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (phase != LoadPhase.Ready || string.IsNullOrEmpty(FocusId) || revealedId == FocusId) return;
+        if (!items.Any(c => c.Id == FocusId)) return;
+        revealedId = FocusId;
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/assetlen.Shared/reveal.js");
+            await module.InvokeVoidAsync("reveal", $"c-{FocusId}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Could not scroll to commitment {Id}", FocusId);
+        }
+    }
+
+    private bool Matches(CommitmentDto c, string key) => key switch
+    {
+        "you" => c.CanConfirm || OwedByReader(c),
+        "owed" => c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed
+                  && (ReaderSide is null || c.OwedBySide is null || c.OwedBySide == ReaderSide),
+        "queries" => c.QueryState == CommitmentQueryState.QueryRaised,
+        "spoken" => c.SourceChannel is CommitmentSource.Verbal or CommitmentSource.Meeting,
+        "dates" => c.Kind == CommitmentKind.Date,
+        _ => true
+    };
+
+    /// <summary>An open choice this reader's side owes — the RFI register, in Peter's words "decisions I owe".</summary>
+    private bool OwedByReader(CommitmentDto c) =>
+        ReaderSide is not null && c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed && c.OwedBySide == ReaderSide;
+
+    private int CountFor(string key) => items.Count(c => Matches(c, key));
+
+    private List<CommitmentDto> Visible => items.Where(c => Matches(c, filter)).ToList();
+}

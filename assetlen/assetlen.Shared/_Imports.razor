@@ -56,10 +56,15 @@
 @inject IFundingApi _fundingApi
 @inject IProgressApi _progressApi
 @inject IFlagsApi _flagsApi
+@inject ICommitmentsApi _commitmentsApi
+@inject ILedgerApi _ledgerApi
 @inject IBudgetApi _budgetApi
 @inject IProjectMembersApi _projectMembersApi
 @inject IArtifactsApi _artifactsApi
 @inject IIngestApi _ingestApi
+@inject IExtractionApi _extractionApi
+@inject ISearchApi _searchApi
+@inject IBriefApi _briefApi
 
 @* ── Infrastructure ── *@
 @inject IToastService ToastService
@@ -76,3 +81,7 @@
 @inject IUserSessionService _userSession
 @inject IStorageService _storageService
 @inject IJSRuntime JS
+@using assetlen.Shared.Modules.Commitments.Components
+@using assetlen.Shared.Modules.Extraction.Components
+@using assetlen.Shared.Modules.Search.Components
+@using assetlen.Shared.Modules.Brief.Components

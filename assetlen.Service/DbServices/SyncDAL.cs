@@ -186,7 +186,25 @@ namespace assetlen.Service.DbServices
             await ExecuteSyncRequest(context);
         }
 
+        // Hangfire drains a backlog of sync jobs in parallel after a restart, and
+        // IConfiguration is a plain Dictionary underneath: two jobs writing at once
+        // corrupted it, and every request after that — sign-in included — answered 500.
+        private static readonly SemaphoreSlim ConfigWriteLock = new(1, 1);
+
         public async Task UpdateConfigSettings()
+        {
+            await ConfigWriteLock.WaitAsync();
+            try
+            {
+                await UpdateConfigSettingsCore();
+            }
+            finally
+            {
+                ConfigWriteLock.Release();
+            }
+        }
+
+        private async Task UpdateConfigSettingsCore()
         {
             if (string.IsNullOrEmpty(_configuration["OnlineApi:ApiKey"]))
             {

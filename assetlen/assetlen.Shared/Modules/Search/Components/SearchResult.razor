@@ -1,0 +1,179 @@
+@inject IArtifactDownloadService Downloads
+
+@*
+    One result. Shaped by what it is — a commitment reads as an agreement with
+    its figure and its strip, a photo leads with the picture and the words read
+    off it, a message reads as who said what and when. Every one carries its
+    provenance; none of them pretends to be a chat bubble.
+*@
+
+<article class="sres sres--@Hit.Kind.ToString().ToLowerInvariant() @PhaseClass">
+
+    @if (Hit.Kind == SearchHitKind.File && !string.IsNullOrEmpty(Hit.ArtifactId))
+    {
+        <button type="button" class="sres__thumb" @onclick="OpenOriginal" aria-label="Open the original of @Hit.Title">
+            <ArtifactThumb ArtifactId="@Hit.ArtifactId" HasThumbnail="Hit.HasThumbnail" MimeType="@Hit.MimeType" />
+        </button>
+    }
+
+    <div class="sres__body">
+        <header class="sres__head">
+            <span class="sres__kind">
+                <Icon Name="@KindIcon" Size="13" />
+                @KindLabel
+            </span>
+
+            @if (!string.IsNullOrEmpty(Hit.StageName))
+            {
+                <span class="al-stage-chip sres__stage">
+                    @if (Hit.StagePhase is { } ph)
+                    {
+                        <span class="al-stage-chip__phase">@StageCatalogue.GroupName(ph)</span>
+                    }
+                    <span>@Hit.StageName</span>
+                </span>
+            }
+
+            @if (ShowProject && !string.IsNullOrEmpty(Hit.ProjectName))
+            {
+                <span class="sres__project">@Hit.ProjectName</span>
+            }
+        </header>
+
+        <div class="sres__title-row">
+            @if (Hit.Href is not null)
+            {
+                <a class="sres__title" href="@Hit.Href">@Marked(Hit.Title)</a>
+            }
+            else
+            {
+                <span class="sres__title">@Marked(Hit.Title)</span>
+            }
+
+            @if (Hit.Kind == SearchHitKind.Commitment)
+            {
+                @if (Hit.Amount is { } amt)
+                {
+                    <span class="sres__amount al-num">@Fmt.Money(amt, Hit.Currency)</span>
+                }
+                else if (Hit.AmountHidden)
+                {
+                    <span class="sres__amount sres__amount--hidden">Figure not shown</span>
+                }
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(Hit.Snippet) && Hit.Snippet != Hit.Title)
+        {
+            <p class="sres__snippet">
+                @if (!string.IsNullOrEmpty(Hit.MatchedIn) && SnippetHasMatch)
+                {
+                    <span class="sres__where">In @Hit.MatchedIn:</span>
+                }
+                @Marked(Hit.Snippet)
+            </p>
+        }
+        else if (!string.IsNullOrEmpty(Hit.MatchedIn))
+        {
+            <p class="sres__snippet"><span class="sres__where">Matched in @Hit.MatchedIn</span></p>
+        }
+
+        <ProvenanceStrip Provenance="Hit.Provenance" ProjectId="@Hit.ProjectId"
+                         ShowCommitment="Hit.Kind != SearchHitKind.Commitment" />
+
+        @if (Hit.Kind == SearchHitKind.File && !string.IsNullOrEmpty(Hit.ArtifactId))
+        {
+            <div class="sres__actions">
+                <button type="button" class="al-btn al-btn--default al-btn--sm" @onclick="OpenOriginal" disabled="@opening">
+                    @if (opening)
+                    {
+                        <span class="al-spinner"></span>
+                    }
+                    else
+                    {
+                        <Icon Name="external" Size="14" />
+                    }
+                    Open original
+                </button>
+                @if (Hit.Href is not null)
+                {
+                    <a class="al-btn al-btn--quiet al-btn--sm" href="@Hit.Href">
+                        <Icon Name="history" Size="14" /> See it in the thread
+                    </a>
+                }
+            </div>
+        }
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public SearchHitDto Hit { get; set; } = default!;
+    [Parameter] public IReadOnlyList<string> Terms { get; set; } = Array.Empty<string>();
+
+    /// <summary>Name the project on each result when more than one was searched.</summary>
+    [Parameter] public bool ShowProject { get; set; }
+
+    private bool opening;
+
+    // "In its title:" above the body would point at the wrong text; the label goes only where the words are.
+    private bool SnippetHasMatch => SearchFormat.Segments(Hit.Snippet, Terms).Any(s => s.Hit);
+
+    private string PhaseClass => Hit.StagePhase is { } p ? $"al-stage--{(int)p}" : "";
+
+    private RenderFragment Marked(string? text) => __builder =>
+    {
+        foreach (var seg in SearchFormat.Segments(text, Terms))
+        {
+            if (seg.Hit)
+            {
+                <mark class="sres__mark">@seg.Text</mark>
+            }
+            else
+            {
+                @seg.Text
+            }
+        }
+    };
+
+    private string KindIcon => Hit.Kind switch
+    {
+        SearchHitKind.Commitment => Hit.CommitmentKind switch
+        {
+            CommitmentKind.Price => "money",
+            CommitmentKind.Date => "calendar",
+            CommitmentKind.Choice => "decision",
+            _ => "commitment"
+        },
+        SearchHitKind.File => Hit.MimeType?.StartsWith("image/") == true ? "image" : "document",
+        SearchHitKind.Message => "message",
+        SearchHitKind.DiaryEntry => "log",
+        SearchHitKind.Stage => "stage",
+        _ => "project"
+    };
+
+    private string KindLabel => Hit.Kind switch
+    {
+        SearchHitKind.Commitment => (Hit.CommitmentKind?.ToString() ?? "Commitment")
+                                    + (Hit.Maturity is { } m ? " · " + Fmt.Humanise(m.ToString()) : ""),
+        SearchHitKind.File => Hit.MimeType?.StartsWith("image/") == true ? "Photo" : "File",
+        SearchHitKind.Message => "Message",
+        SearchHitKind.DiaryEntry => "Site Diary",
+        SearchHitKind.Stage => "Stage",
+        _ => "Project"
+    };
+
+    private async Task OpenOriginal()
+    {
+        if (opening || string.IsNullOrEmpty(Hit.ArtifactId)) return;
+        opening = true;
+        try
+        {
+            if (!await Downloads.OpenAsync(Hit.ArtifactId, Hit.FileName ?? "file", Hit.MimeType))
+                ToastService.ShowError("That file could not be opened.");
+        }
+        finally
+        {
+            opening = false;
+        }
+    }
+}

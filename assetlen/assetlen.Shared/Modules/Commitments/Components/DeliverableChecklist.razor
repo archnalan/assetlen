@@ -1,0 +1,203 @@
+@*
+    A funded stage's five to eight deliverables (assetlen.md §3). This is the
+    checklist capture and commitments are aimed at, so nothing on the project
+    floats. The bench reads it; the principals write it.
+*@
+
+@inject ILogger<DeliverableChecklist> Logger
+
+<div class="checklist">
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The checklist didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="check-circle"
+                EmptyTitle="No deliverables yet"
+                EmptyBody="Five to eight lines per stage is the right grain — each one a thing that can be seen done.">
+        <Loading>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+        </Loading>
+        <ChildContent>
+            <ol class="checklist__list">
+                @foreach (var d in items)
+                {
+                    <li class="checklist__item checklist__item--@d.Status.ToString().ToLowerInvariant()">
+                        @if (CanWrite)
+                        {
+                            <button type="button" class="checklist__tick" aria-label="@($"{d.Title}: {Label(d.Status)} — change")"
+                                    disabled="@(busy == d.Id)" @onclick="() => CycleAsync(d)">
+                                <Icon Name="@TickIcon(d.Status)" Size="16" />
+                            </button>
+                        }
+                        else
+                        {
+                            <span class="checklist__tick" aria-hidden="true"><Icon Name="@TickIcon(d.Status)" Size="16" /></span>
+                        }
+                        <span class="checklist__main">
+                            <span class="checklist__title">@d.Title</span>
+                            <span class="checklist__sub">
+                                <span>@Label(d.Status)@if (d.CompletedAt is not null) {<text> · @Fmt.DateShort(d.CompletedAt)</text>}</span>
+                                @if (d.DueDate is not null && d.Status != DeliverableStatus.Done)
+                                {
+                                    <span class="al-num">by @Fmt.DateShort(d.DueDate)</span>
+                                }
+                                @if (d.CommitmentCount > 0)
+                                {
+                                    <span>@d.CommitmentCount agreed</span>
+                                }
+                            </span>
+                        </span>
+                    </li>
+                }
+            </ol>
+        </ChildContent>
+    </StateBlock>
+
+    @if (CanWrite && phase is LoadPhase.Ready or LoadPhase.Empty)
+    {
+        <form class="checklist__add" @onsubmit="AddAsync" @onsubmit:preventDefault>
+            <label class="al-sr-only" for="dl-@StageId">New deliverable</label>
+            <input id="dl-@StageId" class="al-input" maxlength="200" placeholder="Add a deliverable — e.g. Second half cast"
+                   @bind="newTitle" @bind:event="oninput" />
+            <button type="submit" class="al-btn al-btn--default" disabled="@(adding || string.IsNullOrWhiteSpace(newTitle))">
+                <Icon Name="plus" Size="14" /> Add
+            </button>
+        </form>
+        @if (items.Count >= 9)
+        {
+            <p class="al-field__hint">More than eight lines usually means this stage is two stages.</p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter, EditorRequired] public string StageId { get; set; } = "";
+    [Parameter] public bool CanWrite { get; set; }
+
+    private List<DeliverableDto> items = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string newTitle = "";
+    private bool adding;
+    private string? busy;
+    private string? loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}/{StageId}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var response = await _commitmentsApi.GetDeliverables(ProjectId, StageId);
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+            items = response.Content;
+            phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Checklist failed for {StageId}", StageId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newTitle)) return;
+        adding = true;
+        try
+        {
+            var response = await _commitmentsApi.AddDeliverable(new DeliverableCreateDto
+            {
+                ProjectId = ProjectId,
+                StageId = StageId,
+                Title = newTitle.Trim()
+            });
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                items.Add(response.Content);
+                newTitle = "";
+                phase = LoadPhase.Ready;
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response) ?? "Could not add that line.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not add deliverable to {StageId}", StageId);
+            ToastService.ShowError("Could not add that line.");
+        }
+        finally
+        {
+            adding = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CycleAsync(DeliverableDto d)
+    {
+        var next = d.Status switch
+        {
+            DeliverableStatus.NotStarted => DeliverableStatus.InProgress,
+            DeliverableStatus.InProgress => DeliverableStatus.Done,
+            _ => DeliverableStatus.NotStarted
+        };
+
+        busy = d.Id;
+        try
+        {
+            var response = await _commitmentsApi.UpdateDeliverable(new DeliverableUpdateDto { Id = d.Id, Status = next });
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                var i = items.FindIndex(x => x.Id == d.Id);
+                if (i >= 0) items[i] = response.Content;
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response) ?? "Could not update that line.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not update deliverable {Id}", d.Id);
+            ToastService.ShowError("Could not update that line.");
+        }
+        finally
+        {
+            busy = null;
+            StateHasChanged();
+        }
+    }
+
+    private static string Label(DeliverableStatus s) => s switch
+    {
+        DeliverableStatus.Done => "Done",
+        DeliverableStatus.InProgress => "In progress",
+        _ => "Not started"
+    };
+
+    private static string TickIcon(DeliverableStatus s) => s switch
+    {
+        DeliverableStatus.Done => "check-circle",
+        DeliverableStatus.InProgress => "clock",
+        _ => "dot"
+    };
+}

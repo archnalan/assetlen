@@ -1,0 +1,323 @@
+@*
+    Put a commitment on the register, or log a decision made on a call.
+
+    The decision mode is the ten-second "agreed on the call: …" the evidence
+    thread never had (whatsapp-evidence.md §6): it lands at Agreed, attributed
+    to both parties, and waits for the other side to confirm or say that is not
+    what was said. Nothing here moves money — it records what was agreed.
+*@
+
+@inject ILogger<CommitmentForm> Logger
+
+<div class="cform">
+
+    <div class="al-field">
+        <span class="al-label">What kind</span>
+        <div class="al-segmented cform__kinds" role="group" aria-label="Kind">
+            @foreach (var k in Enum.GetValues<CommitmentKind>())
+            {
+                <button type="button" class="al-segmented__item @(kind == k ? "is-active" : "")"
+                        aria-selected="@(kind == k)" @onclick="() => kind = k">
+                    <Icon Name="@CommitmentCard.KindIcon(k)" Size="14" /> @CommitmentCard.KindLabel(k)
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="al-field">
+        <label class="al-label" for="cf-title">@(Decision ? "What was agreed" : "The commitment")</label>
+        <input id="cf-title" class="al-input" maxlength="200" placeholder="@TitleHint"
+               @bind="title" @bind:event="oninput" />
+    </div>
+
+    <div class="al-field">
+        <label class="al-label" for="cf-body">Detail <span class="al-subtle">(optional)</span></label>
+        <textarea id="cf-body" class="al-textarea" rows="2" maxlength="2000"
+                  @bind="body" @bind:event="oninput"></textarea>
+    </div>
+
+    <div class="cform__row">
+        <div class="al-field">
+            <label class="al-label" for="cf-stage">Stage</label>
+            <select id="cf-stage" class="al-select" @bind="stageId" @bind:after="OnStageChanged">
+                <option value="">The live stage</option>
+                @foreach (var s in stages)
+                {
+                    <option value="@s.Id">@(s.ParentStageId is null ? "" : "— ")@s.StageName</option>
+                }
+            </select>
+        </div>
+
+        <div class="al-field">
+            <label class="al-label" for="cf-deliv">Deliverable</label>
+            <select id="cf-deliv" class="al-select" @bind="deliverableId" disabled="@(StageDeliverables.Count == 0)">
+                <option value="">@(StageDeliverables.Count == 0 ? "None on this stage yet" : "Stage-wide")</option>
+                @foreach (var d in StageDeliverables)
+                {
+                    <option value="@d.Id">@d.Title</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="cform__row">
+        <div class="al-field">
+            <label class="al-label" for="cf-with">Agreed with</label>
+            <select id="cf-with" class="al-select" @bind="agreedWithMemberId">
+                <option value="">@(Decision ? "The other side's principal" : "Nobody named")</option>
+                @foreach (var m in members.Where(m => m.IsActive))
+                {
+                    <option value="@m.Id">@(m.UserFullName ?? m.PartyName) — @Who(m)</option>
+                }
+                <option value="@OtherParty">Someone not on the roster…</option>
+            </select>
+        </div>
+
+        @if (agreedWithMemberId == OtherParty)
+        {
+            <div class="al-field">
+                <label class="al-label" for="cf-party">Who</label>
+                <input id="cf-party" class="al-input" maxlength="200" placeholder="e.g. the windows contractor, on site"
+                       @bind="partyName" @bind:event="oninput" />
+            </div>
+        }
+        else
+        {
+            <div class="al-field">
+                <label class="al-label" for="cf-when">When</label>
+                <input id="cf-when" class="al-input" type="date" @bind="agreedAt" />
+            </div>
+        }
+    </div>
+
+    @if (agreedWithMemberId == OtherParty)
+    {
+        <div class="cform__row">
+            <div class="al-field">
+                <label class="al-label" for="cf-when2">When</label>
+                <input id="cf-when2" class="al-input" type="date" @bind="agreedAt" />
+            </div>
+        </div>
+    }
+
+    <div class="cform__row">
+        @if (CanSeeMoney && (kind == CommitmentKind.Price || amount is not null))
+        {
+            <div class="al-field">
+                <label class="al-label" for="cf-amount">Amount (@Currency)</label>
+                <input id="cf-amount" class="al-input al-input--money" type="number" min="0" step="1000" @bind="amount" />
+            </div>
+        }
+        @if (kind is CommitmentKind.Date or CommitmentKind.Choice)
+        {
+            <div class="al-field">
+                <label class="al-label" for="cf-due">@(kind == CommitmentKind.Date ? "Promised for" : "Decide by")</label>
+                <input id="cf-due" class="al-input" type="date" @bind="dueDate" />
+            </div>
+        }
+    </div>
+
+    @if (Decision)
+    {
+        <div class="al-field">
+            <span class="al-label">Where it was said</span>
+            <div class="al-segmented" role="group">
+                <button type="button" class="al-segmented__item @(source == CommitmentSource.Verbal ? "is-active" : "")"
+                        aria-selected="@(source == CommitmentSource.Verbal)" @onclick="() => source = CommitmentSource.Verbal">
+                    <Icon Name="phone" Size="14" /> On a call
+                </button>
+                <button type="button" class="al-segmented__item @(source == CommitmentSource.Meeting ? "is-active" : "")"
+                        aria-selected="@(source == CommitmentSource.Meeting)" @onclick="() => source = CommitmentSource.Meeting">
+                    <Icon Name="people" Size="14" /> At a meeting
+                </button>
+            </div>
+            <span class="al-field__hint">
+                The other side sees it next and can confirm it or say that is not what was said. It never silently becomes truth.
+            </span>
+        </div>
+    }
+    else
+    {
+        <div class="al-field">
+            <span class="al-label">Where it stands</span>
+            <div class="al-segmented" role="group">
+                @foreach (var m in new[] { CommitmentMaturity.Idea, CommitmentMaturity.InDiscussion, CommitmentMaturity.Agreed })
+                {
+                    <button type="button" class="al-segmented__item @(maturity == m ? "is-active" : "")"
+                            aria-selected="@(maturity == m)" @onclick="() => maturity = m">
+                        @(m == CommitmentMaturity.InDiscussion ? "In discussion" : m.ToString())
+                    </button>
+                }
+            </div>
+            @if (kind == CommitmentKind.Choice && maturity < CommitmentMaturity.Agreed)
+            {
+                <label class="al-check cform__owed">
+                    <input type="checkbox" @bind="owedByClient" />
+                    <span>The client side owes this decision</span>
+                </label>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="al-alert al-alert--error" role="alert"><Icon Name="error" Size="18" /><span>@error</span></div>
+    }
+
+    <div class="cform__actions">
+        @if (OnCancel.HasDelegate)
+        {
+            <button type="button" class="al-btn al-btn--quiet" disabled="@saving" @onclick="OnCancel">Cancel</button>
+        }
+        <button type="button" class="al-btn al-btn--primary" disabled="@(saving || string.IsNullOrWhiteSpace(title))" @onclick="SaveAsync">
+            @if (saving) { <span class="al-spinner"></span> }
+            @(Decision ? "Log the decision" : "Put it on the register")
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    /// <summary>True for "log a decision from a call or meeting" — Agreed, spoken, awaiting the other side.</summary>
+    [Parameter] public bool Decision { get; set; }
+
+    [Parameter] public string? StageId { get; set; }
+    [Parameter] public bool CanSeeMoney { get; set; }
+    [Parameter] public string Currency { get; set; } = "UGX";
+    [Parameter] public EventCallback<CommitmentDto> OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private const string OtherParty = "__other";
+
+    private CommitmentKind kind = CommitmentKind.Spec;
+    private string title = "";
+    private string body = "";
+    private string stageId = "";
+    private string deliverableId = "";
+    private string agreedWithMemberId = "";
+    private string partyName = "";
+    private DateTime? agreedAt = DateTime.Today;
+    private decimal? amount;
+    private DateTime? dueDate;
+    private CommitmentSource source = CommitmentSource.Verbal;
+    private CommitmentMaturity maturity = CommitmentMaturity.Agreed;
+    private bool owedByClient = true;
+    private bool saving;
+    private string? error;
+
+    private List<StageDto> stages = new();
+    private List<DeliverableDto> deliverables = new();
+    private List<ProjectMemberDto> members = new();
+
+    private List<DeliverableDto> StageDeliverables => string.IsNullOrEmpty(stageId)
+        ? new()
+        : deliverables.Where(d => d.StageId == stageId).OrderBy(d => d.DisplayOrder).ToList();
+
+    private string TitleHint => kind switch
+    {
+        CommitmentKind.Price => "e.g. Labour for formwork, earthworks and concrete",
+        CommitmentKind.Date => "e.g. First half of the wall cast by 29 Jun",
+        CommitmentKind.Material => "e.g. Cement: CEM II; 150 bags for the excavated section",
+        CommitmentKind.Choice => "e.g. Electrical points on the interior face?",
+        _ => "e.g. Reinforced concrete, not stone pitching"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        stageId = StageId ?? "";
+
+        // Conveniences — the form still submits without them, and the server
+        // fills in the live stage when none is named.
+        try
+        {
+            var stagesTask = _stagesApi.GetStagesByProjectId(ProjectId);
+            var membersTask = _projectMembersApi.GetMembersByProject(ProjectId);
+            var delivTask = _commitmentsApi.GetDeliverables(ProjectId);
+            await Task.WhenAll(stagesTask, membersTask, delivTask);
+
+            if (stagesTask.Result.IsSuccessStatusCode)
+                stages = Ordered(stagesTask.Result.Content ?? new());
+            if (membersTask.Result.IsSuccessStatusCode)
+                members = membersTask.Result.Content ?? new();
+            if (delivTask.Result.IsSuccessStatusCode)
+                deliverables = delivTask.Result.Content ?? new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not preload the commitment form for {ProjectId}", ProjectId);
+        }
+    }
+
+    private static List<StageDto> Ordered(List<StageDto> all)
+    {
+        var result = new List<StageDto>();
+        foreach (var major in all.Where(s => s.ParentStageId is null).OrderBy(s => s.DisplayOrder))
+        {
+            result.Add(major);
+            result.AddRange(all.Where(s => s.ParentStageId == major.Id).OrderBy(s => s.DisplayOrder));
+        }
+        return result;
+    }
+
+    private void OnStageChanged() => deliverableId = "";
+
+    private static string Who(ProjectMemberDto m)
+        => m.IsMediator ? "mediator" : m.IsOffPlatform ? "no login" : m.Side == ProjectSide.Client ? "client side" : "delivery side";
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(title)) return;
+        saving = true;
+        error = null;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new CommitmentCreateDto
+            {
+                ProjectId = ProjectId,
+                StageId = string.IsNullOrEmpty(stageId) ? null : stageId,
+                DeliverableId = string.IsNullOrEmpty(deliverableId) ? null : deliverableId,
+                Kind = kind,
+                Title = title.Trim(),
+                Body = string.IsNullOrWhiteSpace(body) ? null : body.Trim(),
+                SourceChannel = Decision ? source : CommitmentSource.App,
+                Maturity = Decision ? CommitmentMaturity.Agreed : maturity,
+                AgreedWithMemberId = agreedWithMemberId is "" or OtherParty ? null : agreedWithMemberId,
+                AgreedWithPartyName = agreedWithMemberId == OtherParty && !string.IsNullOrWhiteSpace(partyName) ? partyName.Trim() : null,
+                AgreedAt = agreedAt is null ? null : DateTime.SpecifyKind(agreedAt.Value.Date, DateTimeKind.Utc),
+                Amount = CanSeeMoney ? amount : null,
+                Currency = CanSeeMoney && amount is not null ? Currency : null,
+                DueDate = dueDate is null ? null : DateTime.SpecifyKind(dueDate.Value.Date, DateTimeKind.Utc),
+                OwedBySide = !Decision && kind == CommitmentKind.Choice && maturity < CommitmentMaturity.Agreed && owedByClient
+                    ? ProjectSide.Client : null
+            };
+
+            var response = Decision
+                ? await _commitmentsApi.LogDecision(dto)
+                : await _commitmentsApi.AddCommitment(dto);
+
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                title = body = partyName = "";
+                amount = null;
+                dueDate = null;
+                if (OnSaved.HasDelegate) await OnSaved.InvokeAsync(response.Content);
+                return;
+            }
+
+            error = _apiResponseHandler.GetApiErrorMessage(response) ?? "That could not be saved.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not save commitment on {ProjectId}", ProjectId);
+            error = "That could not be saved.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+}

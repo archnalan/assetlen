@@ -35,6 +35,18 @@
                         <span class="al-label">Due</span>
                         <span class="al-meta__value">@Fmt.Date(stage.ExpectedEndDate)</span>
                     </div>
+                    @* The plan as first agreed. Shown only once it has moved, so
+                       re-planning is visible rather than silent. *@
+                    @if (stage.BaselineEndDate is { } planned && stage.ExpectedEndDate is { } due && planned.Date != due.Date)
+                    {
+                        <div class="al-meta">
+                            <span class="al-label">First planned</span>
+                            <span class="al-meta__value">
+                                @Fmt.Date(planned)
+                                <span class="stage__slip">@SlipLabel(planned, due)</span>
+                            </span>
+                        </div>
+                    }
                     @if (ShowMoney)
                     {
                         <div class="al-meta">
@@ -85,6 +97,26 @@
                     </div>
                 }
             </section>
+
+            @* ── The checklist this stage is funded for ──────────────── *@
+            <section class="stage__section">
+                <div class="al-rule"><span class="al-label">Deliverables</span></div>
+                <DeliverableChecklist ProjectId="@ProjectId" StageId="@StageId"
+                                      CanWrite="@(standing?.CanWrite == true && ShowRegister)" />
+            </section>
+
+            @* ── What was agreed against it ──────────────────────────── *@
+            @if (ShowRegister)
+            {
+                <section class="stage__section">
+                    <div class="al-rule">
+                        <span class="al-label">Agreed on this stage</span>
+                        <a class="al-btn al-btn--link" href="/project/@ProjectId/register">The whole register</a>
+                    </div>
+                    <CommitmentRegister ProjectId="@ProjectId" StageId="@StageId" ReaderSide="standing?.Side"
+                                        HideStageHeadings="true" ShowFilters="false" />
+                </section>
+            }
 
             @* ── Open questions on this stage ────────────────────────── *@
             @if (questions.Count > 0)
@@ -225,7 +257,10 @@
     private bool canCapture;
     private string? loadedKey;
 
-    private bool ShowMoney => _sd.CurrentUser?.RolesDto?.CanSeeFinancials == true;
+    // Money is per project and per seat, never a tenant-level flag (CLAUDE.md §5.5).
+    private ProjectAccessDto? standing;
+    private bool ShowMoney => standing?.CanSeeMoney == true;
+    private bool ShowRegister => standing?.CanSeeRegister == true;
 
     private decimal Released => funding.Where(f => f.Status != FundingStatus.Rejected).Sum(f => f.Amount);
     private decimal Unconfirmed => funding.Where(f => f.Status == FundingStatus.Pending).Sum(f => f.Amount);
@@ -264,7 +299,7 @@
                 ? entriesTask.Result.Content?.Data ?? new()
                 : new();
 
-            var standing = standingTask.Result.IsSuccessStatusCode ? standingTask.Result.Content : null;
+            standing = standingTask.Result.IsSuccessStatusCode ? standingTask.Result.Content : null;
             canCapture = standing?.CanSeeSiteLog == true && standing.CanWrite;
 
             // Money and questions are secondary; neither should take the page
@@ -291,6 +326,12 @@
             errorMessage = ex.Message;
         }
         finally { StateHasChanged(); }
+    }
+
+    private static string SlipLabel(DateTime planned, DateTime due)
+    {
+        var days = (int)Math.Round((due.Date - planned.Date).TotalDays);
+        return days > 0 ? $"+{days} d" : $"{days} d";
     }
 
     private static string StatusLabel(StageStatus status) => status switch

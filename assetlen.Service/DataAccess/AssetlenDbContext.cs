@@ -80,6 +80,22 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_IngestBatch> tbl_IngestBatches { get; set; }
     public virtual DbSet<tbl_IngestedMessage> tbl_IngestedMessages { get; set; }
 
+    // ─── The commitment model + money ledger (P4 — assetlen.md §3, §6) ───
+    public virtual DbSet<tbl_Deliverable> tbl_Deliverables { get; set; }
+    public virtual DbSet<tbl_Commitment> tbl_Commitments { get; set; }
+    public virtual DbSet<tbl_CommitmentLink> tbl_CommitmentLinks { get; set; }
+    public virtual DbSet<tbl_Variation> tbl_Variations { get; set; }
+    public virtual DbSet<tbl_StageClaim> tbl_StageClaims { get; set; }
+
+    // ─── Extraction — pile into register (P5 — assetlen.md Law 3) ───
+    // Proposals wait for a person; readings and OCR text are observations with
+    // a source; bindings re-join loose media without editing the raw record.
+    public virtual DbSet<tbl_ArtifactText> tbl_ArtifactTexts { get; set; }
+    public virtual DbSet<tbl_ExtractionRun> tbl_ExtractionRuns { get; set; }
+    public virtual DbSet<tbl_ExtractionProposal> tbl_ExtractionProposals { get; set; }
+    public virtual DbSet<tbl_ProgressReading> tbl_ProgressReadings { get; set; }
+    public virtual DbSet<tbl_MediaBinding> tbl_MediaBindings { get; set; }
+
     /// <summary>
     /// The one tenancy rule, applied per entity:
     ///   (SuperAdmin OR same tenant OR unowned OR Public) AND not Protected AND not soft-deleted.
@@ -132,6 +148,16 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         TenantScoped<tbl_ArtifactRevision>(modelBuilder);
         TenantScoped<tbl_IngestBatch>(modelBuilder);
         TenantScoped<tbl_IngestedMessage>(modelBuilder);
+        TenantScoped<tbl_Deliverable>(modelBuilder);
+        TenantScoped<tbl_Commitment>(modelBuilder);
+        TenantScoped<tbl_CommitmentLink>(modelBuilder);
+        TenantScoped<tbl_Variation>(modelBuilder);
+        TenantScoped<tbl_StageClaim>(modelBuilder);
+        TenantScoped<tbl_ArtifactText>(modelBuilder);
+        TenantScoped<tbl_ExtractionRun>(modelBuilder);
+        TenantScoped<tbl_ExtractionProposal>(modelBuilder);
+        TenantScoped<tbl_ProgressReading>(modelBuilder);
+        TenantScoped<tbl_MediaBinding>(modelBuilder);
 
         // Channel-based (Client/Crew) visibility is enforced at the service
         // layer, not here: it depends on the caller's *per-project* side, which
@@ -278,6 +304,9 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasOne(e => e.CreatedBy).WithMany().HasForeignKey(e => e.CreatedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.AssignedTo).WithMany().HasForeignKey(e => e.AssignedToId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.ResolvedBy).WithMany().HasForeignKey(e => e.ResolvedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(e => e.CommitmentId).HasDatabaseName("IX_Flag_CommitmentId");
+            entity.HasOne(e => e.Commitment).WithMany().HasForeignKey(e => e.CommitmentId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.OwnerMember).WithMany().HasForeignKey(e => e.OwnerMemberId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<tbl_BudgetLineItem>(entity =>
@@ -394,6 +423,116 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasOne(e => e.Batch).WithMany().HasForeignKey(e => e.BatchId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.AuthorMember).WithMany().HasForeignKey(e => e.AuthorMemberId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ─── The commitment model + money ledger (P4) ──────────────
+        modelBuilder.Entity<tbl_Deliverable>(entity =>
+        {
+            entity.HasIndex(e => new { e.StageId, e.DisplayOrder }).HasDatabaseName("IX_Deliverable_Stage_Order");
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_Deliverable_ProjectId");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.CompletedBy).WithMany().HasForeignKey(e => e.CompletedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_Commitment>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_Commitment_ProjectId");
+            entity.HasIndex(e => e.StageId).HasDatabaseName("IX_Commitment_StageId");
+            entity.HasIndex(e => e.DeliverableId).HasDatabaseName("IX_Commitment_DeliverableId");
+            entity.HasIndex(e => new { e.ProjectId, e.AccountableMemberId }).HasDatabaseName("IX_Commitment_Project_Accountable");
+            entity.HasIndex(e => e.SupersedesId).HasDatabaseName("IX_Commitment_SupersedesId");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,4)");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Deliverable).WithMany().HasForeignKey(e => e.DeliverableId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.AccountableMember).WithMany().HasForeignKey(e => e.AccountableMemberId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.AgreedWithMember).WithMany().HasForeignKey(e => e.AgreedWithMemberId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.AgreedBy).WithMany().HasForeignKey(e => e.AgreedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.RecordedBy).WithMany().HasForeignKey(e => e.RecordedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Supersedes).WithMany().HasForeignKey(e => e.SupersedesId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_CommitmentLink>(entity =>
+        {
+            entity.HasIndex(e => e.CommitmentId).HasDatabaseName("IX_CommitmentLink_CommitmentId");
+            // The backlink direction: what is this photo evidence for?
+            entity.HasIndex(e => new { e.TargetType, e.TargetId }).HasDatabaseName("IX_CommitmentLink_Target");
+            entity.HasIndex(e => new { e.CommitmentId, e.TargetType, e.TargetId, e.Relation })
+                  .IsUnique()
+                  .HasDatabaseName("UX_CommitmentLink_Commitment_Target_Relation");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Commitment).WithMany().HasForeignKey(e => e.CommitmentId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_Variation>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_Variation_ProjectId");
+            entity.HasIndex(e => e.StageId).HasDatabaseName("IX_Variation_StageId");
+            entity.Property(e => e.CostDelta).HasColumnType("decimal(18,4)");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Commitment).WithMany().HasForeignKey(e => e.CommitmentId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.RaisedBy).WithMany().HasForeignKey(e => e.RaisedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ApprovedBy).WithMany().HasForeignKey(e => e.ApprovedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_StageClaim>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_StageClaim_ProjectId");
+            entity.HasIndex(e => e.StageId).HasDatabaseName("IX_StageClaim_StageId");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.ClearedAmount).HasColumnType("decimal(18,4)");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ClaimedBy).WithMany().HasForeignKey(e => e.ClaimedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ClearedBy).WithMany().HasForeignKey(e => e.ClearedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ─── Extraction (P5) ───────────────────────────────────────
+        modelBuilder.Entity<tbl_ArtifactText>(entity =>
+        {
+            entity.HasIndex(e => e.ArtifactId).IsUnique().HasDatabaseName("UX_ArtifactText_ArtifactId");
+            entity.HasIndex(e => new { e.ProjectId, e.Status }).HasDatabaseName("IX_ArtifactText_Project_Status");
+            entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<tbl_ExtractionRun>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_ExtractionRun_ProjectId");
+        });
+
+        modelBuilder.Entity<tbl_ExtractionProposal>(entity =>
+        {
+            entity.HasIndex(e => new { e.ProjectId, e.Status }).HasDatabaseName("IX_ExtractionProposal_Project_Status");
+            entity.HasIndex(e => e.IngestedMessageId).HasDatabaseName("IX_ExtractionProposal_MessageId");
+
+            // A re-run never re-proposes what a person already decided.
+            entity.HasIndex(e => new { e.ProjectId, e.Fingerprint })
+                  .IsUnique()
+                  .HasDatabaseName("UX_ExtractionProposal_Project_Fingerprint");
+
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,4)");
+            entity.HasOne(e => e.IngestedMessage).WithMany().HasForeignKey(e => e.IngestedMessageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.DecidedBy).WithMany().HasForeignKey(e => e.DecidedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_ProgressReading>(entity =>
+        {
+            entity.HasIndex(e => new { e.ProjectId, e.ObservedAt }).HasDatabaseName("IX_ProgressReading_Project_ObservedAt");
+            entity.HasIndex(e => new { e.StageId, e.ObservedAt }).HasDatabaseName("IX_ProgressReading_Stage_ObservedAt");
+            entity.Property(e => e.Percent).HasColumnType("decimal(5,2)");
+            entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_MediaBinding>(entity =>
+        {
+            // One file per line: a second re-join of the same folder binds nothing new.
+            entity.HasIndex(e => e.IngestedMessageId).IsUnique().HasDatabaseName("UX_MediaBinding_MessageId");
+            entity.HasIndex(e => new { e.ProjectId, e.ArtifactId }).HasDatabaseName("IX_MediaBinding_Project_Artifact");
+            entity.HasOne(e => e.IngestedMessage).WithMany().HasForeignKey(e => e.IngestedMessageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         // ─── Platform tables ───────────────────────────────────────

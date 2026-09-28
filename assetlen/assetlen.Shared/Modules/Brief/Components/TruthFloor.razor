@@ -1,0 +1,114 @@
+@*
+    The truth floor (assetlen.md §5): money, dates, agreed specs, blockers and
+    the decisions this reader owes. Every section renders for every reader,
+    empty or not — "no money moved" is part of the answer, and a section that
+    disappears when empty cannot be told apart from one that was curated away.
+    Only the order belongs to the reader.
+*@
+
+<section class="floor" aria-label="The truth floor">
+    @foreach (var section in Sections)
+    {
+        <div class="floor__section" data-floor="@section.Kind">
+            <div class="floor__head">
+                <Icon Name="@BriefFormat.Icon(section.Kind)" Size="15" />
+                <span class="al-label">@section.Label</span>
+                @if (section.Items.Count > 0)
+                {
+                    <span class="floor__count al-num">@section.Items.Count</span>
+                }
+            </div>
+
+            @if (section.Items.Count == 0)
+            {
+                <p class="floor__nothing">@BriefFormat.Nothing(section.Kind)</p>
+            }
+            else
+            {
+                <ul class="floor__items">
+                    @foreach (var item in section.Items.Take(Limit))
+                    {
+                        <li class="floor__item @PhaseClass(item) @(item.Unconfirmed ? "floor__item--unconfirmed" : "")">
+                            <div class="floor__main">
+                                @if (item.Href is not null)
+                                {
+                                    <a class="floor__title" href="@item.Href">@item.Title</a>
+                                }
+                                else
+                                {
+                                    <span class="floor__title">@item.Title</span>
+                                }
+
+                                <span class="floor__sub">
+                                    @if (item.StageName is not null || item.DeliverableTitle is not null)
+                                    {
+                                        <span class="floor__stage"><span class="al-stage-dot"></span>@(item.DeliverableTitle ?? item.StageName)</span>
+                                    }
+                                    @if (item.PreviousDate is { } was && item.NewDate is { } now)
+                                    {
+                                        <span class="al-num">@BriefFormat.Day(was) → @BriefFormat.Day(now)</span>
+                                    }
+                                    else if (item.NewDate is { } nd && section.Kind == TruthFloorKind.Date)
+                                    {
+                                        <span class="al-num">For @BriefFormat.Day(nd)</span>
+                                    }
+                                    <span>@item.Source</span>
+                                    @if (item.Who is not null)
+                                    {
+                                        <span>@item.Who</span>
+                                    }
+                                    @if (item.At is { } at && section.Kind != TruthFloorKind.DecisionOwed)
+                                    {
+                                        <span class="al-num">@BriefFormat.When(at)</span>
+                                    }
+                                </span>
+
+                                @if (item.Detail is not null)
+                                {
+                                    <span class="floor__detail">@item.Detail</span>
+                                }
+                            </div>
+
+                            <div class="floor__end">
+                                @if (item.Amount is { } amt)
+                                {
+                                    <span class="floor__amount">@Fmt.Money(amt, item.Currency)</span>
+                                }
+                                else if (item.AmountHidden)
+                                {
+                                    <span class="floor__amount floor__amount--hidden">Figure not shown</span>
+                                }
+                                @if (section.Kind is TruthFloorKind.DecisionOwed or TruthFloorKind.Blocker)
+                                {
+                                    <span class="al-badge @BriefFormat.DueClass(item.DueBy, item.IsOverdue)">@BriefFormat.DueBadge(item.DueBy, item.IsOverdue)</span>
+                                }
+                                @if (item.Unconfirmed)
+                                {
+                                    <span class="al-badge al-badge--outline">Unconfirmed</span>
+                                }
+                                @if (item.CrossedByFloor)
+                                {
+                                    <span class="al-badge al-badge--client" title="Raised on the delivery side. Blockers always reach you.">Always shown</span>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+
+                @if (section.Items.Count > Limit)
+                {
+                    <p class="floor__nothing">and @(section.Items.Count - Limit) more — in the register.</p>
+                }
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public List<TruthFloorSectionDto> Sections { get; set; } = new();
+
+    /// <summary>Rows shown per section before the rest is left to the register.</summary>
+    [Parameter] public int Limit { get; set; } = 12;
+
+    private static string PhaseClass(TruthItemDto item) => item.StagePhase is { } ph ? $"al-stage--{(int)ph}" : "";
+}

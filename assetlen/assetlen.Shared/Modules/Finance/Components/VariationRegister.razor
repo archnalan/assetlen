@@ -1,0 +1,274 @@
+@*
+    The extras list: what changed, why, what it costs, who approved it and when
+    (assetlen.md §6). The corpus holds eight variations — an added floor among
+    them — and none recorded; the reconciliation that took a 9 AM meeting was
+    caused by that (whatsapp-evidence.md F3, F4). An uncosted extra is shown as
+    a gap, never as a zero.
+*@
+
+@inject ILogger<VariationRegister> Logger
+
+<section class="variations">
+    <div class="al-rule">
+        <span class="al-label">Variations</span>
+        @if (CanWrite && !adding)
+        {
+            <button type="button" class="al-btn al-btn--link" @onclick="() => adding = true">Raise a variation</button>
+        }
+    </div>
+
+    @if (adding)
+    {
+        <div class="al-sheet variations__form">
+            <div class="al-sheet__body">
+                <div class="al-field">
+                    <label class="al-label" for="va-title">What changed</label>
+                    <input id="va-title" class="al-input" maxlength="200" placeholder="e.g. Parapet raised a course, plus coping"
+                           @bind="title" @bind:event="oninput" />
+                </div>
+                <div class="al-field">
+                    <label class="al-label" for="va-why">Why</label>
+                    <input id="va-why" class="al-input" maxlength="1000" @bind="reason" @bind:event="oninput" />
+                </div>
+                <div class="variations__row">
+                    <div class="al-field">
+                        <label class="al-label" for="va-stage">Stage</label>
+                        <select id="va-stage" class="al-select" @bind="stageId">
+                            <option value="">The live stage</option>
+                            @foreach (var s in stages)
+                            {
+                                <option value="@s.Id">@s.StageName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="al-field">
+                        <label class="al-label" for="va-cost">Cost change (@Currency)</label>
+                        <input id="va-cost" class="al-input al-input--money" type="number" step="1000" @bind="cost" />
+                        <span class="al-field__hint">Leave blank if nobody has priced it — it will show as not costed.</span>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(formError))
+                {
+                    <div class="al-alert al-alert--error" role="alert"><Icon Name="error" Size="16" /><span>@formError</span></div>
+                }
+                <div class="variations__actions">
+                    <button type="button" class="al-btn al-btn--quiet" @onclick="() => adding = false">Cancel</button>
+                    <button type="button" class="al-btn al-btn--primary"
+                            disabled="@(saving || string.IsNullOrWhiteSpace(title))" @onclick="AddAsync">
+                        @if (saving) { <span class="al-spinner"></span> }
+                        Raise it
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="Variations didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="variation"
+                EmptyTitle="No variations on record"
+                EmptyBody="Every change to agreed scope belongs here, with its cost — or visibly without one.">
+        <Loading>
+            <div class="al-shimmer al-ghost-row"></div>
+        </Loading>
+        <ChildContent>
+            <div class="al-sheet">
+                <div class="al-register variations__list">
+                    @foreach (var v in items)
+                    {
+                        <div class="al-register__row @(v.CanDecide ? "al-register__row--needs-you" : "")">
+                            <span class="al-register__index">@Fmt.DateShort(v.RaisedAt)</span>
+                            <span class="al-register__main">
+                                <span class="al-register__title">@v.Title</span>
+                                <span class="al-register__sub">
+                                    @if (!string.IsNullOrEmpty(v.StageName)) { <span>@v.StageName</span> }
+                                    @if (!string.IsNullOrEmpty(v.Reason)) { <span>@v.Reason</span> }
+                                    @if (v.Status == VariationStatus.Approved)
+                                    {
+                                        <span>approved @Fmt.DateShort(v.ApprovedAt)@(v.ApprovedByName is null ? "" : $" by {v.ApprovedByName}")</span>
+                                    }
+                                </span>
+
+                                @if (decidingId == v.Id)
+                                {
+                                    <span class="variations__decide">
+                                        <input class="al-input al-input--money" type="number" step="1000"
+                                               placeholder="Agreed cost (@Currency)" @bind="decideCost" />
+                                        <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => decidingId = null">Cancel</button>
+                                        <button type="button" class="al-btn al-btn--default al-btn--sm" @onclick="() => DecideAsync(v, false)">Decline</button>
+                                        <button type="button" class="al-btn al-btn--primary al-btn--sm" @onclick="() => DecideAsync(v, true)">Approve</button>
+                                    </span>
+                                }
+                            </span>
+                            <span class="al-register__end">
+                                @if (v.CostDelta is { } delta)
+                                {
+                                    <span class="al-register__amount">@(delta < 0 ? "−" : "+")@Fmt.Amount(Math.Abs(delta))</span>
+                                }
+                                else
+                                {
+                                    <span class="variations__gap">not costed</span>
+                                }
+                                <span class="al-badge @StatusBadge(v.Status)">@Fmt.Humanise(v.Status.ToString())</span>
+                                @if (v.Status == VariationStatus.Approved && v.ApprovedByName is null)
+                                {
+                                    <span class="variations__gap">no approval on record</span>
+                                }
+                                @if (v.CanDecide && decidingId != v.Id)
+                                {
+                                    <button type="button" class="al-btn al-btn--primary al-btn--sm"
+                                            @onclick="() => { decidingId = v.Id; decideCost = v.CostDelta; }">Decide</button>
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </ChildContent>
+    </StateBlock>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public bool CanWrite { get; set; }
+    [Parameter] public string Currency { get; set; } = "UGX";
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<VariationDto> items = new();
+    private List<StageDto> stages = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? loadedId;
+
+    private bool adding;
+    private bool saving;
+    private string? formError;
+    private string title = "";
+    private string reason = "";
+    private string stageId = "";
+    private decimal? cost;
+
+    private string? decidingId;
+    private decimal? decideCost;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var varsTask = _ledgerApi.GetVariations(ProjectId);
+            var stagesTask = _stagesApi.GetStagesByProjectId(ProjectId);
+            await Task.WhenAll(varsTask, stagesTask);
+            if (!varsTask.Result.IsSuccessStatusCode || varsTask.Result.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(varsTask.Result);
+                return;
+            }
+            items = varsTask.Result.Content;
+            stages = stagesTask.Result.IsSuccessStatusCode
+                ? (stagesTask.Result.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList()
+                : new();
+            phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Variations failed for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task AddAsync()
+    {
+        saving = true;
+        formError = null;
+        try
+        {
+            var response = await _ledgerApi.AddVariation(new VariationCreateDto
+            {
+                ProjectId = ProjectId,
+                StageId = string.IsNullOrEmpty(stageId) ? null : stageId,
+                Title = title.Trim(),
+                Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
+                CostDelta = cost,
+                Currency = Currency
+            });
+            if (response.IsSuccessStatusCode)
+            {
+                adding = false;
+                title = reason = "";
+                cost = null;
+                ToastService.ShowSuccess("Variation raised. It is on the register until the funder decides.");
+                await AfterChangeAsync();
+            }
+            else
+            {
+                formError = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not raise that variation.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not raise a variation on {ProjectId}", ProjectId);
+            formError = "Could not raise that variation.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DecideAsync(VariationDto v, bool approve)
+    {
+        try
+        {
+            var response = await _ledgerApi.DecideVariation(new VariationDecisionDto
+            {
+                VariationId = v.Id,
+                Approve = approve,
+                CostDelta = approve ? decideCost : null
+            });
+            if (response.IsSuccessStatusCode)
+            {
+                decidingId = null;
+                ToastService.ShowSuccess(approve ? "Approved. The commitment now carries the agreed figure." : "Declined, and on record as declined.");
+                await AfterChangeAsync();
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not decide variation {Id}", v.Id);
+            ToastService.ShowError("That did not go through.");
+        }
+    }
+
+    private async Task AfterChangeAsync()
+    {
+        await LoadAsync();
+        if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
+    }
+
+    private static string StatusBadge(VariationStatus s) => s switch
+    {
+        VariationStatus.Approved => "al-badge--success",
+        VariationStatus.Rejected => "al-badge--danger",
+        VariationStatus.Withdrawn => "al-badge--neutral",
+        _ => "al-badge--warning"
+    };
+}

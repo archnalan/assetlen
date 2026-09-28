@@ -1,0 +1,521 @@
+@inject ILogger<ProposalQueue> Logger
+
+@*
+    The review queue — assetlen.md Law 3, plan.md P5.
+
+    With the contractor silent this is the only way Peter's forwarded pile
+    becomes a register, so it is built to be cleared in bulk: one tick-all, one
+    Accept. Nothing here is on the register until someone says so, and every row
+    carries the message it was read from, because a proposal that cannot be
+    checked against its source is exactly the confidently wrong register the
+    law warns about. The accept rate is on screen for the same reason.
+*@
+
+<section class="pqueue">
+    <header class="pqueue__head">
+        <div class="pqueue__intro">
+            <h2 class="pqueue__title">From the thread</h2>
+            <p class="pqueue__sub">
+                Read from the imported chat — money, materials, dates and decisions only.
+                Nothing reaches the register until it is accepted.
+            </p>
+        </div>
+        @if (queue?.CanDecide == true)
+        {
+            <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@running" @onclick="RunAsync">
+                @if (running)
+                {
+                    <span class="al-spinner"></span>
+                }
+                else
+                {
+                    <Icon Name="refresh" Size="14" />
+                }
+                Read the record again
+            </button>
+        }
+    </header>
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The queue didn't load"
+                ErrorMessage="@errorMessage"
+                EmptyIcon="message"
+                EmptyTitle="Nothing read from the thread yet"
+                EmptyBody="Import a WhatsApp export under History. Its messages are read for anything that commits someone — the rest is left alone.">
+        <Loading>
+            <div class="al-stack">
+                <div class="al-shimmer al-ghost-line al-ghost-line--short"></div>
+                <div class="al-shimmer al-ghost-card"></div>
+                <div class="al-shimmer al-ghost-card"></div>
+            </div>
+        </Loading>
+        <ChildContent>
+            @if (queue is not null)
+            {
+                <div class="pqueue__rate" aria-live="polite">
+                    <div class="pqueue__rate-figures">
+                        <span class="al-num pqueue__rate-value">@RateText</span>
+                        <span class="al-subtle">
+                            accepted · @queue.AcceptedCount of @(queue.AcceptedCount + queue.RejectedCount) decided · @queue.PendingCount to review
+                        </span>
+                    </div>
+                    <div class="pqueue__bar" role="img" aria-label="@($"{queue.AcceptedCount} accepted, {queue.RejectedCount} rejected, {queue.PendingCount} waiting")">
+                        <span class="pqueue__bar-seg pqueue__bar-seg--accepted" style="flex-grow:@queue.AcceptedCount"></span>
+                        <span class="pqueue__bar-seg pqueue__bar-seg--rejected" style="flex-grow:@queue.RejectedCount"></span>
+                        <span class="pqueue__bar-seg pqueue__bar-seg--pending" style="flex-grow:@queue.PendingCount"></span>
+                    </div>
+                </div>
+
+                @if (queue.BelowThreshold)
+                {
+                    <div class="al-alert al-alert--warning pqueue__trip" role="alert">
+                        <Icon Name="alert" Size="18" />
+                        <div>
+                            <p class="al-alert__title">Fewer than two in three proposals are being accepted</p>
+                            <p>The reader is proposing too much. The rule with the lowest rate is listed first below — narrow it before trusting what it adds.</p>
+                        </div>
+                    </div>
+                }
+
+                @if (queue.Rules.Count > 0)
+                {
+                    <details class="pqueue__rules" open="@queue.BelowThreshold">
+                        <summary>How each trigger is doing</summary>
+                        <div class="al-table-wrap">
+                            <table class="pqueue__rules-table">
+                                <thead><tr><th>Trigger</th><th class="al-num">Proposed</th><th class="al-num">Accepted</th><th class="al-num">Rejected</th><th class="al-num">Rate</th></tr></thead>
+                                <tbody>
+                                    @foreach (var r in queue.Rules)
+                                    {
+                                        <tr class="@(r.AcceptRate is { } rate && rate < queue.Threshold && r.Accepted + r.Rejected > 0 ? "is-low" : "")">
+                                            <td>@RuleLabel(r.Rule)</td>
+                                            <td class="al-num">@r.Proposed</td>
+                                            <td class="al-num">@r.Accepted</td>
+                                            <td class="al-num">@r.Rejected</td>
+                                            <td class="al-num">@(r.AcceptRate is { } a ? a.ToString("P0") : "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                }
+
+                <div class="pqueue__bar-row al-scroll-x">
+                    <div class="al-segmented" role="group" aria-label="Show">
+                        @foreach (var f in Filters)
+                        {
+                            <button type="button" class="al-segmented__item @(filter == f.Key ? "is-active" : "")"
+                                    aria-selected="@(filter == f.Key)" @onclick="() => SetFilter(f.Key)">
+                                @f.Label
+                                <span class="al-tabs__count">@CountFor(f.Key)</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (filter == "pending" && queue.CanDecide && Shown.Count > 0)
+                {
+                    <div class="pqueue__bulk">
+                        <label class="al-check pqueue__all">
+                            <input type="checkbox" checked="@AllSelected" @onchange="ToggleAll" />
+                            <span>@(selected.Count == 0 ? "Select all" : $"{selected.Count} selected")</span>
+                        </label>
+                        <span class="al-spacer"></span>
+                        <button type="button" class="al-btn al-btn--default al-btn--sm" disabled="@(selected.Count == 0 || deciding)" @onclick="() => DecideAsync(selected.ToList(), false)">
+                            <Icon Name="close" Size="14" /> Reject
+                        </button>
+                        <button type="button" class="al-btn al-btn--primary al-btn--sm" disabled="@(selected.Count == 0 || deciding)" @onclick="() => DecideAsync(selected.ToList(), true)">
+                            @if (deciding)
+                            {
+                                <span class="al-spinner"></span>
+                            }
+                            else
+                            {
+                                <Icon Name="check" Size="14" />
+                            }
+                            Accept@(selected.Count > 0 ? $" {selected.Count}" : "")
+                        </button>
+                    </div>
+                }
+
+                @if (Shown.Count == 0)
+                {
+                    <div class="al-empty">
+                        <Icon Name="check-circle" Size="40" Class="al-empty__icon" Weight="1.25" />
+                        <h3 class="al-empty__title">@(filter == "pending" ? "Nothing waiting" : "Nothing here")</h3>
+                        <p class="al-empty__body">@(filter == "pending" ? "Everything read from the thread has been decided." : "Try another filter.")</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var group in Shown.GroupBy(p => p.Kind).OrderBy(g => KindOrder(g.Key)))
+                    {
+                        <section class="pqueue__group">
+                            <h3 class="pqueue__group-head">
+                                <Icon Name="@KindIcon(group.Key)" Size="15" />
+                                @KindLabel(group.Key)
+                                <span class="al-subtle">@group.Count()</span>
+                            </h3>
+
+                            <ol class="pqueue__list">
+                                @foreach (var p in group)
+                                {
+                                    <li @key="p.Id" class="pqueue__item @(p.StageId is null ? "" : $"al-stage--{p.StagePhase}") @(selected.Contains(p.Id!) ? "is-selected" : "")">
+                                        @if (p.Status == ProposalStatus.Pending && queue.CanDecide)
+                                        {
+                                            <label class="al-check pqueue__pick">
+                                                <input type="checkbox" checked="@selected.Contains(p.Id!)" @onchange="() => Toggle(p.Id!)" aria-label="@($"Select: {p.Title}")" />
+                                            </label>
+                                        }
+
+                                        <div class="pqueue__body">
+                                            <p class="pqueue__item-title">@p.Title</p>
+
+                                            <div class="pqueue__facts">
+                                                @if (p.Amount is { } amount)
+                                                {
+                                                    <span class="pqueue__fact al-num">@(p.Currency ?? "UGX") @amount.ToString("N0")</span>
+                                                }
+                                                else if (p.AmountHidden)
+                                                {
+                                                    <span class="pqueue__fact al-subtle">Figure held for the money seat</span>
+                                                }
+                                                @if (p.DueDate is { } due)
+                                                {
+                                                    <span class="pqueue__fact al-num">
+                                                        <Icon Name="calendar" Size="12" /> @due.ToString("ddd d MMM")
+                                                        @if (!string.IsNullOrEmpty(p.DateText))
+                                                        {
+                                                            <span class="al-subtle">· “@p.DateText”</span>
+                                                        }
+                                                    </span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(p.Quantity) && p.Quantity != p.Title)
+                                                {
+                                                    <span class="pqueue__fact">@p.Quantity</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(p.StageName))
+                                                {
+                                                    <span class="pqueue__fact pqueue__stage"><span class="al-stage-dot"></span>@p.StageName</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(p.PartyName))
+                                                {
+                                                    <span class="pqueue__fact">Waiting on @p.PartyName</span>
+                                                }
+                                                @if (p.OwedBySide is { } owed)
+                                                {
+                                                    <span class="al-badge al-badge--accent">@(owed == ProjectSide.Client ? "Decision owed by the client side" : "Owed by the delivery side")</span>
+                                                }
+                                                @if (p.Contested)
+                                                {
+                                                    <span class="al-badge al-badge--warning" title="@p.ContestNote">Contested in the thread</span>
+                                                }
+                                                else if (p.Maturity == CommitmentMaturity.InDiscussion && p.OwedBySide is null)
+                                                {
+                                                    <span class="al-badge al-badge--outline">In discussion</span>
+                                                }
+                                                else if (p.Maturity == CommitmentMaturity.Delivered)
+                                                {
+                                                    <span class="al-badge al-badge--success">Delivered</span>
+                                                }
+                                            </div>
+
+                                            @if (!string.IsNullOrEmpty(p.SourceExcerpt))
+                                            {
+                                                <blockquote class="pqueue__source">
+                                                    <p class="al-clamp-2">@p.SourceExcerpt</p>
+                                                    <footer class="al-subtle">@p.SourceAuthor · @p.SourceSentAt?.ToString("d MMM yyyy, HH:mm")</footer>
+                                                </blockquote>
+                                            }
+                                        </div>
+
+                                        <div class="pqueue__actions">
+                                            @if (p.Status == ProposalStatus.Pending)
+                                            {
+                                                @if (queue.CanDecide)
+                                                {
+                                                    <button type="button" class="al-iconbtn al-iconbtn--bordered al-iconbtn--sm" title="Reject" aria-label="@($"Reject: {p.Title}")"
+                                                            disabled="@deciding" @onclick="() => DecideAsync(new List<string> { p.Id! }, false)">
+                                                        <Icon Name="close" Size="14" />
+                                                    </button>
+                                                    <button type="button" class="al-iconbtn al-iconbtn--bordered al-iconbtn--sm pqueue__accept" title="Accept" aria-label="@($"Accept: {p.Title}")"
+                                                            disabled="@deciding" @onclick="() => DecideAsync(new List<string> { p.Id! }, true)">
+                                                        <Icon Name="check" Size="14" />
+                                                    </button>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="al-badge @(p.Status == ProposalStatus.Accepted ? "al-badge--success" : "al-badge--neutral")">
+                                                    @(p.Status == ProposalStatus.Accepted ? (p.Kind == ProposalKind.Blocker ? "Raised as a blocker" : "On the register") : "Rejected")
+                                                </span>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            </ol>
+                        </section>
+                    }
+                }
+
+                <details class="pqueue__readings" @ontoggle="LoadReadingsAsync">
+                    <summary>Progress readings read from the thread <span class="al-subtle">· @queue.ReadingCount</span></summary>
+                    <p class="al-subtle pqueue__readings-note">
+                        A percentage is an observation with a source, not a commitment, so it is recorded as read and never waits here.
+                    </p>
+                    @if (readings is null)
+                    {
+                        <div class="al-shimmer al-ghost-line"></div>
+                    }
+                    else if (readings.Count == 0)
+                    {
+                        <p class="al-subtle">No readings yet.</p>
+                    }
+                    else
+                    {
+                        <ul class="pqueue__reading-list">
+                            @foreach (var r in readings.OrderByDescending(r => r.ObservedAt))
+                            {
+                                <li class="pqueue__reading">
+                                    <span class="al-num pqueue__reading-pct">@r.Percent.ToString("0")%</span>
+                                    <span class="pqueue__reading-subject">@r.Subject @if (!string.IsNullOrEmpty(r.StageName) && r.StageName != r.Subject) { <span class="al-subtle">· @r.StageName</span> }</span>
+                                    <span class="al-subtle al-num">@r.ObservedAt.ToString("d MMM")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </details>
+            }
+        </ChildContent>
+    </StateBlock>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    /// <summary>Raised after a decision, so the register behind it can reload.</summary>
+    [Parameter] public EventCallback<ProposalDecisionResultDto> OnDecided { get; set; }
+
+    [Parameter] public EventCallback<int> OnPendingCount { get; set; }
+
+    private ExtractionQueueDto? queue;
+    private List<ProgressReadingDto>? readings;
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string filter = "pending";
+    private readonly HashSet<string> selected = new();
+    private bool deciding;
+    private bool running;
+    private string? loadedId;
+
+    private static readonly (string Key, string Label)[] Filters =
+    [
+        ("pending", "To review"), ("accepted", "Accepted"), ("rejected", "Rejected")
+    ];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == ProjectId) return;
+        loadedId = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var resp = await _extractionApi.GetQueue(ProjectId);
+            if (!resp.IsSuccessStatusCode || resp.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(resp);
+                return;
+            }
+
+            queue = resp.Content;
+            selected.IntersectWith(queue.Proposals.Where(p => p.Status == ProposalStatus.Pending).Select(p => p.Id!));
+            if (queue.PendingCount == 0 && filter == "pending" && queue.Proposals.Count > 0) filter = "accepted";
+            phase = queue.Proposals.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+            await OnPendingCount.InvokeAsync(queue.PendingCount);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Extraction queue failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task LoadReadingsAsync()
+    {
+        if (readings is not null) return;
+        try
+        {
+            var resp = await _extractionApi.GetReadings(ProjectId);
+            readings = resp.IsSuccessStatusCode && resp.Content is not null ? resp.Content : new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Readings failed to load for {ProjectId}", ProjectId);
+            readings = new();
+        }
+        StateHasChanged();
+    }
+
+    private async Task RunAsync()
+    {
+        running = true;
+        StateHasChanged();
+        try
+        {
+            var resp = await _extractionApi.Run(new ExtractionRunRequestDto { ProjectId = ProjectId });
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                ToastService.ShowSuccess(resp.Content.ProposalsCreated == 0
+                    ? "Read again — nothing new to propose."
+                    : $"Read again — {resp.Content.ProposalsCreated} new to review.");
+                readings = null;
+                await LoadAsync();
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(resp));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Extraction run failed for {ProjectId}", ProjectId);
+            ToastService.ShowError("The record could not be read again.");
+        }
+        finally
+        {
+            running = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DecideAsync(List<string> ids, bool accept)
+    {
+        if (ids.Count == 0) return;
+        deciding = true;
+        StateHasChanged();
+
+        try
+        {
+            var resp = await _extractionApi.Decide(new ProposalDecisionDto { ProposalIds = ids, Accept = accept });
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                var r = resp.Content;
+                foreach (var id in ids) selected.Remove(id);
+                if (r.Errors.Count > 0) ToastService.ShowWarning(r.Errors[0]);
+                else ToastService.ShowSuccess(accept
+                    ? $"{r.Accepted} on the register{(r.FlagIds.Count > 0 ? $", {r.FlagIds.Count} as blockers" : "")}."
+                    : $"{r.Rejected} rejected. They will not be proposed again.");
+                await OnDecided.InvokeAsync(r);
+                await LoadAsync();
+            }
+            else
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(resp));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Deciding proposals failed for {ProjectId}", ProjectId);
+            ToastService.ShowError("That decision was not saved.");
+        }
+        finally
+        {
+            deciding = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<ExtractionProposalDto> Shown => queue?.Proposals.Where(p => Matches(p, filter)).ToList() ?? new();
+
+    private static bool Matches(ExtractionProposalDto p, string key) => key switch
+    {
+        "accepted" => p.Status == ProposalStatus.Accepted,
+        "rejected" => p.Status == ProposalStatus.Rejected,
+        _ => p.Status == ProposalStatus.Pending
+    };
+
+    private int CountFor(string key) => queue?.Proposals.Count(p => Matches(p, key)) ?? 0;
+
+    private void SetFilter(string key)
+    {
+        filter = key;
+        selected.Clear();
+    }
+
+    private bool AllSelected => Shown.Count > 0 && Shown.All(p => selected.Contains(p.Id!));
+
+    private void ToggleAll()
+    {
+        if (AllSelected) selected.Clear();
+        else foreach (var p in Shown) selected.Add(p.Id!);
+    }
+
+    private void Toggle(string id)
+    {
+        if (!selected.Remove(id)) selected.Add(id);
+    }
+
+    private string RateText => queue?.AcceptRate is { } rate ? rate.ToString("P0") : "—";
+
+    private static int KindOrder(ProposalKind kind) => kind switch
+    {
+        ProposalKind.Price => 0,
+        ProposalKind.Date => 1,
+        ProposalKind.Choice or ProposalKind.Spec => 2,
+        ProposalKind.Material => 3,
+        _ => 4
+    };
+
+    private static string KindLabel(ProposalKind kind) => kind switch
+    {
+        ProposalKind.Price => "Money",
+        ProposalKind.Date => "Dates",
+        ProposalKind.Choice => "Decisions",
+        ProposalKind.Spec => "Specifications",
+        ProposalKind.Material => "Materials",
+        _ => "Blockers"
+    };
+
+    private static string KindIcon(ProposalKind kind) => kind switch
+    {
+        ProposalKind.Price => "money",
+        ProposalKind.Date => "calendar",
+        ProposalKind.Choice => "decision",
+        ProposalKind.Spec => "drawing",
+        ProposalKind.Material => "stage",
+        _ => "blocked"
+    };
+
+    private static string RuleLabel(string? rule) => rule switch
+    {
+        "money" => "Figures",
+        "date-promise" => "Promised dates",
+        "date-reply" => "Dates given in reply",
+        "date-restated" => "Dates restated",
+        "material-spec" => "Material schedule lines",
+        "material-quantity" => "Quantities",
+        "material-delivered" => "Deliveries",
+        "decision-directive" => "Instructions",
+        "decision-agreed" => "Agreed or chosen",
+        "decision-affirmed" => "Proposals answered yes",
+        "decision-owed" => "Decisions asked for",
+        "spec-change" => "Changes to a spec",
+        "spec-reply" => "Specs given in reply",
+        "recommendation" => "Recommendations",
+        "blocker" => "Blockers",
+        "claude" => "Model-read",
+        _ => rule ?? "—"
+    };
+}

@@ -1,0 +1,132 @@
+.sres {
+    display: flex;
+    gap: var(--al-space-4);
+    padding: var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+    min-width: 0;
+}
+
+.sres:first-child { border-top: 0; }
+
+/* The phase edge — a hairline, never a fill (CLAUDE.md §2.1). */
+.sres[class*="al-stage--"] {
+    border-left: 2px solid var(--al-stage-accent, transparent);
+    padding-left: calc(var(--al-space-4) - 2px);
+}
+
+.sres__thumb {
+    flex: 0 0 132px;
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: zoom-in;
+    border-radius: var(--al-radius-sm);
+}
+
+.sres__thumb:focus-visible { outline: 2px solid var(--al-accent); outline-offset: 2px; }
+
+.sres__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.sres__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.sres__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    font-weight: var(--al-weight-semibold);
+    font-size: var(--al-font-size-2xs);
+}
+
+.sres__stage { max-width: 16rem; }
+
+.sres__project { color: var(--al-text-muted); }
+
+.sres__title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    min-width: 0;
+}
+
+.sres__title {
+    color: var(--al-text);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+    line-height: 1.35;
+    text-decoration: none;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+a.sres__title:hover { color: var(--al-accent); }
+
+.sres--message .sres__title,
+.sres--diaryentry .sres__title {
+    font-weight: var(--al-weight-regular);
+    font-size: var(--al-font-size-base);
+}
+
+.sres__amount {
+    flex: 0 0 auto;
+    font-family: var(--al-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+}
+
+.sres__amount--hidden {
+    font-family: var(--al-font-body);
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-xs);
+}
+
+.sres__snippet {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.sres__where {
+    color: var(--al-text-subtle);
+    margin-right: var(--al-space-1);
+}
+
+/* The word he typed, found. A light accent ground — enough to find, not enough to shout. */
+.sres__mark {
+    background: color-mix(in srgb, var(--al-accent) 16%, transparent);
+    color: var(--al-text);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.sres__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    margin-top: var(--al-space-1);
+}
+
+@media (max-width: 560px) {
+    .sres { flex-direction: column; gap: var(--al-space-3); }
+    .sres__thumb { flex-basis: auto; width: 100%; max-width: 320px; }
+    .sres__title-row { flex-direction: column; align-items: flex-start; gap: var(--al-space-1); }
+}

@@ -1,0 +1,171 @@
+@using Refit
+@inject ILogger<MediaRejoinPanel> Logger
+
+@*
+    Loose footage, re-joined (works-report.md §5).
+
+    An export "without media" keeps every <Media omitted> line but none of the
+    photos, and the photos then arrive separately — a folder per day, named by
+    whoever saved them. The stamp WhatsApp writes into each file name is the one
+    reliable fact, so it decides where a file belongs; the folder does not. A
+    file that binds to nothing is kept and listed here, never dropped.
+*@
+
+<section class="rejoin">
+    <header class="rejoin__head">
+        <h3 class="rejoin__title">Photos sent separately</h3>
+        <p class="rejoin__sub">
+            Exported the chat without media? Add the photos and videos here — loose, or the whole
+            folder as a zip. Each goes back to the message it was sent with, by the time in its name.
+        </p>
+    </header>
+
+    @if (!CanWrite)
+    {
+        <p class="rejoin__note">You need write access to this project to add footage.</p>
+    }
+    else
+    {
+        @* The input stays mounted while uploading: Blazor streams the files out
+           of this element, and removing it mid-read fails the upload. *@
+        <div class="rejoin__drop">
+            <InputFile OnChange="OnChosen" multiple accept=".zip,image/*,video/*" class="rejoin__file" disabled="@uploading" />
+            <p class="rejoin__hint">Names like <span class="al-mono">WhatsApp Image 2026-09-28 at 7.58.25 PM.jpeg</span> bind by their time. Any other name is kept as the caption.</p>
+        </div>
+
+        @if (uploading)
+        {
+            <div class="al-shimmer rejoin__ghost"></div>
+            <p class="rejoin__note">Matching @chosen file@(chosen == 1 ? "" : "s") to the thread…</p>
+        }
+    }
+
+    @if (error is not null)
+    {
+        <div class="al-alert al-alert--error" role="alert">
+            <Icon Name="error" Size="18" />
+            <div><p class="al-alert__title">The footage was not added</p><p>@error</p></div>
+        </div>
+    }
+
+    @if (report is not null)
+    {
+        <div class="rejoin__report">
+            <dl class="rejoin__facts">
+                <div class="rejoin__fact"><dt>Received</dt><dd class="al-num">@report.FilesReceived</dd></div>
+                <div class="rejoin__fact"><dt>On their messages</dt><dd class="al-num">@(report.Bound + report.AlreadyBound)</dd></div>
+                <div class="rejoin__fact"><dt>Same file twice</dt><dd class="al-num">@report.Duplicates</dd></div>
+                <div class="rejoin__fact"><dt>Kept, not matched</dt><dd class="al-num">@report.Unbound</dd></div>
+            </dl>
+
+            @if (report.AlreadyBound > 0)
+            {
+                <p class="rejoin__note">@report.AlreadyBound were already on their messages from an earlier upload; nothing was added twice.</p>
+            }
+            @if (report.LinesStillOpen > 0)
+            {
+                <p class="rejoin__note">@(report.LinesStillOpen == 1 ? "1 media message in the thread is" : $"{report.LinesStillOpen} media messages in the thread are") still waiting for a file.</p>
+            }
+
+            @if (Unmatched.Count > 0)
+            {
+                <h4 class="rejoin__section">Kept, not matched</h4>
+                <ul class="rejoin__list">
+                    @foreach (var f in Unmatched)
+                    {
+                        <li class="rejoin__row">
+                            <span class="rejoin__name">@(f.Caption ?? f.FileName)</span>
+                            <span class="al-subtle rejoin__reason">@f.Reason</span>
+                        </li>
+                    }
+                </ul>
+            }
+
+            @if (Matched.Count > 0)
+            {
+                <details class="rejoin__matched">
+                    <summary>@Matched.Count matched to their messages</summary>
+                    <ul class="rejoin__list">
+                        @foreach (var f in Matched)
+                        {
+                            <li class="rejoin__row">
+                                <span class="rejoin__name al-truncate">@f.FileName</span>
+                                <span class="al-subtle al-num">@f.MessageSentAt?.ToString("d MMM, HH:mm")</span>
+                            </li>
+                        }
+                    </ul>
+                </details>
+            }
+
+            <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => report = null">Add more</button>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public bool CanWrite { get; set; }
+
+    /// <summary>Raised after footage lands, so the thread below can show it on its lines.</summary>
+    [Parameter] public EventCallback OnRejoined { get; set; }
+
+    private const long MaxFileBytes = 512L * 1024 * 1024;
+    private const int MaxFiles = 300;
+
+    private MediaRejoinReportDto? report;
+    private bool uploading;
+    private int chosen;
+    private string? error;
+
+    private List<MediaRejoinFileDto> Unmatched => report?.Files
+        .Where(f => f.Outcome == MediaRejoinOutcome.Unbound).ToList() ?? new();
+
+    private List<MediaRejoinFileDto> Matched => report?.Files
+        .Where(f => f.Outcome == MediaRejoinOutcome.Bound).ToList() ?? new();
+
+    private async Task OnChosen(InputFileChangeEventArgs e)
+    {
+        var files = e.GetMultipleFiles(MaxFiles);
+        if (files.Count == 0) return;
+
+        uploading = true;
+        chosen = files.Count;
+        error = null;
+        report = null;
+        StateHasChanged();
+
+        var streams = new List<Stream>();
+        try
+        {
+            var parts = new List<StreamPart>();
+            foreach (var f in files)
+            {
+                var s = f.OpenReadStream(MaxFileBytes);
+                streams.Add(s);
+                parts.Add(new StreamPart(s, f.Name, string.IsNullOrEmpty(f.ContentType) ? "application/octet-stream" : f.ContentType));
+            }
+
+            var resp = await _ingestApi.RejoinMedia(parts, ProjectId);
+            if (resp.IsSuccessStatusCode && resp.Content is not null)
+            {
+                report = resp.Content;
+                await OnRejoined.InvokeAsync();
+            }
+            else
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(resp) ?? "The files could not be read.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Re-joining media failed for {ProjectId}", ProjectId);
+            error = "The files could not be read.";
+        }
+        finally
+        {
+            foreach (var s in streams) await s.DisposeAsync();
+            uploading = false;
+            StateHasChanged();
+        }
+    }
+}

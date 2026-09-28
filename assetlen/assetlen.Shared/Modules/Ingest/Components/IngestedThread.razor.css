@@ -259,3 +259,24 @@
 
     .thread__msg-head { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
+
+/* The day a search result pointed at. A chip, not a hidden filter: a reader who
+   arrived from search must be able to see why the record looks short, and widen it. */
+.thread__day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    padding: 2px var(--al-space-2);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-pill);
+    background: var(--al-surface-2);
+    color: var(--al-text);
+    font: inherit;
+    font-size: var(--al-font-size-xs);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: border-color var(--al-transition-fast) var(--al-ease);
+}
+
+.thread__day-chip:hover { border-color: var(--al-accent); }

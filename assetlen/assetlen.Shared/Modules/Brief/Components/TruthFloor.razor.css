@@ -1,0 +1,138 @@
+.floor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    background: var(--al-bg-elevated);
+}
+
+.floor__section {
+    padding: var(--al-space-3) var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+    min-width: 0;
+}
+
+.floor__section:last-child { border-bottom: 0; }
+
+.floor__head {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    color: var(--al-text-muted);
+}
+
+.floor__count {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text);
+}
+
+.floor__nothing {
+    margin-top: var(--al-space-1);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-subtle);
+}
+
+.floor__items {
+    list-style: none;
+    margin: var(--al-space-1) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.floor__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--al-space-3);
+    align-items: start;
+    padding: var(--al-space-1) 0 var(--al-space-1) var(--al-space-3);
+    border-left: 2px solid var(--al-stage-accent, var(--al-border-strong));
+    margin-top: var(--al-space-2);
+}
+
+/* Read from the thread and not yet confirmed: the same fact with a dashed rule,
+   so nobody mistakes it for something in the register. */
+.floor__item--unconfirmed { border-left-style: dashed; }
+
+.floor__main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.floor__title {
+    font-size: var(--al-font-size-sm);
+    font-weight: var(--al-weight-medium);
+    line-height: var(--al-leading-snug);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+a.floor__title:hover { color: var(--al-accent); }
+
+.floor__sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.floor__sub > * + *::before {
+    content: "·";
+    margin-right: var(--al-space-2);
+    color: var(--al-text-subtle);
+}
+
+.floor__stage {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+}
+
+.floor__detail {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    overflow-wrap: anywhere;
+}
+
+.floor__end {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--al-space-1);
+    text-align: right;
+}
+
+.floor__amount {
+    font-family: var(--al-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--al-font-size-sm);
+    white-space: nowrap;
+}
+
+.floor__amount--hidden {
+    font-family: var(--al-font-body);
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-xs);
+}
+
+@media (max-width: 480px) {
+    .floor__section { padding: var(--al-space-3); }
+    .floor__item { grid-template-columns: minmax(0, 1fr); gap: var(--al-space-1); }
+    .floor__end {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-start;
+        text-align: left;
+    }
+}
+
+@media (min-width: 1100px) {
+    .floor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .floor__section:nth-child(odd) { border-right: 1px solid var(--al-border); }
+    .floor__section:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
+}

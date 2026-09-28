@@ -1,0 +1,59 @@
+.claims {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+}
+
+.claims__form .al-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+}
+
+.claims__row {
+    display: grid;
+    gap: var(--al-space-3);
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+    .claims__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.claims__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+}
+
+.claims__query {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    margin-top: var(--al-space-2);
+}
+
+.claims__query .al-input {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+/* Several answers can sit at the end of a row. At phone width they drop
+   beneath the text rather than squeezing it into a single-word column. */
+.claims__list .al-register__end {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+}
+
+@media (max-width: 640px) {
+    .claims__list .al-register__row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .claims__list .al-register__end {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        justify-content: flex-start;
+    }
+}

@@ -1,0 +1,70 @@
+.variations {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+}
+
+.variations__form .al-sheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+}
+
+.variations__row {
+    display: grid;
+    gap: var(--al-space-3);
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+    .variations__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.variations__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+}
+
+.variations__decide {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    margin-top: var(--al-space-2);
+}
+
+.variations__decide .al-input {
+    flex: 1 1 10rem;
+    min-width: 0;
+}
+
+/* A gap is a finding, not an empty state (works-report.md §3.1). */
+.variations__gap {
+    display: inline-block;
+    padding: 0 var(--al-space-2);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius-xs);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+}
+
+/* Several answers can sit at the end of a row. At phone width they drop
+   beneath the text rather than squeezing it into a single-word column. */
+.variations__list .al-register__end {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+}
+
+@media (max-width: 640px) {
+    .variations__list .al-register__row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .variations__list .al-register__end {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        justify-content: flex-start;
+    }
+}

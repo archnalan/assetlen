@@ -1,0 +1,71 @@
+.ledger__stats {
+    margin-bottom: var(--al-space-4);
+}
+
+.ledger__table td.num {
+    vertical-align: top;
+}
+
+.ledger__stage {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--al-space-2);
+    color: var(--al-text);
+    text-decoration: none;
+}
+
+.ledger__stage:hover .ledger__stage-name { text-decoration: underline; }
+
+.ledger__stage-name {
+    display: block;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.ledger__stage-note {
+    display: block;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.ledger__sub .ledger__stage {
+    padding-left: var(--al-space-4);
+}
+
+.ledger__carry,
+.ledger__pending,
+.ledger__open {
+    display: block;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    white-space: nowrap;
+}
+
+.ledger__pending { color: var(--al-warning); }
+
+.ledger__owed { color: var(--al-danger); }
+
+.ledger__extras {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-1);
+}
+
+/* A gap is a finding, not an empty state (works-report.md §3.1). */
+.ledger__gap {
+    display: inline-block;
+    padding: 0 var(--al-space-2);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius-xs);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+}
+
+.ledger__foot {
+    margin: var(--al-space-3) 0 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    max-width: 44rem;
+}

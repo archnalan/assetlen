@@ -133,6 +133,15 @@ builder.Services.AddHangfire(config => config.UseSimpleAssemblyNameTypeSerialize
     builder.Configuration.GetConnectionString("DefaultConnectionHangfire"),
     new Hangfire.SqlServer.SqlServerStorageOptions { PrepareSchemaIfNecessary = false }));
 builder.Services.AddHangfireServer();
+
+// OCR runs on its own queue with two workers: each job may start an OCR
+// process, and a 700-photo import must not start 20 of them at once.
+builder.Services.AddHangfireServer(options =>
+{
+    options.ServerName = $"{Environment.MachineName}:ocr";
+    options.Queues = new[] { "ocr" };
+    options.WorkerCount = 2;
+});
 builder.Services.AddTransient<ITenantProvider, TenantProvider>();
 builder.Services.AddScoped<ITenantServiceDAL, TenantServiceDAL>();
 builder.Services.AddScoped<IConfigDAL, ConfigDAL>();
@@ -155,6 +164,8 @@ builder.Services.AddScoped<IFundingDAL, FundingDAL>();
 builder.Services.AddScoped<IProgressDAL, ProgressDAL>();
 builder.Services.AddScoped<IPMDashboardDAL, PMDashboardDAL>();
 builder.Services.AddScoped<IFlagDAL, FlagDAL>();
+builder.Services.AddScoped<ICommitmentDAL, CommitmentDAL>();
+builder.Services.AddScoped<ILedgerDAL, LedgerDAL>();
 builder.Services.AddScoped<IBudgetDAL, BudgetDAL>();
 builder.Services.AddScoped<IProjectHealthService, ProjectHealthService>();
 builder.Services.AddScoped<IProjectSizingService, ProjectSizingService>();
@@ -173,6 +184,33 @@ builder.Services.AddScoped<IArtifactDAL, ArtifactDAL>();
 // ── Ingest: the front door (P3 — assetlen.md D3) ──
 // Writes through the artifact store above, so it registers after it.
 builder.Services.AddScoped<IIngestDAL, IngestDAL>();
+
+// ── Extraction: pile into register (P5 — assetlen.md Law 3) ──
+// The rules are always registered and always the fallback; the Claude
+// extractor only runs when a key and Extraction:UseClaude are both set.
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Extraction.IMessageExtractor,
+    assetlen.Service.FileProcessingServices.Extraction.RuleMessageExtractor>();
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Extraction.IMessageExtractor,
+    assetlen.Service.FileProcessingServices.Extraction.ClaudeMessageExtractor>();
+builder.Services.AddScoped<IExtractionDAL, ExtractionDAL>();
+builder.Services.AddScoped<ISearchDAL, SearchDAL>();
+
+// ── Peter's surfaces (P7): the home across every project and the daily brief ──
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Brief.IVantageIndex,
+    assetlen.Service.FileProcessingServices.Brief.VantageIndex>();
+builder.Services.AddScoped<IBriefDAL, BriefDAL>();
+
+// OCR: Tesseract when configured or on the PATH, otherwise Windows' own OCR.
+// Registration order is the preference order under Ocr:Engine = auto.
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Ocr.IImageOcrEngine,
+    assetlen.Service.FileProcessingServices.Ocr.TesseractOcrEngine>();
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Ocr.IImageOcrEngine,
+    assetlen.Service.FileProcessingServices.Ocr.WindowsOcrEngine>();
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Ocr.IOcrService,
+    assetlen.Service.FileProcessingServices.Ocr.OcrService>();
+builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Ocr.IArtifactTextQueue,
+    assetlen.Service.FileProcessingServices.Ocr.HangfireArtifactTextQueue>();
+builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Ocr.ArtifactTextJob>();
 
 // ── Development demo world ──
 // Registered unconditionally so the container is identical in every

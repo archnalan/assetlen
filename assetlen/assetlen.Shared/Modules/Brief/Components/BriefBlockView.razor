@@ -1,0 +1,133 @@
+@*
+    One deliverable's day — or its stage's, when nothing named a deliverable.
+    Where the work stands first, then the same-view pairs, then the words.
+    Nothing floats (CLAUDE.md §1): what could not be tied to the work is said
+    to be untied, not dropped.
+*@
+
+<section class="bblock @PhaseClass" data-block="@Block.Key">
+    <header class="bblock__head">
+        <div class="bblock__names">
+            @if (Block.StageName is not null)
+            {
+                <span class="al-stage-rule">@Block.StageName</span>
+            }
+            <h2 class="bblock__title">@(Block.DeliverableTitle ?? Block.StageName ?? "Not yet tied to a deliverable")</h2>
+        </div>
+
+        <div class="bblock__aside">
+            @if (Block.EmphasisReason is not null)
+            {
+                <span class="al-badge al-badge--accent">@Block.EmphasisReason</span>
+            }
+            @if (Block.DeliverableStatus is { } ds)
+            {
+                <span class="al-badge al-badge--neutral">@StatusLabel(ds)</span>
+            }
+            @if (Block.StageId is not null)
+            {
+                <a class="al-btn al-btn--link" href="/project/@ProjectId/stage/@Block.StageId">
+                    Stage <Icon Name="arrow-right" Size="14" />
+                </a>
+            }
+        </div>
+    </header>
+
+    @if (Block.Percent is { } pct)
+    {
+        <div class="bblock__progress">
+            <div class="al-meter">
+                <span class="al-meter__seg al-meter__seg--cleared" style="width:@(Math.Clamp(pct, 0, 100).ToString(CultureInfo.InvariantCulture))%"></span>
+            </div>
+            <span class="bblock__pct al-num">
+                @Fmt.Percent(pct)
+                @if (Block.PercentBefore is { } was && was != pct)
+                {
+                    <span class="bblock__was"> (was @Fmt.Percent(was))</span>
+                }
+            </span>
+            @if (Block.PercentSource is not null)
+            {
+                <span class="bblock__source">@Block.PercentSource</span>
+            }
+        </div>
+    }
+
+    @foreach (var pair in Block.Pairs)
+    {
+        <VantagePair Pair="pair" />
+    }
+
+    @if (Block.Frames.Count > 0)
+    {
+        <div class="bblock__frames">
+            @foreach (var frame in Block.Frames)
+            {
+                <a class="bblock__frame" href="@frame.Href" title="@frame.Origin, @BriefFormat.When(frame.At)">
+                    <ArtifactThumb ArtifactId="@frame.ArtifactId" HasThumbnail="frame.HasThumbnail" MimeType="@frame.MimeType" Cover="true" />
+                </a>
+            }
+        </div>
+    }
+    @if (FramesNotShown > 0)
+    {
+        <p class="bblock__note">@FramesNotShown more @(FramesNotShown == 1 ? "frame" : "frames") on this, in the thread.</p>
+    }
+
+    @if (Block.Commitments.Count > 0)
+    {
+        <ul class="bblock__commitments">
+            @foreach (var c in Block.Commitments)
+            {
+                <li>
+                    <Icon Name="commitment" Size="14" />
+                    @if (c.Href is not null)
+                    {
+                        <a href="@c.Href">@c.Title</a>
+                    }
+                    else
+                    {
+                        <span>@c.Title</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (Block.Notes.Count > 0)
+    {
+        <ol class="bblock__notes">
+            @foreach (var note in Block.Notes)
+            {
+                <li class="bblock__line">
+                    <span class="bblock__when al-num">@BriefFormat.Time(note.At)</span>
+                    <span class="bblock__text">
+                        @note.Text
+                        <span class="bblock__who">
+                            @(note.Who ?? note.Origin)@(Days > 1 ? $", {BriefFormat.Day(note.At)}" : "")
+                        </span>
+                    </span>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public BriefBlockDto Block { get; set; } = new();
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    /// <summary>The window's length, so a week's notes carry their day.</summary>
+    [Parameter] public int Days { get; set; } = 1;
+
+    private string PhaseClass => Block.StagePhase is { } ph ? $"al-stage--{(int)ph}" : "";
+
+    private int FramesNotShown => Math.Max(0, Block.FrameTotal - Block.Frames.Count - Block.Pairs.Count);
+
+    private static string StatusLabel(DeliverableStatus s) => s switch
+    {
+        DeliverableStatus.Done => "Done",
+        DeliverableStatus.InProgress => "In progress",
+        _ => "Not started"
+    };
+}

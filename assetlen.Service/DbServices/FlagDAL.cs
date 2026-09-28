@@ -46,10 +46,34 @@ public class FlagDAL : IFlagDAL
             // A question raised while standing in front of the work belongs to
             // the work. Filed against the active stage unless the reader named
             // one, so the register can be read a phase at a time later.
+            // A query on a commitment is that commitment in QueryRaised — the two
+            // must never disagree, so the flag moves the item in the same save.
+            tbl_Commitment? questioned = null;
+            if (!string.IsNullOrEmpty(dto.CommitmentId))
+            {
+                questioned = await _context.tbl_Commitments.FirstOrDefaultAsync(c => c.Id == dto.CommitmentId);
+                if (questioned is null || questioned.ProjectId != dto.ProjectId)
+                    return ServiceResult<FlagDto>.Failure(new BadRequestException("That commitment is not on this project."));
+                if (!access.CanSeeRegister)
+                    return ServiceResult<FlagDto>.Failure(new NotFoundException("Commitment not found."));
+                dto.StageId ??= questioned.StageId;
+            }
+
+            if (!string.IsNullOrEmpty(dto.OwnerMemberId)
+                && !await _context.tbl_ProjectMembers.AnyAsync(m => m.Id == dto.OwnerMemberId
+                        && (m.ProjectId == project.Id || m.ProjectId == project.ParentProjectId)))
+                return ServiceResult<FlagDto>.Failure(new BadRequestException("That owner is not on this project."));
+
             var stageId = await _activeStage.ResolveAsync(dto.ProjectId, dto.StageId);
+
+            if (questioned is not null)
+                questioned.QueryState = CommitmentQueryState.QueryRaised;
 
             var flag = new tbl_Flag
             {
+                CommitmentId = questioned?.Id,
+                OwnerMemberId = string.IsNullOrEmpty(dto.OwnerMemberId) ? null : dto.OwnerMemberId,
+                OwnerPartyName = string.IsNullOrWhiteSpace(dto.OwnerPartyName) ? null : dto.OwnerPartyName.Trim(),
                 ProjectId = dto.ProjectId,
                 StageId = stageId,
                 ProgressUpdateId = dto.ProgressUpdateId,
@@ -116,6 +140,8 @@ public class FlagDAL : IFlagDAL
                 .Include(f => f.CreatedBy)
                 .Include(f => f.AssignedTo)
                 .Include(f => f.ResolvedBy)
+                .Include(f => f.Commitment)
+                .Include(f => f.OwnerMember).ThenInclude(m => m!.User)
                 .Where(f => f.ProjectId == projectId)
                 .AsNoTracking();
 
@@ -161,6 +187,8 @@ public class FlagDAL : IFlagDAL
                 .Include(f => f.CreatedBy)
                 .Include(f => f.AssignedTo)
                 .Include(f => f.ResolvedBy)
+                .Include(f => f.Commitment)
+                .Include(f => f.OwnerMember).ThenInclude(m => m!.User)
                 .Where(f => f.ProgressUpdateId == progressUpdateId)
                 .AsNoTracking();
 
@@ -202,6 +230,8 @@ public class FlagDAL : IFlagDAL
             if (dto.Severity.HasValue) flag.Severity = dto.Severity.Value;
             if (dto.AssignedToId is not null) flag.AssignedToId = dto.AssignedToId;
             if (dto.DueDate.HasValue) flag.DueDate = dto.DueDate;
+            if (dto.OwnerMemberId is not null) flag.OwnerMemberId = dto.OwnerMemberId == "" ? null : dto.OwnerMemberId;
+            if (dto.OwnerPartyName is not null) flag.OwnerPartyName = string.IsNullOrWhiteSpace(dto.OwnerPartyName) ? null : dto.OwnerPartyName.Trim();
 
             if (dto.Status.HasValue && dto.Status.Value != flag.Status)
             {
@@ -219,6 +249,8 @@ public class FlagDAL : IFlagDAL
             }
 
             await _context.SaveChangesAsync();
+            if (flag.CommitmentId is not null)
+                await SyncCommitmentQueriesAsync(new[] { flag.CommitmentId }, actingUserId);
             return await GetFlag(flag.Id, actingUserId);
         }
         catch (Exception ex)
@@ -289,6 +321,8 @@ public class FlagDAL : IFlagDAL
             }
 
             await _context.SaveChangesAsync();
+            await SyncCommitmentQueriesAsync(
+                flags.Where(f => f.CommitmentId is not null).Select(f => f.CommitmentId!), actingUserId);
             return ServiceResult<int>.Success(flags.Count);
         }
         catch (Exception ex)
@@ -339,6 +373,8 @@ public class FlagDAL : IFlagDAL
             .Include(f => f.CreatedBy)
             .Include(f => f.AssignedTo)
             .Include(f => f.ResolvedBy)
+            .Include(f => f.Commitment)
+            .Include(f => f.OwnerMember).ThenInclude(m => m!.User)
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == flagId);
 
@@ -369,6 +405,43 @@ public class FlagDAL : IFlagDAL
         StageName = f.Stage?.StageName,
         CreatedByName = FullName(f.CreatedBy),
         AssignedToName = FullName(f.AssignedTo),
-        ResolvedByName = FullName(f.ResolvedBy)
+        ResolvedByName = FullName(f.ResolvedBy),
+        CommitmentId = f.CommitmentId,
+        CommitmentTitle = f.Commitment?.Title,
+        OwnerMemberId = f.OwnerMemberId,
+        OwnerName = f.OwnerPartyName
+                    ?? (f.OwnerMember is null ? null : FullName(f.OwnerMember.User) ?? f.OwnerMember.PartyName)
     };
+
+    /// <summary>
+    /// A commitment whose last open query just closed moves to Resolved — the
+    /// answer lands on the item, not in a message (assetlen.md §3).
+    /// </summary>
+    private async Task SyncCommitmentQueriesAsync(IEnumerable<string> commitmentIds, string actingUserId)
+    {
+        var ids = commitmentIds.Distinct().ToList();
+        if (ids.Count == 0) return;
+
+        var stillOpen = await _context.tbl_Flags
+            .Where(f => f.CommitmentId != null && ids.Contains(f.CommitmentId)
+                        && (f.Status == FlagStatus.Open || f.Status == FlagStatus.InProgress))
+            .Select(f => f.CommitmentId!)
+            .Distinct()
+            .ToListAsync();
+
+        var commitments = await _context.tbl_Commitments.Where(c => ids.Contains(c.Id)).ToListAsync();
+        var now = DateTime.UtcNow;
+        foreach (var c in commitments)
+        {
+            if (stillOpen.Contains(c.Id))
+                c.QueryState = CommitmentQueryState.QueryRaised;
+            else if (c.QueryState == CommitmentQueryState.QueryRaised)
+            {
+                c.QueryState = CommitmentQueryState.Resolved;
+                c.ResolvedAt = now;
+                c.ResolvedById = actingUserId;
+            }
+        }
+        await _context.SaveChangesAsync();
+    }
 }

@@ -1,0 +1,224 @@
+.commitment {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: var(--al-space-4);
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    scroll-margin-top: var(--al-space-8);
+}
+
+/* Something waits on this reader: a hairline in the accent, never a fill. */
+.commitment--needs-you {
+    border-left: 2px solid var(--al-accent);
+}
+
+.commitment--superseded {
+    background: var(--al-surface-2);
+    color: var(--al-text-muted);
+}
+
+.commitment__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-2);
+}
+
+.commitment__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    font-size: var(--al-font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--al-text-muted);
+}
+
+.commitment__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-1);
+}
+
+.commitment__title {
+    margin: 0;
+    font-family: var(--al-font-body);
+    font-size: var(--al-font-size-md);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+.commitment--superseded .commitment__title {
+    text-decoration: line-through;
+    text-decoration-color: var(--al-border-strong);
+    color: var(--al-text-muted);
+}
+
+.commitment__body {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.commitment__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: var(--al-space-3);
+    margin: 0;
+}
+
+.commitment__fact {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.commitment__fact dd {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+.commitment__prov {
+    overflow-x: auto;
+}
+
+.commitment__note {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-2);
+    margin: 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    border-left: 2px solid var(--al-border-strong);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-xs);
+}
+
+.commitment__note strong { color: var(--al-text); font-weight: 600; }
+
+.commitment__note--dispute { border-left-color: var(--al-warning); }
+.commitment__note--resolved { border-left-color: var(--al-success); }
+
+.commitment__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding-top: var(--al-space-2);
+    border-top: 1px solid var(--al-border);
+}
+
+.commitment__face {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.commitment__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+}
+
+.commitment__menu {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--al-space-1);
+    padding: var(--al-space-2);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface);
+}
+
+.commitment__pane {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface);
+}
+
+.commitment__pane-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: var(--al-space-3);
+}
+
+.commitment__pane-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+}
+
+.commitment__drawer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+    padding-top: var(--al-space-2);
+    border-top: 1px dashed var(--al-border);
+}
+
+.commitment__history,
+.commitment__links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-1);
+    font-size: var(--al-font-size-sm);
+}
+
+.commitment__history li {
+    display: flex;
+    gap: var(--al-space-3);
+    color: var(--al-text-muted);
+}
+
+.commitment__history li.is-this { color: var(--al-text); font-weight: 600; }
+
+.commitment__history-date {
+    flex: 0 0 4rem;
+    color: var(--al-text-subtle);
+}
+
+.commitment__links li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+    color: var(--al-text);
+}
+
+.commitment__links a { color: var(--al-text); text-decoration: underline; text-decoration-color: var(--al-border-strong); }
+
+.commitment__link-rel {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Arrived here from a search result. A ring in the accent, drawn outside the
+   card so it never competes with the needs-you hairline. */
+.commitment--focused {
+    border-color: var(--al-accent);
+    box-shadow: 0 0 0 3px var(--al-accent-soft);
+}

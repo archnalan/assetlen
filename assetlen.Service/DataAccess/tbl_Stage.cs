@@ -53,6 +53,16 @@ public class tbl_Stage : BaseEntity
     /// </summary>
     public StageGroup Phase { get; set; } = StageGroup.Custom;
 
+    /// <summary>
+    /// The plan as first agreed. Set once, the first time the stage is given
+    /// dates, and never moved — so re-planning shows as a gap against it rather
+    /// than silently rewriting what was promised (works-report.md §4.2).
+    /// </summary>
+    public DateTime? BaselineStartDate { get; set; }
+
+    /// <inheritdoc cref="BaselineStartDate"/>
+    public DateTime? BaselineEndDate { get; set; }
+
     // Navigation
     [ForeignKey("ProjectId")]
     public tbl_Project? Project { get; set; }

@@ -406,3 +406,14 @@ TemplateEngineHost/
 # data, and that file carries real names, banks, account numbers and a site
 # location which whatsapp-evidence.md forbids committing.
 tools/fixtures/
+
+# ── Android release signing ──────────────────────────────────────────────────
+# The upload key is the app's identity: whoever holds it can ship an update
+# that Android will accept as genuine, and losing it means the app can never be
+# updated again under the same identity. It is backed up out of band, never
+# committed. signing.props carries the passwords that go with it.
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+signing.props

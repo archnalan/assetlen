@@ -1,12 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
+    <!-- Signing material never lives in the repo. Create signing.props next to
+         this file (gitignored) or pass the same properties on the command line;
+         tools/release-apk.sh does the latter. -->
+    <Import Project="signing.props" Condition="Exists('signing.props')" />
+
     <PropertyGroup>
-        <!-- Windows is the only head whose workload is installed on this machine
-             (`dotnet workload list` shows maui-windows, not maui-android/-ios).
-             The mobile heads are real targets, not aspiration — build them with
-             `-p:AssetlenMobileHeads=true` once those workloads are in. -->
-        <TargetFrameworks Condition="'$(AssetlenMobileHeads)' == 'true'">net10.0-android</TargetFrameworks>
-        <TargetFrameworks Condition="'$(AssetlenMobileHeads)' == 'true' and !$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+        <!-- Android is where Peter reads the brief from; Windows is here because
+             it is the fastest way to click through the real app while building.
+             iOS/macCatalyst need a Mac, so they stay behind the opt-in flag. -->
+        <TargetFrameworks>net10.0-android</TargetFrameworks>
+        <TargetFrameworks Condition="'$(AssetlenAppleHeads)' == 'true'">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
         <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
 
         <OutputType>Exe</OutputType>
@@ -21,7 +25,11 @@
 
         <ApplicationTitle>ASSETLEN</ApplicationTitle>
         <ApplicationId>com.assetlen.app</ApplicationId>
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+
+        <!-- ApplicationVersion is the Android versionCode: it must increase on
+             every build handed to anyone, or the install is refused as a
+             downgrade. Bump it in the same commit as the display version. -->
+        <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
 
         <WindowsPackageType>None</WindowsPackageType>
@@ -33,9 +41,27 @@
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
     </PropertyGroup>
 
+    <!-- ── Android packaging ──────────────────────────────────────────────────
+         An APK, not an app bundle: the first readers get the file sent to them
+         directly, which is the same way the WhatsApp thread this replaces
+         already moves. Switch to aab only when Play distribution starts. -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <AndroidPackageFormat>apk</AndroidPackageFormat>
+    </PropertyGroup>
+
+    <!-- ── Android release signing ────────────────────────────────────────────
+         Turns itself on only when a keystore has actually been supplied, so a
+         plain `dotnet build -c Release` still works for anyone without the key.
+         AndroidSigningKeyStore and friends come from signing.props or -p:. -->
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'
+                              and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'
+                              and '$(AndroidSigningKeyStore)' != ''">
+        <AndroidKeyStore>true</AndroidKeyStore>
+    </PropertyGroup>
+
     <ItemGroup>
         <!-- The set square is the same geometry BrandMark.razor draws and the web
-             favicon carries, so the taskbar icon cannot drift from the header. -->
+             favicon carries, so the launcher icon cannot drift from the header. -->
         <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#fafaf7" />
         <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#fafaf7" BaseSize="128,128" />
         <MauiImage Include="Resources\Images\*" />

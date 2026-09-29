@@ -1,0 +1,17 @@
+.gap {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--al-space-2);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius-xs);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+    font-style: italic;
+    line-height: 1.7;
+}
+
+.gap--block {
+    display: flex;
+    padding: var(--al-space-2) var(--al-space-3);
+    font-size: var(--al-font-size-sm);
+}

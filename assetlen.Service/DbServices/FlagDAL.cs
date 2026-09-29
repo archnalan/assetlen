@@ -88,7 +88,8 @@ public class FlagDAL : IFlagDAL
                 Status = FlagStatus.Open,
                 CreatedById = actingUserId,
                 AssignedToId = dto.AssignedToId,
-                DueDate = dto.DueDate
+                DueDate = dto.DueDate,
+                RaisedAt = dto.RaisedAt is { } raised && raised <= DateTime.Now ? raised : null
             };
             _context.tbl_Flags.Add(flag);
             await _context.SaveChangesAsync();

@@ -1,0 +1,76 @@
+.rcover {
+    display: grid;
+    gap: var(--al-space-4);
+}
+
+.rcover__hero ::deep .athumb {
+    aspect-ratio: var(--al-aspect-hero);
+    border-radius: var(--al-radius);
+}
+
+.rcover__nohero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--al-space-2);
+    aspect-ratio: var(--al-aspect-hero);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius);
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-sm);
+}
+
+.rcover__body {
+    display: grid;
+    gap: var(--al-space-3);
+}
+
+.rcover__title {
+    margin: 0;
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-2xl);
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--al-text);
+}
+
+.rcover__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-1) var(--al-space-4);
+    margin: 0;
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+}
+
+.rcover__answer {
+    display: grid;
+    gap: var(--al-space-1);
+    padding: var(--al-space-3) var(--al-space-4);
+    border-left: 2px solid var(--al-blueprint);
+    background: var(--al-surface-2);
+    border-radius: 0 var(--al-radius-sm) var(--al-radius-sm) 0;
+}
+
+.rcover__answer ::deep .rcover__answer-text {
+    font-size: var(--al-font-size-lg);
+    font-weight: 500;
+}
+
+.rcover__note {
+    margin: 0;
+    padding: var(--al-space-3) var(--al-space-4);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+}
+
+.rcover__note p {
+    margin: var(--al-space-1) 0 0;
+    color: var(--al-text);
+    font-size: var(--al-font-size-md);
+}
+
+@media (min-width: 900px) {
+    .rcover { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+    .rcover__title { font-size: var(--al-font-size-3xl); }
+}

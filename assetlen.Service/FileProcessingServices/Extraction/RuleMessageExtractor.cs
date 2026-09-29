@@ -479,13 +479,16 @@ public sealed class RuleMessageExtractor : IMessageExtractor
 
             // "90% is already done" names nothing; the subject is the nearest
             // earlier sentence that does not itself start with "it".
+            // A one-word subject is still a subject — "Terrazzo is at 45%" is the
+            // terrazzo's, not the previous sentence's (works-report R4). Only a
+            // pronoun or filler borrows.
             var subject = Subject(unit[..p.Index]);
-            for (var e = earlierUnits.Count - 1; WordCount(subject) < 2 && e >= 0; e--)
+            for (var e = earlierUnits.Count - 1; IsBareSubject(subject) && e >= 0; e--)
             {
                 if (Regex.IsMatch(earlierUnits[e], @"^(?:it|they|this|that)\b", I)) continue;
-                subject = Subject(earlierUnits[e]);
+                subject = Subject(Percent.Replace(earlierUnits[e], "").TrimEnd(' ', '.', ','));
             }
-            if (WordCount(subject) < 2) continue;
+            if (IsBareSubject(subject)) continue;
 
             output.Readings.Add(new ExtractedReading(m.Id, Cap(subject, 200), pct, m.SentAt));
         }
@@ -628,6 +631,15 @@ public sealed class RuleMessageExtractor : IMessageExtractor
         var space = cut.LastIndexOf(' ');
         return (space > max / 2 ? cut[..space] : cut).TrimEnd(',', ';', ' ') + "…";
     }
+
+    private static readonly HashSet<string> BareWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "it", "this", "that", "they", "we", "which", "work", "works", "progress", "all", "overall",
+        "now", "so", "and", "but", "also", "total", "about", "done", "completed", "complete"
+    };
+
+    private static bool IsBareSubject(string subject) =>
+        WordCount(subject) == 0 || (WordCount(subject) == 1 && BareWords.Contains(subject.Trim(' ', '.', ',', ':')));
 
     private static int WordCount(string text) =>
         text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Count(w => w.Any(char.IsLetterOrDigit));

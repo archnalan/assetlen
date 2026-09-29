@@ -1,0 +1,36 @@
+@*
+    ⑫ Every chip on the page resolves here — the printed report's footnotes,
+    so a forwarded PDF still says where each claim came from.
+*@
+
+<ol class="appendix">
+    @foreach (var s in Sources)
+    {
+        <li class="appendix__row" id="source-@s.Ref">
+            <span class="appendix__ref al-num">@s.Ref</span>
+            <span class="appendix__kind">
+                <Icon Name="@ReportFormat.SourceIcon(s.Kind)" Size="12" />
+                @ReportFormat.SourceWord(s.Kind)
+            </span>
+            <span class="appendix__when al-num">@(s.At is null ? "" : ReportFormat.DayYear(s.At))</span>
+            <span class="appendix__label">
+                @if (s.Href is not null)
+                {
+                    <a href="@s.Href">@s.Label</a>
+                }
+                else
+                {
+                    @s.Label
+                }
+                @if (s.Excerpt is not null)
+                {
+                    <q class="appendix__excerpt">@s.Excerpt</q>
+                }
+            </span>
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired] public List<ReportSourceDto> Sources { get; set; } = new();
+}

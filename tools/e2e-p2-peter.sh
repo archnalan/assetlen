@@ -225,7 +225,11 @@ head_ "P2 — the Site Diary is contractor-side; exposure is per frame"
 # refused it and no thumbnail was ever produced — the artifact assertions were
 # passing over a decode failure the API had correctly logged and survived.
 PNG='iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAIAAAAUMWhjAAAAJElEQVR42mM4FKJFU8QwasGoBaMWjFowasGoBaMWjFowNCwAAND5wC6OsU0VAAAAAElFTkSuQmCC'
-mkimg() { printf '{"Base64Image":"%s","FileName":"%s","ContentType":"image/png","Caption":"%s","DisplayOrder":%s}' "$PNG" "$1" "$2" "$3"; }
+# Captures are stored as artifacts since P9, and identical bytes are one artifact
+# (Law 2). The frames use their own picture so the upload test below still starts
+# from bytes the project has never seen.
+CAP_PNG='iVBORw0KGgoAAAANSUhEUgAAAAwAAAAJCAIAAACJ2loDAAABGUlEQVR4nAXBPUvEIQAHYMHR0dHR0dHR0dHR0Y/h/Oveuuyo4/DiHx1yUYNEQTlUg1A0SEvQ2PfpeQiNYBE8QkTICBWhI0yEjXARPiJEEAownHDMBOYSC4Wlxsrg1GLtcOaRAs4JTWBpxtNCpJVMa5WSThuTLmzaurTzKYd0RWgGy3OeVyKfybxR+VLnncl7myeXb3wuId8SWsDKgpe1KBtZtqpkXSZTDrYcXbn3pYbySGgFq0tek6iXsmZVr3Utpt7ZWl198rWF+kZoA2sr3jai7WSbVCu63Zv2YNuza6++9dC+CO1g/ZT3C9H3sh9Uv9P9wfQX299d//B9hP5D6AAbaz62YkxyHNWoejyb8W7HpxvffvyG8fcPnNeTPe2LoRkAAAAASUVORK5CYII='
+mkimg() { printf '{"Base64Image":"%s","FileName":"%s","ContentType":"image/png","Caption":"%s","DisplayOrder":%s}' "$CAP_PNG" "$1" "$2" "$3"; }
 
 ENTRY=$(req POST /Progress/AddProgressUpdate "$NALAN" \
   "{\"ProjectId\":\"$PID\",\"StageId\":\"$SID\",\"Description\":\"Retaining wall - course 4 laid\",\"CompletionPercentage\":35,\"Channel\":0,\"Images\":[$(mkimg a.png "frame 1" 1),$(mkimg b.png "frame 2" 2),$(mkimg c.png "frame 3" 3)]}")

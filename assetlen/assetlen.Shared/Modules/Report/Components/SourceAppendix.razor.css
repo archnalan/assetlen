@@ -1,0 +1,48 @@
+.appendix {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--al-font-size-xs);
+}
+
+.appendix__row {
+    display: grid;
+    grid-template-columns: 3em 6.5em minmax(0, 1fr);
+    gap: 2px var(--al-space-2);
+    padding: var(--al-space-1) 0;
+    border-top: 1px solid var(--al-border);
+    color: var(--al-text);
+    scroll-margin-top: var(--al-space-8);
+}
+
+.appendix__row:target { background: var(--al-surface-2); }
+
+.appendix__ref { color: var(--al-text); font-weight: 600; }
+
+.appendix__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--al-text-muted);
+}
+
+.appendix__when {
+    grid-column: 2;
+    color: var(--al-text-subtle);
+}
+
+.appendix__label {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.appendix__label a { color: var(--al-text); }
+
+.appendix__excerpt {
+    display: block;
+    color: var(--al-text-muted);
+    font-style: italic;
+}

@@ -55,7 +55,13 @@ public enum OwedKind
     Funding = 5,
 
     /// <summary>Commitments read from the thread, waiting for one tap into the register.</summary>
-    Proposals = 6
+    Proposals = 6,
+
+    /// <summary>
+    /// A parked idea whose waiting has started to cost something — a lead time,
+    /// a dependency, or its stage kicking off (assetlen.md Law 4). Silent otherwise.
+    /// </summary>
+    ParkedIdea = 7
 }
 
 public enum MovedKind
@@ -272,6 +278,9 @@ public class BriefBlockDto
     public string? DeliverableId { get; set; }
     public string? DeliverableTitle { get; set; }
     public DeliverableStatus? DeliverableStatus { get; set; }
+
+    /// <summary>Set when only the stage catalogue named this work: it is not a stage on the project yet, and the block says so.</summary>
+    public string? CatalogueKey { get; set; }
 
     /// <summary>The latest reading, and the one before the window, when both exist.</summary>
     public decimal? Percent { get; set; }

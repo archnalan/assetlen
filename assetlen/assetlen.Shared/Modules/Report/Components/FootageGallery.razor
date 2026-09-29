@@ -1,0 +1,53 @@
+@*
+    ⑪ The window's footage, by stage. A video shows its poster and its length —
+    or says the length is unknown — never a blank tile (works-report.md §5.3).
+    Each frame opens where it was said.
+*@
+
+@if (Groups.Count == 0)
+{
+    <p class="gallery__none">No photograph or video reached this side in the window.</p>
+}
+else
+{
+    <div class="gallery">
+        @foreach (var g in Groups)
+        {
+            <section class="gallery__group @ReportFormat.Phase(g.Phase)">
+                <div class="al-stage-rule">
+                    <span class="al-stage-dot"></span>
+                    <span>@(g.StageName ?? "Not tied to a stage")</span>
+                    <span class="gallery__count al-num">@(g.Total > g.Frames.Count ? $"{g.Frames.Count} of {g.Total}" : g.Total.ToString(CultureInfo.InvariantCulture))</span>
+                </div>
+                <div class="gallery__grid">
+                    @foreach (var f in g.Frames)
+                    {
+                        <a class="gallery__frame al-print-avoid" href="@Sources?.Get(f.SourceId)?.Href" title="@(f.Caption ?? ReportFormat.Day(f.At))">
+                            <ArtifactThumb ArtifactId="@f.ArtifactId" HasThumbnail="@ReportFormat.HasPicture(f)" MimeType="@(f.IsVideo ? "video/mp4" : "image/jpeg")" Cover="true" />
+                            <span class="gallery__tag al-num">
+                                @if (f.IsVideo)
+                                {
+                                    <Icon Name="camera" Size="11" />
+                                    <span>@(f.PosterStatus == PosterStatus.Pending ? "poster pending" : ReportFormat.Duration(f.DurationSeconds))</span>
+                                }
+                                else
+                                {
+                                    <span>@ReportFormat.Day(f.At)</span>
+                                }
+                            </span>
+                            @if (f.Caption is not null)
+                            {
+                                <span class="gallery__caption">@f.Caption</span>
+                            }
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter] public ReportSources? Sources { get; set; }
+    [Parameter, EditorRequired] public List<FootageGroupDto> Groups { get; set; } = new();
+}

@@ -89,6 +89,7 @@ AddApi<IProgressApi>();
 AddApi<IProjectMembersApi>();
 AddApi<IFlagsApi>();
 AddApi<ICommitmentsApi>();
+AddApi<IAnnotationsApi>();
 AddApi<ILedgerApi>();
 AddApi<IBudgetApi>();
 AddApi<IArtifactsApi>();
@@ -96,6 +97,9 @@ AddApi<IIngestApi>();
 AddApi<IExtractionApi>();
 AddApi<ISearchApi>();
 AddApi<IBriefApi>();
+AddApi<IWorksReportApi>();
+AddApi<ICurationApi>();
+AddApi<IPushApi>();
 
 // Development demo world. The endpoint behind this answers 404 on any host that
 // is not Development, so registering it everywhere costs nothing.
@@ -124,6 +128,7 @@ builder.Services.AddScoped<IArtifactDownloadService, ArtifactDownloadService>();
 // Same for images that are painted rather than downloaded: a cover in an
 // <img src> carries no bearer token and answers 401.
 builder.Services.AddScoped<IArtifactImageService, ArtifactImageService>();
+builder.Services.AddScoped<CaptureOutbox>();
 builder.Services.AddScoped<IPrintService, PrintServiceWeb>();
 builder.Services.AddSingleton<IConnectivityService, ConnectivityService>();
 

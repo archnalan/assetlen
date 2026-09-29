@@ -35,9 +35,9 @@
         </Loading>
 
         <ChildContent>
-            <TitleBlock Eyebrow="@Eyebrow"
+            <TitleBlock Eyebrow="@(SectionClosed ? null : Eyebrow)"
                         Title="@(project!.ProjectName ?? "Project")"
-                        Subtitle="@Subtitle">
+                        Subtitle="@(SectionClosed ? null : Subtitle)">
                 <Meta>
                     <div class="al-meta">
                         <span class="al-label">Location</span>
@@ -96,7 +96,22 @@
             </TabStrip>
 
             <div class="projectpage__body">
-                @ChildContent(new ProjectPageContext(project, access!))
+                @if (SectionClosed)
+                {
+                    @* A typed or stale link to a section this seat was not invited
+                       into answers the way the missing tab does: nothing about
+                       what is behind it (CLAUDE.md §5.5, seats). *@
+                    <div class="al-empty">
+                        <Icon Name="lock" Size="40" Class="al-empty__icon" Weight="1.25" />
+                        <h3 class="al-empty__title">Not part of your seat on this project</h3>
+                        <p class="al-empty__body">What you were invited for is in the sections above.</p>
+                        <a class="al-btn al-btn--primary" href="@Href("overview")">Open the project</a>
+                    </div>
+                }
+                else
+                {
+                    @ChildContent(new ProjectPageContext(project, access!))
+                }
             </div>
         </ChildContent>
     </StateBlock>
@@ -107,6 +122,12 @@
 
     /// <summary>Slug of the section this page is. Must match one of the tabs below.</summary>
     [Parameter, EditorRequired] public string Section { get; set; } = "overview";
+
+    /// <summary>
+    /// False for a page that answers a closed section in its own words (the Site
+    /// Diary points the client side at the brief) or borrows a tab only to light it.
+    /// </summary>
+    [Parameter] public bool GateBySection { get; set; } = true;
 
     [Parameter] public string? Eyebrow { get; set; }
     [Parameter] public string? Subtitle { get; set; }
@@ -242,6 +263,9 @@
         new("overview",  "Overview",   "project",    a => a?.CanRead == true),
         new("brief",     "Brief",      "brief",      a => a?.CanSeeBrief == true),
 
+        // A principal document (works-report.md §2.7): the bench does not receive it.
+        new("report",    "Report",     "document",   a => a?.CanSeeReport == true),
+
         // Two people hold the budget between them — the one paying and the one
         // being paid. A release a foreman can read is a wage negotiation nobody
         // asked for.
@@ -273,4 +297,7 @@
     ];
 
     private IEnumerable<Tab> VisibleTabs => AllTabs.Where(t => t.Visible(access));
+
+    private bool SectionClosed =>
+        GateBySection && AllTabs.FirstOrDefault(t => t.Slug == Section) is { } tab && !tab.Visible(access);
 }

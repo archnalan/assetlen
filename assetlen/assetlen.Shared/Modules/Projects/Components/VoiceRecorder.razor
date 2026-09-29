@@ -1,0 +1,127 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject ILogger<VoiceRecorder> Logger
+
+@*
+    A voice note, recorded like WhatsApp records one: press, talk, stop. It stays
+    in the Site Diary (the bench talking), and its words are read into search.
+*@
+
+<div class="voice">
+    @if (!supported)
+    {
+        <span class="voice__hint">This browser cannot record. Type a line instead.</span>
+    }
+    else if (recording)
+    {
+        <button type="button" class="al-btn al-btn--primary voice__btn" @onclick="StopAsync">
+            <Icon Name="stop" Size="16" /> Stop · <span class="al-num">@Elapsed</span>
+        </button>
+        <span class="voice__live" aria-hidden="true"></span>
+    }
+    else if (Value is not null)
+    {
+        <audio class="voice__player" controls src="@previewUrl"></audio>
+        <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="ClearAsync" aria-label="Remove the voice note">
+            <Icon Name="close" Size="14" /> Remove
+        </button>
+    }
+    else
+    {
+        <button type="button" class="al-btn al-btn--default voice__btn" @onclick="StartAsync">
+            <Icon Name="mic" Size="16" /> Record a voice note
+        </button>
+    }
+    @if (error is not null)
+    {
+        <span class="voice__error" role="alert">@error</span>
+    }
+</div>
+
+@code {
+    [Parameter] public CaptureDraftFile? Value { get; set; }
+    [Parameter] public EventCallback<CaptureDraftFile?> ValueChanged { get; set; }
+
+    private IJSObjectReference? module;
+    private bool supported = true;
+    private bool recording;
+    private string? previewUrl;
+    private string? error;
+    private DateTime startedAt;
+    private Timer? ticker;
+
+    private string Elapsed => (DateTime.UtcNow - startedAt).ToString(@"m\:ss");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/assetlen.Shared/recorder.js");
+            supported = await module.InvokeAsync<bool>("supported");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Recorder unavailable");
+            supported = false;
+        }
+        StateHasChanged();
+    }
+
+    private async Task StartAsync()
+    {
+        error = null;
+        try
+        {
+            await module!.InvokeVoidAsync("start");
+            recording = true;
+            startedAt = DateTime.UtcNow;
+            ticker = new Timer(_ => InvokeAsync(StateHasChanged), null, 1000, 1000);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not start recording");
+            error = "The microphone is not available.";
+        }
+    }
+
+    private async Task StopAsync()
+    {
+        ticker?.Dispose();
+        recording = false;
+        var result = await module!.InvokeAsync<Recording?>("stop");
+        if (result?.Data is { Length: > 0 } data)
+        {
+            previewUrl = result.Url;
+            var ext = result.Type?.Contains("ogg") == true ? "ogg" : result.Type?.Contains("mp4") == true ? "m4a" : "webm";
+            await ValueChanged.InvokeAsync(new CaptureDraftFile($"voice-{DateTime.Now:yyyyMMdd-HHmmss}.{ext}", result.Type ?? "audio/webm", data));
+        }
+    }
+
+    private async Task ClearAsync()
+    {
+        previewUrl = null;
+        await ValueChanged.InvokeAsync(null);
+    }
+
+    private sealed class Recording
+    {
+        public string? Type { get; set; }
+        public byte[]? Data { get; set; }
+        public string? Url { get; set; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ticker?.Dispose();
+        if (module is not null)
+        {
+            try
+            {
+                if (recording) await module.InvokeVoidAsync("cancel");
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
+    }
+}

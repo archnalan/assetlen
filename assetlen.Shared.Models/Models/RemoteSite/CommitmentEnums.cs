@@ -69,7 +69,19 @@ public enum CommitmentLinkTarget
     Flag = 5,
     Document = 6,
     Claim = 7,
-    Variation = 8
+    Variation = 8,
+
+    /// <summary>A markup layer on an artifact — the circled line a query was asked about.</summary>
+    Annotation = 9
+}
+
+/// <summary>The marks a layer is made of. Coordinates are fractions of the image, so a layer fits any rendering of the original.</summary>
+public enum AnnotationShapeKind
+{
+    Ellipse = 0,
+    Rect = 1,
+    Arrow = 2,
+    Path = 3
 }
 
 /// <summary>How the target stands to the commitment — the provenance strip reads these.</summary>

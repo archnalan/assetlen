@@ -1,0 +1,84 @@
+@*
+    Every report issued on this project, newest first — by hand, on the weekly
+    schedule, or on a milestone. Each is a permanent address; none is ever rewritten.
+*@
+
+@inject ILogger<ReportHistory> Logger
+
+<div class="rhist">
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="Past reports didn't load" ErrorMessage="@error"
+                EmptyTitle="No report issued yet" EmptyIcon="document"
+                EmptyBody="The first one issues itself on Sunday evening, or issue one now.">
+        <Loading>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+        </Loading>
+        <ChildContent>
+            <ol class="rhist__list">
+                @foreach (var r in reports)
+                {
+                    <li class="rhist__row @(r.Id == CurrentId ? "is-current" : "")">
+                        <a class="rhist__link" href="/project/@ProjectId/report/@r.Id">
+                            <span class="rhist__when al-num">As at @ReportFormat.DayYear(r.AsAt)</span>
+                            <span class="rhist__kind">@Kind(r)</span>
+                            <span class="rhist__state al-num">@ReportFormat.Pct(r.OverallPercent) built · @(r.DeadlineState ?? "—")</span>
+                            <span class="rhist__by">@r.IssuedByName@(r.Audience == ProjectSide.Contractor ? " · delivery side" : "")</span>
+                        </a>
+                    </li>
+                }
+            </ol>
+        </ChildContent>
+    </StateBlock>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public string? CurrentId { get; set; }
+
+    /// <summary>Bumped by the page after an issue, so the list reloads.</summary>
+    [Parameter] public int Version { get; set; }
+
+    private List<WorksReportSummaryDto> reports = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? error;
+    private string? loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}|{Version}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        try
+        {
+            var response = await _reportApi.History(ProjectId);
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                error = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+            reports = response.Content;
+            phase = reports.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Report history failed for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            error = ex.Message;
+        }
+    }
+
+    private static string Kind(WorksReportSummaryDto r) => r.IssueKind switch
+    {
+        ReportIssueKind.Scheduled => "Weekly",
+        ReportIssueKind.Milestone => $"Milestone{(r.IssueReason is null ? "" : $": {r.IssueReason}")}",
+        _ => "Issued by hand"
+    };
+}

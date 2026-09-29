@@ -1,0 +1,61 @@
+@*
+    Whether a model may draft the report's few sentences. Off by default; the
+    owner decides, because it sends the project's facts to an external service
+    (works-report.md §6.4). The setting states what it sends in plain words.
+*@
+
+@inject ILogger<DraftingSetting> Logger
+
+@if (settings is not null)
+{
+    <div class="drafting">
+        <div class="drafting__head">
+            <span class="al-label">Drafted descriptions</span>
+            <span class="drafting__state">@(settings.DraftingEnabled ? "On" : "Off — written from templates")</span>
+            @if (settings.CanChange)
+            {
+                <button type="button" class="al-btn al-btn--sm al-btn--default" @onclick="ToggleAsync" disabled="@busy">
+                    @(settings.DraftingEnabled ? "Turn off" : "Turn on")
+                </button>
+            }
+        </div>
+        <p class="drafting__statement">@settings.Statement</p>
+        @if (settings.DraftingEnabled && !settings.DraftingAvailable)
+        {
+            <p class="drafting__note">No model is configured on this server, so reports are still written from templates.</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+
+    private ReportSettingsDto? settings;
+    private bool busy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var response = await _reportApi.Settings(ProjectId);
+            settings = response.IsSuccessStatusCode ? response.Content : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Report settings did not load for {ProjectId}", ProjectId);
+        }
+    }
+
+    private async Task ToggleAsync()
+    {
+        if (settings is null) return;
+        busy = true;
+        try
+        {
+            var response = await _reportApi.UpdateSettings(new ReportSettingsUpdateDto { ProjectId = ProjectId, DraftingEnabled = !settings.DraftingEnabled });
+            if (response.IsSuccessStatusCode && response.Content is not null) settings = response.Content;
+            else ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response));
+        }
+        finally { busy = false; }
+    }
+}

@@ -124,7 +124,7 @@
     private static readonly (string Key, string Label)[] Filters =
     [
         ("all", "All"), ("you", "Needs you"), ("owed", "Decisions owed"),
-        ("queries", "Open queries"), ("spoken", "Spoken"), ("dates", "Dates")
+        ("queries", "Open queries"), ("spoken", "Spoken"), ("dates", "Dates"), ("parked", "Parked ideas")
     ];
 
     private string EmptyBody => StageId is null
@@ -193,18 +193,23 @@
 
     private bool Matches(CommitmentDto c, string key) => key switch
     {
-        "you" => c.CanConfirm || OwedByReader(c),
-        "owed" => c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed
+        "you" => c.CanConfirm || OwedByReader(c) || (c.IsParkedIdea && c.IsSurfaced && OwesIdea(c)),
+        "owed" => c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed && (!c.IsParkedIdea || c.IsSurfaced)
                   && (ReaderSide is null || c.OwedBySide is null || c.OwedBySide == ReaderSide),
         "queries" => c.QueryState == CommitmentQueryState.QueryRaised,
         "spoken" => c.SourceChannel is CommitmentSource.Verbal or CommitmentSource.Meeting,
         "dates" => c.Kind == CommitmentKind.Date,
+        "parked" => c.IsParkedIdea,
         _ => true
     };
 
     /// <summary>An open choice this reader's side owes — the RFI register, in Peter's words "decisions I owe".</summary>
     private bool OwedByReader(CommitmentDto c) =>
-        ReaderSide is not null && c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed && c.OwedBySide == ReaderSide;
+        ReaderSide is not null && c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed && c.OwedBySide == ReaderSide
+        && (!c.IsParkedIdea || c.IsSurfaced);
+
+    /// <summary>Law 4: a parked idea is the owner's side's, unless someone said otherwise — and it only asks once it has a deadline.</summary>
+    private bool OwesIdea(CommitmentDto c) => ReaderSide is not null && (c.OwedBySide ?? ProjectSide.Client) == ReaderSide;
 
     private int CountFor(string key) => items.Count(c => Matches(c, key));
 

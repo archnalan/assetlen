@@ -96,6 +96,16 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
     public virtual DbSet<tbl_ProgressReading> tbl_ProgressReadings { get; set; }
     public virtual DbSet<tbl_MediaBinding> tbl_MediaBindings { get; set; }
 
+    // ─── The works report (works-report.md) — issued snapshots and video posters ───
+    public virtual DbSet<tbl_WorksReport> tbl_WorksReports { get; set; }
+    public virtual DbSet<tbl_ArtifactPoster> tbl_ArtifactPosters { get; set; }
+    public virtual DbSet<tbl_Annotation> tbl_Annotations { get; set; }
+    public virtual DbSet<tbl_CommitmentEstimate> tbl_CommitmentEstimates { get; set; }
+    public virtual DbSet<tbl_BriefPublication> tbl_BriefPublications { get; set; }
+    public virtual DbSet<tbl_ClaimEvidence> tbl_ClaimEvidence { get; set; }
+    public virtual DbSet<tbl_PushSubscription> tbl_PushSubscriptions { get; set; }
+    public virtual DbSet<tbl_PushDelivery> tbl_PushDeliveries { get; set; }
+
     /// <summary>
     /// The one tenancy rule, applied per entity:
     ///   (SuperAdmin OR same tenant OR unowned OR Public) AND not Protected AND not soft-deleted.
@@ -158,6 +168,14 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         TenantScoped<tbl_ExtractionProposal>(modelBuilder);
         TenantScoped<tbl_ProgressReading>(modelBuilder);
         TenantScoped<tbl_MediaBinding>(modelBuilder);
+        TenantScoped<tbl_WorksReport>(modelBuilder);
+        TenantScoped<tbl_ArtifactPoster>(modelBuilder);
+        TenantScoped<tbl_Annotation>(modelBuilder);
+        TenantScoped<tbl_CommitmentEstimate>(modelBuilder);
+        TenantScoped<tbl_BriefPublication>(modelBuilder);
+        TenantScoped<tbl_ClaimEvidence>(modelBuilder);
+        TenantScoped<tbl_PushSubscription>(modelBuilder);
+        TenantScoped<tbl_PushDelivery>(modelBuilder);
 
         // Channel-based (Client/Crew) visibility is enforced at the service
         // layer, not here: it depends on the caller's *per-project* side, which
@@ -451,6 +469,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasOne(e => e.AgreedBy).WithMany().HasForeignKey(e => e.AgreedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.RecordedBy).WithMany().HasForeignKey(e => e.RecordedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.Supersedes).WithMany().HasForeignKey(e => e.SupersedesId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.DependsOnStage).WithMany().HasForeignKey(e => e.DependsOnStageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<tbl_CommitmentLink>(entity =>
@@ -533,6 +552,82 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasIndex(e => new { e.ProjectId, e.ArtifactId }).HasDatabaseName("IX_MediaBinding_Project_Artifact");
             entity.HasOne(e => e.IngestedMessage).WithMany().HasForeignKey(e => e.IngestedMessageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_WorksReport>(entity =>
+        {
+            entity.HasIndex(e => new { e.ProjectId, e.AsAt }).HasDatabaseName("IX_WorksReport_Project_AsAt");
+            entity.HasIndex(e => new { e.ProjectId, e.TriggerKey }).HasDatabaseName("IX_WorksReport_Project_Trigger");
+            entity.HasOne(e => e.IssuedBy).WithMany().HasForeignKey(e => e.IssuedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_ArtifactPoster>(entity =>
+        {
+            // One poster per video, however many times the video is referenced.
+            entity.HasIndex(e => e.ArtifactId).IsUnique().HasDatabaseName("UX_ArtifactPoster_ArtifactId");
+            entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.PosterArtifact).WithMany().HasForeignKey(e => e.PosterArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ─── Markup and parked ideas (P8) ──────────────────────────
+        modelBuilder.Entity<tbl_Annotation>(entity =>
+        {
+            entity.HasIndex(e => new { e.ArtifactId, e.LayerId, e.Version }).IsUnique().HasDatabaseName("UX_Annotation_Artifact_Layer_Version");
+            entity.HasIndex(e => e.CommitmentId).HasDatabaseName("IX_Annotation_CommitmentId");
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_Annotation_ProjectId");
+            entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Author).WithMany().HasForeignKey(e => e.AuthorId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Commitment).WithMany().HasForeignKey(e => e.CommitmentId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_CommitmentEstimate>(entity =>
+        {
+            entity.HasIndex(e => e.CommitmentId).HasDatabaseName("IX_CommitmentEstimate_CommitmentId");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,4)");
+            entity.HasOne(e => e.Commitment).WithMany().HasForeignKey(e => e.CommitmentId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.RecordedBy).WithMany().HasForeignKey(e => e.RecordedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // ─── The contractor tier (P9) ──────────────────────────────
+        modelBuilder.Entity<tbl_ProgressUpdate>(entity =>
+        {
+            // The offline queue retries until it hears back; the second arrival is the first one.
+            entity.HasIndex(e => new { e.ProjectId, e.ClientCaptureId }).IsUnique()
+                .HasFilter("[ClientCaptureId] IS NOT NULL").HasDatabaseName("UX_ProgressUpdate_Project_ClientCapture");
+            entity.HasIndex(e => e.DeliverableId).HasDatabaseName("IX_ProgressUpdate_DeliverableId");
+            entity.HasOne(e => e.Deliverable).WithMany().HasForeignKey(e => e.DeliverableId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.VoiceArtifact).WithMany().HasForeignKey(e => e.VoiceArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_BriefPublication>(entity =>
+        {
+            entity.HasIndex(e => new { e.ProjectId, e.Day }).IsUnique().HasDatabaseName("UX_BriefPublication_Project_Day");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.PublishedBy).WithMany().HasForeignKey(e => e.PublishedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_ClaimEvidence>(entity =>
+        {
+            entity.HasIndex(e => e.ClaimId).HasDatabaseName("IX_ClaimEvidence_ClaimId");
+            entity.HasOne(e => e.Claim).WithMany().HasForeignKey(e => e.ClaimId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ProgressImage).WithMany().HasForeignKey(e => e.ProgressImageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Artifact).WithMany().HasForeignKey(e => e.ArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.Deliverable).WithMany().HasForeignKey(e => e.DeliverableId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.ProgressReading).WithMany().HasForeignKey(e => e.ProgressReadingId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_PushSubscription>(entity =>
+        {
+            entity.HasIndex(e => e.EndpointHash).IsUnique().HasDatabaseName("UX_PushSubscription_EndpointHash");
+            entity.HasIndex(e => e.UserId).HasDatabaseName("IX_PushSubscription_UserId");
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_PushDelivery>(entity =>
+        {
+            entity.HasIndex(e => new { e.UserId, e.QueuedAt }).HasDatabaseName("IX_PushDelivery_User_QueuedAt");
+            entity.HasIndex(e => e.Status).HasDatabaseName("IX_PushDelivery_Status");
+            entity.HasOne(e => e.Subscription).WithMany().HasForeignKey(e => e.SubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
         });
 
         // ─── Platform tables ───────────────────────────────────────

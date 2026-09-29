@@ -2,9 +2,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # ASSETLEN — the whole chain: P0 + P1 + P2 + P3, the arrangement and the bin,
 # P5 money and staging, the P4 commitment register and stage ledger, P5
-# extraction — the forwarded pile read into a register — and P6 retrieval.
+# extraction — the forwarded pile read into a register — P6 retrieval, and P7
+# Peter's surfaces, the home and the daily brief, and the works report.
 #
-# Seven suites, run in order, one exit code. They are kept separate because they
+# Twelve suites, run in order, one exit code. They are kept separate because they
 # answer different questions — e2e-p2-peter.sh asks whether the project belongs
 # to the person who funds it, e2e-p3-ingest.sh asks whether he can get his year
 # of history into it, e2e-p4-arrange.sh asks whether his screen is his own and
@@ -12,7 +13,18 @@
 # can hold a past commitment against present reality, e2e-p5-extraction.sh
 # asks whether his pile becomes that register with nobody else lifting a finger,
 # e2e-p6-search.sh asks whether he can find any of it again in one search — a
-# receipt that only ever existed as a photo included — but a phase is only
+# receipt that only ever existed as a photo included — e2e-p7-brief.sh asks
+# whether he can open all of it at once and read one day of it grouped by the
+# work, with the contractor silent — e2e-report.sh asks whether he gets an
+# answer to "do you need more time, and how long?" that is frozen, cited and
+# issued with nobody logged in — e2e-p8-markup.sh asks whether he can circle a
+# line on a receipt, ask, and have the answer change the item, and whether a
+# parked idea stays silent until waiting costs something — e2e-p9-contractor.sh
+# asks whether the contractor, once he joins, captures in three taps, curates
+# by exception and is paid on the evidence — and re-runs the brief and report
+# suites with him never signing in — e2e-law0.sh asks, in one sitting, whether
+# Peter alone gets a register, a brief and an issued report out of his thread,
+# and pins the seat rules his front door depends on — but a phase is only
 # done when all of them are green together.
 #
 # Usage:  bash tools/e2e-all.sh [api-base] [tenant-admin-email] [password]
@@ -57,6 +69,11 @@ run "P5 — the funding back-and-forth, and staging"        tools/e2e-p5-money-a
 run "P4 — the commitment model and the money ledger"     tools/e2e-p4-commitments.sh
 run "P5 — extraction: pile into register"                 tools/e2e-p5-extraction.sh
 run "P6 — retrieval, Peter's four searches"              tools/e2e-p6-search.sh
+run "P7 — Peter's home and the daily brief"             tools/e2e-p7-brief.sh
+run "Works report — R1 to R5"                           tools/e2e-report.sh
+run "P8 — markup, query state, parked ideas"           tools/e2e-p8-markup.sh
+run "P9 — the contractor tier, and Law 0 re-proven"   tools/e2e-p9-contractor.sh
+run "Law 0 — the contractor silent, end to end"       tools/e2e-law0.sh
 
 printf "\n%s══ Whole chain %s\n" "$c_head" "$c_off"
 if [ "$FAILED" -eq 0 ]; then

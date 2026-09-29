@@ -84,11 +84,21 @@ public readonly record struct ProjectAccess(
     public bool CanSeeDocuments => CanRead && ProjectSeatDefaults.ReadsDrawings(Specialization);
 
     /// <summary>
-    /// Whether the raw ingested pile is part of this seat. It is the delivery
-    /// side's own history and it is unsanitised twice over — nothing edits it
-    /// and nobody curated it (CLAUDE.md §4.3).
+    /// Whether the raw ingested pile — and the import that fills it — is part of
+    /// this seat. Principals on either side: Peter is the one who brings a year of
+    /// history in (assetlen.md D3, Law 0), and the server shows each side only the
+    /// imports it may read (IngestDAL.CanReadSide). The bench does not get it.
     /// </summary>
-    public bool CanSeeHistory => CanSeeSiteLog && Seat == ProjectSeat.Principal;
+    public bool CanSeeHistory => CanRead && Seat == ProjectSeat.Principal;
+
+    /// <summary>
+    /// Whether the works report is part of this seat — a principal document
+    /// (works-report.md §2.7). The bench reports on its own work and does not receive it.
+    /// </summary>
+    public bool CanSeeReport => CanSeeBrief && (Seat == ProjectSeat.Principal || IsMediator);
+
+    /// <summary>Issued by the mediator, or by a client principal, who need not wait for anyone (§7).</summary>
+    public bool CanIssueReport => CanSeeReport && (IsMediator || (Side == ProjectSide.Client && Seat == ProjectSeat.Principal));
 
     /// <summary>Whether this seat posts to the Site Diary.</summary>
     public bool CanCapture => CanWrite && CanSeeSiteLog;

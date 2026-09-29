@@ -80,6 +80,14 @@ public class tbl_Commitment : BaseEntity
 
     public int? LeadTimeDays { get; set; }
 
+    /// <summary>
+    /// For an undecided item: the stage that must not start before it is
+    /// decided — the gate duct that has to be in before the driveway is poured.
+    /// The decide-by date is computed from it, never stored (Law 4).
+    /// </summary>
+    [MaxLength(40)]
+    public string? DependsOnStageId { get; set; }
+
     /// <summary>For an open choice: which side owes the decision.</summary>
     public ProjectSide? OwedBySide { get; set; }
 
@@ -128,6 +136,9 @@ public class tbl_Commitment : BaseEntity
 
     [ForeignKey("StageId")]
     public tbl_Stage? Stage { get; set; }
+
+    [ForeignKey("DependsOnStageId")]
+    public tbl_Stage? DependsOnStage { get; set; }
 
     [ForeignKey("DeliverableId")]
     public tbl_Deliverable? Deliverable { get; set; }

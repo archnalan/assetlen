@@ -302,6 +302,10 @@ public class CommitmentDAL : ICommitmentDAL
             var memberError = await CheckMemberAsync(project, dto.AgreedWithMemberId);
             if (memberError is not null) return Fail<CommitmentDto>(memberError);
 
+            if (!string.IsNullOrEmpty(dto.DependsOnStageId)
+                && !await _context.tbl_Stages.AnyAsync(s => s.Id == dto.DependsOnStageId && s.ProjectId == project.Id))
+                return Fail<CommitmentDto>(new BadRequestException("That stage is not on this project."));
+
             var mediator = await AccountableMemberAsync(project);
             var source = dto.SourceChannel;
             var maturity = dto.Maturity ?? CommitmentMaturity.Agreed;
@@ -343,6 +347,7 @@ public class CommitmentDAL : ICommitmentDAL
                 Currency = dto.Amount is null ? null : (dto.Currency ?? project.Currency ?? "UGX"),
                 DueDate = dto.DueDate,
                 LeadTimeDays = dto.LeadTimeDays,
+                DependsOnStageId = string.IsNullOrEmpty(dto.DependsOnStageId) ? null : dto.DependsOnStageId,
                 OwedBySide = dto.OwedBySide,
                 IngestedMessageId = dto.IngestedMessageId,
                 DeliveredAt = maturity >= CommitmentMaturity.Delivered ? now : null,
@@ -614,6 +619,138 @@ public class CommitmentDAL : ICommitmentDAL
         {
             _logger.LogError(ex, "Error restating {Id}", dto.CommitmentId);
             return Fail<CommitmentDto>(new ServerErrorException(ex.Message));
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Parked ideas — references and estimates accumulate silently (§3, Law 4)
+    // ═════════════════════════════════════════════════════════════════════
+
+    public async Task<ServiceResult<CommitmentDto>> Park(CommitmentParkDto dto, string userId)
+    {
+        try
+        {
+            var (c, project, access, error) = await LoadForCaller(dto.CommitmentId, userId, tracked: true);
+            if (error is not null) return Fail<CommitmentDto>(error);
+            if (!access.CanWrite) return Fail<CommitmentDto>(new ForbiddenException("You can read the register but not change it."));
+            if (c!.SupersededAt is not null || c.Maturity >= CommitmentMaturity.Agreed)
+                return Fail<CommitmentDto>(new BadRequestException("Only something not yet agreed can be re-filed. Restate an agreed item instead."));
+            if (dto.LeadTimeDays is < 0 or > 730)
+                return Fail<CommitmentDto>(new BadRequestException("A lead time is between 0 and 730 days."));
+
+            foreach (var sid in new[] { dto.StageId, dto.DependsOnStageId })
+            {
+                if (!string.IsNullOrEmpty(sid) && !await _context.tbl_Stages.AnyAsync(s => s.Id == sid && s.ProjectId == project!.Id))
+                    return Fail<CommitmentDto>(new BadRequestException("That stage is not on this project."));
+            }
+
+            if (!string.IsNullOrEmpty(dto.StageId) && dto.StageId != c.StageId)
+            {
+                c.StageId = dto.StageId;
+                c.DeliverableId = null;
+            }
+            if (dto.ClearDependency) c.DependsOnStageId = null;
+            else if (!string.IsNullOrEmpty(dto.DependsOnStageId)) c.DependsOnStageId = dto.DependsOnStageId;
+            if (dto.LeadTimeDays is not null) c.LeadTimeDays = dto.LeadTimeDays == 0 ? null : dto.LeadTimeDays;
+
+            await _context.SaveChangesAsync();
+            return await GetCommitment(c.Id, userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error parking {Id}", dto.CommitmentId);
+            return Fail<CommitmentDto>(new ServerErrorException(ex.Message));
+        }
+    }
+
+    public async Task<ServiceResult<CommitmentEstimateDto>> AddEstimate(CommitmentEstimateCreateDto dto, string userId)
+    {
+        try
+        {
+            var (c, project, access, error) = await LoadForCaller(dto.CommitmentId, userId);
+            if (error is not null) return Fail<CommitmentEstimateDto>(error);
+            if (!access.CanWrite) return Fail<CommitmentEstimateDto>(new ForbiddenException("You can read the register but not add to it."));
+            if (c!.SupersededAt is not null || c.Maturity >= CommitmentMaturity.Agreed)
+                return Fail<CommitmentEstimateDto>(new BadRequestException("An estimate goes on something not yet agreed. An agreed figure is restated."));
+            if (dto.Amount is null && string.IsNullOrWhiteSpace(dto.Note))
+                return Fail<CommitmentEstimateDto>(new BadRequestException("Give a figure or say where one came from."));
+            if (dto.Amount is < 0)
+                return Fail<CommitmentEstimateDto>(new BadRequestException("An estimate cannot be negative."));
+            if (dto.Amount is not null && !access.CanSeeMoney)
+                return Fail<CommitmentEstimateDto>(new ForbiddenException("Money is not part of your seat on this project."));
+            if (!string.IsNullOrEmpty(dto.IngestedMessageId)
+                && await DescribeTargetAsync(CommitmentLinkTarget.IngestedMessage, dto.IngestedMessageId, project!, access, userId) is null)
+                return Fail<CommitmentEstimateDto>(new NotFoundException("That message is not on this project."));
+            if (!string.IsNullOrEmpty(dto.ArtifactId)
+                && await DescribeTargetAsync(CommitmentLinkTarget.Artifact, dto.ArtifactId, project!, access, userId) is null)
+                return Fail<CommitmentEstimateDto>(new NotFoundException("That file is not on this project."));
+
+            var row = new tbl_CommitmentEstimate
+            {
+                ProjectId = project!.Id,
+                CommitmentId = c.Id,
+                Amount = dto.Amount,
+                Currency = dto.Amount is null ? null : (dto.Currency ?? c.Currency ?? project.Currency ?? "UGX"),
+                Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
+                IngestedMessageId = string.IsNullOrEmpty(dto.IngestedMessageId) ? null : dto.IngestedMessageId,
+                ArtifactId = string.IsNullOrEmpty(dto.ArtifactId) ? null : dto.ArtifactId,
+                RecordedById = userId
+            };
+            _context.tbl_CommitmentEstimates.Add(row);
+            await _context.SaveChangesAsync();
+
+            // Where the figure came from is a reference too — the idea gathers
+            // its sources without anyone being asked anything.
+            if (row.IngestedMessageId is not null)
+                await AddLink(new CommitmentLinkCreateDto { CommitmentId = c.Id, TargetType = CommitmentLinkTarget.IngestedMessage, TargetId = row.IngestedMessageId, Relation = CommitmentLinkRelation.Relates, Note = "Estimate" }, userId);
+            if (row.ArtifactId is not null)
+                await AddLink(new CommitmentLinkCreateDto { CommitmentId = c.Id, TargetType = CommitmentLinkTarget.Artifact, TargetId = row.ArtifactId, Relation = CommitmentLinkRelation.Relates, Note = "Estimate" }, userId);
+
+            var list = await GetEstimates(c.Id, userId);
+            return list.IsSuccess
+                ? ServiceResult<CommitmentEstimateDto>.Success(list.Data.First(e => e.Id == row.Id))
+                : Fail<CommitmentEstimateDto>(list.Error);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding an estimate to {Id}", dto.CommitmentId);
+            return Fail<CommitmentEstimateDto>(new ServerErrorException(ex.Message));
+        }
+    }
+
+    public async Task<ServiceResult<List<CommitmentEstimateDto>>> GetEstimates(string commitmentId, string userId)
+    {
+        try
+        {
+            var (c, project, access, error) = await LoadForCaller(commitmentId, userId);
+            if (error is not null) return Fail<List<CommitmentEstimateDto>>(error);
+
+            var rows = await _context.tbl_CommitmentEstimates.AsNoTracking()
+                .Include(e => e.RecordedBy)
+                .Where(e => e.CommitmentId == c!.Id)
+                .OrderByDescending(e => e.DateTimeCreated)
+                .ToListAsync();
+
+            var money = access.CanSeeMoney;
+            return ServiceResult<List<CommitmentEstimateDto>>.Success(rows.Select(e => new CommitmentEstimateDto
+            {
+                Id = e.Id,
+                CommitmentId = e.CommitmentId,
+                Amount = money ? e.Amount : null,
+                Currency = money ? e.Currency : null,
+                AmountHidden = !money && e.Amount is not null,
+                Note = e.Note,
+                RecordedByName = FullName(e.RecordedBy),
+                RecordedAt = e.DateTimeCreated,
+                IngestedMessageId = e.IngestedMessageId,
+                ArtifactId = e.ArtifactId,
+                DateTimeCreated = e.DateTimeCreated
+            }).ToList());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading estimates for {Id}", commitmentId);
+            return Fail<List<CommitmentEstimateDto>>(new ServerErrorException(ex.Message));
         }
     }
 
@@ -931,6 +1068,7 @@ public class CommitmentDAL : ICommitmentDAL
     private Task<List<tbl_Commitment>> LoadCommitments(System.Linq.Expressions.Expression<Func<tbl_Commitment, bool>> where) =>
         _context.tbl_Commitments.AsNoTracking()
             .Include(c => c.Stage)
+            .Include(c => c.DependsOnStage)
             .Include(c => c.Deliverable)
             .Include(c => c.AccountableMember).ThenInclude(m => m!.User)
             .Include(c => c.AgreedWithMember).ThenInclude(m => m!.User)
@@ -1044,6 +1182,7 @@ public class CommitmentDAL : ICommitmentDAL
             Currency = c.Currency,
             DueDate = dto.DueDate ?? c.DueDate,
             LeadTimeDays = c.LeadTimeDays,
+            DependsOnStageId = c.DependsOnStageId,
             OwedBySide = c.OwedBySide,
             SupersedesId = c.Id
         };
@@ -1105,6 +1244,34 @@ public class CommitmentDAL : ICommitmentDAL
             .Select(l => new { l.CommitmentId, l.TargetType, l.TargetId })
             .ToListAsync();
 
+        var estimates = await _context.tbl_CommitmentEstimates.AsNoTracking()
+            .Where(e => e.CommitmentId != null && ids.Contains(e.CommitmentId))
+            .Select(e => new { e.CommitmentId, e.Amount, e.Currency, e.DateTimeCreated })
+            .ToListAsync();
+
+        // A question asked with a circle on a receipt stays with the item
+        // through its restatements — the successor a resolution writes still
+        // shows what was circled.
+        List<string> Lineage(tbl_Commitment c)
+        {
+            var chain = new List<string> { c.Id };
+            var at = c;
+            while (at.SupersedesId is { } prev && byId.TryGetValue(prev, out var older) && chain.Count < 500)
+            {
+                chain.Add(older.Id);
+                at = older;
+            }
+            return chain;
+        }
+        var lineage = shown.ToDictionary(c => c.Id, Lineage);
+        var lineageIds = lineage.Values.SelectMany(x => x).Distinct().ToList();
+        var markupQuery = _context.tbl_Annotations.AsNoTracking()
+            .Where(a => a.CommitmentId != null && lineageIds.Contains(a.CommitmentId) && a.SupersededAt == null);
+        if (!access.CanSeeSiteLog) markupQuery = markupQuery.Where(a => a.Channel == Channel.Client);
+        var markups = await markupQuery
+            .Select(a => new { a.CommitmentId, a.ArtifactId, a.LayerId, a.Note, a.DateTimeCreated })
+            .ToListAsync();
+
         var confirmers = shown.Select(c => c.CounterpartyConfirmedById).Concat(shown.Select(c => c.DisputedById))
             .OfType<string>().Distinct().ToList();
         var names = await _context.Users.AsNoTracking()
@@ -1134,6 +1301,18 @@ public class CommitmentDAL : ICommitmentDAL
                 var variation = variations.FirstOrDefault(v => v.CommitmentId == c.Id);
                 var amountVisible = access.CanSeeMoney;
                 var isHead = c.SupersededAt is null;
+
+                var previous = c.SupersedesId is { } pid && byId.TryGetValue(pid, out var p) ? p : null;
+                var mine = lineage[c.Id];
+                var markup = markups.Where(m => mine.Contains(m.CommitmentId!))
+                    .OrderByDescending(m => m.DateTimeCreated).FirstOrDefault();
+                var ests = estimates.Where(e => e.CommitmentId == c.Id).ToList();
+                var priced = ests.Where(e => e.Amount is not null).ToList();
+                var undecided = isHead && c.Maturity < CommitmentMaturity.Agreed;
+                var decideBy = isHead
+                    ? DecideByRule.Compute(c.Maturity, c.Stage?.StageName, c.Stage?.StartDate,
+                        c.DependsOnStage?.StageName, c.DependsOnStage?.StartDate, c.LeadTimeDays, today)
+                    : null;
 
                 return new CommitmentDto
                 {
@@ -1192,6 +1371,25 @@ public class CommitmentDAL : ICommitmentDAL
                     CanResolveQuery = isHead && access.CanWrite && c.QueryState == CommitmentQueryState.QueryRaised,
                     CanClear = CanClear(c, access),
                     CanRestate = isHead && access.CanWrite,
+                    CanAddEstimate = undecided && access.CanWrite,
+                    CanPark = undecided && access.CanWrite,
+                    CanPriceEstimate = undecided && access.CanWrite && access.CanSeeMoney,
+                    PreviousAmount = amountVisible ? previous?.Amount : null,
+                    PreviousDueDate = previous?.DueDate,
+                    PreviousClearedAt = previous?.ClearedAt,
+                    MarkupArtifactId = markup?.ArtifactId,
+                    MarkupLayerId = markup?.LayerId,
+                    MarkupNote = markup?.Note,
+                    DependsOnStageId = c.DependsOnStageId,
+                    DependsOnStageName = c.DependsOnStage?.StageName,
+                    DecideBy = decideBy?.Date,
+                    DecideByReason = decideBy?.Reason,
+                    IsSurfaced = decideBy?.Surfaced ?? false,
+                    EstimateCount = ests.Count,
+                    EstimateLow = amountVisible && priced.Count > 0 ? priced.Min(e => e.Amount) : null,
+                    EstimateHigh = amountVisible && priced.Count > 0 ? priced.Max(e => e.Amount) : null,
+                    LatestEstimate = amountVisible ? priced.OrderByDescending(e => e.DateTimeCreated).FirstOrDefault()?.Amount : null,
+                    EstimateCurrency = amountVisible ? priced.Select(e => e.Currency).FirstOrDefault(x => x != null) : null,
                     IsAwaitingCounterparty = IsAwaitingCounterparty(c),
                     IsOverdue = IsOverdue(c, today),
                     DateTimeCreated = c.DateTimeCreated
@@ -1200,7 +1398,7 @@ public class CommitmentDAL : ICommitmentDAL
             .ToList();
     }
 
-    private readonly record struct TargetInfo(string? Label, DateTime? Date);
+    private readonly record struct TargetInfo(string? Label, DateTime? Date, string? ArtifactId = null);
 
     /// <summary>
     /// The target's label, or null when it is not on this project or not this
@@ -1292,7 +1490,20 @@ public class CommitmentDAL : ICommitmentDAL
                                         && r.Document != null && r.Document.Channel == Channel.Client);
                     if (!exposed) return null;
                 }
-                return new TargetInfo(t.OriginalFileName ?? "File", t.CapturedAt ?? t.DateTimeCreated);
+                return new TargetInfo(t.OriginalFileName ?? "File", t.CapturedAt ?? t.DateTimeCreated, targetId);
+            }
+            case CommitmentLinkTarget.Annotation:
+            {
+                // A layer is addressed by its layer id; the reader sees its
+                // current version, and only if they may see the file under it.
+                var layer = await _context.tbl_Annotations.AsNoTracking()
+                    .Where(x => x.LayerId == targetId && x.ProjectId == pid && x.SupersededAt == null)
+                    .Select(x => new { x.ArtifactId, x.Version, x.Channel, x.DateTimeCreated })
+                    .FirstOrDefaultAsync();
+                if (layer?.ArtifactId is null || (!access.CanSeeSiteLog && layer.Channel != Channel.Client)) return null;
+                var file = await DescribeTargetAsync(CommitmentLinkTarget.Artifact, layer.ArtifactId, project, access, userId);
+                if (file is null) return null;
+                return new TargetInfo($"Marked up: {file.Value.Label} (v{layer.Version})", layer.DateTimeCreated, layer.ArtifactId);
             }
             default:
                 return null;
@@ -1314,6 +1525,7 @@ public class CommitmentDAL : ICommitmentDAL
         Note = l.Note,
         TargetLabel = target.Label,
         TargetDate = target.Date,
+        ArtifactId = target.ArtifactId,
         DateTimeCreated = l.DateTimeCreated
     };
 }

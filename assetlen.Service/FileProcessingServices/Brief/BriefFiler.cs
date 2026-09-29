@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using assetlen.Service.FileProcessingServices.Extraction;
+using assetlen.Shared.Models.Models.RemoteSite;
 
 namespace assetlen.Service.FileProcessingServices.Brief;
 
@@ -76,8 +77,20 @@ public sealed class BriefFiler
         }
 
         var stage = StageMatcher.Match(text, _stages);
-        return stage is null ? Filing.None : new Filing(stage, null);
+        if (stage is not null) return new Filing(stage, null);
+
+        // Nothing on this project's own list names it. Under Law 0 a project may
+        // have no stages yet, and the work still has a name in the catalogue —
+        // "plastering", "roofing" — which groups it better than posting order does.
+        var known = StageMatcher.Match(text, CatalogueRefs);
+        return known is null ? Filing.None : new Filing(known, null);
     }
+
+    public const string CataloguePrefix = "catalogue:";
+
+    private static readonly IReadOnlyList<StageRef> CatalogueRefs = StageCatalogue.Items
+        .Select(i => new StageRef(CataloguePrefix + i.Key, i.Name, i.Key))
+        .ToList();
 
     private static bool Has(List<string> words, string part)
     {

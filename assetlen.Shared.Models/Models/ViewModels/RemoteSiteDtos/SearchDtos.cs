@@ -37,6 +37,9 @@ public class SearchResultDto
 
     /// <summary>The OCR engine this server reads photos with, or null when it has none.</summary>
     public string? OcrEngine { get; set; }
+
+    /// <summary>Whether the Site Diary was among the sources. The client side is not told it exists (assetlen.md §5).</summary>
+    public bool SearchedSiteDiary { get; set; }
 }
 
 public class SearchGroupDto

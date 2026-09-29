@@ -4,6 +4,7 @@
 @inject ShellState Shell
 @inject IStreamHubService StreamHub
 @inject ILogger<EntryDetail> Logger
+@inject IArtifactImageService Media
 
 @*
     One entry.
@@ -59,6 +60,30 @@
                     </a>
                 </Below>
             </TitleBlock>
+
+            @if (entry.VoiceArtifactId is not null)
+            {
+                <section class="entry__section">
+                    <div class="al-rule"><span class="al-label">Voice note</span></div>
+                    @if (voiceSrc is not null)
+                    {
+                        <audio class="entry__voice" controls src="@voiceSrc"></audio>
+                    }
+                    else
+                    {
+                        <span class="al-shimmer entry__voice-wait"></span>
+                    }
+                    <p class="entry__transcript">
+                        @(entry.VoiceTranscriptStatus switch
+                        {
+                            ArtifactTextStatus.Done => $"“{entry.VoiceTranscript}”",
+                            ArtifactTextStatus.Pending => "Being read into words…",
+                            ArtifactTextStatus.NoText => "No words could be made out.",
+                            _ => "This server cannot turn recordings into words yet; the recording is kept."
+                        })
+                    </p>
+                </section>
+            }
 
             @* ── Frames ─────────────────────────────────────────────────── *@
             @if (entry.ImageCount > 0)
@@ -226,6 +251,7 @@
     [Parameter] public string EntryId { get; set; } = "";
 
     private ProgressUpdateDto? entry;
+    private string? voiceSrc;
     private ProjectAccessDto? standing;
     private List<FlagDto> questions = new();
 
@@ -272,6 +298,7 @@
             }
 
             entry = entryTask.Result.Content;
+            voiceSrc = entry?.VoiceUrl is { } vu ? await Media.ResolveAsync(vu) : null;
 
             // Fail closed: no standing means no curation controls. The server
             // would reject the call anyway; this only keeps the UI honest.
@@ -424,7 +451,8 @@
         }
     }
 
-    private string EyebrowText => entry?.StageName is { Length: > 0 } stage ? stage : "Site Diary";
+    private string EyebrowText => entry?.DeliverableTitle is { Length: > 0 } d ? $"{entry.StageName} · {d}"
+        : entry?.StageName is { Length: > 0 } stage ? stage : "Site Diary";
 
     private string TitleText => Fmt.Date(entry?.DateTimeCreated);
 

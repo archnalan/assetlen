@@ -203,6 +203,15 @@
                 <span class="overview__jump-note">One page, grouped by the work — not by posting order.</span>
             </a>
 
+            @if (ctx.Access?.CanSeeReport == true)
+            {
+                <a class="overview__jump" href="/project/@ProjectId/report">
+                    <Icon Name="document" Size="20" />
+                    <span class="overview__jump-title">Works report</span>
+                    <span class="overview__jump-note">On time or not, and by how much — every line cited.</span>
+                </a>
+            }
+
             @if (ShowMoney)
             {
                 <a class="overview__jump" href="/project/@ProjectId/money">

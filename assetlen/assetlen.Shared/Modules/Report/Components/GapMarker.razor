@@ -1,0 +1,9 @@
+@* A gap is a finding, not an empty state (works-report.md §2.3): "not costed", "no approval on record". *@
+
+<span class="gap @(Block ? "gap--block" : "")" title="@Title">@Text</span>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter] public bool Block { get; set; }
+    [Parameter] public string? Title { get; set; }
+}

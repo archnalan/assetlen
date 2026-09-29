@@ -1,0 +1,55 @@
+.dcard {
+    display: grid;
+    gap: var(--al-space-1);
+    padding: var(--al-space-3);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-bg-elevated);
+    min-width: 0;
+}
+
+.dcard__head {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    color: var(--al-text-subtle);
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.dcard__new { color: var(--al-text); font-weight: 600; }
+.dcard__when { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: var(--al-font-size-xs); }
+
+.dcard__title {
+    margin: 0;
+    color: var(--al-text);
+    font-size: var(--al-font-size-md);
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.dcard__who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-1) var(--al-space-2);
+    margin: 0;
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+}
+
+.dcard__restated { color: var(--al-text-subtle); }
+
+.dcard__amount {
+    color: var(--al-text);
+    font-size: var(--al-font-size-md);
+}
+
+.dcard__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-1) var(--al-space-2);
+    margin-top: var(--al-space-1);
+}

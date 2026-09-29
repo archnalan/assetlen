@@ -31,7 +31,27 @@ public class tbl_ProgressUpdate : BaseEntity
     /// </summary>
     public Channel Channel { get; set; } = Channel.Crew;
 
+    /// <summary>The deliverable the capture was aimed at. Nothing floats (CLAUDE.md §1).</summary>
+    [MaxLength(40)]
+    public string? DeliverableId { get; set; }
+
+    /// <summary>The offline queue's key, so a retry after a lost reply never posts twice.</summary>
+    [MaxLength(64)]
+    public string? ClientCaptureId { get; set; }
+
+    /// <summary>When it was shot. A capture queued offline at 22:00 belongs to that day, not the day the signal came back.</summary>
+    public DateTime? CapturedAt { get; set; }
+
+    [MaxLength(40)]
+    public string? VoiceArtifactId { get; set; }
+
     // Navigation
+    [ForeignKey("DeliverableId")]
+    public tbl_Deliverable? Deliverable { get; set; }
+
+    [ForeignKey("VoiceArtifactId")]
+    public tbl_Artifact? VoiceArtifact { get; set; }
+
     [ForeignKey("ProjectId")]
     public tbl_Project? Project { get; set; }
 

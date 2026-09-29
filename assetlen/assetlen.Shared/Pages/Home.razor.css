@@ -68,3 +68,10 @@
 @media (hover: none) {
     .home__hint { display: none; }
 }
+
+.home__total {
+    margin-left: auto;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    white-space: nowrap;
+}

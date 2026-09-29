@@ -63,6 +63,14 @@ public class tbl_ProgressImage : BaseEntity
 
     public DateTime? ExposedAt { get; set; }
 
+    /// <summary>The mediator's keep / lose mark; Auto leaves it to the cutoff's rule.</summary>
+    public FrameCuration Curation { get; set; } = FrameCuration.Auto;
+
+    [MaxLength(450)]
+    public string? CuratedById { get; set; }
+
+    public DateTime? CuratedAt { get; set; }
+
     // Navigation
     [ForeignKey("ProgressUpdateId")]
     public tbl_ProgressUpdate? ProgressUpdate { get; set; }

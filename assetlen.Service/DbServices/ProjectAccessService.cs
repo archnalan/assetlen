@@ -45,6 +45,28 @@ public class ProjectAccessService : IProjectAccessService
         return Decide(project, Owners.Of(project.ParentProject), memberships, userId);
     }
 
+    public async Task<ProjectAccess> ResolveUnscopedAsync(string? projectId, string? userId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(projectId) || string.IsNullOrEmpty(userId))
+            return ProjectAccess.None;
+
+        var project = await _context.tbl_Projects_RS.IgnoreQueryFilters()
+            .Include(p => p.ParentProject)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == projectId && p.IsDeleted != true, ct);
+        if (project is null) return ProjectAccess.None;
+
+        var memberships = await _context.tbl_ProjectMembers.IgnoreQueryFilters()
+            .Where(m => m.UserId == userId
+                     && m.IsActive && m.IsDeleted != true
+                     && (m.ProjectId == project.Id
+                         || (project.ParentProjectId != null && m.ProjectId == project.ParentProjectId)))
+            .Select(m => new Seat(m.Specialization, m.Side, m.IsMediator, m.HandlesMoney))
+            .ToListAsync(ct);
+
+        return Decide(project, Owners.Of(project.ParentProject), memberships, userId);
+    }
+
     public async Task<IReadOnlyDictionary<string, ProjectAccess>> ResolveManyAsync(
         IEnumerable<tbl_Project> projects, string? userId, CancellationToken ct = default)
     {

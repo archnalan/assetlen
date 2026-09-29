@@ -45,6 +45,15 @@ public interface ICommitmentDAL
     Task<ServiceResult<CommitmentDto>> Clear(string commitmentId, string userId);
     Task<ServiceResult<CommitmentDto>> Restate(CommitmentRestateDto dto, string userId);
 
+    // ─── Parked ideas (P8) ────────────────────────────────────
+
+    /// <summary>Re-file something not yet agreed: its stage, what must not start first, its lead time.</summary>
+    Task<ServiceResult<CommitmentDto>> Park(CommitmentParkDto dto, string userId);
+
+    /// <summary>A figure on an idea. Silent: it raises nothing and asks nobody.</summary>
+    Task<ServiceResult<CommitmentEstimateDto>> AddEstimate(CommitmentEstimateCreateDto dto, string userId);
+    Task<ServiceResult<List<CommitmentEstimateDto>>> GetEstimates(string commitmentId, string userId);
+
     // ─── Links, both directions ───────────────────────────────
     Task<ServiceResult<CommitmentLinkDto>> AddLink(CommitmentLinkCreateDto dto, string userId);
     Task<ServiceResult<bool>> RemoveLink(string linkId, string userId);
@@ -71,6 +80,9 @@ public interface ILedgerDAL
     /// <summary>The funder clears a claim, or queries it. The side claiming never clears its own.</summary>
     Task<ServiceResult<StageClaimDto>> DecideClaim(StageClaimDecisionDto dto, string userId);
     Task<ServiceResult<StageClaimDto>> WithdrawClaim(string claimId, string userId);
+
+    /// <summary>What a claim on this stage could carry, with the newest frames suggested.</summary>
+    Task<ServiceResult<ClaimEvidenceOptionsDto>> GetClaimEvidenceOptions(string projectId, string stageId, string userId);
 
     Task<ServiceResult<List<VariationDto>>> GetVariations(string projectId, string userId);
     Task<ServiceResult<VariationDto>> AddVariation(VariationCreateDto dto, string userId);

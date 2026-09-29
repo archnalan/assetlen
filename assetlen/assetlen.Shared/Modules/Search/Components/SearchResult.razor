@@ -95,6 +95,13 @@
                     }
                     Open original
                 </button>
+                @if (Hit.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true && !string.IsNullOrEmpty(Hit.ProjectId))
+                {
+                    @* The fourth search ends here: circle the thing, ask why. *@
+                    <a class="al-btn al-btn--quiet al-btn--sm" href="/project/@Hit.ProjectId/artifact/@Hit.ArtifactId">
+                        <Icon Name="markup" Size="14" /> Mark up &amp; ask
+                    </a>
+                }
                 @if (Hit.Href is not null)
                 {
                     <a class="al-btn al-btn--quiet al-btn--sm" href="@Hit.Href">

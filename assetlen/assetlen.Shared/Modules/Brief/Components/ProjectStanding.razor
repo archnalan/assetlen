@@ -1,0 +1,129 @@
+@*
+    One project on Peter's home: where its money stands, what he owes on it,
+    and what moved (plan.md P7). The three questions he opens the app to
+    answer, in the order he asks them. Money appears only where money is part of
+    this reader's seat on this project — decided per project by the server.
+*@
+
+<article class="pstand @PhaseClass" data-project="@Project.Id">
+    <header class="pstand__head">
+        <div class="pstand__names">
+            @if (Project.ParentName is not null)
+            {
+                <span class="pstand__parent">@Project.ParentName /</span>
+            }
+            <a class="pstand__name" href="/project/@Project.Id">@Project.Name</a>
+        </div>
+        <div class="pstand__links">
+            @if (Project.Standing.CanSeeBrief)
+            {
+                <a class="al-btn al-btn--link al-btn--sm" href="/project/@Project.Id/brief">Today's brief <Icon Name="arrow-right" Size="14" /></a>
+            }
+            @if (Project.Standing.CanSeeReport)
+            {
+                <a class="al-btn al-btn--link al-btn--sm" href="/project/@Project.Id/report">Works report <Icon Name="arrow-right" Size="14" /></a>
+            }
+        </div>
+    </header>
+
+    @if (Project.CurrentStageName is not null)
+    {
+        <p class="pstand__stage">
+            <span class="al-stage-dot"></span>
+            <span>@Project.CurrentStageName</span>
+            @if (Project.CurrentStagePercent is { } pct)
+            {
+                <span class="al-num">@Fmt.Percent(pct)</span>
+            }
+        </p>
+    }
+
+    <div class="pstand__grid">
+        <div class="pstand__cell">
+            <span class="al-label">Money</span>
+            @if (Project.Money is { } m)
+            {
+                <dl class="pstand__money">
+                    <div><dt>Funded</dt><dd class="al-num">@Fmt.MoneyShort(m.Funded, m.Currency)</dd></div>
+                    <div><dt>Claimed</dt><dd class="al-num">@Fmt.MoneyShort(m.Claimed, m.Currency)</dd></div>
+                    <div><dt>Cleared</dt><dd class="al-num">@Fmt.MoneyShort(m.Cleared, m.Currency)</dd></div>
+                    <div><dt>In hand</dt><dd class="al-num @(m.InHand < 0 ? "pstand__neg" : "")">@Fmt.MoneyShort(m.InHand, m.Currency)</dd></div>
+                </dl>
+                @if (m.AwaitingClearance > 0 || m.PendingFunding > 0 || m.VariationsUncosted > 0)
+                {
+                    <p class="pstand__note">
+                        @if (m.AwaitingClearance > 0) { <span>@Fmt.MoneyShort(m.AwaitingClearance, m.Currency) claimed, not yet cleared</span> }
+                        @if (m.PendingFunding > 0) { <span>@Fmt.MoneyShort(m.PendingFunding, m.Currency) sent, not yet acknowledged</span> }
+                        @if (m.VariationsUncosted > 0) { <span>@m.VariationsUncosted uncosted @(m.VariationsUncosted == 1 ? "extra" : "extras")</span> }
+                    </p>
+                }
+            }
+            else
+            {
+                <p class="pstand__quiet">Not part of your seat on this project.</p>
+            }
+        </div>
+
+        <div class="pstand__cell">
+            <span class="al-label">You owe</span>
+            @if (Project.NextOwed is { } next)
+            {
+                <a class="pstand__owed" href="@next.Href">
+                    <span class="pstand__owed-title">@next.Title</span>
+                    <span class="pstand__owed-meta">
+                        <span class="al-badge @BriefFormat.DueClass(next.DueBy, next.IsOverdue)">@BriefFormat.DueBadge(next.DueBy, next.IsOverdue)</span>
+                        @if (Project.OwedCount > 1)
+                        {
+                            <span>and @(Project.OwedCount - 1) more</span>
+                        }
+                    </span>
+                </a>
+            }
+            else
+            {
+                <p class="pstand__quiet">Nothing is waiting on you.</p>
+            }
+            @if (Project.OpenBlockers > 0)
+            {
+                <p class="pstand__blockers"><Icon Name="blocked" Size="13" /> @Project.OpenBlockers open @(Project.OpenBlockers == 1 ? "blocker" : "blockers")</p>
+            }
+        </div>
+
+        <div class="pstand__cell">
+            <span class="al-label">What moved</span>
+            @if (Project.Moved.Count == 0)
+            {
+                <p class="pstand__quiet">Nothing since @BriefFormat.Day(Since).</p>
+            }
+            else
+            {
+                <ul class="pstand__moved">
+                    @foreach (var line in Project.Moved.Take(3))
+                    {
+                        <li class="@(line.StagePhase is { } ph ? $"al-stage--{(int)ph}" : "")">
+                            <span class="al-stage-dot"></span>
+                            @if (line.Href is not null)
+                            {
+                                <a href="@line.Href">@line.Text</a>
+                            }
+                            else
+                            {
+                                <span>@line.Text</span>
+                            }
+                            <span class="pstand__ago">@Fmt.Ago(line.At)</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public HomeProjectDto Project { get; set; } = new();
+
+    /// <summary>The start of the "what moved" window.</summary>
+    [Parameter] public DateTime Since { get; set; }
+
+    private string PhaseClass => Project.CurrentStagePhase is { } ph ? $"al-stage--{(int)ph}" : "";
+}

@@ -96,7 +96,20 @@ public interface IProgressDAL
         string projectId, string? stageId, int offset, int limit, string userId, CancellationToken ct);
     Task<ServiceResult<ProgressCommentDto>> AddComment(ProgressCommentCreateDto dto, string userId);
     Task<ServiceResult<List<ProgressCommentDto>>> GetRecentComments(string managerId, int count);
+
+    /// <summary>
+    /// Post a capture: a batch of frames and an optional voice note, stored in the
+    /// artifact store and aimed at a deliverable. Idempotent on <c>ClientCaptureId</c>.
+    /// </summary>
+    Task<ServiceResult<ProgressUpdateDto>> Capture(ProgressUpdateCreateDto meta, IReadOnlyList<CaptureFile> frames,
+        CaptureFile? voice, string userId, CancellationToken ct = default);
+
+    /// <summary>Today's deliverables, for the first tap of a capture.</summary>
+    Task<ServiceResult<CaptureTodayDto>> GetCaptureToday(string projectId, string userId, CancellationToken ct = default);
 }
+
+/// <summary>One file arriving with a capture.</summary>
+public sealed record CaptureFile(Stream Content, string? FileName, string? ContentType, string? Caption = null);
 
 public interface IProjectHealthService
 {

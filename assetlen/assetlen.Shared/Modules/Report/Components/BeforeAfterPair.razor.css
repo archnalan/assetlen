@@ -1,0 +1,41 @@
+.bapair {
+    display: grid;
+    gap: var(--al-space-2);
+    margin: 0;
+}
+
+.bapair__frames {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+}
+
+.bapair__frame {
+    position: relative;
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.bapair__tag {
+    position: absolute;
+    left: var(--al-space-1);
+    bottom: var(--al-space-1);
+    padding: 0 var(--al-space-2);
+    border-radius: var(--al-radius-xs);
+    background: var(--al-bg-elevated);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-2xs);
+    line-height: 1.7;
+}
+
+.bapair__tag--now { color: var(--al-text); font-weight: 600; }
+
+.bapair__caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+}

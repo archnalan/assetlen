@@ -89,14 +89,16 @@ public sealed class ArtifactTextJob
         }
 
         row.Attempts++;
-        row.Engine = _ocr.IsImage(artifact.MimeType) ? _ocr.ImageEngine : "text";
+        row.Engine = _ocr.IsImage(artifact.MimeType) ? _ocr.ImageEngine
+            : _ocr.IsAudio(artifact.MimeType) ? _ocr.AudioEngine : "text";
 
         if (!_ocr.CanRead(artifact.MimeType))
         {
             // An image with no engine is a gap to fix, not a file with no words in it.
-            row.Status = _ocr.IsImage(artifact.MimeType) ? ArtifactTextStatus.EngineUnavailable : ArtifactTextStatus.Unsupported;
+            row.Status = _ocr.IsImage(artifact.MimeType) || _ocr.IsAudio(artifact.MimeType)
+                ? ArtifactTextStatus.EngineUnavailable : ArtifactTextStatus.Unsupported;
             row.Error = row.Status == ArtifactTextStatus.EngineUnavailable
-                ? "No OCR engine is configured on this server."
+                ? (_ocr.IsAudio(artifact.MimeType) ? "No transcription engine can read this recording on this server." : "No OCR engine is configured on this server.")
                 : $"Nothing here reads {artifact.MimeType ?? "this type"}.";
             await _context.SaveChangesAsync(ct);
             return;

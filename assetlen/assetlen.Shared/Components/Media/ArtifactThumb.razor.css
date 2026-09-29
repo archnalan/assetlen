@@ -22,3 +22,28 @@
 .athumb ::deep .athumb__icon { color: var(--al-text-subtle); }
 
 .athumb--cover .athumb__img { object-fit: cover; }
+
+/* Natural: the frame takes the picture's own aspect, so a markup layer drawn in
+   fractions of the image lands on the same line of the receipt at any width. */
+.athumb--natural {
+    aspect-ratio: auto;
+    display: block;
+    min-height: 120px;
+}
+
+.athumb__frame {
+    position: relative;
+    display: block;
+    line-height: 0;
+}
+
+.athumb--natural .athumb__img {
+    height: auto;
+    object-fit: initial;
+}
+
+.athumb__overlay {
+    position: absolute;
+    inset: 0;
+    line-height: normal;
+}

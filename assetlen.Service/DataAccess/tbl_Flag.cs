@@ -83,6 +83,13 @@ public class tbl_Flag : BaseEntity
     [MaxLength(200)]
     public string? OwnerPartyName { get; set; }
 
+    /// <summary>
+    /// When the blocker was first reported, which is not when it was typed in —
+    /// one read from an 8 Sep message is eight days old on 16 Sep however late
+    /// it was accepted. Null on older rows, which fall back to their creation.
+    /// </summary>
+    public DateTime? RaisedAt { get; set; }
+
     // Navigation
     [ForeignKey("CommitmentId")]
     public tbl_Commitment? Commitment { get; set; }

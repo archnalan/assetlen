@@ -1,0 +1,140 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject ILogger<PushOptIn> Logger
+
+@*
+    Notifications on this device (assetlen.md §9 — as fast and as reliable as
+    WhatsApp's). What may wake you is decided per project by your standing on it:
+    a claim waiting on the funder, the day's brief, a capture for the mediator.
+    Nothing else — a phone that buzzes for everything is one that gets muted.
+*@
+
+<div class="pushopt">
+    @switch (state)
+    {
+        case "loading":
+            <span class="al-shimmer pushopt__ghost"></span>
+            break;
+        case "unsupported":
+            <p class="pushopt__note">This browser cannot receive notifications. On a phone, add ASSETLEN to the home screen first.</p>
+            break;
+        case "denied":
+            <p class="pushopt__note">Notifications are blocked for this site in the browser's settings.</p>
+            break;
+        case "on":
+            <div class="pushopt__row">
+                <span class="al-badge al-badge--success"><Icon Name="check" Size="11" /> On for this device</span>
+                <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="TestAsync">Send a test</button>
+                <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="OffAsync">Turn off</button>
+            </div>
+            break;
+        default:
+            <div class="pushopt__row">
+                <button type="button" class="al-btn al-btn--default" disabled="@busy" @onclick="OnAsync">
+                    <Icon Name="bell" Size="16" /> Turn on notifications
+                </button>
+            </div>
+            break;
+    }
+    <p class="pushopt__note">
+        Only what needs you: a claim waiting on you, the day's brief, and — if you mediate — what the site posted.
+        @if (status?.Subscriptions > 1)
+        {
+            <span>On @status.Subscriptions devices.</span>
+        }
+    </p>
+    @if (error is not null)
+    {
+        <p class="pushopt__error" role="alert">@error</p>
+    }
+</div>
+
+@code {
+    private IJSObjectReference? module;
+    private PushStatusDto? status;
+    private string state = "loading";
+    private string? endpoint;
+    private bool busy;
+    private string? error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/assetlen.Shared/push.js");
+            if (!await module.InvokeAsync<bool>("supported")) { state = "unsupported"; return; }
+            if (await module.InvokeAsync<string>("permission") == "denied") { state = "denied"; return; }
+            endpoint = await module.InvokeAsync<string?>("current");
+            var r = await _pushApi.Status();
+            status = r.Content;
+            state = endpoint is not null ? "on" : "off";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Push status unavailable");
+            state = "unsupported";
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task OnAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            status ??= (await _pushApi.Status()).Content;
+            var sub = await module!.InvokeAsync<PushSubscriptionCreateDto>("subscribe", status?.PublicKey);
+            var r = await _pushApi.Subscribe(sub);
+            if (!r.IsSuccessStatusCode) { error = _apiResponseHandler.GetApiErrorMessage(r) ?? "Could not turn notifications on."; return; }
+            status = r.Content;
+            endpoint = sub.Endpoint;
+            state = "on";
+        }
+        catch (JSException ex)
+        {
+            error = ex.Message;
+            state = await module!.InvokeAsync<string>("permission") == "denied" ? "denied" : "off";
+        }
+        finally { busy = false; }
+    }
+
+    private async Task OffAsync()
+    {
+        busy = true;
+        try
+        {
+            var gone = await module!.InvokeAsync<string?>("unsubscribe");
+            var target = gone ?? endpoint;
+            if (target is not null) await _pushApi.Unsubscribe(target);
+            state = "off";
+            endpoint = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not turn push off");
+            error = "Could not turn notifications off.";
+        }
+        finally { busy = false; }
+    }
+
+    private async Task TestAsync()
+    {
+        busy = true;
+        try
+        {
+            await _pushApi.Test();
+            ToastService.ShowSuccess("Sent. It should arrive in a moment.");
+        }
+        finally { busy = false; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try { await module.DisposeAsync(); } catch (JSDisconnectedException) { }
+        }
+    }
+}

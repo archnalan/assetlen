@@ -145,7 +145,19 @@ public class IngestController : ControllerBase
         var files = request.Files.Where(f => f.Length > 0).ToList();
         if (files.Count == 0) return BadRequest("Send at least one file.");
 
-        var uploads = files.Select(f => new LooseUpload(f.FileName, f.OpenReadStream(), f.ContentType)).ToList();
+        // Every form file is a window onto the one request body, so reading them
+        // out of order throws "the inner stream position has changed". Each is
+        // copied to its own temporary file first; a phone's worth of footage in
+        // one request used to fail on the second file.
+        var uploads = new List<LooseUpload>();
+        foreach (var f in files)
+        {
+            var copy = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None,
+                81920, FileOptions.DeleteOnClose);
+            await using (var source = f.OpenReadStream()) await source.CopyToAsync(copy, ct);
+            copy.Position = 0;
+            uploads.Add(new LooseUpload(f.FileName, copy, f.ContentType));
+        }
         try
         {
             var result = await _dal.RejoinMediaAsync(uploads, request.ProjectId, _tenantProvider.GetUserId(), ct);

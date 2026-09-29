@@ -1,0 +1,32 @@
+.pushopt {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.pushopt__row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+}
+
+.pushopt__ghost {
+    display: block;
+    width: 14rem;
+    height: 2.5rem;
+    border-radius: var(--al-radius-sm);
+}
+
+.pushopt__note {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    max-width: var(--al-reading-max);
+}
+
+.pushopt__error {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-danger);
+}

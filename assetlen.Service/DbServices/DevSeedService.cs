@@ -1075,6 +1075,20 @@ public sealed class DevSeedService : IDevSeedService
             .ToListAsync(ct);
         foreach (var d in debris) d.IsDeleted = true;
 
+        // The same suite's capture and question, filed to prove nothing floats.
+        // Left in place they piled up as open blockers on the demo's report.
+        var loose = await _context.tbl_Flags.IgnoreQueryFilters()
+            .Where(f => f.ProjectId == ProjectId && f.IsDeleted != true
+                        && (f.Title == "Chain auto-link question" || f.Title == "Auto-link question"))
+            .ToListAsync(ct);
+        foreach (var f in loose) f.IsDeleted = true;
+        var captures = await _context.tbl_ProgressUpdates.IgnoreQueryFilters()
+            .Where(u => u.ProjectId == ProjectId && u.IsDeleted != true
+                        && (u.Description == "Chain auto-link" || u.Description == "Chain deliberate"
+                            || u.Description == "Auto-link test" || u.Description == "Deliberate stage"))
+            .ToListAsync(ct);
+        foreach (var u in captures) u.IsDeleted = true;
+
         var claims = new (int N, string Stage, decimal Amount, DateTime At, ClaimStatus Status, string Note)[]
         {
             (1, StageId(1), 42_000_000m, Utc(2025, 11, 28), ClaimStatus.Cleared, "Drawing set and approvals, final account."),
@@ -1087,8 +1101,29 @@ public sealed class DevSeedService : IDevSeedService
             (8, StageId(5), 94_000_000m, Utc(2026, 7, 10), ClaimStatus.Cleared, "Roofing, final account.")
         };
 
-        var haveClaims = await _context.tbl_StageClaims.IgnoreQueryFilters()
-            .Where(c => c.ProjectId == ProjectId).Select(c => c.Id).ToListAsync(ct);
+        // A claim filed or cleared by hand while walking the demo would otherwise
+        // stay on the seeded stage ledger forever, and the carried-forward figures
+        // the suites read would drift with every walkthrough. The demo project is
+        // restored; every other project is left alone.
+        var seededIds = claims.Select(c => ClaimId(c.N)).ToHashSet();
+        var existing = await _context.tbl_StageClaims.IgnoreQueryFilters()
+            .Where(c => c.ProjectId == ProjectId).ToListAsync(ct);
+        foreach (var e in existing.Where(e => !seededIds.Contains(e.Id) && e.IsDeleted != true))
+            e.IsDeleted = true;
+        foreach (var c in claims)
+        {
+            var e = existing.FirstOrDefault(x => x.Id == ClaimId(c.N));
+            if (e is null) continue;
+            e.IsDeleted = false;
+            e.Amount = c.Amount;
+            e.Status = c.Status;
+            e.ClearedAmount = null;
+            e.QueryNote = null;
+            e.ClearedAt = c.Status == ClaimStatus.Cleared ? c.At.AddDays(3) : null;
+            e.ClearedById = c.Status == ClaimStatus.Cleared ? peter.Id : null;
+        }
+
+        var haveClaims = existing.Select(c => c.Id).ToList();
         foreach (var c in claims.Where(c => !haveClaims.Contains(ClaimId(c.N))))
         {
             _context.tbl_StageClaims.Add(new tbl_StageClaim

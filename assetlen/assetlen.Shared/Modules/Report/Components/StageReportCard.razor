@@ -1,0 +1,84 @@
+@*
+    ④ One stage: where it stands, how it got there, plan against pace, at most
+    two frames, two sentences, and where each came from. A stall names itself;
+    a missing reading is a gap, not a blank.
+*@
+
+<article class="scard al-print-avoid @ReportFormat.Phase(Stage.Phase)">
+    <header class="scard__head">
+        <ProgressRing Percent="@(Stage.Status == StageStatus.Completed ? 100 : Stage.Percent)" />
+        <div class="scard__title">
+            <h3 class="scard__name">@Stage.Name</h3>
+            <span class="scard__status">
+                @StatusWord
+                @if (Stage.ParentName is not null)
+                {
+                    <span class="scard__parent"> · under @Stage.ParentName</span>
+                }
+            </span>
+        </div>
+    </header>
+
+    <div class="scard__signals">
+        @if (Stage.Readings.Count > 0)
+        {
+            <ProgressSparkline Readings="Stage.Readings" StalledSince="Stage.StalledSince" StalledDays="Stage.StalledDays" AsAt="AsAt" />
+        }
+        @if (Stage.Status != StageStatus.Completed)
+        {
+            <PlanTick Planned="Stage.PlannedEnd" Forecast="Stage.Forecast" Baseline="Stage.BaselineEnd" />
+        }
+    </div>
+
+    @if (Stage.Frames.Count > 0)
+    {
+        <div class="scard__frames scard__frames--@Stage.Frames.Count">
+            @foreach (var f in Stage.Frames)
+            {
+                <a class="scard__frame" href="@Sources?.Get(f.SourceId)?.Href">
+                    <ArtifactThumb ArtifactId="@f.ArtifactId" HasThumbnail="@ReportFormat.HasPicture(f)" MimeType="@(f.IsVideo ? "video/mp4" : "image/jpeg")" Cover="true" />
+                    <span class="scard__frame-day al-num">@ReportFormat.Day(f.At)</span>
+                </a>
+            }
+        </div>
+    }
+
+    <NarrativeText Sentences="@Words" />
+
+    @if (Stage.Gaps.Count > 0 || Stage.SlipDays is not null)
+    {
+        <div class="scard__gaps">
+            @if (Stage.SlipDays is { } slip && Stage.BaselineEnd is { } b)
+            {
+                <span class="scard__slip al-num">First planned for @ReportFormat.Day(b) · moved @(slip > 0 ? "+" : "")@slip d</span>
+            }
+            @foreach (var g in Stage.Gaps)
+            {
+                <GapMarker Text="@g" />
+            }
+        </div>
+    }
+
+    <footer class="scard__foot">
+        @if (Stage.DeliverablesTotal > 0)
+        {
+            <span class="scard__deliv al-num">@Stage.DeliverablesDone / @Stage.DeliverablesTotal deliverables</span>
+        }
+        <SourceChip Ids="Stage.SourceIds" Max="3" />
+    </footer>
+</article>
+
+@code {
+    [CascadingParameter] public ReportSources? Sources { get; set; }
+    [Parameter, EditorRequired] public StageReportDto Stage { get; set; } = new();
+    [Parameter, EditorRequired] public List<NarrativeSentenceDto> Words { get; set; } = new();
+    [Parameter] public DateTime AsAt { get; set; }
+
+    private string StatusWord => Stage.Status switch
+    {
+        StageStatus.Completed => "Complete",
+        StageStatus.NotStarted => "Not started",
+        _ when Stage.IsStalled => $"Stalled at {ReportFormat.Pct(Stage.Percent)} since {ReportFormat.Day(Stage.StalledSince)}",
+        _ => Stage.PercentAt is { } at ? $"In progress · read {ReportFormat.Day(at)}" : "In progress"
+    };
+}

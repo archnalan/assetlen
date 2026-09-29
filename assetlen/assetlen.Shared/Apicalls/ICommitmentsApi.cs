@@ -56,6 +56,15 @@ public interface ICommitmentsApi
     [Post("/api/Commitments/Restate")]
     Task<IApiResponse<CommitmentDto>> Restate([Body] CommitmentRestateDto dto);
 
+    [Put("/api/Commitments/Park")]
+    Task<IApiResponse<CommitmentDto>> Park([Body] CommitmentParkDto dto);
+
+    [Post("/api/Commitments/AddEstimate")]
+    Task<IApiResponse<CommitmentEstimateDto>> AddEstimate([Body] CommitmentEstimateCreateDto dto);
+
+    [Get("/api/Commitments/GetEstimates")]
+    Task<IApiResponse<List<CommitmentEstimateDto>>> GetEstimates([Query] string commitmentId);
+
     [Post("/api/Commitments/AddLink")]
     Task<IApiResponse<CommitmentLinkDto>> AddLink([Body] CommitmentLinkCreateDto dto);
 
@@ -90,6 +99,10 @@ public interface ILedgerApi
 
     [Put("/api/Ledger/WithdrawClaim")]
     Task<IApiResponse<StageClaimDto>> WithdrawClaim([Query] string claimId);
+
+    /// <summary>What a claim on this stage could carry, with the newest frames suggested.</summary>
+    [Get("/api/Ledger/GetClaimEvidenceOptions")]
+    Task<IApiResponse<ClaimEvidenceOptionsDto>> GetClaimEvidenceOptions([Query] string projectId, [Query] string stageId);
 
     [Get("/api/Ledger/GetVariations")]
     Task<IApiResponse<List<VariationDto>>> GetVariations([Query] string projectId);

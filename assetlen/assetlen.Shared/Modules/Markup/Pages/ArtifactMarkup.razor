@@ -1,0 +1,576 @@
+@page "/project/{ProjectId}/artifact/{ArtifactId}"
+@attribute [Authorize]
+@inject ILogger<ArtifactMarkup> Logger
+
+@*
+    Peter's fourth search: circle the thing, ask why (plan.md P8).
+
+    The file is shown as it arrived — one canonical artifact (Law 2) — with
+    every layer the reader may see drawn over it. A circle and a question
+    become a query on the commitment the file is evidence for, and the answer
+    lands on that commitment, not in a message. Cleared is not closed: a paid
+    item can be asked about without it reading as an accusation.
+*@
+
+<PageTitle>Markup — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="register" GateBySection="false" Eyebrow="Markup"
+             Subtitle="Circle the thing, ask why. Your marks are a layer on the original — the file itself is never changed." Context="ctx">
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="This file didn't open"
+                ErrorMessage="@error"
+                EmptyIcon="image"
+                EmptyTitle="File not found"
+                EmptyBody="It may not be on this project, or not yours to see.">
+        <Loading>
+            <div class="markup">
+                <div class="al-shimmer markup__ghost"></div>
+                <div class="al-stack">
+                    <div class="al-shimmer al-ghost-line al-ghost-line--short"></div>
+                    <div class="al-shimmer al-ghost-card"></div>
+                </div>
+            </div>
+        </Loading>
+
+        <ChildContent>
+            @if (data?.Artifact is { } file)
+            {
+                <div class="markup">
+                    <section class="markup__stage" aria-label="The file">
+                        <header class="markup__file">
+                            <Icon Name="@(IsImage(file) ? "image" : "document")" Size="16" />
+                            <span class="markup__file-name al-truncate">@(file.OriginalFileName ?? "File")</span>
+                            <span class="al-subtle al-num markup__file-date">@Fmt.Date(file.CapturedAt ?? file.DateTimeCreated)</span>
+                            <span class="al-spacer"></span>
+                            <span class="al-badge al-badge--outline" title="Marks are layers over the file; the file is never edited.">
+                                <Icon Name="lock" Size="11" /> Original, unchanged
+                            </span>
+                        </header>
+
+                        @if (!IsImage(file))
+                        {
+                            <div class="al-alert al-alert--info" role="status">
+                                <Icon Name="info" Size="16" />
+                                <span>Only pictures can be marked up. This file can still be linked and asked about from the register.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            @if (Drawing)
+                            {
+                                <div class="markup__tools">
+                                    <div class="al-segmented" role="group" aria-label="Draw">
+                                        @foreach (var t in Tools)
+                                        {
+                                            <button type="button" class="al-segmented__item @(tool == t.Tool ? "is-active" : "")"
+                                                    aria-pressed="@(tool == t.Tool)" @onclick="() => tool = t.Tool">
+                                                <Icon Name="@t.Icon" Size="14" /> @t.Label
+                                            </button>
+                                        }
+                                    </div>
+                                    <span class="al-spacer"></span>
+                                    <button type="button" class="al-iconbtn al-iconbtn--sm" aria-label="Undo the last mark"
+                                            disabled="@(draft.Count == 0)" @onclick="Undo">
+                                        <Icon Name="arrow-left" Size="16" />
+                                    </button>
+                                    <button type="button" class="al-iconbtn al-iconbtn--sm" aria-label="Clear the marks you have not saved"
+                                            disabled="@(draft.Count == 0)" @onclick="() => draft = new()">
+                                        <Icon Name="close" Size="16" />
+                                    </button>
+                                </div>
+                            }
+
+                            @if (viewing is not null)
+                            {
+                                <div class="markup__viewing" role="status">
+                                    <Icon Name="history" Size="14" />
+                                    <span>Showing version @viewing.Version of @(viewing.AuthorName ?? "a")'s layer, from @Fmt.Date(viewing.DateTimeCreated).</span>
+                                    <span class="al-spacer"></span>
+                                    <button type="button" class="al-btn al-btn--link al-btn--sm" @onclick="() => viewing = null">Back to the current layers</button>
+                                </div>
+                            }
+
+                            <MarkupCanvas Artifact="file" Layers="ShownLayers" Draft="draft" DraftChanged="d => draft = d"
+                                          Tool="tool" Enabled="@(Drawing && viewing is null)" />
+
+                            @if (Drawing)
+                            {
+                                <p class="al-field__hint markup__hint">
+                                    @(draft.Count == 0
+                                        ? "Drag on the picture to circle what you mean."
+                                        : $"{draft.Count} {(draft.Count == 1 ? "mark" : "marks")} not saved yet.")
+                                </p>
+                            }
+                        }
+                    </section>
+
+                    <aside class="markup__side">
+                        @if (Drawing && IsImage(file))
+                        {
+                            <div class="al-sheet markup__compose">
+                                @if (data.CanAsk && data.CanAnnotate && editingLayerId is null)
+                                {
+                                    <div class="al-segmented markup__mode" role="group" aria-label="What to do with the marks">
+                                        <button type="button" class="al-segmented__item @(asking ? "is-active" : "")" aria-pressed="@asking" @onclick="() => asking = true">
+                                            <Icon Name="query" Size="14" /> Ask about it
+                                        </button>
+                                        <button type="button" class="al-segmented__item @(!asking ? "is-active" : "")" aria-pressed="@(!asking)" @onclick="() => asking = false">
+                                            <Icon Name="markup" Size="14" /> Just mark it
+                                        </button>
+                                    </div>
+                                }
+
+                                @if (asking && data.CanAsk && editingLayerId is null)
+                                {
+                                    <div class="al-field">
+                                        <label class="al-label" for="mk-commitment">On which item</label>
+                                        @if (options is null)
+                                        {
+                                            <div class="al-shimmer al-ghost-row"></div>
+                                        }
+                                        else if (options.Count == 0)
+                                        {
+                                            <span class="al-subtle">Nothing on the register can take a question right now.</span>
+                                        }
+                                        else
+                                        {
+                                            <select id="mk-commitment" class="al-select" @bind="commitmentId">
+                                                <option value="">Choose an item…</option>
+                                                @foreach (var o in options)
+                                                {
+                                                    <option value="@o.Id">@o.Label</option>
+                                                }
+                                            </select>
+                                        }
+                                    </div>
+                                    <div class="al-field">
+                                        <label class="al-label" for="mk-question">Your question</label>
+                                        <textarea id="mk-question" class="al-textarea" rows="3" maxlength="1000"
+                                                  placeholder="e.g. The receipt says 40 bags. We agreed 36 — which is right?"
+                                                  @bind="question" @bind:event="oninput"></textarea>
+                                        <span class="al-field__hint">Asking is not an accusation, even on something already paid. The answer will change the item itself.</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="al-field">
+                                        <label class="al-label" for="mk-note">@(editingLayerId is null ? "A note with your marks (optional)" : "Note")</label>
+                                        <input id="mk-note" class="al-input" maxlength="1000" @bind="note" @bind:event="oninput" />
+                                        <span class="al-field__hint">
+                                            @if (editingLayerId is not null)
+                                            {
+                                                <text>Saving adds a new version. The one before it is kept.</text>
+                                            }
+                                            else if (ctx.IsClientSide)
+                                            {
+                                                <text>Your layer is attributed to you and visible to both sides.</text>
+                                            }
+                                            else
+                                            {
+                                                <text>Your layer stays on the delivery side until the mediator shows it to the client.</text>
+                                            }
+                                        </span>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrEmpty(composeError))
+                                {
+                                    <div class="al-alert al-alert--error" role="alert"><Icon Name="error" Size="16" /><span>@composeError</span></div>
+                                }
+
+                                <div class="markup__compose-actions">
+                                    @if (editingLayerId is not null)
+                                    {
+                                        <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="StopEditing">Cancel</button>
+                                    }
+                                    <span class="al-spacer"></span>
+                                    <button type="button" class="al-btn al-btn--primary" disabled="@(busy || !Ready)" @onclick="SubmitAsync">
+                                        @if (busy) { <span class="al-spinner"></span> }
+                                        @SubmitLabel
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        @if (lastAsked is not null)
+                        {
+                            <div class="al-alert al-alert--success" role="status">
+                                <Icon Name="check-circle" Size="16" />
+                                <span>
+                                    Asked on <strong>@lastAsked.Title</strong>. It is under query until the answer is written onto it.
+                                    <a href="/project/@ProjectId/register?commitment=@lastAsked.Id">Open it on the register</a>
+                                </span>
+                            </div>
+                        }
+
+                        <section class="markup__layers" aria-labelledby="mk-layers">
+                            <div class="markup__layers-head">
+                                <h2 id="mk-layers" class="markup__h">Layers</h2>
+                                <span class="al-subtle">@data.Layers.Count</span>
+                            </div>
+
+                            @if (data.Layers.Count == 0)
+                            {
+                                <div class="al-empty markup__empty">
+                                    <Icon Name="markup" Size="32" Class="al-empty__icon" Weight="1.25" />
+                                    <p class="al-empty__body">No marks on this file yet@(Drawing ? " — drag on the picture to add the first." : ".")</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <ul class="markup__list">
+                                    @foreach (var l in data.Layers)
+                                    {
+                                        var hidden = hiddenLayers.Contains(l.LayerId!);
+                                        <li class="markup__layer @(l.CommitmentId is not null ? "markup__layer--question" : "") @(hidden ? "is-hidden" : "")">
+                                            <div class="markup__layer-head">
+                                                <span class="markup__swatch" aria-hidden="true"></span>
+                                                <span class="markup__layer-who">@(l.IsMine ? "You" : l.AuthorName ?? "Someone")</span>
+                                                <span class="al-subtle al-num">v@(l.Version)@(l.VersionCount > 1 ? $" of {l.VersionCount}" : "") · @Fmt.DateShort(l.DateTimeCreated)</span>
+                                                <span class="al-spacer"></span>
+                                                <button type="button" class="al-iconbtn al-iconbtn--sm"
+                                                        aria-label="@(hidden ? "Show this layer" : "Hide this layer")" aria-pressed="@(!hidden)"
+                                                        @onclick="() => Toggle(l.LayerId!)">
+                                                    <Icon Name="@(hidden ? "eye-off" : "eye")" Size="15" />
+                                                </button>
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(l.Note))
+                                            {
+                                                <p class="markup__layer-note">“@l.Note”</p>
+                                            }
+
+                                            <div class="markup__layer-meta">
+                                                @if (l.CommitmentId is not null)
+                                                {
+                                                    <a class="al-badge @(l.CommitmentQueryState == CommitmentQueryState.QueryRaised ? "al-badge--accent" : "al-badge--success")"
+                                                       href="/project/@ProjectId/register?commitment=@(l.CurrentCommitmentId ?? l.CommitmentId)">
+                                                        <Icon Name="query" Size="11" />
+                                                        @(l.CommitmentQueryState == CommitmentQueryState.QueryRaised ? "Asked" : "Answered"): @l.CommitmentTitle
+                                                    </a>
+                                                }
+                                                @if (l.Channel == Channel.Crew)
+                                                {
+                                                    <span class="al-badge al-badge--delivery" title="Delivery side only">
+                                                        <Icon Name="eye-off" Size="11" /> Delivery side
+                                                    </span>
+                                                }
+                                            </div>
+
+                                            @if (!ReadOnlyContext && (l.CanEdit || l.CanExpose))
+                                            {
+                                                <div class="markup__layer-actions">
+                                                    @if (l.CanEdit && IsImage(file))
+                                                    {
+                                                        <button type="button" class="al-btn al-btn--link al-btn--sm" disabled="@busy" @onclick="() => Edit(l)">
+                                                            <Icon Name="edit" Size="13" /> Add a version
+                                                        </button>
+                                                    }
+                                                    @if (l.CanExpose)
+                                                    {
+                                                        <button type="button" class="al-btn al-btn--link al-btn--sm" disabled="@busy" @onclick="() => ExposeAsync(l)">
+                                                            <Icon Name="@(l.Channel == Channel.Crew ? "eye" : "eye-off")" Size="13" />
+                                                            @(l.Channel == Channel.Crew ? "Show to the client side" : "Keep on the delivery side")
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+
+                            @if (data.History.Count > 0)
+                            {
+                                <button type="button" class="al-btn al-btn--link al-btn--sm markup__history-toggle" aria-expanded="@historyOpen"
+                                        @onclick="() => historyOpen = !historyOpen">
+                                    <Icon Name="history" Size="13" /> Earlier versions (@data.History.Count)
+                                </button>
+                                @if (historyOpen)
+                                {
+                                    <ol class="markup__history">
+                                        @foreach (var h in data.History)
+                                        {
+                                            <li>
+                                                <button type="button" class="markup__history-item @(viewing?.Id == h.Id ? "is-active" : "")" @onclick="() => viewing = h">
+                                                    <span>@(h.IsMine ? "You" : h.AuthorName) · v@(h.Version)</span>
+                                                    <span class="al-subtle al-num">@Fmt.DateShort(h.DateTimeCreated)</span>
+                                                </button>
+                                            </li>
+                                        }
+                                    </ol>
+                                }
+                            }
+                        </section>
+                    </aside>
+                </div>
+            }
+        </ChildContent>
+    </StateBlock>
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+    [Parameter] public string ArtifactId { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "commitment")] public string? CommitmentParam { get; set; }
+
+    private sealed record Option(string Id, string Label);
+
+    private static readonly (MarkupTool Tool, string Label, string Icon)[] Tools =
+    [
+        (MarkupTool.Circle, "Circle", "markup"),
+        (MarkupTool.Box, "Box", "grid"),
+        (MarkupTool.Arrow, "Arrow", "arrow-up-right"),
+        (MarkupTool.Pen, "Pen", "edit")
+    ];
+
+    private AnnotatedArtifactDto? data;
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? error;
+    private string? loadedKey;
+
+    private List<AnnotationShapeDto> draft = new();
+    private MarkupTool tool = MarkupTool.Circle;
+    private bool asking = true;
+    private string? commitmentId;
+    private string question = "";
+    private string note = "";
+    private string? editingLayerId;
+    private bool busy;
+    private string? composeError;
+    private CommitmentDto? lastAsked;
+
+    private List<Option>? options;
+    private readonly HashSet<string> hiddenLayers = new();
+    private AnnotationDto? viewing;
+    private bool historyOpen;
+
+    private bool Drawing => data is not null && (data.CanAnnotate || data.CanAsk);
+    private bool ReadOnlyContext => data is null || !data.CanAnnotate;
+
+    private static bool IsImage(ArtifactDto a) => a.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
+
+    private IReadOnlyList<MarkupLayerView> ShownLayers
+    {
+        get
+        {
+            if (data is null) return Array.Empty<MarkupLayerView>();
+            if (viewing is not null) return new[] { new MarkupLayerView(viewing.Shapes, MarkupTone.Other) };
+            return data.Layers
+                .Where(l => !hiddenLayers.Contains(l.LayerId!) && l.LayerId != editingLayerId)
+                .Select(l => new MarkupLayerView(l.Shapes, l.CommitmentId is not null ? MarkupTone.Question : MarkupTone.Other))
+                .ToList();
+        }
+    }
+
+    private bool Asking => asking && data?.CanAsk == true && editingLayerId is null;
+
+    private bool Ready => (draft.Count > 0 || editingLayerId is not null)
+        && (!Asking || (!string.IsNullOrWhiteSpace(question) && !string.IsNullOrEmpty(commitmentId)));
+
+    private string SubmitLabel => Asking ? "Ask on the item" : editingLayerId is not null ? "Save a new version" : "Save as a layer";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}/{ArtifactId}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        commitmentId = CommitmentParam;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        error = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await _annotationsApi.GetForArtifact(ArtifactId);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                phase = LoadPhase.Empty;
+                return;
+            }
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                error = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+            if (response.Content.Artifact?.ProjectId != ProjectId)
+            {
+                phase = LoadPhase.Empty;
+                return;
+            }
+
+            data = response.Content;
+            asking = data.CanAsk;
+            phase = LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Markup failed to load for {ArtifactId}", ArtifactId);
+            phase = LoadPhase.Error;
+            error = ex.Message;
+        }
+        finally { StateHasChanged(); }
+
+        if (data?.CanAsk == true && options is null) await LoadOptionsAsync();
+    }
+
+    /// <summary>The items a question can land on — the ones this file is already linked to first.</summary>
+    private async Task LoadOptionsAsync()
+    {
+        try
+        {
+            var response = await _commitmentsApi.GetCommitments(ProjectId);
+            var all = response.IsSuccessStatusCode ? response.Content ?? new() : new();
+            var linked = data?.LinkedCommitments.Select(l => l.CommitmentId).ToHashSet() ?? new HashSet<string?>();
+            options = all
+                .Where(c => c.CanRaiseQuery || c.Id == commitmentId)
+                .OrderBy(c => linked.Contains(c.Id) ? 0 : 1)
+                .Select(c => new Option(c.Id!, Label(c, linked.Contains(c.Id))))
+                .ToList();
+
+            if (string.IsNullOrEmpty(commitmentId))
+                commitmentId = options.FirstOrDefault(o => linked.Contains(o.Id))?.Id;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Register items failed to load for {ProjectId}", ProjectId);
+            options = new();
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private static string Label(CommitmentDto c, bool linked)
+    {
+        var parts = new List<string> { c.Title ?? "Untitled" };
+        if (c.Amount is { } a) parts.Add(Fmt.Money(a, c.Currency));
+        if (c.QueryState == CommitmentQueryState.Cleared) parts.Add("cleared");
+        if (linked) parts.Add("linked to this file");
+        return string.Join(" · ", parts);
+    }
+
+    private void Undo()
+    {
+        if (draft.Count == 0) return;
+        draft = draft.Take(draft.Count - 1).ToList();
+    }
+
+    private void Toggle(string layerId)
+    {
+        if (!hiddenLayers.Remove(layerId)) hiddenLayers.Add(layerId);
+    }
+
+    private void Edit(AnnotationDto layer)
+    {
+        viewing = null;
+        editingLayerId = layer.LayerId;
+        draft = layer.Shapes.Select(s => new AnnotationShapeDto
+        {
+            Kind = s.Kind, X = s.X, Y = s.Y, W = s.W, H = s.H, Points = s.Points is null ? null : new List<double>(s.Points)
+        }).ToList();
+        note = layer.Note ?? "";
+        composeError = null;
+    }
+
+    private void StopEditing()
+    {
+        editingLayerId = null;
+        draft = new();
+        note = "";
+        composeError = null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        composeError = null;
+        StateHasChanged();
+
+        try
+        {
+            if (Asking)
+            {
+                var response = await _annotationsApi.Ask(new AnnotationAskDto
+                {
+                    ArtifactId = ArtifactId,
+                    CommitmentId = commitmentId,
+                    Shapes = draft,
+                    Question = question.Trim()
+                });
+                if (!response.IsSuccessStatusCode || response.Content is null)
+                {
+                    composeError = _apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.";
+                    return;
+                }
+                lastAsked = response.Content.Commitment;
+                question = "";
+                ToastService.ShowSuccess("Asked. The answer will land on the item, not in a message.");
+            }
+            else
+            {
+                var response = await _annotationsApi.Save(new AnnotationSaveDto
+                {
+                    ArtifactId = ArtifactId,
+                    LayerId = editingLayerId,
+                    Shapes = draft,
+                    Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
+                });
+                if (!response.IsSuccessStatusCode || response.Content is null)
+                {
+                    composeError = _apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.";
+                    return;
+                }
+                ToastService.ShowSuccess(editingLayerId is null
+                    ? "Saved as a layer. The file itself is unchanged."
+                    : $"Saved as version {response.Content.Version}. The earlier one is kept.");
+            }
+
+            draft = new();
+            note = "";
+            editingLayerId = null;
+            options = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Markup save failed on {ArtifactId}", ArtifactId);
+            composeError = "That did not go through.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExposeAsync(AnnotationDto layer)
+    {
+        busy = true;
+        try
+        {
+            var to = layer.Channel == Channel.Crew ? Channel.Client : Channel.Crew;
+            var response = await _annotationsApi.Expose(new AnnotationExposeDto { LayerId = layer.LayerId, Channel = to });
+            if (!response.IsSuccessStatusCode)
+            {
+                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.");
+                return;
+            }
+            ToastService.ShowSuccess(to == Channel.Client
+                ? "Shown to the client side, in your name."
+                : "Back on the delivery side only.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Expose failed on {LayerId}", layer.LayerId);
+            ToastService.ShowError("That did not go through.");
+        }
+        finally { busy = false; }
+    }
+}

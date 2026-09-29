@@ -1,0 +1,33 @@
+.voice {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-3);
+}
+
+.voice__player {
+    height: 36px;
+    max-width: 100%;
+    flex: 1 1 14rem;
+}
+
+.voice__live {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--al-danger);
+    animation: voice-pulse 1.2s var(--al-ease) infinite;
+}
+
+.voice__hint,
+.voice__error {
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+}
+
+.voice__error { color: var(--al-danger); }
+
+@keyframes voice-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}

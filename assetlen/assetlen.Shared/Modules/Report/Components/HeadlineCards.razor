@@ -1,0 +1,36 @@
+@*
+    ② One number, one word of state, one line each (works-report.md §3.1). The
+    state word carries the tone; the number stays in text ink. A reader off the
+    money gets three cards, not a fourth that says "hidden".
+*@
+
+<div class="hcards">
+    @foreach (var card in Cards)
+    {
+        <div class="hcard">
+            <span class="al-label">@Label(card.Key)</span>
+            <span class="hcard__figure">
+                @if (card.Unit is not null)
+                {
+                    <span class="hcard__unit">@card.Unit</span>
+                }
+                <span class="hcard__value al-num">@card.Value</span>
+            </span>
+            <span class="hcard__state @ReportFormat.ToneClass(card.Tone)">@card.StateWord</span>
+            <span class="hcard__line">@card.Line</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<HeadlineCardDto> Cards { get; set; } = new();
+
+    private static string Label(string key) => key switch
+    {
+        "built" => "Built",
+        "deadline" => "Completion",
+        "money" => "Money in",
+        "owed" => "Owed and stuck",
+        _ => key
+    };
+}

@@ -1,0 +1,81 @@
+@*
+    ⑨ The next four weeks: deliverables due, dates promised, decisions owed —
+    each with who owes it, by when and what waiting holds up — and the phases
+    that come next. A revised completion date owed *to* Peter is listed as owed.
+*@
+
+@if (Ahead.Items.Count == 0)
+{
+    <p class="ahead__none">Nothing is due in the next @Ahead.HorizonDays days, and no decision is owed.</p>
+}
+else
+{
+    <ol class="ahead">
+        @foreach (var item in Ahead.Items)
+        {
+            <li class="ahead__item @ReportFormat.Phase(item.Phase) @(item.DaysAway is < 0 ? "ahead__item--late" : "")">
+                <span class="ahead__icon"><Icon Name="@Icon(item.Kind)" Size="16" /></span>
+                <div class="ahead__body">
+                    <span class="ahead__title">@item.Title</span>
+                    <span class="ahead__meta">
+                        <span>@Word(item)</span>
+                        @if (item.StageName is not null && item.Kind != AheadKind.NextStage)
+                        {
+                            <span class="al-stage-chip">@item.StageName</span>
+                        }
+                        @if (item.Consequence is not null)
+                        {
+                            <span class="ahead__consequence">@item.Consequence</span>
+                        }
+                    </span>
+                </div>
+                <span class="ahead__when al-num">
+                    @if (item.DueBy is { } due)
+                    {
+                        <span>@ReportFormat.Day(due)</span>
+                        <span class="ahead__days">@Days(item.DaysAway)</span>
+                    }
+                    else
+                    {
+                        <GapMarker Text="no date" />
+                    }
+                </span>
+                <span class="ahead__src"><SourceChip Ids="item.SourceIds" Max="2" /></span>
+            </li>
+        }
+    </ol>
+}
+
+@code {
+    [Parameter, EditorRequired] public AheadDto Ahead { get; set; } = new();
+
+    private static string Icon(AheadKind k) => k switch
+    {
+        AheadKind.Deliverable => "check",
+        AheadKind.DatePromise => "calendar",
+        AheadKind.DecisionOwed => "decision",
+        _ => "stage"
+    };
+
+    private static string Word(AheadItemDto i) => i.Kind switch
+    {
+        AheadKind.Deliverable => "Deliverable due",
+        AheadKind.DatePromise => "Date promised",
+        AheadKind.DecisionOwed => i.OwedBy switch
+        {
+            ProjectSide.Client => "Decision owed by the client side",
+            ProjectSide.Contractor => "Owed by the delivery side",
+            _ => "Decision owed"
+        },
+        _ => "Next stage"
+    };
+
+    private static string Days(int? d) => d switch
+    {
+        null => "",
+        < 0 => $"{-d} days late",
+        0 => "today",
+        1 => "tomorrow",
+        _ => $"in {d} days"
+    };
+}

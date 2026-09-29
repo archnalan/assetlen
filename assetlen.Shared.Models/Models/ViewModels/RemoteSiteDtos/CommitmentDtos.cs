@@ -111,6 +111,43 @@ public class CommitmentDto : BaseDto
 
     public int LinkCount { get; set; }
 
+    // ─── What the answer changed (P8) ────────────────────────────
+    // A resolved query that moved the figure reads "revised to 4 bags,
+    // +UGX 480,000" on the item itself, not in a message (assetlen.md §3).
+
+    /// <summary>The figure of the statement this one replaced. Masked with <see cref="Amount"/>.</summary>
+    public decimal? PreviousAmount { get; set; }
+    public DateTime? PreviousDueDate { get; set; }
+
+    /// <summary>When the statement this one replaced had been cleared — "cleared is not closed".</summary>
+    public DateTime? PreviousClearedAt { get; set; }
+
+    /// <summary>The marked-up artifact the latest query on this item (or an earlier statement of it) was asked on.</summary>
+    public string? MarkupArtifactId { get; set; }
+    public string? MarkupLayerId { get; set; }
+    public string? MarkupNote { get; set; }
+
+    // ─── Parked ideas and decide-by (P8, Law 4) ──────────────────
+
+    /// <summary>Work that must not start before this is decided — the driveway that the gate duct runs under.</summary>
+    public string? DependsOnStageId { get; set; }
+    public string? DependsOnStageName { get; set; }
+
+    /// <summary>Computed backwards from the stage start and lead time. Null while waiting costs nothing.</summary>
+    public DateTime? DecideBy { get; set; }
+    public string? DecideByReason { get; set; }
+
+    /// <summary>True only when waiting has started to cost something. An idea is never nagged before that.</summary>
+    public bool IsSurfaced { get; set; }
+
+    public int EstimateCount { get; set; }
+    public decimal? EstimateLow { get; set; }
+    public decimal? EstimateHigh { get; set; }
+    public decimal? LatestEstimate { get; set; }
+    public string? EstimateCurrency { get; set; }
+
+    public bool IsParkedIdea => Maturity == CommitmentMaturity.Idea && SupersededAt is null;
+
     // ─── What the reader may do, stamped by the server ───────────
     // Never inferred from CanWrite on the client. A spoken agreement is
     // confirmed by the other side, never by the person who wrote it down.
@@ -123,6 +160,11 @@ public class CommitmentDto : BaseDto
     public bool CanResolveQuery { get; set; }
     public bool CanClear { get; set; }
     public bool CanRestate { get; set; }
+    public bool CanAddEstimate { get; set; }
+    public bool CanPark { get; set; }
+
+    /// <summary>May put a figure on the idea — the money seat only.</summary>
+    public bool CanPriceEstimate { get; set; }
 
     /// <summary>Spoken or minuted, and the other side has not yet said yes or no.</summary>
     public bool IsAwaitingCounterparty { get; set; }
@@ -157,6 +199,49 @@ public class CommitmentCreateDto
     public int? LeadTimeDays { get; set; }
     public ProjectSide? OwedBySide { get; set; }
     [MaxLength(40)] public string? IngestedMessageId { get; set; }
+
+    /// <summary>For a parked idea: the stage that must not start before it is decided.</summary>
+    [MaxLength(40)] public string? DependsOnStageId { get; set; }
+}
+
+/// <summary>
+/// Re-file an idea: which stage it waits for, what must not start first, how
+/// long it takes once decided. Planning, not a statement of what was agreed —
+/// so it edits in place, and only while nothing has been agreed.
+/// </summary>
+public class CommitmentParkDto
+{
+    [Required, MaxLength(40)] public string? CommitmentId { get; set; }
+    [MaxLength(40)] public string? StageId { get; set; }
+    [MaxLength(40)] public string? DependsOnStageId { get; set; }
+    public int? LeadTimeDays { get; set; }
+
+    /// <summary>Set to clear the dependency rather than leave it unchanged.</summary>
+    public bool ClearDependency { get; set; }
+}
+
+/// <summary>A figure somebody put on an idea — a quote, a guess, a price seen. Accumulates silently.</summary>
+public class CommitmentEstimateDto : BaseDto
+{
+    public string? CommitmentId { get; set; }
+    public decimal? Amount { get; set; }
+    public string? Currency { get; set; }
+    public bool AmountHidden { get; set; }
+    public string? Note { get; set; }
+    public string? RecordedByName { get; set; }
+    public DateTime? RecordedAt { get; set; }
+    public string? IngestedMessageId { get; set; }
+    public string? ArtifactId { get; set; }
+}
+
+public class CommitmentEstimateCreateDto
+{
+    [Required, MaxLength(40)] public string? CommitmentId { get; set; }
+    public decimal? Amount { get; set; }
+    [MaxLength(3)] public string? Currency { get; set; }
+    [MaxLength(500)] public string? Note { get; set; }
+    [MaxLength(40)] public string? IngestedMessageId { get; set; }
+    [MaxLength(40)] public string? ArtifactId { get; set; }
 }
 
 /// <summary>A new statement of an existing commitment. The old one is kept, marked superseded.</summary>
@@ -206,6 +291,9 @@ public class CommitmentLinkDto : BaseDto
     /// <summary>A human label for the target — a stage release, a message excerpt, a file name.</summary>
     public string? TargetLabel { get; set; }
     public DateTime? TargetDate { get; set; }
+
+    /// <summary>The file behind an artifact or markup link, so the reader can open it and mark it up.</summary>
+    public string? ArtifactId { get; set; }
 }
 
 public class CommitmentLinkCreateDto
@@ -330,6 +418,9 @@ public class StageClaimDto : BaseDto
 
     /// <summary>What counts against the stage once cleared.</summary>
     public decimal SettledAmount => ClearedAmount ?? Amount;
+
+    /// <summary>The proof the claim carries — frames, deliverables signed off, the latest reading.</summary>
+    public List<ClaimEvidenceDto> Evidence { get; set; } = new();
 }
 
 public class StageClaimCreateDto
@@ -340,6 +431,13 @@ public class StageClaimCreateDto
     public DateTime? ClaimedAt { get; set; }
     [MaxLength(500)] public string? Note { get; set; }
     [MaxLength(40)] public string? EvidenceArtifactId { get; set; }
+
+    /// <summary>Captured frames to carry. Attaching one sends it across in the accountable face's name.</summary>
+    public List<string> EvidenceImageIds { get; set; } = new();
+
+    public List<string> EvidenceDeliverableIds { get; set; } = new();
+
+    public bool AttachLatestReading { get; set; }
 }
 
 public class StageClaimDecisionDto

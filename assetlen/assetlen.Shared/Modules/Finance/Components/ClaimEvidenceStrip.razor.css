@@ -1,0 +1,37 @@
+.cev {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-1);
+    margin-top: var(--al-space-2);
+}
+
+.cev__thumb {
+    width: 3.25rem;
+    border-radius: var(--al-radius-xs);
+    overflow: hidden;
+    border: 1px solid var(--al-border);
+}
+
+.cev__thumb ::deep .athumb { aspect-ratio: var(--al-aspect-thumb); width: 100%; }
+
+.cev__more {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    padding: 0 var(--al-space-1);
+}
+
+.cev__facts {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    margin-left: var(--al-space-1);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.cev--none {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-warning);
+}

@@ -1,0 +1,52 @@
+@*
+    ① The cover. The direct answer to the question Peter actually asks — on time
+    or not, and by how much — comes before anything else on the page.
+*@
+
+<header class="rcover">
+    <div class="rcover__hero">
+        @if (Report.Cover.HeroArtifactId is { } hero)
+        {
+            <ArtifactThumb ArtifactId="@hero" HasThumbnail="true" MimeType="image/jpeg" Cover="true" />
+        }
+        else
+        {
+            <div class="rcover__nohero">
+                <Icon Name="image" Size="28" Weight="1.25" />
+                <span>No photograph in this window</span>
+            </div>
+        }
+    </div>
+
+    <div class="rcover__body">
+        <span class="al-eyebrow">@Report.Cover.Subtitle</span>
+        <h1 class="rcover__title">@Report.Cover.Title</h1>
+        <p class="rcover__meta">
+            <span>Window: @Report.WindowLabel</span>
+            @if (Report.MediatorName is not null)
+            {
+                <span>Accountable: @Report.MediatorName</span>
+            }
+            <span>@(Report.Audience == ProjectSide.Client ? "Client side" : "Delivery side")</span>
+        </p>
+
+        <div class="rcover__answer">
+            <span class="al-label">On time, and how long</span>
+            <NarrativeText Sentences="@ReportFormat.Words(Report, "answer")" Class="rcover__answer-text" />
+        </div>
+
+        <NarrativeText Sentences="@ReportFormat.Words(Report, "cover")" />
+
+        @if (!string.IsNullOrWhiteSpace(Report.CoveringNote))
+        {
+            <blockquote class="rcover__note">
+                <span class="al-label">Covering note from @Report.IssuedByName</span>
+                <p>@Report.CoveringNote</p>
+            </blockquote>
+        }
+    </div>
+</header>
+
+@code {
+    [Parameter, EditorRequired] public WorksReportDto Report { get; set; } = new();
+}

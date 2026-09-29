@@ -224,6 +224,8 @@ public class ProjectAccessDto
     public bool CanSeeHistory { get; set; }
     public bool CanCapture { get; set; }
     public bool CanSeeRegister { get; set; }
+    public bool CanSeeReport { get; set; }
+    public bool CanIssueReport { get; set; }
 
     /// <summary>The photographer's day starts at the camera, not at a dashboard.</summary>
     public bool LandsOnCapture { get; set; }
@@ -252,6 +254,8 @@ public class ProjectAccessDto
         CanSeeHistory = access.CanSeeHistory,
         CanCapture = access.CanCapture,
         CanSeeRegister = access.CanSeeRegister,
+        CanSeeReport = access.CanSeeReport,
+        CanIssueReport = access.CanIssueReport,
         LandsOnCapture = access.LandsOnCapture
     };
 }
@@ -498,6 +502,19 @@ public class ProgressUpdateDto : BaseDto
     public int ImageCount { get; set; }
 
     public List<ProgressCommentDto> Comments { get; set; } = new();
+
+    public string? DeliverableId { get; set; }
+    public string? DeliverableTitle { get; set; }
+
+    /// <summary>When it was shot, which an offline queue can put hours before it arrived.</summary>
+    public DateTime? CapturedAt { get; set; }
+
+    public string? ClientCaptureId { get; set; }
+
+    public string? VoiceArtifactId { get; set; }
+    public string? VoiceUrl { get; set; }
+    public string? VoiceTranscript { get; set; }
+    public ArtifactTextStatus? VoiceTranscriptStatus { get; set; }
 }
 
 public class ProgressUpdateCreateDto
@@ -521,10 +538,19 @@ public class ProgressUpdateCreateDto
     public Channel Channel { get; set; } = Channel.Crew;
 
     /// <summary>
-    /// Base64-encoded images with optional captions.
-    /// Max 5 per update.
+    /// Base64-encoded images with optional captions. The multipart
+    /// <c>Progress/Capture</c> is the capture path; this one stays for older clients.
     /// </summary>
     public List<ProgressImageUploadDto> Images { get; set; } = new();
+
+    [MaxLength(40)]
+    public string? DeliverableId { get; set; }
+
+    /// <summary>Idempotency key from the offline queue — a retry never posts twice.</summary>
+    [MaxLength(64)]
+    public string? ClientCaptureId { get; set; }
+
+    public DateTime? CapturedAt { get; set; }
 }
 
 public class ProgressImageDto : BaseDto
@@ -548,6 +574,9 @@ public class ProgressImageDto : BaseDto
 
     public string? ExposedById { get; set; }
     public DateTime? ExposedAt { get; set; }
+
+    /// <summary>The mediator's keep / lose mark. Only the delivery side receives anything but Auto.</summary>
+    public FrameCuration Curation { get; set; }
 
     public List<ProgressCommentDto> Comments { get; set; } = new();
 }
@@ -825,6 +854,9 @@ public class FlagCreateDto
     /// <summary>Who has to move, when they are not on the roster — "the epoxy team".</summary>
     [MaxLength(200)]
     public string? OwnerPartyName { get; set; }
+
+    /// <summary>When it was first reported, if earlier than now — a blocker read from an old message keeps its age.</summary>
+    public DateTime? RaisedAt { get; set; }
 }
 
 public class FlagUpdateDto

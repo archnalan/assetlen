@@ -16,12 +16,13 @@ if ($LASTEXITCODE -ne 0) { Write-Error "build failed"; exit 1 }
 $logs = Join-Path $root 'tools/fixtures/logs'
 New-Item -ItemType Directory -Force $logs | Out-Null
 
-Start-Process dotnet -ArgumentList 'run','--no-build','--project',"$root/assetlen.API",'--launch-profile','https' `
+# One string with the path quoted: Start-Process joins an array unquoted, and the repo path has spaces.
+Start-Process dotnet -ArgumentList "run --no-build --project `"$root/assetlen.API`" --launch-profile https" `
     -WorkingDirectory $root -WindowStyle Hidden `
     -RedirectStandardOutput "$logs/api.out.log" -RedirectStandardError "$logs/api.err.log"
 
 if (-not $ApiOnly) {
-    Start-Process dotnet -ArgumentList 'run','--no-build','--project',"$root/assetlen.Client",'--launch-profile','https' `
+    Start-Process dotnet -ArgumentList "run --no-build --project `"$root/assetlen.Client`" --launch-profile https" `
         -WorkingDirectory $root -WindowStyle Hidden `
         -RedirectStandardOutput "$logs/client.out.log" -RedirectStandardError "$logs/client.err.log"
 }

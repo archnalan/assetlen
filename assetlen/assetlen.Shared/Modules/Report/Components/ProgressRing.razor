@@ -1,0 +1,30 @@
+@* Stage completion. The arc takes the phase accent from its card; the figure stays in text ink. *@
+
+<svg class="ring" viewBox="0 0 44 44" width="@Size" height="@Size" role="img" aria-label="@Label">
+    <title>@Label</title>
+    <circle class="ring__track" cx="22" cy="22" r="18" />
+    @if (Percent is > 0)
+    {
+        <circle class="ring__arc" cx="22" cy="22" r="18"
+                stroke-dasharray="@Dash" transform="rotate(-90 22 22)" />
+    }
+    <text class="ring__text" x="22" y="22">@(Percent is { } p ? p.ToString("0", CultureInfo.InvariantCulture) : "—")</text>
+</svg>
+
+@code {
+    [Parameter] public decimal? Percent { get; set; }
+    [Parameter] public int Size { get; set; } = 44;
+
+    private const double Circumference = 2 * Math.PI * 18;
+
+    private string Dash
+    {
+        get
+        {
+            var filled = Circumference * (double)Math.Clamp(Percent ?? 0, 0, 100) / 100.0;
+            return string.Create(CultureInfo.InvariantCulture, $"{filled:0.##} {Circumference:0.##}");
+        }
+    }
+
+    private string Label => Percent is { } p ? $"{p:0.#}% complete" : "No reading";
+}

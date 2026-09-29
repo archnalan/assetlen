@@ -1,0 +1,8 @@
+.narr {
+    margin: 0;
+    color: var(--al-text);
+    font-size: var(--al-font-size-md);
+    line-height: 1.55;
+}
+
+.narr__s { margin-right: var(--al-space-1); }

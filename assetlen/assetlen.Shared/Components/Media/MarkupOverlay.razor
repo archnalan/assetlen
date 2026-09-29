@@ -1,0 +1,68 @@
+@*
+    Markup as a layer on the original (assetlen.md Law 2). The marks are
+    fractions of the image, drawn over it — the file underneath is never
+    touched and no new image is made. Used by the markup page and by a
+    commitment that was questioned on a marked-up file.
+*@
+
+<svg class="markup-overlay" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+    @foreach (var layer in Layers)
+    {
+        <g class="markup-overlay__layer markup-overlay__layer--@layer.Tone.ToString().ToLowerInvariant()">
+            @foreach (var s in layer.Shapes)
+            {
+                switch (s.Kind)
+                {
+                    case AnnotationShapeKind.Ellipse:
+                        <ellipse cx="@N(s.X + s.W / 2)" cy="@N(s.Y + s.H / 2)" rx="@N(s.W / 2)" ry="@N(s.H / 2)" vector-effect="non-scaling-stroke" />
+                        break;
+                    case AnnotationShapeKind.Rect:
+                        <rect x="@N(s.X)" y="@N(s.Y)" width="@N(s.W)" height="@N(s.H)" vector-effect="non-scaling-stroke" />
+                        break;
+                    case AnnotationShapeKind.Arrow:
+                        <polyline points="@ArrowPoints(s)" vector-effect="non-scaling-stroke" />
+                        break;
+                    case AnnotationShapeKind.Path:
+                        <polyline points="@PathPoints(s)" vector-effect="non-scaling-stroke" />
+                        break;
+                }
+            }
+        </g>
+    }
+</svg>
+
+@code {
+    [Parameter] public IReadOnlyList<MarkupLayerView> Layers { get; set; } = Array.Empty<MarkupLayerView>();
+
+    /// <summary>Width over height of the picture — keeps an arrowhead's barbs even on a tall receipt.</summary>
+    [Parameter] public double Aspect { get; set; } = 1.0;
+
+    private static string N(double v) => v.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string PathPoints(AnnotationShapeDto s)
+    {
+        var p = s.Points ?? new List<double>();
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i + 1 < p.Count; i += 2) sb.Append(N(p[i])).Append(',').Append(N(p[i + 1])).Append(' ');
+        return sb.ToString();
+    }
+
+    /// <summary>A shaft and a two-barbed head, as one polyline: barbs – tip – shaft – tip – barb.</summary>
+    private string ArrowPoints(AnnotationShapeDto s)
+    {
+        double x1 = s.X, y1 = s.Y, x2 = s.X + s.W, y2 = s.Y + s.H;
+        var a = Aspect <= 0 ? 1 : Aspect;
+
+        // Work in a space where one unit is the same length across and down.
+        double dx = (x2 - x1) * a, dy = y2 - y1;
+        var len = Math.Sqrt(dx * dx + dy * dy);
+        if (len < 1e-6) return $"{N(x1)},{N(y1)} {N(x2)},{N(y2)}";
+        var head = Math.Min(0.06, len * 0.35);
+        double ux = dx / len, uy = dy / len;
+        const double spread = 0.45;
+        double Bx(double sign) => x2 - (head * (ux * Math.Cos(spread) - sign * uy * Math.Sin(spread))) / a;
+        double By(double sign) => y2 - head * (uy * Math.Cos(spread) + sign * ux * Math.Sin(spread));
+
+        return $"{N(Bx(1))},{N(By(1))} {N(x2)},{N(y2)} {N(x1)},{N(y1)} {N(x2)},{N(y2)} {N(Bx(-1))},{N(By(-1))}";
+    }
+}

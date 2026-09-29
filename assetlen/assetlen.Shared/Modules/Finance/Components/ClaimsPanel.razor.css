@@ -57,3 +57,45 @@
         justify-content: flex-start;
     }
 }
+
+/* ── Evidence the claim carries (P9) ─────────────────────────────────── */
+
+.claims__evidence { gap: var(--al-space-2); }
+
+.claims__pick {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: var(--al-space-2);
+}
+
+.claims__pick-frame {
+    position: relative;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: var(--al-radius-xs);
+    background: none;
+    overflow: hidden;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity var(--al-transition-fast), border-color var(--al-transition-fast);
+}
+
+.claims__pick-frame ::deep .athumb { aspect-ratio: var(--al-aspect-thumb); width: 100%; }
+
+.claims__pick-frame.is-on {
+    border-color: var(--al-accent);
+    opacity: 1;
+}
+
+.claims__pick-tick {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--al-accent);
+    color: var(--al-bg-elevated);
+}

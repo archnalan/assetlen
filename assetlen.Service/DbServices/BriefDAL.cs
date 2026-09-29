@@ -23,9 +23,14 @@ public class BriefDAL : IBriefDAL
     /// <summary>A photo with no words of its own belongs to what its sender said within this many minutes.</summary>
     private const int BurstMinutes = 45;
 
+    /// <summary>A line with no subject of its own answers whatever was named within this many minutes before it.</summary>
+    private const int ReplyMinutes = 20;
+
     private const int NotesPerBlock = 6;
     private const int FramesPerBlock = 6;
     private const int PairsPerBlock = 2;
+
+    private static readonly Regex RegisterKey = new(@"^(?:commitment|date|spec|dispute):", RegexOptions.CultureInvariant);
 
     private static readonly Regex CameraName = new(@"^(?:IMG|VID|PTT|AUD|DOC|STK|DSC|PXL|WhatsApp)[\s_\-]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
@@ -128,9 +133,10 @@ public class BriefDAL : IBriefDAL
         {
             var open = await _context.tbl_Commitments.AsNoTracking()
                 .Include(c => c.Stage)
+                .Include(c => c.DependsOnStage)
                 .Include(c => c.Deliverable)
                 .Where(c => c.ProjectId != null && registerPids.Contains(c.ProjectId) && c.SupersededAt == null
-                            && ((c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed)
+                            && (c.Maturity < CommitmentMaturity.Agreed
                                 || ((c.SourceChannel == CommitmentSource.Verbal || c.SourceChannel == CommitmentSource.Meeting)
                                     && c.CounterpartyConfirmedAt == null && c.DisputedAt == null)))
                 .ToListAsync(ct);
@@ -138,12 +144,45 @@ public class BriefDAL : IBriefDAL
             foreach (var c in open)
             {
                 var a = AccessOn(c.ProjectId);
+                var decideBy = DecideByRule.Compute(c.Maturity, c.Stage?.StageName, c.Stage?.StartDate,
+                    c.DependsOnStage?.StageName, c.DependsOnStage?.StartDate, c.LeadTimeDays, today);
+
+                // Law 4: an idea is never nagged. It speaks only once waiting
+                // costs something — a lead time, a dependency, its stage starting —
+                // and then to the side that owes the decision (the owner's, unless
+                // somebody said otherwise).
+                if (c.Maturity == CommitmentMaturity.Idea)
+                {
+                    if (decideBy is not { Surfaced: true } || a.Side is null || (c.OwedBySide ?? ProjectSide.Client) != a.Side)
+                        continue;
+                    owed.Add(new OwedItemDto
+                    {
+                        Key = $"commitment:{c.Id}",
+                        Kind = OwedKind.ParkedIdea,
+                        ProjectId = c.ProjectId!,
+                        ProjectName = NameOf(c.ProjectId),
+                        StageName = c.Stage?.StageName,
+                        StagePhase = c.Stage?.Phase,
+                        DeliverableTitle = c.Deliverable?.Title,
+                        Title = $"Parked: {c.Title}",
+                        Consequence = decideBy.Reason,
+                        DueBy = decideBy.Date,
+                        IsOverdue = decideBy.Date.Date < today,
+                        Amount = a.CanSeeMoney ? c.Amount : null,
+                        Currency = a.CanSeeMoney ? c.Currency : null,
+                        AmountHidden = !a.CanSeeMoney && c.Amount is not null,
+                        Href = $"/project/{c.ProjectId}/register?commitment={c.Id}"
+                    });
+                    continue;
+                }
+
                 var choice = c.Kind == CommitmentKind.Choice && c.Maturity < CommitmentMaturity.Agreed
                              && a.Side is not null && c.OwedBySide == a.Side;
                 var confirm = CommitmentDAL.CanAnswerSpoken(c, a, userId);
                 if (!choice && !confirm) continue;
 
-                var due = c.DueDate ?? c.Deliverable?.DueDate;
+                // A human's date wins; otherwise the lead time sets the by-when.
+                var due = c.DueDate ?? (choice ? decideBy?.Date : null) ?? c.Deliverable?.DueDate;
                 owed.Add(new OwedItemDto
                 {
                     Key = $"commitment:{c.Id}",
@@ -309,6 +348,10 @@ public class BriefDAL : IBriefDAL
     /// <summary>What waiting on a choice costs, in words — what it holds up and when that work is due.</summary>
     private static string? ConsequenceOf(tbl_Commitment c, DateTime today)
     {
+        if (c.DependsOnStage?.StartDate is { } dep && dep.Date >= today)
+            return $"Has to be settled before {c.DependsOnStage.StageName} starts {dep:d MMM}"
+                   + (c.LeadTimeDays is > 0 ? $" · {c.LeadTimeDays} days' lead time once decided" : "");
+
         var parts = new List<string>();
         if (c.Deliverable?.Title is { } d) parts.Add($"Holds up {d}");
         else if (c.Stage?.StageName is { } s) parts.Add($"Holds up {s}");
@@ -641,6 +684,9 @@ public class BriefDAL : IBriefDAL
         public required string Key { get; init; }
         public tbl_Stage? Stage { get; init; }
         public tbl_Deliverable? Deliverable { get; init; }
+
+        /// <summary>Set when the work was named only by the stage catalogue — it is not a stage on this project yet.</summary>
+        public StageCatalogueItem? Catalogue { get; init; }
         public List<BriefNoteDto> Notes { get; } = new();
         public List<Frame> Frames { get; } = new();
         public List<TruthItemDto> Commitments { get; } = new();
@@ -694,7 +740,9 @@ public class BriefDAL : IBriefDAL
                 {
                     Key = key,
                     Stage = f.StageId is not null ? stageById.GetValueOrDefault(f.StageId) : null,
-                    Deliverable = f.DeliverableId is not null ? deliverableById.GetValueOrDefault(f.DeliverableId) : null
+                    Deliverable = f.DeliverableId is not null ? deliverableById.GetValueOrDefault(f.DeliverableId) : null,
+                    Catalogue = f.StageId is { } sid && sid.StartsWith(BriefFiler.CataloguePrefix)
+                        ? StageCatalogue.Find(sid[BriefFiler.CataloguePrefix.Length..]) : null
                 };
                 blocks[key] = b;
                 return b;
@@ -751,11 +799,21 @@ public class BriefDAL : IBriefDAL
                 .ToDictionary(g => g.Key, g => Path.GetFileNameWithoutExtension(g.First().Caption!));
 
             // Text first: what each message is about.
+            // A reply with no subject of its own — "Tomorrow", "by end of the week
+            // we shall have the first half ready" — is about what it answers.
             var filingOf = new Dictionary<string, Filing>();
+            (DateTime At, Filing F)? lastSubject = null;
             foreach (var m in messages)
             {
-                if (decided.TryGetValue(m.Id, out var f)) { filingOf[m.Id] = f; continue; }
-                filingOf[m.Id] = string.IsNullOrWhiteSpace(m.Body) ? Filing.None : filer.File(m.Body);
+                if (decided.TryGetValue(m.Id, out var f)) { filingOf[m.Id] = f; lastSubject = (m.SentAt, f); continue; }
+                if (string.IsNullOrWhiteSpace(m.Body)) { filingOf[m.Id] = Filing.None; continue; }
+
+                f = filer.File(m.Body);
+                if (f.IsFiled) lastSubject = (m.SentAt, f);
+                else if (lastSubject is { } ls && m.SentAt - ls.At <= TimeSpan.FromMinutes(ReplyMinutes)
+                         && !RuleMessageExtractor.IsAcknowledgement(m.Body))
+                    f = ls.F;
+                filingOf[m.Id] = f;
             }
 
             // Then each file: its own human name, else what its sender said around it.
@@ -814,7 +872,9 @@ public class BriefDAL : IBriefDAL
             {
                 var at = Local(u.DateTimeCreated);
                 var guess = filer.File(u.Description);
-                var f = u.StageId is null ? guess
+                // The deliverable the clerk tapped is a person's filing, and beats the guess.
+                var f = u.DeliverableId is not null && u.StageId is not null ? new Filing(u.StageId, u.DeliverableId)
+                    : u.StageId is null ? guess
                     : guess.StageId == u.StageId ? guess
                     : new Filing(u.StageId, null);
 
@@ -854,19 +914,29 @@ public class BriefDAL : IBriefDAL
             if (!a.CanSeeSiteLog)
                 readingQuery = readingQuery.Where(r => r.SourceSide == null || r.SourceSide == a.Side || r.SourceImportedById == userId);
             var readings = await readingQuery.ToListAsync(ct);
+            // A reading that names a deliverable ("rear wall plaster is at 70%") is
+            // that deliverable's; one that names only a stage speaks for the stage's
+            // blocks that have no reading of their own.
+            var withReading = new HashSet<string>();
             foreach (var g in readings
                          .Select(r => (R: r, F: r.StageId is not null ? new Filing(r.StageId, null) : filer.File(r.Subject)))
                          .Where(x => x.F.StageId is not null)
-                         .GroupBy(x => x.F.StageId!))
+                         .GroupBy(x => x.F.DeliverableId ?? x.F.StageId!)
+                         .OrderBy(g => g.First().F.DeliverableId is null ? 1 : 0))
             {
                 var inWindow = g.Where(x => x.R.ObservedAt >= from).OrderByDescending(x => x.R.ObservedAt).FirstOrDefault();
                 if (inWindow.R is null) continue;
                 var before = g.Where(x => x.R.ObservedAt < from).OrderByDescending(x => x.R.ObservedAt).FirstOrDefault();
 
-                var ofStage = blocks.Values.Where(b => b.Stage?.Id == g.Key).ToList();
-                if (ofStage.Count == 0) ofStage.Add(BlockFor(new Filing(g.Key, null)));
-                foreach (var b in ofStage)
+                var filing = inWindow.F;
+                var targets = filing.DeliverableId is not null
+                    ? new List<Block> { BlockFor(filing) }
+                    : blocks.Values.Where(b => (b.Stage?.Id ?? (b.Catalogue is { } c ? BriefFiler.CataloguePrefix + c.Key : null)) == filing.StageId
+                                               && !withReading.Contains(b.Key)).ToList();
+                if (targets.Count == 0) targets.Add(BlockFor(new Filing(filing.StageId, null)));
+                foreach (var b in targets)
                 {
+                    withReading.Add(b.Key);
                     b.Percent = inWindow.R.Percent;
                     b.PercentBefore = before.R?.Percent;
                     b.PercentSource = inWindow.R.SourceKind switch
@@ -883,7 +953,7 @@ public class BriefDAL : IBriefDAL
             var floor = await TruthFloorAsync(project, a, userId, from, to, mediatorName, owed, deliverableById, ct);
 
             // Commitments that moved in the window sit in their deliverable's block too.
-            foreach (var item in floor.SelectMany(s => s.Items).Where(i => i.Key.StartsWith("commitment:")))
+            foreach (var item in floor.SelectMany(s => s.Items).Where(i => RegisterKey.IsMatch(i.Key)))
             {
                 if (item.DeliverableTitle is null && item.StageName is null) continue;
                 var target = blocks.Values.FirstOrDefault(b => b.Deliverable?.Title == item.DeliverableTitle && item.DeliverableTitle != null)
@@ -933,8 +1003,9 @@ public class BriefDAL : IBriefDAL
     /// <summary>
     /// Stated to both parties once, plainly, and never quietly widened (assetlen.md §5).
     /// </summary>
-    private static string RuleFor(ProjectAccess a, string? mediator) => a.Side == ProjectSide.Client && !a.IsMediator
-        ? $"Anything that moves money, moves a date, changes an agreed spec, or is a blocker or a decision you owe reaches you on this page whether or not anyone curates it. {mediator ?? "The mediator"} controls emphasis, not those facts."
+    private static string RuleFor(ProjectAccess a, string? mediator) => a.Side == ProjectSide.Client
+        ? "Anything that moves money, moves a date, changes an agreed spec, or is a blocker or a decision you owe reaches you on this page whether or not anyone curates it. "
+          + (a.IsMediator ? "You mediate this project: you control emphasis, not those facts." : $"{mediator ?? "The mediator"} controls emphasis, not those facts.")
         : "Anything that moves money, moves a date, changes an agreed spec, or is a blocker or a decision the client owes reaches the client on this page whether or not it is curated. Curation controls emphasis, not those facts.";
 
     /// <summary>A photo with no words of its own is about what its sender said nearest to it.</summary>
@@ -959,8 +1030,9 @@ public class BriefDAL : IBriefDAL
         {
             Key = b.Key,
             StageId = b.Stage?.Id,
-            StageName = b.Stage?.StageName,
-            StagePhase = b.Stage?.Phase,
+            StageName = b.Stage?.StageName ?? b.Catalogue?.Name,
+            StagePhase = b.Stage?.Phase ?? b.Catalogue?.Group,
+            CatalogueKey = b.Catalogue?.Key,
             StageStatus = b.Stage?.Status,
             DeliverableId = b.Deliverable?.Id,
             DeliverableTitle = b.Deliverable?.Title,
@@ -976,11 +1048,12 @@ public class BriefDAL : IBriefDAL
         var after = b.Frames.OrderByDescending(f => f.At).ToList();
         var used = new HashSet<string>();
 
-        if (after.Count > 0 && b.Stage is not null)
+        var poolKey = b.Stage?.Id ?? (b.Catalogue is { } cat ? BriefFiler.CataloguePrefix + cat.Key : null);
+        if (after.Count > 0 && poolKey is not null)
         {
             // The "before" comes from the same deliverable where it can, else from the same stage.
             var sameBlock = allFrames.Where(f => (f.Filing.DeliverableId ?? f.Filing.StageId ?? "unfiled") == b.Key).ToList();
-            var sameStage = allFrames.Where(f => f.Filing.StageId == b.Stage.Id).ToList();
+            var sameStage = allFrames.Where(f => f.Filing.StageId == poolKey).ToList();
 
             var candidates = new List<(Frame After, Frame Before, double D)>();
             foreach (var af in after.Where(f => f.HasThumb))
@@ -1049,7 +1122,8 @@ public class BriefDAL : IBriefDAL
         var deliverableOrder = deliverables.ToDictionary(d => d.Id, d => d.DisplayOrder);
 
         var built = blocks
-            .OrderBy(b => b.StageId is null ? 1 : 0)
+            .OrderBy(b => b.StageId is not null ? 0 : b.CatalogueKey is not null ? 1 : 2)
+            .ThenBy(b => b.StageId is null && b.StagePhase is { } ph ? (int)ph : 0)
             .ThenBy(b => b.StageId is not null && stageOrder.TryGetValue(b.StageId, out var o) ? o.Item1 : int.MaxValue)
             .ThenBy(b => b.StageId is not null && stageOrder.TryGetValue(b.StageId, out var o) ? o.Item2 : int.MaxValue)
             .ThenBy(b => b.DeliverableId is null ? -1 : deliverableOrder.GetValueOrDefault(b.DeliverableId))

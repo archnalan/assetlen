@@ -391,7 +391,8 @@ public class ExtractionDAL : IExtractionDAL
                 Severity = FlagSeverity.Medium,
                 // A blocker read from the client's own record stays on the client's side of the line.
                 Channel = p.SourceSide == ProjectSide.Client ? Channel.Client : Channel.Crew,
-                OwnerPartyName = p.PartyName
+                OwnerPartyName = p.PartyName,
+                RaisedAt = p.IngestedMessage?.SentAt
             }, userId);
 
             return flag.IsSuccess ? (null, flag.Data!.Id, null) : (null, null, flag.Error.Message);

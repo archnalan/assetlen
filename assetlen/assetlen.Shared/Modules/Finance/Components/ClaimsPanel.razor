@@ -22,7 +22,7 @@
                 <div class="claims__row">
                     <div class="al-field">
                         <label class="al-label" for="cl-stage">Stage</label>
-                        <select id="cl-stage" class="al-select" @bind="stageId">
+                        <select id="cl-stage" class="al-select" @bind="stageId" @bind:after="LoadOptionsAsync">
                             <option value="">Choose a stage</option>
                             @foreach (var s in stages)
                             {
@@ -40,6 +40,51 @@
                     <input id="cl-note" class="al-input" maxlength="500" placeholder="e.g. First half cast"
                            @bind="note" @bind:event="oninput" />
                 </div>
+
+                @* A claim that carries its own proof is paid without a phone call (assetlen.md §7). *@
+                @if (options is not null)
+                {
+                    <div class="al-field claims__evidence">
+                        <span class="al-label">What it carries</span>
+                        @if (options.Frames.Count > 0)
+                        {
+                            <div class="claims__pick" role="group" aria-label="Photos to attach">
+                                @foreach (var f in options.Frames.Take(12))
+                                {
+                                    var on = pickedFrames.Contains(f.ProgressImageId!);
+                                    <button type="button" class="claims__pick-frame @(on ? "is-on" : "")" aria-pressed="@(on ? "true" : "false")"
+                                            @onclick="() => Toggle(pickedFrames, f.ProgressImageId!)">
+                                        <ArtifactThumb ArtifactId="@(f.ArtifactId ?? "")" HasThumbnail="true" MimeType="image/jpeg" Cover="true" Alt="@(f.Caption ?? "Photo")" />
+                                        @if (on) { <span class="claims__pick-tick"><Icon Name="check" Size="12" /></span> }
+                                    </button>
+                                }
+                            </div>
+                            <span class="al-field__hint">
+                                @pickedFrames.Count selected. Attaching a photo shows it to the funder@(options.Since is null ? "" : $" — from what was captured since the last claim on {Fmt.DateShort(options.Since)}").
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="al-field__hint">No photos on this stage since it was last claimed.</span>
+                        }
+                        @foreach (var d in options.Deliverables)
+                        {
+                            <label class="al-check">
+                                <input type="checkbox" checked="@pickedDeliverables.Contains(d.DeliverableId!)"
+                                       @onchange="() => Toggle(pickedDeliverables, d.DeliverableId!)" />
+                                <span>@d.DeliverableTitle <span class="al-subtle">@(d.DeliverableStatus == DeliverableStatus.Done ? "· done" : d.DeliverableStatus == DeliverableStatus.InProgress ? "· under way" : "· not started")</span></span>
+                            </label>
+                        }
+                        @if (options.LatestReading is { Percent: { } pct } r)
+                        {
+                            <label class="al-check">
+                                <input type="checkbox" @bind="attachReading" />
+                                <span>Where the stage stands: @Fmt.Percent(pct) on @Fmt.DateShort(r.At)</span>
+                            </label>
+                        }
+                    </div>
+                }
+
                 @if (!string.IsNullOrEmpty(formError))
                 {
                     <div class="al-alert al-alert--error" role="alert"><Icon Name="error" Size="16" /><span>@formError</span></div>
@@ -86,6 +131,7 @@
                                         <span>queried: “@c.QueryNote”</span>
                                     }
                                 </span>
+                                <ClaimEvidenceStrip Evidence="c.Evidence" />
 
                                 @if (queryingId == c.Id)
                                 {
@@ -161,6 +207,42 @@
     private string? queryingId;
     private string queryNote = "";
 
+    private ClaimEvidenceOptionsDto? options;
+    private readonly HashSet<string> pickedFrames = new();
+    private readonly HashSet<string> pickedDeliverables = new();
+    private bool attachReading;
+
+    /// <summary>
+    /// The newest frames and every finished deliverable are attached unless someone
+    /// says otherwise; proof is the default, not an extra step.
+    /// </summary>
+    private async Task LoadOptionsAsync()
+    {
+        options = null;
+        pickedFrames.Clear();
+        pickedDeliverables.Clear();
+        attachReading = false;
+        if (string.IsNullOrEmpty(stageId)) return;
+        try
+        {
+            var r = await _ledgerApi.GetClaimEvidenceOptions(ProjectId, stageId);
+            if (!r.IsSuccessStatusCode || r.Content is null) return;
+            options = r.Content;
+            foreach (var id in options.SuggestedImageIds) pickedFrames.Add(id);
+            foreach (var d in options.Deliverables.Where(d => d.DeliverableStatus == DeliverableStatus.Done)) pickedDeliverables.Add(d.DeliverableId!);
+            attachReading = options.LatestReading is not null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not load claim evidence for {StageId}", stageId);
+        }
+    }
+
+    private static void Toggle(HashSet<string> set, string id)
+    {
+        if (!set.Remove(id)) set.Add(id);
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (loadedId == ProjectId) return;
@@ -210,13 +292,17 @@
                 ProjectId = ProjectId,
                 StageId = stageId,
                 Amount = amount ?? 0,
-                Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
+                Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
+                EvidenceImageIds = pickedFrames.ToList(),
+                EvidenceDeliverableIds = pickedDeliverables.ToList(),
+                AttachLatestReading = attachReading && options?.LatestReading is not null
             });
             if (response.IsSuccessStatusCode)
             {
                 adding = false;
                 amount = null;
                 note = "";
+                options = null;
                 ToastService.ShowSuccess("Claim recorded. It waits on the funder to clear it.");
                 await AfterChangeAsync();
             }

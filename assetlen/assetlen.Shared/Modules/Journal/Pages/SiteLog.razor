@@ -14,7 +14,7 @@
 
 <PageTitle>Site Diary — ASSETLEN</PageTitle>
 
-<ProjectPage ProjectId="@ProjectId" Section="log" Eyebrow="Site Diary"
+<ProjectPage ProjectId="@ProjectId" Section="log" GateBySection="false" Eyebrow="Site Diary"
              Subtitle="Everything captured, in full. Nothing here is curated." Context="ctx">
 
     @if (!ctx.CanSeeSiteLog)
@@ -32,6 +32,8 @@
     }
     else
     {
+        <OutboxStatus ProjectId="@ProjectId" />
+
         <div class="log__bar">
             <div class="al-segmented" role="group" aria-label="Filter">
                 <button type="button" class="al-segmented__item @(filter == "all" ? "is-active" : "")"
@@ -51,6 +53,13 @@
 
             <span class="al-spacer"></span>
 
+            @if (ctx.CanExposeToClient)
+            {
+                @* Curation by exception: the brief goes at the cutoff anyway; this is the three-minute edit. *@
+                <a class="al-btn al-btn--default" href="/project/@ProjectId/log/curate">
+                    <Icon Name="brief" Size="16" /> Tonight's brief
+                </a>
+            }
             <a class="al-btn al-btn--primary" href="/project/@ProjectId/capture">
                 <Icon Name="camera" Size="16" /> Capture
             </a>
@@ -71,9 +80,13 @@
                                 <span class="al-register__index">@Fmt.DateShort(entry.DateTimeCreated)</span>
 
                                 <span class="al-register__main">
-                                    <span class="al-register__title al-clamp-2">@entry.Description</span>
+                                    <span class="al-register__title al-clamp-2">@(entry.Description ?? (entry.ImageCount == 1 ? "1 photo" : entry.ImageCount > 1 ? $"{entry.ImageCount} photos" : "Voice note"))</span>
                                     <span class="al-register__sub">
-                                        @if (!string.IsNullOrEmpty(entry.StageName))
+                                        @if (!string.IsNullOrEmpty(entry.DeliverableTitle))
+                                        {
+                                            <span>@entry.DeliverableTitle</span>
+                                        }
+                                        else if (!string.IsNullOrEmpty(entry.StageName))
                                         {
                                             <span>@entry.StageName</span>
                                         }
@@ -89,6 +102,10 @@
                                     @if (entry.HasIssues)
                                     {
                                         <span class="al-badge al-badge--warning">Issue</span>
+                                    }
+                                    @if (entry.VoiceArtifactId is not null)
+                                    {
+                                        <span class="al-badge al-badge--neutral"><Icon Name="mic" Size="12" /> Voice</span>
                                     }
                                     @if (entry.ImageCount > 0)
                                     {

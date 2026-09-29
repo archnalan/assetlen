@@ -161,3 +161,133 @@
     .capture__actions { flex-direction: column-reverse; }
     .capture__actions > * { width: 100%; }
 }
+
+/* ── Three taps (P9) ───────────────────────────────────────────────────── */
+
+.capture__posted { margin-bottom: var(--al-space-4); }
+
+.capture__step {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+}
+
+.capture__step-title {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    margin: 0;
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+}
+
+.capture__n {
+    display: inline-grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1px solid var(--al-border-strong);
+    font-family: var(--al-font-mono);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.capture__work {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+    gap: var(--al-space-2);
+}
+
+/* Each piece of work carries its phase as a hairline, never a filled block (CLAUDE.md §2.1). */
+.capture__work-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 3.25rem;
+    padding: var(--al-space-2) var(--al-space-3);
+    border: 1px solid var(--al-border);
+    border-left: 3px solid var(--al-stage-accent, var(--al-border-strong));
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface);
+    color: var(--al-text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--al-transition-fast), background-color var(--al-transition-fast);
+}
+
+.capture__work-item:hover { background: var(--al-surface-2); }
+
+.capture__work-item.is-picked {
+    border-color: var(--al-accent);
+    border-left-color: var(--al-accent);
+    background: var(--al-accent-soft);
+}
+
+.capture__work-item--general { border-left-style: dashed; }
+
+.capture__work-title {
+    font-weight: var(--al-weight-semibold);
+    font-size: var(--al-font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.capture__work-sub {
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.capture__work-today { color: var(--al-success); }
+
+.capture__more {
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-bg-elevated);
+}
+
+.capture__more-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    width: 100%;
+    padding: var(--al-space-3) var(--al-space-4);
+    background: none;
+    border: 0;
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.capture__more-toggle ::deep .capture__more-caret { margin-left: auto; }
+
+.capture__more-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+    padding: 0 var(--al-space-4) var(--al-space-4);
+}
+
+
+/* InputFile is a component, so its <input> does not carry this file's scope. */
+.capture__drop { position: relative; }
+.capture__drop ::deep input[type=file] {
+    position: absolute;
+    width: 1px; height: 1px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* A batch is thirteen to eighteen frames: small enough to see it whole. */
+.capture__frames { grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap: var(--al-space-2); }
+
+.capture__post {
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+    height: auto;
+    padding-block: var(--al-space-3);
+}
+@media (min-width: 561px) { .capture__post { min-width: 16rem; } }

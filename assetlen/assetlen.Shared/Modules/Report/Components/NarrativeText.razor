@@ -1,0 +1,22 @@
+@* The only prose on the page: each sentence with the sources it was allowed to draw on (works-report.md §3.2). *@
+
+@if (Sentences.Count > 0)
+{
+    <p class="narr @Class">
+        @foreach (var s in Sentences)
+        {
+            <span class="narr__s">@s.Text</span>
+            @if (Chips)
+            {
+                <SourceChip Ids="s.SourceIds" Max="2" />
+            }
+            <span> </span>
+        }
+    </p>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<NarrativeSentenceDto> Sentences { get; set; } = new();
+    [Parameter] public bool Chips { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+}

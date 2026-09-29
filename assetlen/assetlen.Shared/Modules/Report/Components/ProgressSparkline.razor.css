@@ -1,0 +1,44 @@
+.spark {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-2);
+}
+
+.spark__svg { display: block; overflow: visible; }
+
+.spark__line {
+    fill: none;
+    stroke: var(--al-stage-accent, var(--al-text-muted));
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.spark__stall {
+    fill: none;
+    stroke: var(--al-warning);
+    stroke-width: 2;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.spark__end { fill: var(--al-text); }
+
+.spark__word {
+    color: var(--al-text);
+    font-size: var(--al-font-size-xs);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.spark__word::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: var(--al-space-1);
+    border-radius: var(--al-radius-pill);
+    background: var(--al-warning);
+    vertical-align: middle;
+}

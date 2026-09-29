@@ -31,11 +31,11 @@
                 <span class="al-label">Projects</span>
                 <span class="al-meta__value">@Shell.Cards.Count</span>
             </div>
-            @if (ShowMoney)
+            @if (home?.Portfolio is { } pf)
             {
                 <div class="al-meta">
-                    <span class="al-label">Committed</span>
-                    <span class="al-meta__value">@Fmt.MoneyShort(portfolio?.TotalCapitalDeployed ?? 0)</span>
+                    <span class="al-label">Funded</span>
+                    <span class="al-meta__value">@Fmt.MoneyShort(pf.Funded, pf.Currency)</span>
                 </div>
             }
             <div class="al-meta">
@@ -123,7 +123,47 @@
                 </section>
             }
 
-            @* ── 2. The projects ───────────────────────────────────────── *@
+            @* ── 2. Where each project stands ──────────────────────────── *@
+            @* Money position, what he owes and what moved, per project, from one
+               call and one membership query (plan.md P7). A support seat has no
+               money and no register here, so its row says so rather than hiding. *@
+            <section class="home__section">
+                <div class="al-rule">
+                    <span class="al-label">Where each project stands</span>
+                    @if (home?.Portfolio is { } pf && home.Projects.Count(p => p.Money is not null) > 1)
+                    {
+                        <span class="home__total al-num">
+                            @Fmt.MoneyShort(pf.Funded, pf.Currency) funded · @Fmt.MoneyShort(pf.InHand, pf.Currency) in hand
+                        </span>
+                    }
+                </div>
+
+                @if (homePhase == LoadPhase.Loading)
+                {
+                    <div class="al-shimmer al-ghost-row"></div>
+                }
+                else if (homePhase == LoadPhase.Error)
+                {
+                    <div class="al-alert al-alert--error">
+                        <Icon Name="error" Size="18" />
+                        <div>
+                            <strong class="al-alert__title">Where your projects stand didn't load</strong>
+                            <span>@homeError</span>
+                        </div>
+                    </div>
+                }
+                else if (home is not null)
+                {
+                    <div class="al-sheet">
+                        @foreach (var p in home.Projects)
+                        {
+                            <ProjectStanding Project="p" Since="home.Since" />
+                        }
+                    </div>
+                }
+            </section>
+
+            @* ── 3. The projects, to arrange ────────────────────────────── *@
             @if (Shell.PinnedCount > 0)
             {
                 <section class="home__section">
@@ -170,67 +210,15 @@
                 </div>
             </section>
 
-            @* ── 3. What moved ─────────────────────────────────────────── *@
-            <section class="home__section">
-                <div class="al-rule">
-                    <span class="al-label">What moved</span>
-                </div>
-
-                @if (recent.Count == 0)
-                {
-                    <div class="al-empty">
-                        <Icon Name="camera" Size="40" Class="al-empty__icon" Weight="1.25" />
-                        <h3 class="al-empty__title">Nothing posted yet</h3>
-                        <p class="al-empty__body">
-                            @(IsClientSide
-                                ? "When work is captured against a stage you funded, it lands here — and in the daily brief, whether or not anyone remembers to send it."
-                                : "Capture against a stage and it appears here for everyone on this side.")
-                        </p>
-                    </div>
-                }
-                else
-                {
-                    <div class="al-sheet">
-                        <div class="al-register">
-                            @foreach (var entry in recent)
-                            {
-                                <a class="al-register__row" href="/project/@entry.ProjectId/entry/@entry.Id">
-                                    <span class="al-register__index">@Fmt.DateShort(entry.DateTimeCreated)</span>
-                                    <span class="al-register__main">
-                                        <span class="al-register__title al-clamp-2">@entry.Description</span>
-                                        <span class="al-register__sub">
-                                            <span>@ProjectNameFor(entry.ProjectId)</span>
-                                            @if (!string.IsNullOrEmpty(entry.StageName))
-                                            {
-                                                <span>@entry.StageName</span>
-                                            }
-                                            @if (entry.ImageCount > 0)
-                                            {
-                                                <span>@entry.ImageCount @(entry.ImageCount == 1 ? "frame" : "frames")</span>
-                                            }
-                                        </span>
-                                    </span>
-                                    <span class="al-register__end">
-                                        @if (entry.HasIssues)
-                                        {
-                                            <span class="al-badge al-badge--warning">Issue</span>
-                                        }
-                                        <Icon Name="chevron-right" Size="16" Class="al-subtle" />
-                                    </span>
-                                </a>
-                            }
-                        </div>
-                    </div>
-                }
-            </section>
-
         </ChildContent>
     </StateBlock>
 </div>
 
 @code {
     private PortfolioSummaryDto? portfolio;
-    private readonly List<ProgressUpdateDto> recent = new();
+    private HomeDto? home;
+    private LoadPhase homePhase = LoadPhase.Loading;
+    private string? homeError;
     private LoadPhase phase = LoadPhase.Loading;
     private string? errorMessage;
 
@@ -319,7 +307,6 @@
     {
         phase = LoadPhase.Loading;
         errorMessage = null;
-        recent.Clear();
         StateHasChanged();
 
         try
@@ -351,7 +338,7 @@
             // number in the rail.
             await Task.WhenAll(
                 Attention.RefreshAsync(Shell.Cards),
-                LoadRecentAsync());
+                LoadHomeAsync());
         }
         catch (Exception ex)
         {
@@ -365,43 +352,36 @@
         }
     }
 
-    private async Task LoadRecentAsync()
+    private async Task LoadHomeAsync()
     {
-        foreach (var project in AllProjects())
+        homePhase = LoadPhase.Loading;
+        homeError = null;
+        try
         {
-            try
+            var response = await _briefApi.Home();
+            if (response.IsSuccessStatusCode && response.Content is not null)
             {
-                var page = await _progressApi.GetProgressUpdates(project.Id, null, 0, 4);
-                if (page.IsSuccessStatusCode && page.Content?.Data is not null)
-                    recent.AddRange(page.Content.Data);
+                home = response.Content;
+                homePhase = LoadPhase.Ready;
             }
-            catch (Exception ex)
+            else
             {
-                Logger.LogWarning(ex, "Could not read recent activity for {ProjectId}", project.Id);
+                homePhase = LoadPhase.Error;
+                homeError = _apiResponseHandler.GetApiErrorMessage(response);
             }
         }
-
-        recent.Sort((a, b) => (b.DateTimeCreated ?? DateTime.MinValue).CompareTo(a.DateTimeCreated ?? DateTime.MinValue));
-        if (recent.Count > 6) recent.RemoveRange(6, recent.Count - 6);
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not read where each project stands");
+            homePhase = LoadPhase.Error;
+            homeError = ex.Message;
+        }
 
         StateHasChanged();
     }
-
-    /// <summary>
-    /// Top-level projects and their sub-projects, flattened — a guest wing has
-    /// its own stages and its own activity. Snapshotted because the shell reads
-    /// the dashboard too and replaces the list mid-scan.
-    /// </summary>
-    private List<ProjectCardDto> AllProjects()
-        => Shell.Cards.Concat(Shell.Cards.SelectMany(p => p.SubProjects)).ToList();
-
-    private string ProjectNameFor(string? projectId)
-        => Shell.Find(projectId)?.Name ?? "—";
-
     // ── Emphasis per reader ────────────────────────────────────────────────
 
     private UserRolesDto? Roles => _sd.CurrentUser?.RolesDto;
-    private bool IsClientSide => Roles?.IsExternal == true;
 
     /// <summary>Crew and Guest have no financial visibility anywhere (CLAUDE.md §5.5).</summary>
     private bool ShowMoney => Roles?.CanSeeFinancials == true;

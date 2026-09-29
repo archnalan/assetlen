@@ -36,6 +36,12 @@ public interface IProjectAccessService
     Task<ProjectAccess> ResolveAsync(tbl_Project? project, string? userId, CancellationToken ct = default);
 
     /// <summary>
+    /// The same rules for a job that runs with nobody signed in — the cutoff, a
+    /// scheduled push — where the tenant filter would otherwise hide every row.
+    /// </summary>
+    Task<ProjectAccess> ResolveUnscopedAsync(string? projectId, string? userId, CancellationToken ct = default);
+
+    /// <summary>
     /// Resolve standing on many projects in one membership query, keyed by
     /// project id. For the dashboard, which renders every project the reader can
     /// see and needs each one's standing to decide what the card and its context

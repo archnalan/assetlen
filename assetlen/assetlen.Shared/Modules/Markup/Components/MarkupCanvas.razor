@@ -1,0 +1,144 @@
+@implements IAsyncDisposable
+@inject ILogger<MarkupCanvas> Logger
+
+@*
+    The picture with every layer the reader may see drawn over it, and — when
+    drawing — a surface that turns a drag into a mark in fractions of the
+    picture. The file itself is never touched (assetlen.md Law 2).
+*@
+
+<div class="markupcanvas @(Enabled ? "markupcanvas--drawing" : "")">
+    <ArtifactThumb ArtifactId="@Artifact.Id" HasThumbnail="@(!string.IsNullOrEmpty(Artifact.ThumbnailUrl))" MimeType="@Artifact.MimeType"
+                   Full="true" Natural="true" Alt="@(Artifact.OriginalFileName ?? "The file being marked up")">
+        <Overlay>
+            <MarkupOverlay Layers="AllLayers" Aspect="Aspect" />
+            @if (Enabled)
+            {
+                <span class="markupcanvas__hit" @ref="hit"
+                      role="application" aria-label="Drawing surface — drag to mark the picture"
+                      @onpointerdown="DownAsync" @onpointerdown:preventDefault="true"
+                      @onpointermove="Move" @onpointerup="Up" @onpointercancel="Up"></span>
+            }
+        </Overlay>
+    </ArtifactThumb>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ArtifactDto Artifact { get; set; } = default!;
+    [Parameter] public IReadOnlyList<MarkupLayerView> Layers { get; set; } = Array.Empty<MarkupLayerView>();
+    [Parameter] public List<AnnotationShapeDto> Draft { get; set; } = new();
+    [Parameter] public EventCallback<List<AnnotationShapeDto>> DraftChanged { get; set; }
+    [Parameter] public MarkupTool Tool { get; set; } = MarkupTool.Circle;
+    [Parameter] public bool Enabled { get; set; }
+
+    private ElementReference hit;
+    private IJSObjectReference? module;
+    private Box? box;
+    private AnnotationShapeDto? live;
+    private double startX, startY;
+
+    private sealed record Box(double X, double Y, double W, double H);
+
+    private double Aspect => Artifact.Width is > 0 && Artifact.Height is > 0 ? (double)Artifact.Width!.Value / Artifact.Height!.Value : 1.0;
+
+    private IReadOnlyList<MarkupLayerView> AllLayers
+    {
+        get
+        {
+            var draft = new List<AnnotationShapeDto>(Draft);
+            if (live is not null) draft.Add(Normalised(live));
+            return draft.Count == 0 ? Layers : Layers.Append(new MarkupLayerView(draft, MarkupTone.Draft)).ToList();
+        }
+    }
+
+    private async Task DownAsync(PointerEventArgs e)
+    {
+        try
+        {
+            module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/assetlen.Shared/markup.js");
+            box = await module.InvokeAsync<Box>("box", hit);
+            await module.InvokeVoidAsync("capture", hit, e.PointerId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Drawing surface did not answer");
+            return;
+        }
+
+        (startX, startY) = Fraction(e);
+        live = Tool switch
+        {
+            MarkupTool.Pen => new AnnotationShapeDto { Kind = AnnotationShapeKind.Path, Points = new() { startX, startY } },
+            MarkupTool.Arrow => new AnnotationShapeDto { Kind = AnnotationShapeKind.Arrow, X = startX, Y = startY },
+            MarkupTool.Box => new AnnotationShapeDto { Kind = AnnotationShapeKind.Rect, X = startX, Y = startY },
+            _ => new AnnotationShapeDto { Kind = AnnotationShapeKind.Ellipse, X = startX, Y = startY }
+        };
+    }
+
+    private void Move(PointerEventArgs e)
+    {
+        if (live is null || box is null) return;
+        var (x, y) = Fraction(e);
+        if (live.Kind == AnnotationShapeKind.Path)
+        {
+            var p = live.Points!;
+            // A point every few pixels is plenty; a finger sends hundreds.
+            if (Math.Abs(p[^2] - x) + Math.Abs(p[^1] - y) < 0.004 || p.Count >= 1990) return;
+            p.Add(x);
+            p.Add(y);
+            return;
+        }
+        live.W = x - startX;
+        live.H = y - startY;
+    }
+
+    private async Task Up(PointerEventArgs e)
+    {
+        if (live is null) return;
+        Move(e);
+        var done = Normalised(live);
+        live = null;
+
+        var big = done.Kind switch
+        {
+            AnnotationShapeKind.Path => (done.Points?.Count ?? 0) >= 4,
+            AnnotationShapeKind.Arrow => Math.Abs(done.W) + Math.Abs(done.H) > 0.02,
+            _ => done.W > 0.01 && done.H > 0.01
+        };
+        if (!big) return;
+
+        var next = new List<AnnotationShapeDto>(Draft) { done };
+        if (DraftChanged.HasDelegate) await DraftChanged.InvokeAsync(next);
+    }
+
+    private (double X, double Y) Fraction(PointerEventArgs e)
+    {
+        if (box is null || box.W <= 0 || box.H <= 0) return (0, 0);
+        return (Math.Round(Math.Clamp((e.ClientX - box.X) / box.W, 0, 1), 4),
+                Math.Round(Math.Clamp((e.ClientY - box.Y) / box.H, 0, 1), 4));
+    }
+
+    /// <summary>A box dragged up and to the left is the same box; the server takes it corner-first.</summary>
+    private static AnnotationShapeDto Normalised(AnnotationShapeDto s)
+    {
+        if (s.Kind is not (AnnotationShapeKind.Ellipse or AnnotationShapeKind.Rect)) return new AnnotationShapeDto
+        {
+            Kind = s.Kind, X = s.X, Y = s.Y, W = s.W, H = s.H, Points = s.Points is null ? null : new List<double>(s.Points)
+        };
+        return new AnnotationShapeDto
+        {
+            Kind = s.Kind,
+            X = Math.Min(s.X, s.X + s.W),
+            Y = Math.Min(s.Y, s.Y + s.H),
+            W = Math.Abs(s.W),
+            H = Math.Abs(s.H)
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null) return;
+        try { await module.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+}

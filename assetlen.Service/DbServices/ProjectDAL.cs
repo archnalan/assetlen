@@ -772,7 +772,11 @@ public class ProjectDAL : IProjectDAL
                         BaselineStartDate = stageDto.StartDate,
                         BaselineEndDate = stageDto.ExpectedEndDate,
                         DisplayOrder = stageDto.DisplayOrder > 0 ? stageDto.DisplayOrder : order++,
-                        Status = StageStatus.NotStarted
+                        Status = StageStatus.NotStarted,
+                        // The phase and catalogue entry chosen at creation were being dropped, so every
+                        // stage made with its project read as "Custom" — no accent, no phase grouping.
+                        CatalogueKey = stageDto.CatalogueKey,
+                        Phase = StageCatalogue.Find(stageDto.CatalogueKey)?.Group ?? stageDto.Phase ?? StageGroup.Custom
                     };
                     _context.tbl_Stages.Add(stage);
                 }
@@ -1060,6 +1064,8 @@ public class ProjectDAL : IProjectDAL
         var runs = await _context.tbl_ExtractionRuns.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
         var readings = await _context.tbl_ProgressReadings.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
         var bindings = await _context.tbl_MediaBindings.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
+        var annotations = await _context.tbl_Annotations.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
+        var estimates = await _context.tbl_CommitmentEstimates.IgnoreQueryFilters().Where(x => ids.Contains(x.ProjectId!)).ToListAsync();
 
         var updateIds = updates.Select(u => u.Id).ToList();
         var images = await _context.tbl_ProgressImages
@@ -1071,7 +1077,8 @@ public class ProjectDAL : IProjectDAL
             .Concat(funding).Concat(updates).Concat(images).Concat(flags)
             .Concat(members).Concat(budgets).Concat(subs).Concat(prefs)
             .Concat(deliverables).Concat(commitments).Concat(links).Concat(variations).Concat(claims)
-            .Concat(proposals).Concat(runs).Concat(readings).Concat(bindings))
+            .Concat(proposals).Concat(runs).Concat(readings).Concat(bindings)
+            .Concat(annotations).Concat(estimates))
         {
             e.IsDeleted = true;
         }

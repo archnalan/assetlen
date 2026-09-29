@@ -93,6 +93,7 @@ public static class MauiProgram
 
         builder.Services.AddScoped<IArtifactDownloadService, ArtifactDownloadService>();
         builder.Services.AddScoped<IArtifactImageService, ArtifactImageService>();
+        builder.Services.AddScoped<CaptureOutbox>();
 
         builder.Services.AddSingleton<GlobalContext>();
 
@@ -116,6 +117,7 @@ public static class MauiProgram
         AddApi<IProjectMembersApi>();
         AddApi<IFlagsApi>();
         AddApi<ICommitmentsApi>();
+        AddApi<IAnnotationsApi>();
         AddApi<ILedgerApi>();
         AddApi<IBudgetApi>();
         AddApi<IArtifactsApi>();
@@ -123,6 +125,9 @@ public static class MauiProgram
         AddApi<IExtractionApi>();
         AddApi<ISearchApi>();
         AddApi<IBriefApi>();
+        AddApi<IWorksReportApi>();
+        AddApi<ICurationApi>();
+        AddApi<IPushApi>();
         AddApi<IDevApi>();
 
         // Scoped for the same reason as in the client: the hub needs the scoped

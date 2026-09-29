@@ -1,0 +1,59 @@
+@*
+    Progress readings over time, 64×16, no axes (works-report.md §3.1). A flat
+    tail longer than the stall threshold is drawn in the warning ink and named,
+    so a stall surfaces itself rather than waiting to be noticed.
+*@
+
+@if (Readings.Count > 0)
+{
+    <span class="spark">
+        <svg class="spark__svg" viewBox="0 0 64 16" width="64" height="16" role="img" aria-label="@Label" preserveAspectRatio="none">
+            <title>@Label</title>
+            <polyline class="spark__line" points="@Points(Readings.Where(r => StalledSince is null || r.At <= StalledSince.Value))" />
+            @if (StalledSince is { } since)
+            {
+                <polyline class="spark__stall" points="@StallPoints(since)" />
+            }
+            <circle class="spark__end" cx="@X(Readings[^1].At)" cy="@Y(Readings[^1].Percent)" r="1.8" />
+        </svg>
+        @if (StalledDays is { } d)
+        {
+            <span class="spark__word">Stalled @d days</span>
+        }
+    </span>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<ReadingPointDto> Readings { get; set; } = new();
+    [Parameter] public DateTime? StalledSince { get; set; }
+    [Parameter] public int? StalledDays { get; set; }
+    [Parameter] public DateTime AsAt { get; set; }
+
+    private DateTime From => Readings.Min(r => r.At);
+    private DateTime To => new[] { Readings.Max(r => r.At), AsAt }.Max();
+
+    private string X(DateTime at)
+    {
+        var span = (To - From).TotalDays;
+        var x = span <= 0 ? 62 : 2 + 60 * (at - From).TotalDays / span;
+        return x.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+
+    private static string Y(decimal pct) => (14 - (double)Math.Clamp(pct, 0, 100) / 100.0 * 12).ToString("0.##", CultureInfo.InvariantCulture);
+
+    private string Points(IEnumerable<ReadingPointDto> rs)
+    {
+        var list = rs.ToList();
+        if (list.Count == 1) return $"{X(list[0].At)},{Y(list[0].Percent)} {X(list[0].At)},{Y(list[0].Percent)}";
+        return string.Join(" ", list.Select(r => $"{X(r.At)},{Y(r.Percent)}"));
+    }
+
+    private string StallPoints(DateTime since)
+    {
+        var level = Readings[^1].Percent;
+        return $"{X(since)},{Y(level)} {X(To)},{Y(level)}";
+    }
+
+    private string Label => $"Readings from {ReportFormat.Day(From)}: " +
+                            string.Join(", ", Readings.Select(r => $"{ReportFormat.Pct(r.Percent)} on {ReportFormat.Day(r.At)}"));
+}

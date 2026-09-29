@@ -34,7 +34,10 @@ namespace assetlen.Shared.statics
             {
                 return "An unknown error occurred.";
             }
-            _logger.LogError("API Error: {ErrorContent}", errorContent);
+            // 404 is how the server answers a project or section this reader was
+            // not invited into (a refusal would confirm it exists) — expected, not a fault.
+            var level = (int)response.StatusCode is 403 or 404 ? LogLevel.Warning : LogLevel.Error;
+            _logger.Log(level, "API Error: {ErrorContent}", errorContent);
             try
             {
                 using var jsonDoc = JsonDocument.Parse(errorContent);
@@ -44,12 +47,12 @@ namespace assetlen.Shared.statics
                     ? msgProp.GetString()
                     : "An error occurred, operation not completed.";
 
-                _logger.LogError("API Error: {Message}", message);
+                _logger.Log(level, "API Error: {Message}", message);
                 return message ?? "An error occurred, operation not completed.";
             }
             catch (JsonException)
             {
-                _logger.LogError("Failed to parse error response.");
+                _logger.Log(level, "Failed to parse error response.");
                 return "Error! Operation not completed";
             }
         }

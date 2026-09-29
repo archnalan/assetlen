@@ -2,16 +2,32 @@
 @inject ILogger<ArtifactThumb> Logger
 
 @*
-    A stored picture — a search result, a frame in the brief. Artifact bytes sit behind the authenticated endpoint,
-    so an <img src> cannot reach them — the frame is fetched through the Refit
+    A stored picture — a search result, a frame in the brief, a receipt being
+    marked up. Artifact bytes sit behind the authenticated endpoint, so an
+    <img src> cannot reach them — the frame is fetched through the Refit
     pipeline and shown from memory. Shimmer while it comes, an icon when there
     is no picture to show.
 *@
 
-<span class="athumb @(Cover ? "athumb--cover" : "") @(phase == LoadPhase.Loading ? "al-shimmer" : "")">
+<span class="athumb @(Cover ? "athumb--cover" : "") @(Natural ? "athumb--natural" : "") @(phase == LoadPhase.Loading ? "al-shimmer" : "")">
     @if (phase == LoadPhase.Ready && src is not null)
     {
-        <img class="athumb__img" src="@src" alt="" loading="lazy" />
+        @if (Natural)
+        {
+            @* A markup layer is drawn in fractions of the image, so it sits
+               over the picture's own box — never over letterboxing. *@
+            <span class="athumb__frame">
+                <img class="athumb__img" src="@src" alt="@Alt" loading="@(Full ? "eager" : "lazy")" />
+                @if (Overlay is not null)
+                {
+                    <span class="athumb__overlay">@Overlay</span>
+                }
+            </span>
+        }
+        else
+        {
+            <img class="athumb__img" src="@src" alt="@Alt" loading="lazy" />
+        }
     }
     else if (phase != LoadPhase.Loading)
     {
@@ -27,20 +43,30 @@
     /// <summary>Fill the frame rather than fit it — for a site photo, where the edges are sky, not the total on a receipt.</summary>
     [Parameter] public bool Cover { get; set; }
 
+    /// <summary>The original rather than the scaled copy — a receipt has to be legible to be marked up.</summary>
+    [Parameter] public bool Full { get; set; }
+
+    /// <summary>Show the picture at its own aspect, so an overlay drawn in fractions of it lines up.</summary>
+    [Parameter] public bool Natural { get; set; }
+
+    [Parameter] public RenderFragment? Overlay { get; set; }
+    [Parameter] public string Alt { get; set; } = "";
+
     private LoadPhase phase = LoadPhase.Loading;
     private string? src;
-    private string? loadedId;
+    private string? loadedKey;
     private readonly CancellationTokenSource cts = new();
 
     private bool IsImage => MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (loadedId == ArtifactId) return;
-        loadedId = ArtifactId;
+        var key = $"{ArtifactId}/{Full}";
+        if (loadedKey == key) return;
+        loadedKey = key;
         src = null;
 
-        if (!HasThumbnail)
+        if (!HasThumbnail && !(Full && IsImage))
         {
             phase = LoadPhase.Empty;
             return;
@@ -49,7 +75,9 @@
         phase = LoadPhase.Loading;
         try
         {
-            using var response = await _artifactsApi.DownloadThumbnail(ArtifactId);
+            using var response = Full
+                ? await _artifactsApi.Download(ArtifactId)
+                : await _artifactsApi.DownloadThumbnail(ArtifactId);
             if (cts.IsCancellationRequested) return;
             if (!response.IsSuccessStatusCode)
             {
@@ -64,7 +92,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Thumbnail {ArtifactId} did not load", ArtifactId);
+            Logger.LogDebug(ex, "Picture {ArtifactId} did not load", ArtifactId);
             phase = LoadPhase.Error;
         }
     }

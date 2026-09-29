@@ -93,6 +93,10 @@ against the *real* export, which is a validation task, not a build one.
 | **P4** | Commitments, deliverables, ledger, variations | **Built** — 128/128 | Exit criterion is a human test; see P4 below |
 | **P5** | Extraction, OCR, progress readings, media re-join | **Built** — 78/78 | Measured on the real export; see P5 below |
 | **P6** | Retrieval — one search, grouped, with provenance | **Built** — 65/65 | Exit met on a synthetic export; see P6 below |
+| **P7** | Peter's home and the daily brief | **Built** — 92/92 | Exit is §11 test 3, a human test; see P7 below |
+| **R1–R5** | Works report — as built, schedule, agreed & stuck, drafted, on a cadence | **Built** — 117/117 | R0 is Peter reading it; see *Works Report* below |
+| **P8** | Markup layers, query on cleared items, parked ideas + decide-by | **Built** — 104/104 | Exit met on a synthetic receipt; see P8 below |
+| **P9** | Three-tap capture, offline queue, curation by exception, claim evidence, push, voice notes | **Built** — 90/90 | Exit is §11 test 2, a human test; see P9 below |
 
 P0 and P1 were both right and both invisible. The detail of what landed in each is
 preserved in git history and in the audit script; it is not repeated here because it no
@@ -112,10 +116,11 @@ must work with the contractor silent.
 | P4 | Commitment model + the money ledger | 1 | **Built** — exit awaits Peter (§11 test 1) |
 | P5 | Extraction — pile into register | 1 | **Built** — measured on the real export; real accept rate awaits Peter |
 | P6 | Retrieval — Peter's four searches | 1 | **Built** — exit met on a synthetic export; real-export run awaits Peter |
-| P7 | Peter's surfaces — home and the daily brief | 1 | Planned |
-| P8 | Markup, query state, parked ideas | 1–2 | Planned |
-| P9 | The contractor tier | 3 | Planned |
-| R | **Works Report** — track across P3–P7, slices R0–R5 ([works-report.md](works-report.md)) | 1 | R0 next; R1's media re-join, filename captions and progress readings landed with P5 |
+| P7 | Peter's surfaces — home and the daily brief | 1 | **Built** — silent-contractor artefact ready; the three weeks with Peter await him (§11 test 3) |
+| P8 | Markup, query state, parked ideas | 1–2 | **Built** — exit met end to end (API + headless browser) on a synthetic receipt; see P8 below |
+| P9 | The contractor tier | 3 | **Built** — 90/90, and the P7 and report suites re-run with the contractor never signing in; §11 test 2 awaits the contractor and Peter |
+| R | **Works Report** — track across P3–P7, slices R0–R5 ([works-report.md](works-report.md)) | 1 | **R1–R5 built** — 117/117; R0 (Peter reads it) and live drafting await a human and a key; see *Works Report* below |
+| — | **Full test pass** after P4–P9 and the report (2026-09-29) | — | **Done** — chain green at 900/900 with a new Law 0 suite; six UI/seat faults found in the browser and fixed; see *Full test pass* below |
 
 > **Added 2026-09-28.** Peter asked for *"a full works report … do you need more time and
 > how long?"* two days before his 30 Sep completion date. The report is the §8 ship test in
@@ -740,6 +745,207 @@ Diary. It skips rather than fails where the host has no OCR engine. `tools/e2e-a
 **Exit:** assetlen.md §11 test 3, the **silent-contractor test** — three weeks of tier 1
 built from a real export with zero contractor involvement. Would Peter pay for this alone?
 
+**Landed (2026-09-29).** No migration: both surfaces read what P2–P6 store. `BriefDAL` /
+`BriefController` (`GET /api/Brief/Home?days=`, `GET /api/Brief/Owed`,
+`GET /api/Brief/Day?projectId=&day=&days=`) / `IBriefApi`; pure helpers `BriefFiler` and
+`VantageIndex` in `FileProcessingServices/Brief/`; a new `Modules/Brief/` holding the page
+(moved from `Projects/Pages/ProjectBrief.razor`, same route, now `?day=`-addressable) and
+`TruthFloor`, `BriefBlockView`, `VantagePair`, `ProjectStanding`. `SearchThumb` was promoted
+to `Components/Media/ArtifactThumb` (two modules now use it).
+
+- **`/` is the multi-project home.** A new *Where each project stands* section, one row per
+  project the reader stands on: money position (funded → claimed → cleared → in hand, plus
+  claimed-not-cleared and sent-not-acknowledged — the stage ledger's rules on the same rows,
+  so the two figures cannot disagree; asserted), what he owes (the first item and a count)
+  with open blockers, and what moved in the last seven days (register, thread counts,
+  captures, readings, releases and claims, blockers). One call, one membership query
+  (`ResolveManyAsync`). Money is per project and per seat; a row with no money seat says so.
+  The per-project browser loop over progress updates is gone.
+- **Decisions owed, across projects, server-side.** Choices his side owes (`OwedBySide`),
+  spoken agreements waiting on his Confirm (`CommitmentDAL.CanAnswerSpoken`, now shared),
+  questions and blockers assigned to him on either channel, claims and extras for the funder,
+  stalled releases (the `GetFundingNeedingMe` rule), and pending proposals from the thread —
+  each with by-when and a consequence in words ("Holds up Terrace floor tiles"). `AttentionState`
+  now reads this one list, so **the rail, Home and Needs-you count spoken decisions, owed
+  choices and pending proposals** (carried over from P4/P5), in one request instead of one per
+  project.
+- **The daily brief assembles itself.** Server-side, from the thread the reader may read
+  (SearchDAL's rule), captures and exposed frames (the Diary's rule), readings (ExtractionDAL's
+  rule) and the register. **Grouped by deliverable**: a line is filed to a deliverable when two
+  words of its title appear (or a whole one-word title), else to a project stage
+  (`StageMatcher`), else — for a project with no stages yet — to the **stage catalogue's** name
+  for the work, labelled *not a stage on this project yet*; else *not tied to a deliverable*,
+  counted. A human's filing (a commitment's deliverable) beats the guess; a reply with no
+  subject inherits what it answers (20 min); a photo with no words joins its sender's nearest
+  line (45 min) or its human file name. Acknowledgements are read, counted and given no space.
+  A reading that names a deliverable is that deliverable's; one naming a stage speaks for the
+  stage's other blocks.
+- **Same-vantage pairing.** A 64-bit difference hash of each thumbnail (`VantageIndex`, cached
+  by content hash — no column, so a better fingerprint is a code change, not a migration); each
+  frame in the window pairs with the closest earlier frame of the same deliverable (else stage)
+  under 0.25, at most two pairs per block, the rest shown capped with a count.
+- **The truth floor is injected, every section for every reader, empty or not.** Money
+  (register figures and restatements, releases, claims, extras), dates (agreed, moved from → to,
+  stage end dates off their baseline), specs agreed / changed / queried, **every open blocker
+  whichever channel raised it** (crossing to the client side in the mediator's name without the
+  crew's wording — Peter's flag list still does not carry it; asserted), and what he owes.
+  Figures and dates read from the thread but not confirmed are on it too, dashed and marked
+  *not yet in your register* — the silent contractor's facts. The rule is stated to both sides.
+- **Emphasis per reader orders, never drops.** Funder: money, dates, blockers, owed, specs;
+  blocks where progress or money moved first. Representative (`ClientRepresentative`, or a
+  client principal off the money): owed, specs, blockers, dates, money; blocks with a choice she
+  owes, a spec change or finishes first. The suite asserts both floors hold exactly the same
+  keys in different orders; off the money, figures are masked and ledger rows absent. The bench
+  and strangers get 404.
+- **Also fixed on the way:** `RejoinMedia` failed with *"the inner stream position has changed"*
+  whenever more than one loose file was sent in a request; each form file is now copied out
+  before reading.
+
+**Exit — not met, and cannot be by a build.** §11 test 3 is three weeks of Peter's own use.
+The artefact is ready: `tools/silent-contractor-trial.sh` signs in as Peter, creates a project
+only he is on, imports his export with no author mapped, re-joins the footage, and writes a
+per-day account of the brief for 21 days to a report **outside the repository**. Run on the
+real export (no stages set up, nobody else on the project): 84 of 91 files bound, blocks on 16
+of 21 days, acknowledgements set aside, unconfirmed dates and specs on the floor most days, and
+**zero same-view pairs** — on the real footage the closest earlier frame is under 0.25 for only
+4 of 64 photos even before filing, so the fingerprint that pairs the synthetic before/after
+cleanly does not find the real ones. That is this build's headline weakness.
+
+`tools/e2e-p7-brief.sh`: **92 assertions, 0 failures** — Law 0 (Peter alone, authors unmapped),
+grouping, the pair (and the photo from elsewhere left unpaired), readings, the floor with the
+contractor silent, owed with by-when and consequence, the home's money against the stage
+ledger, the crew-channel blocker crossing, emphasis without loss, masking, seats, curation as an
+upgrade, and a project with no stages. Verified in the browser at 360 / 768 / 1280, light and
+dark: no console errors, every CSS bundle 200, no horizontal overflow, pair thumbnails through
+the authenticated pipeline. `tools/e2e-all.sh`: **549, 0 failures**.
+
+**Outstanding.**
+- **Pairing on real footage is 0.** Handheld photos of one view differ more than the
+  difference hash tolerates; raising the threshold without a labelled set would pair unrelated
+  frames. Needs a small hand-labelled set of real same-view pairs, then a better fingerprint
+  (or a model) behind `IVantageIndex`.
+- Filing is words only. A real thread names the work loosely ("the wing", "upstairs"); with no
+  stages set up most lines land on catalogue names or unfiled. Peter adding his stages and
+  deliverables changes this more than any rule will.
+- The brief is computed on read; "publishes at the cutoff" is a label (`Brief:CutoffHour`,
+  default 20:00), not an issued snapshot. Issued snapshots are works-report R1.
+- Consequence text is derived (deliverable, stage start, lead time); no field lets a person
+  write what waiting costs. Backwards-computed decide-by dates are P8.
+- Carried over, unchanged: second-project funding; `GetFundingBy*` gating on read rather than
+  `CanSeeMoney`; the 360 px accountability table and register switcher; the real place name in
+  the dev seed's location and the dev personas' shared surname — both worth checking against
+  the anonymity rule.
+- The dev database holds a synthetic P7 project per suite run under the
+  `peter.buyer@assetlen.test` pseudonym, and **one project built from the real export**
+  (*Silent-contractor trial*, same account) left for review; an earlier failed run of it is
+  archived. Delete both if the real content should not sit in the dev database.
+
+---
+
+### Works Report — R1 to R5 *(works-report.md; the §8 ship test in Peter's own words)*
+
+**Landed (2026-09-29).** Migration `20260928232921_R_WorksReport`, **applied to the dev
+database**, additive: `tbl_WorksReport` (frozen snapshot + narrative JSON, SHA-256, previous
+report, issue kind, milestone trigger key, delivery note), `tbl_ArtifactPoster`,
+`tbl_Flag.RaisedAt` (a blocker's age runs from when it was reported, not typed — extraction
+now stamps it from the message), `tbl_Project.ReportDraftingEnabled`. `WorksReportDAL` /
+`WorksReportController` / `IWorksReportApi`; `FileProcessingServices/Report/` holds
+`StageLedgerMath` (the ledger's arithmetic, now shared by `LedgerDAL` and the report so they
+cannot disagree), `ReportNarration` (`IReportNarrator`, `TemplateReportNarrator`,
+`NarrativeValidator`), `ClaudeReportNarrator`, `VideoPosterJob`, `ScheduledReportJob`. A new
+`Modules/Report/` — `Pages/WorksReport.razor` at `/project/{id}/report` (live) and
+`/project/{id}/report/{reportId}` (issued), and twenty components, each with its `.razor.css`.
+`ProjectAccess` gains `CanSeeReport` / `CanIssueReport` (mirrored on the DTO); a **Report** tab,
+an Overview jump and a link on each home row are the three doors.
+
+- **R1 — as built.** Cover (hero 21/9, the answer first), headline cards, stage board grouped by
+  phase with progress rings, 64×16 sparklines whose flat tail turns warning and says
+  *Stalled n days*, plan/pace ticks, at most two frames per card, before/after same-view pairs,
+  footage by stage, money, blockers, sources appendix. **Assembled as at any moment**: every
+  row is filtered by its own date (readings, commitments, variations, blockers, releases and
+  claims *as they stood*), so "issue as at 14 Sep" is the record at the end of 14 Sep. Issued
+  = frozen: the snapshot and narrative are stored as JSON, hashed, and read back byte for byte;
+  the next report links it, takes its window from it and says what moved (stage %, forecast,
+  lapsed count, new decisions/variations, blockers opened and cleared, funded Δ).
+  **Print stylesheet** (A4, one section per break, chrome dropped, chips print as `S12`
+  references resolved in the appendix) — "Save as PDF" from the browser is v1.
+  **Video posters**: new videos queue a Hangfire job; ffmpeg (config `Media:FfmpegPath` or the
+  PATH) extracts a frame and ffprobe the length; the frame becomes the video's thumbnail, so
+  every existing surface shows it through its existing visibility check. With no ffmpeg the
+  row says `EngineUnavailable` and the tile says *length unknown*.
+- **R2 — scheduled.** The completion date is the chain of `Date` commitments worded as
+  completion and naming no stage: ● set, ◆ restated with the same date, ○ the latest different
+  date, ■ promised; × every short promise whose day passed undelivered and unrestated. Pace per
+  open stage from the last 21 days of readings; zero pace gives no forecast, and the strip names
+  the stages it cannot speak for rather than guessing. Baselines (P4) show as *First planned …
+  moved +n d*. ⑨ Ahead: deliverables and promised dates in 28 days, decisions owed with by-when
+  and consequence, the next stages — and a revised completion date listed as owed **to** Peter
+  when the date is at risk and none is on record. Deadline strip in `--al-blueprint`, one axis,
+  no rows, with the same marks as a table beneath it.
+- **R3 — agreed & stuck.** Decisions with who/when/proof (a spoken one unconfirmed, a queried
+  one, one with no evidence are gaps); variations with cost Δ, time Δ and approval or
+  *not costed* / *not stated* / *no approval on record*; a spec restated in the window with no
+  variation behind it is its own gap. Blockers in lanes by owner, oldest first, days open from
+  `RaisedAt`; a crew-channel blocker crosses without the crew's wording.
+- **R4 — drafted.** `NarrativeRequest` per target (cover, answer, stage, decision, variation,
+  blocker) carries the final facts, the allowed source ids, the source words and a templated
+  fallback. `NarrativeValidator` refuses a sentence that cites nothing or a source it was not
+  given, carries a figure or date word the facts do not, forecasts/sells/blames beyond the
+  record, or runs over budget; a refused target falls back to its template. Claude drafts only
+  with a key **and** `Report:UseClaude` **and** the owner's per-project consent (the setting
+  states what is sent); cards on `claude-sonnet-5-5`, the cover on `claude-opus-5-5`, structured
+  output; drafting runs on issue only — the live page is always templated, so looking never sends
+  anything. **Also fixed:** the reading extractor gave a one-word subject ("Terrazzo is at 45%",
+  "Screeding is at 60%") to the previous sentence — "Doors started" was recorded at 60%. Only a
+  pronoun or filler borrows now.
+- **R5 — on a cadence.** Hangfire recurring jobs: weekly (Sunday 18:00 local, `Report:WeeklyCron`)
+  and hourly milestones (a stage completing, a completion date passing unmet), each at most once
+  (a week window; a trigger key). Issued with no user, recorded as *Issued on schedule*, and
+  delivered in the app to the audience's principals (the delivery note names them). History lists
+  every report the reader's side may read.
+- **Also fixed on the way:** project create dropped the stages' `Phase` and `CatalogueKey`, so
+  every stage made with its project read as *Custom* — no accent, no phase grouping.
+
+**Exit — R1–R5 met on a synthetic Aug–Sep window; R0 not met, and cannot be by a build.**
+`tools/make-report-fixtures.sh` synthesises the window's shape (pseudonyms only): an Android
+export *without media* plus loose files in day folders (one misfiled, one stray, a 3-second
+video), the 13 Aug date restated 22 Aug, plaster 80 → 90 → 90 while the thread says it
+continues, "complete this week" lapsed, readings that give a pace, six variations (five
+uncosted), five third-party blockers, one UGX 100M release never acknowledged, and a separate
+crew thread. `tools/e2e-report.sh`: **117 assertions, 0 failures** — every check of
+works-report.md §10 plus each slice's exit: the report issues with the contractor not on the
+roster; the 21 Sep re-issue shows tiling 20 → 50 and terrazzo — → 45; the strip reads set 13 Aug
+→ restated 22 Aug → two lapsed → promised 30 Sep, pace 10 Oct, and once a new date is recorded,
+○ 20 Oct beside ◌ 10 Oct; every scope change is a variation or a gap; every sentence cites a
+source in the snapshot; the validator refuses a stray figure, a missing or foreign source,
+selling and promising; with drafting on and no model it still issues, templated; the weekly job
+issues with nobody logged in, once, and the milestone job on a stage completing, once; money
+reconciles to the stage ledger and stage figures to the readings table; a client report carries
+no crew photo, words or blocker wording; the bench and a stranger get 404; a reader off the money
+gets no `money` key at all. Verified in the browser at 360 / 768 / 1280, light and dark: no
+console errors, every CSS bundle 200, no horizontal overflow; print media renders without the app
+chrome.
+
+**Outstanding.**
+- **R0 — Peter reads the report and answers *does this answer "more time and how long"?*** The
+  artefact: issue one from his real export in his own account (import → re-join footage → enter
+  the completion date he set → Issue as at 28 Sep) and print it. Not done here: the real export
+  stays outside the repository.
+- **Drafting has never run live** — no API key on this machine. `ClaudeReportNarrator` compiles
+  against the same SDK surface as the P5 extractor; it uses the plain Messages API with the
+  refusal falling back to templates rather than the server-side `fallbacks` beta.
+- The completion date is found by wording ("complete / handover / finish by", no stage named).
+  A completion commitment titled otherwise is read as a short promise.
+- Captures still store photos inline (data URIs, pre-P2 path in `ProgressDAL.AddProgressUpdate`),
+  so a captured frame has no artifact and does not reach the report's footage; thread photos and
+  re-joined files do. Folding captures into the artifact store is P9's.
+- Same-view pairing inherits P7's fingerprint — 0 pairs on the real footage.
+- Delivery is in-app only: no email or push. Server-side PDF (v2) not built; v1 is the print
+  stylesheet. Optional photo captions (§6.3) not built.
+- The live report reads the client audience; the delivery side's own view exists only as an
+  issued report with audience *Contractor*.
+- Each suite run adds a project and a buyer (`peter.report…@assetlen.test`) to the dev database.
+
 ---
 
 ### P8 — Markup, query state, parked ideas
@@ -755,6 +961,75 @@ built from a real export with zero contractor involvement. Would Peter pay for t
   the case this exists for.
 
 **Exit:** Peter circles a line on a receipt, asks, the answer changes the commitment value.
+
+**Landed (2026-09-29).** Migration `20260929003310_P8_MarkupAndParkedIdeas`, **applied to the dev
+database**, additive: `tbl_Annotation` (plan fields plus `LayerId`, `AuthorSide`, `Channel`, `Note`,
+`CommitmentId`, `SupersededAt`), `tbl_CommitmentEstimate`, `tbl_Commitment.DependsOnStageId`.
+`AnnotationDAL` / `AnnotationsController` / `IAnnotationsApi`; `DecideByRule` (Shared.Models, pure,
+used by the register and by `BriefDAL`); a new `Modules/Markup/` — `ArtifactMarkup` at
+`/project/{id}/artifact/{artifactId}` (`?commitment=` preselects), `MarkupCanvas`, `MarkupPreview` —
+and `MarkupOverlay` in `Components/Media/` (used by Markup and Commitments). `ArtifactThumb` gains
+`Full` / `Natural` / `Overlay` so a layer lines up with the picture's own box.
+
+- **Markup is a layer, never a new image.** Marks are stored as fractions of the image (ellipse,
+  box, arrow, freehand), validated server-side (inside the file, at most 40 marks). A change is the
+  layer's next version; the previous one is kept and listed as history. Only the author adds a
+  version. The original's bytes and its reference count are asserted unchanged.
+- **Sides and seats.** The file's own visibility decides first (`IArtifactDAL.GetAsync`), then the
+  layer's channel. A client-side layer is `Client`; a delivery-side layer lands `Crew` (fail-closed)
+  until the mediator exposes it, and then reads in the **accountable face's name**, never the
+  bench's. A layer that asked a question is visible only to seats that read the register. A stranger
+  gets 404.
+- **Circle the thing, ask why.** `Annotations/Ask` is a circle plus a question on a commitment: it
+  goes through `CommitmentDAL.RaiseQuery` (same flag, owed to the same person, 409 if already open),
+  works on a **cleared** item, and links the layer (`CommitmentLinkTarget.Annotation`) and the file
+  back to the item. The register card shows the circled file beside the item (`MarkupPreview`),
+  carried through restatements. The links drawer opens files in the markup page ("Mark up & ask"),
+  as does a picture in search results.
+- **Resolution writes into the item** (P4's `ResolveQuery`, unchanged): the answer is a successor
+  statement; the card now reads *"Revised from UGX 4,320,000 (+UGX 480,000); the earlier figure was
+  cleared on …"* (`PreviousAmount` / `PreviousDueDate` / `PreviousClearedAt`, masked off the money).
+  The new figure can be cleared in its turn.
+- **Parked ideas.** An `Idea` against a future stage gathers references (links) and estimates
+  (`AddEstimate`, figure only on the money seat) **silently**. `Park` re-files an undecided item:
+  its stage, the stage that must not start first (`DependsOnStageId`), lead time.
+- **Decide-by (Law 4).** `DecideByRule`: the earliest of *stage start − lead time* and *dependency
+  start − lead time*; no start date, no deadline. It **surfaces** only within 14 days of that date,
+  or when the idea's own stage is within 7 days of starting (the stage-kickoff hand-back). Surfaced
+  ideas enter `Brief/Owed` as `OwedKind.ParkedIdea` for the side that owes them (the client side
+  unless someone said otherwise), so the rail, Home and the truth floor carry them; a moved stage
+  date moves or silences them. **Changed behaviour:** an unsurfaced Idea-maturity choice no longer
+  appears in the owed list or the register's *Needs you* (nothing in the seed or the earlier suites
+  relied on it). An open choice with no date of its own takes its decide-by as its by-when. The
+  register gains a *Parked ideas* filter.
+
+**Exit — met, on a synthetic receipt, end to end.** `tools/make-markup-fixtures.sh` draws an invented
+receipt (40 bags at UGX 4,800,000) against a register line of 36 bags at 4,320,000 that Peter has
+cleared. `tools/e2e-p8-markup.sh`: **104 assertions, 0 failures** — the ask on a cleared item, the
+layer and its versions, the untouched original, sides / seats / exposure in the accountable face's
+name, Nalan's resolution writing 4,800,000 onto the item beside the kept 4,320,000, masking for
+Dinah, and parked ideas that stay silent, then surface by dependency and by kickoff, then go quiet
+when the driveway slips. **In the headless browser** (Peter, 1280): register → the card's link →
+*Mark up & ask* → drag an ellipse over the cement line → the item is preselected → *Ask on the item*;
+then Nalan resolves on the card with the figure; Peter's card shows the revised figure, the delta,
+the earlier clearing and the circled receipt. Checked at 360 / 768 / 1280, light and dark: no console
+errors, every CSS bundle 200, no horizontal overflow (a long layer badge overflowed at 360 and was
+fixed). `tools/e2e-all.sh`: **770, 0 failures**.
+
+**Outstanding.**
+- Not run on a real photographed receipt; the circle is not read against OCR (the layer does not
+  know which printed line it covers).
+- The resolve pane changes the figure or the date, not the wording, so a resolved *"36 bags"* keeps
+  its title and the resolution note carries *"revised to 40"*.
+- Estimates cannot yet be pointed at a message from the UI (the API takes `IngestedMessageId` /
+  `ArtifactId`); ideas are not yet proposed by extraction.
+- The consequence of waiting is still derived text; there is no field for a person to write it.
+- The dev database holds a project *Terrace finishes (P8 walk)* under Peter, left from the browser
+  walk (answered query, two parked ideas) — delete it if not wanted. Each suite run adds and bins a
+  throwaway project.
+- Carried over, unchanged: second-project funding; `GetFundingBy*` gating on read rather than
+  `CanSeeMoney`; the 360 px accountability table and register switcher; the real place name and
+  shared surname in the dev seed.
 
 ---
 
@@ -774,6 +1049,241 @@ Only now, and only because nothing above depends on it.
 
 **Exit:** assetlen.md §11 test 2 — hand-build one real site day; the contractor says
 *"I'd have dropped two of those"*, Peter says *"this is what I wanted."*
+
+**Landed (2026-09-29).** Migration `20260929013551_P9_ContractorTier`, **applied to the dev database**,
+additive: `tbl_ProgressUpdate.{DeliverableId, ClientCaptureId, CapturedAt, VoiceArtifactId}` (unique on
+project + client capture id), `tbl_ProgressImage.{Curation, CuratedById, CuratedAt}`, `tbl_BriefPublication`,
+`tbl_ClaimEvidence`, `tbl_PushSubscription`, `tbl_PushDelivery`. New: `IFrameExposure` (the one place a
+frame crosses — frame and artifact pointer move together, for the mediator, the cutoff and a claim alike),
+`CurationDAL` / `CurationController` / `CutoffPublishJob`, `PushDAL` / `PushController`, `Notifier` +
+`PushDispatcher` + `WebPushCrypto` (`FileProcessingServices/Push/`), `WindowsSpeechTranscriber`
+(`Ocr/Transcription.cs`), `IProjectAccessService.ResolveUnscopedAsync` (the same rules for jobs that run
+with nobody signed in). Client: the capture page rewritten, `CaptureOutbox` + `outbox.js`, `OutboxStatus`
+(Components/UI — Capture and the Diary), `VoiceRecorder`, `BriefCuration` at `/project/{id}/log/curate`,
+`ClaimEvidenceStrip` and an evidence picker in `ClaimsPanel`, `PushOptIn` on Account, `push-sw.js`.
+
+- **Three taps.** `Progress/GetCaptureToday` lists today's deliverables (stages under way first); the page
+  is *the work → the camera roll → post*, with note, voice note, reading, issue flag and (mediator only)
+  channel behind one disclosure, none required. `Progress/Capture` is multipart, up to 24 frames (the old
+  JSON path capped at 5 and the page at 12); frames are resized to 1600 px on the phone. **Captures now go
+  into the artifact store** (the works-report outstanding item): hash-deduplicated, thumbnailed, OCR'd,
+  pointed at by a `ProgressUpdate` ref — so captured frames reach the brief, the report's footage,
+  search and claims. The JSON path was folded into the same code. Posting needs `CanCapture`; a reading
+  is recorded only when one is given (it used to null the stage's percentage). A capture aimed at a
+  deliverable moves it from not started to under way, and the brief files it there (a person's filing
+  beats the word guess).
+- **Offline queue.** Every post is written to IndexedDB first and sent by `CaptureOutbox` — at once, on
+  the `online` event, on returning to the tab and every 30 s while the app is open; the strip says what is
+  waiting and why the server refused one. The server keeps one entry per `ClientCaptureId`, so a retry after
+  a lost reply never posts twice, and files a capture on the day it was **shot** (`CapturedAt`, clamped to
+  the last fortnight), not the day the signal came back. Sync runs while the app is open; there is no
+  service-worker Background Sync.
+- **Site Diary.** Unchanged in principle and now asserted from P9's side: complete, true authorship for
+  the delivery side, 404 to the client side and to strangers (a stranger on an entry got 403 before; now
+  404). On the client side an entry's author reads as the accountable face. Photo-only and voice-only
+  entries read sensibly in the list; a voice note stays delivery-side.
+- **Curation by exception.** Per frame: *keep*, *drop*, or leave it to the rule — at most three per piece
+  of work (first of the day, latest, one between), kept frames counted first, anything already shown
+  counted too. At the cutoff (`Brief:CutoffHour`, default 20:00; Hangfire every 15 minutes, dev endpoint
+  `Curation/RunCutoff`) the selection crosses **in the mediator's name** whether or not he opened the page,
+  once per day, and not while a batch is still arriving (last capture under ten minutes old). No mediator
+  appointed → nothing crosses (fail-closed). Dropping a frame already shown withdraws it. The brief itself is
+  untouched: it still assembles from the thread with the contractor silent, and the truth floor is not his to
+  curate.
+- **Mediator staffs the delivery side; Peter keeps the roster** — P2's rules, re-asserted: the mediator adds
+  his bench (200) and never Peter's side (403); Peter's roster carries names and sides, no traffic; Peter can
+  remove the contractor and his bench and **loses nothing** — the Diary, the claim and its evidence stay
+  (D1).
+- **Claims carry their own evidence.** `Ledger/GetClaimEvidenceOptions` offers the frames captured on the
+  stage since its last claim (newest of each capture pre-selected), its deliverables (done ones pre-ticked)
+  and its latest reading; `AddClaim` records them as `tbl_ClaimEvidence`. Attaching a crew frame **exposes it
+  in the accountable face's name** and is the mediator's call (403 otherwise). The funder's claim row shows
+  the photos, "*n* of *m* deliverables done" and the reading; the client side reads the claimant as the
+  accountable face.
+- **Web push.** RFC 8291 `aes128gcm` + RFC 8292 VAPID on the framework's own P-256/HKDF/AES-GCM (no new
+  package). The VAPID key is config or a key file under the storage root, generated once. Deliveries go out
+  from an in-memory channel as they are queued (not a polling job) and are logged with status and latency;
+  404/410 unsubscribes. Who is woken is decided per event by standing: a capture wakes the mediator (never
+  the client side — the bench's traffic is the delivery side's), a claim wakes the funder, the day's crossing
+  wakes the client side. Opt-in on Account. The dev push sink (`Dev/PushSinkSubscribe`) holds the browser's
+  half of the keys, decrypts, and checks the VAPID signature.
+- **Voice notes.** Recorded in the page (MediaRecorder), stored as an artifact, transcribed on the OCR
+  queue into `tbl_ArtifactText` — so search finds a voice note by its words, delivery side only. The engine
+  is Windows' dictation recogniser through Windows PowerShell (WAV, or anything ffmpeg can convert); with no
+  engine the row says `EngineUnavailable` and the recording is kept. `Transcription:Engine = none` turns it off.
+
+**Law 0 re-proven.** `tools/e2e-p7-brief.sh` and `tools/e2e-report.sh` take `SILENT_CONTRACTOR=1`: no
+delivery-side account signs in, and every assertion that needs one to act is **skipped, not faked** (P7:
+38 pass, 1 section skipped; report: 104 pass, 5 skipped). The P9 suite runs both that way and checks the
+server's own login record (`Dev/LoginStats`) for the contractor and his foreman before and after — unchanged.
+
+**Exit — not met, and cannot be by a build.** §11 test 2 needs the contractor and Peter. The artefact:
+`tools/two-surface-day.ps1` imports the real export into a project only Peter is on, re-joins the footage and
+writes one page for one day — the Site Diary on the left (every message and photo, true authorship), the brief
+on the right (the three leading blocks, every frame with a *drop* box, the truth floor), and two blank boxes
+for their answers — **to a path outside the repository** (it refuses one inside). Built for 22 Sep from the
+real export: 18 diary items, 12 frames embedded; the brief for that day has one block and two floor items,
+because Peter's project has no stages — the curation model will be judged on a thin right-hand side unless
+he sets up his stages first.
+
+`tools/e2e-p9-contractor.sh`: **90 assertions, 0 failures** (fixtures from `tools/make-p9-fixtures.sh`:
+25 drawn frames and a machine-spoken voice note, nothing real). `tools/e2e-all.sh`: **860, 0 failures**, every
+earlier suite's count unchanged. **Changed for P9 in earlier suites:** P2's capture frames now use their own
+picture, because captures are stored as artifacts and the upload test after it must start from unseen bytes.
+In the headless browser (Musa, Nalan, Peter; 360 / 768 / 1280, light and dark): three taps post five frames;
+offline, the post is kept on the phone and the strip says so; back online it drains; Nalan drops a frame the
+rule chose and another takes its place; the claim form pre-selects frames; Peter's claim row shows its proof.
+No console errors, every stylesheet 200, no horizontal overflow (the native file input showing through CSS
+isolation and a post button overflowing at 360 were found and fixed).
+
+**Outstanding.**
+- **§11 test 2** — show the page to the contractor and to Peter.
+- **Push has never reached a real phone.** Headless Chromium has no push service and reports notification
+  permission as denied, so the opt-in was seen only in its blocked state and delivery only through the dev
+  sink. Try it on Android Chrome over HTTPS on a real host; iOS needs the app added to the home screen.
+- Offline sync needs the app open; no service-worker Background Sync, and the outbox is per browser.
+- Transcription is Windows' dictation engine: rough (it heard "steel team" as "deal team"), en-GB only
+  (`Transcription:Culture`), Windows only. A better engine goes behind `IAudioTranscriber`.
+- The curation rule is positional (first / latest / between). It does not yet use same-view pairing, which
+  finds nothing on real footage anyway (P7).
+- The cutoff publishes at `Brief:CutoffHour` server-local time, one hour for every project.
+- Spoken decisions and queries do not push yet — only captures, claims and the day's crossing.
+- Voice notes are delivery-side only by rule; there is no way to expose one.
+- Each suite run adds a buyer (`peter.p9…@assetlen.test`) and a project to the dev database. The dev
+  database also now holds *Two-surface test (real day)* under `peter.buyer@assetlen.test`, built from the real
+  export — delete it if real content should not sit there. The demo *Kira Residence* holds captures and a claim
+  from the browser walk.
+- Carried over, unchanged: second-project funding; `GetFundingBy*` gating on read rather than `CanSeeMoney`;
+  the 360 px accountability table and register switcher; the real place name in the dev seed's location and
+  the personas' shared surname (the walk's screenshots show *Kira, Wakiso* — worth fixing in the seed).
+
+---
+
+### Full test pass after P4–P9 and the Works Report *(2026-09-29)*
+
+A pass over everything built since P3, to lay the ground for the next plan. No new phase work.
+
+**Build.** A clean `--no-incremental` rebuild of the whole solution, `assetlen.Maui` included (android and
+windows heads; the workloads are installed): 0 errors.
+
+**The chain was red on arrival — 2 of 860.** The P4 suite read 5M too much claimed on the demo's retaining
+wall: two claims filed by hand during an earlier browser walk. Not a code fault in the ledger — the demo seed
+only ever *added* its claims, so anything clicked through stayed forever. `DevSeedService.EnsureLedgerAsync`
+now restores the demo ledger: claims it did not write are archived, its own are put back to their seeded
+state. The same sweep now removes the capture and the question `e2e-p5-money-and-staging.sh` files on the
+demo every run to prove nothing floats — 32 runs of them had left the demo's works report saying
+*"46 blockers are open"*.
+
+**Found in the browser walk** (Peter, Dinah, Nalan, Musa; 360 / 768 / 1280; light and dark; home, overview,
+brief, register, money, search, history, live and issued report, markup on a client and a crew-only file,
+diary, capture, drawings — 336 page loads):
+
+- **Peter had no History tab — his front door.** `CanSeeHistory` required the Site Diary, so a client-side
+  principal could not reach the import that P3 and Law 0 are built on, though the server was already letting
+  him import and read his own side's thread. The rule is now *principals on either side*; the server's
+  per-side filter (`IngestDAL.CanReadSide`) is unchanged, and the bench still does not get the tab.
+- **A typed URL to a section the seat was not invited into rendered the section anyway** — Peter on
+  `/capture` got the capture form with "Today's work didn't load"; the foreman on `/brief` or `/report` got
+  an error state. Brief, report, drawings, history and capture had no page-level guard. `ProjectPage` now
+  refuses any section whose tab the seat does not have, from the same tab table, with a page that names
+  nothing behind it (no eyebrow, no subtitle). The Site Diary, tonight's curation and markup keep their own
+  answers (`GateBySection="false"`).
+- **Printing the report from a dark-mode device put near-white ink on white paper.** The print palette was
+  set on `body`, but the dark palette lives on `:root`, and `index.html`'s splash rule (`html, body { color:
+  var(--sp-text) }`) comes after `app.css` and wins. The print block now sets the light palette on `:root`,
+  including `--al-text-strong` and the splash variables.
+- **Search told the client side the Site Diary exists** ("…the Site Diary and stages were all searched").
+  `SearchResultDto.SearchedSiteDiary` now says whether it was a source, and the footnote names it only then.
+- **An uninvited reader's 404 logged as a console error.** 404 is the server's deliberate answer to a seat
+  that was not invited; `ApiResponseHandler` now logs 403/404 as warnings.
+- **An empty register sat above twenty-one waiting proposals.** After an import the register said *"Nothing
+  agreed on record yet"* while the *From the thread* view — off-screen at 360 px — held everything extracted.
+  The commitments view now says how many items wait and has a *Review* button into them.
+
+**Fixed from the carried-over list:** `GetFundingByProject` / `GetFundingByStage` now gate on `CanSeeMoney`
+(404, like the missing tab), not on project read. The foreman on the demo was already refused by his Crew
+role; the hole was a support seat whose tenant role reads finance, now covered by a test.
+
+**Held to account and clean:** every stylesheet 200 in all 24 browser contexts; no horizontal overflow at any
+width; no console errors after the fixes; tabs exactly as the seats intend (client principals: no Capture, no
+Site Diary; the foreman: no Brief, Report, Money, Register or History); a crew-only file opens as *File not
+found* on the client side. Server-side, every crew-only artifact and diary id on the demo (85) was grepped
+out of 13 responses each for Peter and Dinah — home, owed, brief, live and issued report, three searches,
+register, thread, refs, project, ledger: **zero**. From Nalan's chair the same grep finds 35 in his brief,
+so a zero means something. Print preview checked light and dark, live and issued.
+
+**Law 0, in one sitting.** New suite `tools/e2e-law0.sh`, wired into `e2e-all.sh`: Peter opens a project
+nobody else is on, imports the synthetic thread with the contractor mapped as a name only, clears the 21
+proposals, and gets his home, a 19-item register, a brief marked *assembled without a curator* with the truth
+floor on it, and a works report he issues himself, hash verified — with the server's login record showing the
+delivery-side accounts unused. It also pins the seat rules above. Repeated in the browser: import through the
+History tab, the brief fills, the register prompt leads to a bulk accept.
+
+`tools/e2e-all.sh`: **900 assertions, 0 failures** across twelve suites; no earlier assertion changed.
+
+**Outstanding.**
+- **§11 tests 1–3 and R0 are still Peter's** (and test 2 the contractor's). Nothing here stands in for them.
+- **The foreman can read his side's raw thread through the API** (`Ingest/GetBatch`, `GetMessages`), although
+  the seat model says the raw thread is not part of the bench's job and search and the History tab already
+  keep it from him. `e2e-p3-ingest.sh` asserts *"…and so can the foreman on that side"* — written before
+  seats. Left as is rather than change an assertion without a decision: **decide whether the bench reads the
+  raw thread**, then align `IngestDAL.CanReadSide` and that line.
+- A refused section's breadcrumb still carries the section's name (it comes from the route map, not the page).
+- The demo persona Peter mediates every project he created himself, so his search names the Site Diary; only a
+  project with a named mediator shows the pure client view (Dinah's chair).
+- The anonymity question on the seed: *Ssembatya*, *Kaggwa*, *Opio*, *Nabirye*, *Kira* and *Wakiso* were
+  checked against the real export and **none appears in it** — they are invented, not leaked. *Kira, Wakiso*
+  is still a real place; whether to keep a real town in the seed is the user's call.
+- The pass left, in the dev database: a *Law 0 walk* project under the demo Peter (driven through the UI),
+  a *Law0 probe* project and one project per `e2e-law0.sh` run under `peter.buyer@assetlen.test`, a
+  `site.eng@assetlen.test` user, and an issued report on *Kira Residence*.
+- Carried over, unchanged: second-project funding; the 360 px accountability table; the register switcher
+  still scrolls at 360 px (the new prompt makes the waiting items reachable without it).
+
+---
+
+### Adversarial review of the uncommitted P4–P9 diff *(2026-09-29)*
+
+A hunt through the whole working-tree diff for tenancy holes, side and seat leaks, inline access checks,
+model-introduced numbers, mutation of the raw thread or of issued reports, migrations, real names and charter
+breaches. Each candidate was tried against the running API before it was kept. The chain was green on arrival
+(900/0).
+
+**Confirmed and fixed.**
+- **The bench's remarks crossed with the frames.** When a frame crossed — at the cutoff with nobody watching,
+  or as claim evidence — its whole entry flipped to the client channel, and `ProgressDAL.MapUpdateToDto` handed
+  the client side *every* comment on it, Crew-channel ones included, under the commenter's true name.
+  Reproduced: the foreman's *"do not tell the client"* on a Diary entry reached Peter at 20:00. Now a
+  client-side reader gets only client-channel comments and the client side's own, and a delivery-side author
+  reads as the accountable face. A comment is stamped with its entry's channel when written, and a reader
+  who cannot see a Diary entry gets 404 for commenting on it (he got 200 before, and the remark was
+  broadcast to the crew).
+- **The narrative validator let spelled-out figures through.** It checked digits, so *"Open three weeks"*
+  passed against facts that said 12 days. Number words (*two … ninety, hundred, million, dozen, half, twice,
+  fortnight, percent …*) now have to appear in the facts, as digits and month names already did.
+- `tools/start-dev.ps1` could not start anything from this repo's path: `Start-Process` joins an argument
+  array without quoting, and the path has spaces.
+
+Five assertions added (P9: the remark stays in the Diary, the mediator still reads it, the blind comment
+is refused; works report: the spelled-out figure is refused). All five failed on the old build.
+`tools/e2e-all.sh`: **905 assertions, 0 failures**.
+
+**Checked and clean.** Every new table has `TenantId` and a `TenantScoped` filter, and every row written with
+no signed-in user either gets `TenantId` set explicitly or has a `ProjectId` for the owner stamp. Access goes
+through `IProjectAccessService` (`ResolveUnscopedAsync` for jobs). `tbl_IngestedMessage` is written only by the
+importer. There is no update or delete path on `tbl_WorksReport`. The drafting model sees facts only after
+side filtering, and numbers come from the assembler. The three new migrations apply in order to an empty
+database and the snapshot has no pending changes. No surname, bank or place from the real export appears
+in the diff. Every new `.razor` has its `.razor.css`, and there are no literal colours outside `app.css`
+tokens. `PlanTick` and `DeadlineStrip` are dots on a hairline, not bars. Dev endpoints return 404 outside
+Development.
+
+**Left for a decision.**
+- **A crossed entry carries its note.** The capture's note (`Description`) crosses with its frames and reads
+  in the brief and the report as the mediator's words, cutoff included. The curation page shows the note, so
+  a mediator who opens it sees what will go. One who does not open it sends the bench's note without having
+  read it. Decide whether an unattended cutoff should hold notes back.
+- The bench can read its side's raw thread through the API. This is carried over from the full test pass.
 
 ---
 
@@ -829,7 +1339,7 @@ Only now, and only because nothing above depends on it.
 ## Update protocol
 
 1. Build green, no new errors.
-2. Run **`bash tools/e2e-all.sh https://localhost:7264/api`** — every suite in one command, currently **457 assertions**.
+2. Run **`bash tools/e2e-all.sh https://localhost:7264/api`** — every suite in one command, currently **860 assertions**.
    No row regresses. (`tools/e2e-access-audit.sh` is superseded: it still casts the
    contractor as project owner, which the buyer decision reverses.)
 3. Update the phase table above; add rows for sub-phases.

@@ -1,0 +1,55 @@
+@*
+    ⑧ What is stuck, grouped by who has to move — the window team, the
+    aluminium fabricator, the power utility — oldest first, with its age. A
+    blocker the delivery side raised on its own channel still reaches the client
+    side, in the accountable face's name and without the crew's wording (§2.3).
+*@
+
+@if (Lanes.Count == 0)
+{
+    <p class="lanes__none">No blocker is open.</p>
+}
+else
+{
+    <div class="lanes">
+        @foreach (var lane in Lanes)
+        {
+            <section class="lane al-print-avoid">
+                <header class="lane__head">
+                    <span class="lane__owner">@lane.Owner</span>
+                    <span class="lane__age al-num">@lane.OldestDays d</span>
+                </header>
+                <ul class="lane__items">
+                    @foreach (var b in lane.Items)
+                    {
+                        <li class="lane__item @ReportFormat.Phase(b.Phase)">
+                            <span class="lane__title">@b.Title</span>
+                            @if (b.Detail is not null)
+                            {
+                                <span class="lane__detail">@b.Detail</span>
+                            }
+                            <span class="lane__meta al-num">
+                                Since @ReportFormat.Day(b.Since) · @b.DaysOpen days open
+                                @if (b.LastChase is { } chase)
+                                {
+                                    <span> · chased @ReportFormat.Day(chase)</span>
+                                }
+                                @if (b.Crossed)
+                                {
+                                    <span> · raised on the delivery side</span>
+                                }
+                            </span>
+                            <NarrativeText Sentences="@(Words?.Invoke(b.Id) ?? new())" Chips="false" Class="lane__words" />
+                            <SourceChip Ids="b.SourceIds" />
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<BlockerLaneDto> Lanes { get; set; } = new();
+    [Parameter] public Func<string, List<NarrativeSentenceDto>>? Words { get; set; }
+}

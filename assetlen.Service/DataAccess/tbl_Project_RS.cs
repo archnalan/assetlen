@@ -114,6 +114,13 @@ public class tbl_Project : BaseEntity
     [NotMapped]
     public DateTime? PurgeDueAt => ArchivedAt?.AddDays(ArchiveRetentionDays);
 
+    /// <summary>
+    /// Whether the works report's descriptions may be drafted by a model.
+    /// Off by default: sending a project's record to an external service is the
+    /// owner's call (works-report.md §6.4), and the report issues without it.
+    /// </summary>
+    public bool ReportDraftingEnabled { get; set; }
+
     public bool IsFirstFreeProject { get; set; }
 
     public bool IsSubscriptionActive { get; set; } = true;

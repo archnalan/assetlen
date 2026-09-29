@@ -156,6 +156,96 @@ namespace assetlen.SqlServer.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Annotation", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("AuthorId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("AuthorSide")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CommitmentId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("LayerId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ShapesJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("SupersededAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("CommitmentId")
+                        .HasDatabaseName("IX_Annotation_CommitmentId");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("IX_Annotation_ProjectId");
+
+                    b.HasIndex("ArtifactId", "LayerId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Annotation_Artifact_Layer_Version")
+                        .HasFilter("[ArtifactId] IS NOT NULL AND [LayerId] IS NOT NULL");
+
+                    b.ToTable("tbl_Annotations");
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Artifact", b =>
                 {
                     b.Property<string>("Id")
@@ -242,6 +332,73 @@ namespace assetlen.SqlServer.Migrations
                         .HasFilter("[ProjectId] IS NOT NULL AND [Sha256] IS NOT NULL");
 
                     b.ToTable("tbl_Artifacts");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ArtifactPoster", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("DurationSeconds")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PosterArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ArtifactPoster_ArtifactId")
+                        .HasFilter("[ArtifactId] IS NOT NULL");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("PosterArtifactId");
+
+                    b.ToTable("tbl_ArtifactPosters");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ArtifactRef", b =>
@@ -483,6 +640,74 @@ namespace assetlen.SqlServer.Migrations
                     b.ToTable("tbl_ArtifactTexts");
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_BriefPublication", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("Day")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FramesDropped")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FramesExposed")
+                        .HasColumnType("int");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PublishedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("PublishedById");
+
+                    b.HasIndex("ProjectId", "Day")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BriefPublication_Project_Day")
+                        .HasFilter("[ProjectId] IS NOT NULL");
+
+                    b.ToTable("tbl_BriefPublications");
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_BudgetLineItem", b =>
                 {
                     b.Property<string>("Id")
@@ -561,6 +786,85 @@ namespace assetlen.SqlServer.Migrations
                     b.ToTable("tbl_BudgetLineItems");
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ClaimEvidence", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ClaimId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliverableId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProgressImageId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProgressReadingId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactId");
+
+                    b.HasIndex("ClaimId")
+                        .HasDatabaseName("IX_ClaimEvidence_ClaimId");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("DeliverableId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("ProgressImageId");
+
+                    b.HasIndex("ProgressReadingId");
+
+                    b.ToTable("tbl_ClaimEvidence");
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Commitment", b =>
                 {
                     b.Property<string>("Id")
@@ -623,6 +927,10 @@ namespace assetlen.SqlServer.Migrations
 
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("DependsOnStageId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<string>("DisputeNote")
                         .HasMaxLength(1000)
@@ -728,6 +1036,8 @@ namespace assetlen.SqlServer.Migrations
                     b.HasIndex("DeliverableId")
                         .HasDatabaseName("IX_Commitment_DeliverableId");
 
+                    b.HasIndex("DependsOnStageId");
+
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("LastModifiedBy");
@@ -747,6 +1057,80 @@ namespace assetlen.SqlServer.Migrations
                         .HasDatabaseName("IX_Commitment_Project_Accountable");
 
                     b.ToTable("tbl_Commitments");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_CommitmentEstimate", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("CommitmentId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IngestedMessageId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("RecordedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommitmentId")
+                        .HasDatabaseName("IX_CommitmentEstimate_CommitmentId");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("RecordedById");
+
+                    b.ToTable("tbl_CommitmentEstimates");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_CommitmentLink", b =>
@@ -1380,6 +1764,9 @@ namespace assetlen.SqlServer.Migrations
                     b.Property<string>("ProjectId")
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("RaisedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ResolvedById")
                         .HasMaxLength(450)
@@ -2016,6 +2403,16 @@ namespace assetlen.SqlServer.Migrations
                     b.Property<int>("Channel")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("CuratedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CuratedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Curation")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("DateTimeCreated")
                         .HasColumnType("datetime2");
 
@@ -2162,8 +2559,15 @@ namespace assetlen.SqlServer.Migrations
                     b.Property<int?>("ApprovalStatus")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("CapturedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("Channel")
                         .HasColumnType("int");
+
+                    b.Property<string>("ClientCaptureId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<decimal?>("CompletionPercentage")
                         .HasColumnType("decimal(5,2)");
@@ -2177,6 +2581,10 @@ namespace assetlen.SqlServer.Migrations
 
                     b.Property<DateTime?>("DateTimeModified")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliverableId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
@@ -2202,6 +2610,10 @@ namespace assetlen.SqlServer.Migrations
                     b.Property<string>("TenantId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("VoiceArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedById");
@@ -2210,6 +2622,9 @@ namespace assetlen.SqlServer.Migrations
                         .HasDatabaseName("IX_ProgressUpdate_CreatedAt");
 
                     b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("DeliverableId")
+                        .HasDatabaseName("IX_ProgressUpdate_DeliverableId");
 
                     b.HasIndex("IsDeleted");
 
@@ -2220,6 +2635,13 @@ namespace assetlen.SqlServer.Migrations
 
                     b.HasIndex("StageId")
                         .HasDatabaseName("IX_ProgressUpdate_StageId");
+
+                    b.HasIndex("VoiceArtifactId");
+
+                    b.HasIndex("ProjectId", "ClientCaptureId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProgressUpdate_Project_ClientCapture")
+                        .HasFilter("[ClientCaptureId] IS NOT NULL");
 
                     b.ToTable("tbl_ProgressUpdates");
                 });
@@ -2308,6 +2730,9 @@ namespace assetlen.SqlServer.Migrations
                     b.Property<string>("ProjectName")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("ReportDraftingEnabled")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("RevisedCompletionDate")
                         .HasColumnType("datetime2");
@@ -2604,6 +3029,171 @@ namespace assetlen.SqlServer.Migrations
                         .HasDatabaseName("IX_ProjectSub_ProjectId");
 
                     b.ToTable("tbl_ProjectSubscriptions");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_PushDelivery", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Body")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("HttpStatus")
+                        .HasColumnType("int");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("QueuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SubscriptionId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_PushDelivery_Status");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("UserId", "QueuedAt")
+                        .HasDatabaseName("IX_PushDelivery_User_QueuedAt");
+
+                    b.ToTable("tbl_PushDeliveries");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_PushSubscription", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Auth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Endpoint")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("EndpointHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("LastSuccessAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("P256dh")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("EndpointHash")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PushSubscription_EndpointHash")
+                        .HasFilter("[EndpointHash] IS NOT NULL");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_PushSubscription_UserId");
+
+                    b.ToTable("tbl_PushSubscriptions");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Receipt", b =>
@@ -3429,6 +4019,108 @@ namespace assetlen.SqlServer.Migrations
                     b.ToTable("tbl_Variations");
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_WorksReport", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Audience")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContentSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("CoveringNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliveryNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("IssueKind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IssueReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IssuedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("NarrativeJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreviousReportId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("SnapshotJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TriggerKey")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("WindowFrom")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("IssuedById");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("ProjectId", "AsAt")
+                        .HasDatabaseName("IX_WorksReport_Project_AsAt");
+
+                    b.HasIndex("ProjectId", "TriggerKey")
+                        .HasDatabaseName("IX_WorksReport_Project_Trigger");
+
+                    b.ToTable("tbl_WorksReports");
+                });
+
             modelBuilder.Entity("assetlen.Shared.Models.Models.AppUser", b =>
                 {
                     b.Property<string>("Id")
@@ -3732,6 +4424,30 @@ namespace assetlen.SqlServer.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Annotation", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Artifact", "Artifact")
+                        .WithMany()
+                        .HasForeignKey("ArtifactId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Commitment", "Commitment")
+                        .WithMany()
+                        .HasForeignKey("CommitmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Artifact");
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Commitment");
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Artifact", b =>
                 {
                     b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
@@ -3747,6 +4463,23 @@ namespace assetlen.SqlServer.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("UploadedBy");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ArtifactPoster", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Artifact", "Artifact")
+                        .WithMany()
+                        .HasForeignKey("ArtifactId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Artifact", "PosterArtifact")
+                        .WithMany()
+                        .HasForeignKey("PosterArtifactId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Artifact");
+
+                    b.Navigation("PosterArtifact");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ArtifactRef", b =>
@@ -3800,6 +4533,23 @@ namespace assetlen.SqlServer.Migrations
                     b.Navigation("Artifact");
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_BriefPublication", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "PublishedBy")
+                        .WithMany()
+                        .HasForeignKey("PublishedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Project");
+
+                    b.Navigation("PublishedBy");
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_BudgetLineItem", b =>
                 {
                     b.HasOne("assetlen.Shared.Models.Models.AppUser", "CreatedBy")
@@ -3824,6 +4574,44 @@ namespace assetlen.SqlServer.Migrations
                     b.Navigation("Stage");
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ClaimEvidence", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Artifact", "Artifact")
+                        .WithMany()
+                        .HasForeignKey("ArtifactId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_StageClaim", "Claim")
+                        .WithMany()
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Deliverable", "Deliverable")
+                        .WithMany()
+                        .HasForeignKey("DeliverableId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_ProgressImage", "ProgressImage")
+                        .WithMany()
+                        .HasForeignKey("ProgressImageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_ProgressReading", "ProgressReading")
+                        .WithMany()
+                        .HasForeignKey("ProgressReadingId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Artifact");
+
+                    b.Navigation("Claim");
+
+                    b.Navigation("Deliverable");
+
+                    b.Navigation("ProgressImage");
+
+                    b.Navigation("ProgressReading");
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Commitment", b =>
                 {
                     b.HasOne("assetlen.Service.DataAccess.tbl_ProjectMember", "AccountableMember")
@@ -3844,6 +4632,11 @@ namespace assetlen.SqlServer.Migrations
                     b.HasOne("assetlen.Service.DataAccess.tbl_Deliverable", "Deliverable")
                         .WithMany()
                         .HasForeignKey("DeliverableId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Stage", "DependsOnStage")
+                        .WithMany()
+                        .HasForeignKey("DependsOnStageId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
@@ -3874,6 +4667,8 @@ namespace assetlen.SqlServer.Migrations
 
                     b.Navigation("Deliverable");
 
+                    b.Navigation("DependsOnStage");
+
                     b.Navigation("Project");
 
                     b.Navigation("RecordedBy");
@@ -3881,6 +4676,23 @@ namespace assetlen.SqlServer.Migrations
                     b.Navigation("Stage");
 
                     b.Navigation("Supersedes");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_CommitmentEstimate", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Commitment", "Commitment")
+                        .WithMany()
+                        .HasForeignKey("CommitmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "RecordedBy")
+                        .WithMany()
+                        .HasForeignKey("RecordedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Commitment");
+
+                    b.Navigation("RecordedBy");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_CommitmentLink", b =>
@@ -4217,6 +5029,11 @@ namespace assetlen.SqlServer.Migrations
                         .HasForeignKey("CreatedById")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Deliverable", "Deliverable")
+                        .WithMany()
+                        .HasForeignKey("DeliverableId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
                         .WithMany("ProgressUpdates")
                         .HasForeignKey("ProjectId")
@@ -4227,11 +5044,20 @@ namespace assetlen.SqlServer.Migrations
                         .HasForeignKey("StageId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Artifact", "VoiceArtifact")
+                        .WithMany()
+                        .HasForeignKey("VoiceArtifactId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("CreatedBy");
+
+                    b.Navigation("Deliverable");
 
                     b.Navigation("Project");
 
                     b.Navigation("Stage");
+
+                    b.Navigation("VoiceArtifact");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Project", b =>
@@ -4314,6 +5140,26 @@ namespace assetlen.SqlServer.Migrations
                     b.Navigation("Investor");
 
                     b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_PushDelivery", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_PushSubscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Subscription");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_PushSubscription", b =>
+                {
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Receipt", b =>
@@ -4437,6 +5283,22 @@ namespace assetlen.SqlServer.Migrations
                     b.Navigation("RaisedBy");
 
                     b.Navigation("Stage");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_WorksReport", b =>
+                {
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "IssuedBy")
+                        .WithMany()
+                        .HasForeignKey("IssuedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId");
+
+                    b.Navigation("IssuedBy");
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("assetlen.Shared.Models.Models.tbl_RefreshToken", b =>

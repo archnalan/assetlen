@@ -363,6 +363,19 @@ a card on Peter's multi-project home (P7), and the notification link.
 
 R1 is shippable before P4 and is already more than Peter has today.
 
+### Slice status (2026-09-29)
+
+| Slice | Status | Notes |
+|---|---|---|
+| **R0** | **Not done — needs Peter** | The page exists; issue it from his real export as at 28 Sep, print it, and ask the question. The real export stays outside the repository. |
+| **R1** | **Built** | Live + issued (frozen, hashed, byte-stable), as-at any past day, deltas since the last report, print stylesheet, video posters (ffmpeg via Hangfire; *length unknown* without it). Exit met on the synthetic fixture. Captured photos are still inline data URIs and do not reach the footage section (P9). |
+| **R2** | **Built** | Strip from date commitments (set, restated, lapsed, contractor's date, pace forecast, the stages it cannot speak for), baselines, ⑨ Ahead. Exit met on the fixture. The completion date is recognised by wording. |
+| **R3** | **Built** | Decisions, variations with *not costed* / *no approval on record* gaps, unvaried spec changes as gaps, blockers by owner aged from `tbl_Flag.RaisedAt`. Exit met on the fixture. |
+| **R4** | **Built, model untested** | Validator, templated fallback, per-project consent, Claude narrator (Sonnet cards, Opus cover). Issues fully templated with the model off (asserted); no key on the build machine, so no live draft has been validated. Extraction's reading rule fixed for one-word subjects. |
+| **R5** | **Built** | Weekly and milestone issuing on Hangfire, once each, delivered in the app, history. Exit met by a dev-only trigger standing in for the week; email/push delivery and the server PDF are not built. |
+
+Full detail and outstanding items: [plan.md](plan.md), *Works Report — R1 to R5*.
+
 ---
 
 ## 10. Verification

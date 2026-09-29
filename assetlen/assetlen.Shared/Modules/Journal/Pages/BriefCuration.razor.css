@@ -1,0 +1,107 @@
+.curate__bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-3);
+    margin-bottom: var(--al-space-4);
+}
+
+.curate__day {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-1);
+}
+
+.curate__date {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-variant-numeric: tabular-nums;
+    min-width: 8.5rem;
+    text-align: center;
+}
+
+.curate__summary {
+    margin: 0 0 var(--al-space-5);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+    max-width: var(--al-reading-max);
+}
+
+.curate__summary strong { color: var(--al-text); }
+
+.curate__block {
+    margin-bottom: var(--al-space-6);
+    padding-top: var(--al-space-3);
+    border-top: 1px solid var(--al-border);
+}
+
+/* The phase as a hairline beside the heading — never a fill (CLAUDE.md §2.1). */
+.curate__block-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    margin-bottom: var(--al-space-3);
+    padding-left: var(--al-space-2);
+    border-left: 2px solid var(--al-stage-accent, var(--al-border-strong));
+}
+
+.curate__block-title {
+    margin: 0;
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-semibold);
+}
+
+.curate__block-stage { color: var(--al-text-subtle); font-size: var(--al-font-size-xs); }
+
+.curate__block-count {
+    margin-left: auto;
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.curate__frames {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+    gap: var(--al-space-3);
+}
+
+.curate__frame {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    overflow: hidden;
+    background: var(--al-bg-elevated);
+    transition: opacity var(--al-transition), border-color var(--al-transition);
+}
+
+.curate__frame ::deep .athumb { aspect-ratio: var(--al-aspect-thumb); width: 100%; }
+
+.curate__frame--going { border-color: var(--al-accent); }
+.curate__frame--shown { border-color: var(--al-success); }
+.curate__frame--held { opacity: 0.7; }
+.curate__frame--dropped { opacity: 0.4; }
+
+.curate__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--al-space-2) var(--al-space-2) 0;
+    font-size: var(--al-font-size-xs);
+}
+
+.curate__state { font-weight: var(--al-weight-semibold); }
+.curate__frame--going .curate__state { color: var(--al-accent); }
+.curate__frame--shown .curate__state { color: var(--al-success); }
+
+.curate__who,
+.curate__why { color: var(--al-text-muted); }
+
+.curate__actions {
+    display: flex;
+    gap: var(--al-space-1);
+    padding: var(--al-space-1) var(--al-space-1) var(--al-space-2);
+}

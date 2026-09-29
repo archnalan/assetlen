@@ -1962,3 +1962,57 @@ table.al-table tfoot td {
     height: 1px;
     background: color-mix(in srgb, var(--al-stage-accent, var(--al-border)) 34%, transparent);
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   PRINT — for issued documents (the works report, works-report.md §3.3).
+   Peter forwards the report into the group as a PDF; "Save as PDF" from the
+   browser is v1. A page marks itself with .al-print-root; the app's chrome
+   then drops away and the paper tokens are forced, whatever the screen theme.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@media print {
+    @page { size: A4 portrait; margin: 14mm 12mm; }
+
+    /* Paper is light whatever the screen was. Set on :root, where the dark
+       palette lives, and including the splash's --sp-* (index.html's inline
+       html/body rule outranks app.css) — printing from a dark-mode phone
+       otherwise put near-white ink on white paper. */
+    :root:has(.al-print-root) {
+        color-scheme: light;
+        --al-bg: #ffffff;
+        --al-bg-elevated: #ffffff;
+        --al-surface: #ffffff;
+        --al-surface-2: #f4f3ee;
+        --al-surface-3: #e7e4dc;
+        --al-surface-sunken: #eceae3;
+        --al-text: #1a1d21;
+        --al-text-strong: #000000;
+        --al-text-muted: #4f535a;
+        --al-text-subtle: #6b6f76;
+        --al-border: rgba(26, 29, 33, 0.16);
+        --al-border-strong: rgba(26, 29, 33, 0.28);
+        --al-border-heavy: rgba(26, 29, 33, 0.34);
+        --sp-bg: #ffffff;
+        --sp-text: #1a1d21;
+    }
+
+    body:has(.al-print-root) {
+        background: #ffffff;
+        color: var(--al-text);
+    }
+
+    body:has(.al-print-root) .shell > :not(.shell__body),
+    body:has(.al-print-root) .shell__body > :not(.shell__main),
+    body:has(.al-print-root) .al-titleblock,
+    body:has(.al-print-root) .tabstrip,
+    body:has(.al-print-root) #blazor-error-ui,
+    .al-print-hide { display: none !important; }
+
+    .al-print-break { break-before: page; }
+    .al-print-avoid { break-inside: avoid; }
+    .al-print-only { display: revert !important; }
+}
+
+@media screen {
+    .al-print-only { display: none !important; }
+}

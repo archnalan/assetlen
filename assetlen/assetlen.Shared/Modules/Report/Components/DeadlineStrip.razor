@@ -1,0 +1,159 @@
+@*
+    The project's completion commitment and its history, on one axis
+    (works-report.md §3.1) — the only place --al-blueprint is used in the report.
+    ● set · ◆ restated · ▲ today · ■ promised · × lapsed short promise ·
+    ○ contractor's revised date · ◌ pace forecast. No rows, no dependencies:
+    Peter thinks in stages, not networks. The table under it is the same marks
+    in words, for a reader who cannot tell the shapes apart and for print.
+*@
+
+<div class="strip">
+    @if (Strip.Marks.Count <= 1)
+    {
+        <GapMarker Text="No completion date is on record for this project" Block="true" />
+    }
+    else
+    {
+        <svg class="strip__svg" viewBox="0 0 @W @H" role="img" aria-label="@Summary">
+            <title>@Summary</title>
+
+            @foreach (var m in Months)
+            {
+                <g>
+                <line class="strip__month" x1="@X(m)" y1="@(Axis - 6)" x2="@X(m)" y2="@(Axis + 6)" />
+                <text class="strip__monthlabel" x="@X(m)" y="@(H - 4)">@m.ToString("MMM", CultureInfo.InvariantCulture)</text>
+                </g>
+            }
+
+            <line class="strip__axis" x1="@Pad" y1="@Axis" x2="@(W - Pad)" y2="@Axis" />
+
+            @if (Strip.Promised is { } promised && Strip.Forecast is { } fc && fc > promised)
+            {
+                <line class="strip__overrun" x1="@X(promised)" y1="@Axis" x2="@X(fc)" y2="@Axis" />
+            }
+
+            @foreach (var mark in Strip.Marks.OrderBy(m => Order(m.Kind)))
+            {
+                var x = X(mark.At);
+                <g class="strip__mark strip__mark--@mark.Kind.ToString().ToLowerInvariant()">
+                    <title>@mark.Label</title>
+                    @switch (mark.Kind)
+                    {
+                        case DeadlineMarkKind.Set:
+                            <circle cx="@x" cy="@Axis" r="5" class="strip__solid" />
+                            break;
+                        case DeadlineMarkKind.Restated:
+                            <rect x="@(Num(x) - 4.5)" y="@(Axis - 4.5)" width="9" height="9" class="strip__solid" transform="rotate(45 @x @Axis)" />
+                            break;
+                        case DeadlineMarkKind.Promised:
+                            <g>
+                            <rect x="@(Num(x) - 5.5)" y="@(Axis - 5.5)" width="11" height="11" class="strip__solid" />
+                            <text class="strip__label" x="@x" y="@(Axis - 16)">@ReportFormat.Day(mark.At)</text>
+                            </g>
+                            break;
+                        case DeadlineMarkKind.Lapsed:
+                            <path d="M @(Num(x) - 4) @(Axis + 12) l 8 8 m 0 -8 l -8 8" class="strip__lapsed" />
+                            break;
+                        case DeadlineMarkKind.ContractorDate:
+                            <g>
+                            <circle cx="@x" cy="@Axis" r="6" class="strip__hollow" />
+                            <text class="strip__label" x="@x" y="@(Axis - 16)">○ @ReportFormat.Day(mark.At)</text>
+                            </g>
+                            break;
+                        case DeadlineMarkKind.Forecast:
+                            <g>
+                            <circle cx="@x" cy="@Axis" r="6" class="strip__hollow strip__dashed" />
+                            <text class="strip__label strip__label--muted" x="@x" y="@(Axis - 30)">◌ @ReportFormat.Day(mark.At)</text>
+                            </g>
+                            break;
+                        case DeadlineMarkKind.Today:
+                            <g>
+                            <path d="M @x @(Axis + 8) l 6 10 h -12 z" class="strip__today" />
+                            <text class="strip__label strip__label--today" x="@x" y="@(Axis + 32)">today</text>
+                            </g>
+                            break;
+                    }
+                </g>
+            }
+        </svg>
+
+        <span class="al-label">The date, in words</span>
+        <table class="strip__table">
+            <tbody>
+                @foreach (var mark in Strip.Marks.Where(m => m.Kind != DeadlineMarkKind.Today).OrderBy(m => m.At))
+                {
+                    <tr>
+                        <td class="strip__glyph" aria-hidden="true">@Glyph(mark.Kind)</td>
+                        <td class="al-num strip__when">@ReportFormat.Day(mark.At)</td>
+                        <td>@mark.Label</td>
+                        <td class="strip__src"><SourceChip Ids="mark.SourceIds" Max="2" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Strip.ForecastBasis is not null || Strip.ForecastExcludes.Count > 0)
+        {
+            <p class="strip__note">
+                @if (Strip.ForecastBasis is not null)
+                {
+                    <span>◌ is a forecast, not a promise — @Strip.ForecastBasis.</span>
+                }
+                @if (Strip.ForecastExcludes.Count > 0)
+                {
+                    <span> It cannot speak for: @string.Join(", ", Strip.ForecastExcludes).</span>
+                }
+                <span> Read from @Strip.Basis.</span>
+            </p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DeadlineStripDto Strip { get; set; } = new();
+
+    private const int W = 480, H = 118, Pad = 16, Axis = 64;
+
+    private double Span => Math.Max(1, (Strip.AxisTo - Strip.AxisFrom).TotalDays);
+
+    private string X(DateTime at) =>
+        (Pad + (W - 2 * Pad) * Math.Clamp((at - Strip.AxisFrom).TotalDays / Span, 0, 1)).ToString("0.#", CultureInfo.InvariantCulture);
+
+    private static double Num(string s) => double.Parse(s, CultureInfo.InvariantCulture);
+
+    private IEnumerable<DateTime> Months
+    {
+        get
+        {
+            var m = new DateTime(Strip.AxisFrom.Year, Strip.AxisFrom.Month, 1).AddMonths(1);
+            for (; m < Strip.AxisTo; m = m.AddMonths(1)) yield return m;
+        }
+    }
+
+    // Drawn in this order so the facts sit on top of the forecasts.
+    private static int Order(DeadlineMarkKind k) => k switch
+    {
+        DeadlineMarkKind.Forecast => 0,
+        DeadlineMarkKind.ContractorDate => 1,
+        DeadlineMarkKind.Lapsed => 2,
+        DeadlineMarkKind.Today => 3,
+        _ => 4
+    };
+
+    private static string Glyph(DeadlineMarkKind k) => k switch
+    {
+        DeadlineMarkKind.Set => "●",
+        DeadlineMarkKind.Restated => "◆",
+        DeadlineMarkKind.Promised => "■",
+        DeadlineMarkKind.Lapsed => "×",
+        DeadlineMarkKind.ContractorDate => "○",
+        DeadlineMarkKind.Forecast => "◌",
+        _ => "▲"
+    };
+
+    private string Summary => Strip.Promised is { } p
+        ? $"Completion promised for {ReportFormat.Day(p)}; {Strip.StateWord.ToLowerInvariant()}; {Strip.LapsedCount} short promises lapsed" +
+          (Strip.Forecast is { } f ? $"; pace forecast {ReportFormat.Day(f)}" : "") +
+          (Strip.ContractorDate is { } c ? $"; latest date given {ReportFormat.Day(c)}" : "")
+        : "No completion date on record";
+}

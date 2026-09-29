@@ -1,0 +1,46 @@
+@*
+    Planned end against forecast end: two dots on one hairline and the distance
+    in words. Not a bar — no Gantt by the back door (plan.md, Explicitly not building).
+*@
+
+@if (Planned is not null || Forecast is not null)
+{
+    <span class="tick" title="@Title">
+        <svg class="tick__svg" viewBox="0 0 72 10" width="72" height="10" aria-hidden="true">
+            <line class="tick__rule" x1="2" y1="5" x2="70" y2="5" />
+            @if (Planned is not null)
+            {
+                <circle class="tick__plan" cx="@PlanX" cy="5" r="3.5" />
+            }
+            @if (Forecast is not null)
+            {
+                <circle class="tick__fcst" cx="@FcstX" cy="5" r="3.5" />
+            }
+        </svg>
+        <span class="tick__text al-num">@Text</span>
+    </span>
+}
+
+@code {
+    [Parameter] public DateTime? Planned { get; set; }
+    [Parameter] public DateTime? Forecast { get; set; }
+    [Parameter] public DateTime? Baseline { get; set; }
+
+    private int? Gap => Planned is { } p && Forecast is { } f ? (int)(f.Date - p.Date).TotalDays : null;
+
+    private string PlanX => Planned is null || Forecast is null ? "36" : Gap >= 0 ? "14" : "58";
+    private string FcstX => Planned is null || Forecast is null ? "36" : Gap >= 0 ? (Gap == 0 ? "14" : "58") : "14";
+
+    private string Text => (Planned, Forecast) switch
+    {
+        (null, { } f) => $"pace {ReportFormat.Day(f)} · no plan",
+        ({ } p, null) => $"plan {ReportFormat.Day(p)} · no pace",
+        ({ } p, { } f) when Gap == 0 => $"plan and pace {ReportFormat.Day(p)}",
+        ({ } p, { } f) => $"plan {ReportFormat.Day(p)} · pace {ReportFormat.Day(f)} ({(Gap > 0 ? "+" : "")}{Gap}d)",
+        _ => ""
+    };
+
+    private string Title => Baseline is { } b && Planned is { } p && b.Date != p.Date
+        ? $"First planned for {ReportFormat.Day(b)}; now planned for {ReportFormat.Day(p)}"
+        : "Planned end (hollow) and the end the recent pace points to (filled)";
+}

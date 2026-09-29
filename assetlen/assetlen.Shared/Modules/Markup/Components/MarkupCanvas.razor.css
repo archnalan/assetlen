@@ -1,0 +1,23 @@
+/* The picture is the hero (CLAUDE.md §2.5); the drawing surface is invisible
+   until a finger is on it. touch-action: none so a drag draws instead of scrolling. */
+.markupcanvas {
+    position: relative;
+    border-radius: var(--al-radius);
+    overflow: hidden;
+    background: var(--al-surface-2);
+}
+
+.markupcanvas ::deep .markupcanvas__hit {
+    position: absolute;
+    inset: 0;
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.markupcanvas--drawing {
+    outline: 1px solid var(--al-border-strong);
+    outline-offset: 2px;
+}

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using assetlen.Service.DataAccess;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.Service.Hubs;
+using assetlen.Service.FileProcessingServices.Push;
 using assetlen.ServiceHandler;
 using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.RemoteSite;
@@ -20,6 +21,9 @@ public class ProgressDAL : IProgressDAL
     private readonly IHubContext<AssetlenHub> _hub;
     private readonly IProjectAccessService _access;
     private readonly IActiveStageService _activeStage;
+    private readonly IArtifactDAL _artifacts;
+    private readonly IFrameExposure _exposure;
+    private readonly INotifier _notifier;
 
     public ProgressDAL(
         AssetlenDbContext context,
@@ -27,8 +31,14 @@ public class ProgressDAL : IProgressDAL
         ITenantProvider tenant,
         IHubContext<AssetlenHub> hub,
         IProjectAccessService access,
-        IActiveStageService activeStage)
+        IActiveStageService activeStage,
+        IArtifactDAL artifacts,
+        IFrameExposure exposure,
+        INotifier notifier)
     {
+        _artifacts = artifacts;
+        _exposure = exposure;
+        _notifier = notifier;
         _context = context;
         _logger = logger;
         _tenant = tenant;
@@ -37,107 +47,310 @@ public class ProgressDAL : IProgressDAL
         _activeStage = activeStage;
     }
 
+    /// <summary>
+    /// The JSON path older clients post. Its base64 frames go into the artifact
+    /// store like any other capture — a data URI on the row had no address, so a
+    /// captured frame could never reach the brief, the report or a claim.
+    /// </summary>
     public async Task<ServiceResult<ProgressUpdateDto>> AddProgressUpdate(ProgressUpdateCreateDto dto, string userId)
+    {
+        var frames = new List<CaptureFile>();
+        try
+        {
+            foreach (var img in dto.Images ?? new())
+            {
+                var raw = img.Base64Image ?? string.Empty;
+                if (raw.StartsWith("http", StringComparison.OrdinalIgnoreCase)) continue;
+                // Strip a "data:<mime>;base64," prefix by finding the comma, never by
+                // trimming characters: TrimStart ate the '/' of every JPEG (plan.md A2).
+                if (raw.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var comma = raw.IndexOf(',');
+                    if (comma >= 0) raw = raw[(comma + 1)..];
+                }
+                frames.Add(new CaptureFile(new MemoryStream(Convert.FromBase64String(raw)), img.FileName,
+                    string.IsNullOrWhiteSpace(img.ContentType) ? "image/jpeg" : img.ContentType, img.Caption));
+            }
+        }
+        catch (FormatException)
+        {
+            return ServiceResult<ProgressUpdateDto>.Failure(new BadRequestException("An image was not valid base64."));
+        }
+
+        try
+        {
+            return await Capture(dto, frames, null, userId);
+        }
+        finally
+        {
+            foreach (var f in frames) await f.Content.DisposeAsync();
+        }
+    }
+
+    /// <summary>Real capture is thirteen to eighteen frames at 22:00 (Nalan.md); room for a long day.</summary>
+    public const int MaxFramesPerCapture = 24;
+
+    public async Task<ServiceResult<ProgressUpdateDto>> Capture(ProgressUpdateCreateDto dto, IReadOnlyList<CaptureFile> frames,
+        CaptureFile? voice, string userId, CancellationToken ct = default)
     {
         try
         {
             var project = await _context.tbl_Projects_RS
                 .Include(p => p.ParentProject)
-                .FirstOrDefaultAsync(p => p.Id == dto.ProjectId);
+                .FirstOrDefaultAsync(p => p.Id == dto.ProjectId, ct);
             if (project == null)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Project not found"));
 
-            // Anyone on the project team may capture — the clerk of works is the
-            // primary capturer, not the owner. Role gates at the controller
-            // decide *who* may capture; membership decides *where*.
-            if (!await _access.CanWriteAsync(project, userId))
-                return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
+            // The Site Diary is the delivery side's; whoever posts to it must be able to read it.
+            var access = await _access.ResolveAsync(project, userId, ct);
+            if (!access.CanCapture)
+                return ServiceResult<ProgressUpdateDto>.Failure(access.CanRead
+                    ? new ForbiddenException("Access denied")
+                    : new NotFoundException("Project not found"));
+
+            // The queue retries until it hears back; a second arrival is the first one.
+            if (!string.IsNullOrWhiteSpace(dto.ClientCaptureId))
+            {
+                var existing = await _context.tbl_ProgressUpdates.AsNoTracking()
+                    .Where(u => u.ProjectId == project.Id && u.ClientCaptureId == dto.ClientCaptureId)
+                    .Select(u => u.Id).FirstOrDefaultAsync(ct);
+                if (existing is not null) return await GetProgressUpdateById(existing, userId);
+            }
+
+            if (frames.Count > MaxFramesPerCapture)
+                return ServiceResult<ProgressUpdateDto>.Failure(
+                    new BadRequestException($"At most {MaxFramesPerCapture} frames in one capture."));
+
+            tbl_Deliverable? deliverable = null;
+            if (!string.IsNullOrEmpty(dto.DeliverableId))
+            {
+                deliverable = await _context.tbl_Deliverables.AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == dto.DeliverableId && d.ProjectId == project.Id, ct);
+                if (deliverable is null)
+                    return ServiceResult<ProgressUpdateDto>.Failure(new BadRequestException("That deliverable is not on this project."));
+            }
 
             // Nothing floats (CLAUDE.md §1), but making the clerk pick a stage on
-            // every batch is the tax that sends people back to the chat. A
-            // capture with no stage named is filed against whatever the site is
-            // working on, and can be moved deliberately afterwards.
-            var stageId = await _activeStage.ResolveAsync(dto.ProjectId, dto.StageId);
-
-            var stage = stageId is null ? null : await _context.tbl_Stages.FindAsync(stageId);
+            // every batch is the tax that sends people back to the chat. Aiming at a
+            // deliverable names its stage; naming nothing files it against the live one.
+            var stageId = await _activeStage.ResolveAsync(dto.ProjectId, deliverable?.StageId ?? dto.StageId, ct);
+            var stage = stageId is null ? null : await _context.tbl_Stages.FindAsync(new object[] { stageId }, ct);
             if (stage == null || stage.ProjectId != dto.ProjectId)
                 return ServiceResult<ProgressUpdateDto>.Failure(
                     new BadRequestException("This project has no stage to capture against."));
 
-            if (dto.Images?.Count > 5)
-                return ServiceResult<ProgressUpdateDto>.Failure(new BadRequestException("Maximum 5 images per update"));
+            if (string.IsNullOrWhiteSpace(dto.Description) && frames.Count == 0 && voice is null)
+                return ServiceResult<ProgressUpdateDto>.Failure(
+                    new BadRequestException("A capture needs a photo, a voice note or a line of text."));
+
+            // Store every file first: an entry that points at frames that failed to
+            // store would show gaps the reader cannot explain.
+            var stored = new List<(string ArtifactId, string? Caption)>();
+            foreach (var f in frames)
+            {
+                var r = await _artifacts.IngestAsync(f.Content, f.FileName, f.ContentType, project.Id!, userId, dto.CapturedAt, ct);
+                if (!r.IsSuccess) return ServiceResult<ProgressUpdateDto>.Failure(r.Error);
+                stored.Add((r.Data!.Id!, f.Caption));
+            }
+
+            string? voiceId = null;
+            if (voice is not null)
+            {
+                var r = await _artifacts.IngestAsync(voice.Content, voice.FileName, voice.ContentType, project.Id!, userId, dto.CapturedAt, ct);
+                if (!r.IsSuccess) return ServiceResult<ProgressUpdateDto>.Failure(r.Error);
+                voiceId = r.Data!.Id;
+            }
 
             var update = new tbl_ProgressUpdate
             {
                 ProjectId = dto.ProjectId,
                 StageId = stageId,
-                Description = dto.Description,
+                DeliverableId = deliverable?.Id,
+                Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
                 CompletionPercentage = dto.CompletionPercentage,
                 HasIssues = dto.HasIssues,
                 CreatedById = userId,
-                Channel = dto.Channel,
-                // Client-channel entries still flow through approval before
-                // they show in the Client view, even though Channel is set.
-                ApprovalStatus = ApprovalStatus.Pending
+                // Uploading is not exposing: only the mediator may start on the client side.
+                Channel = dto.Channel == Channel.Client && access.CanExposeToClient ? Channel.Client : Channel.Crew,
+                ApprovalStatus = ApprovalStatus.Pending,
+                ClientCaptureId = string.IsNullOrWhiteSpace(dto.ClientCaptureId) ? null : dto.ClientCaptureId.Trim(),
+                CapturedAt = ClampCapturedAt(dto.CapturedAt),
+                VoiceArtifactId = voiceId
             };
 
             _context.tbl_ProgressUpdates.Add(update);
-            await _context.SaveChangesAsync();
-
-            if (dto.CompletionPercentage != stage.CompletionPercentage)
-                _context.tbl_ProgressReadings.Add(new tbl_ProgressReading
-                {
-                    ProjectId = stage.ProjectId,
-                    TenantId = stage.TenantId,
-                    StageId = stage.Id,
-                    Subject = stage.StageName,
-                    Percent = Math.Clamp((decimal)dto.CompletionPercentage, 0, 100),
-                    ObservedAt = DateTime.UtcNow,
-                    SourceKind = ProgressReadingSource.Capture,
-                    SourceId = update.Id
-                });
-
-            // Update stage completion %
-            stage.CompletionPercentage = dto.CompletionPercentage;
-            if (dto.CompletionPercentage >= 100)
+            try
             {
-                stage.Status = StageStatus.Completed;
-                stage.ActualEndDate ??= DateTime.UtcNow;
+                await _context.SaveChangesAsync(ct);
             }
-            else if (dto.CompletionPercentage > 0 && stage.Status == StageStatus.NotStarted)
+            catch (DbUpdateException) when (update.ClientCaptureId is not null)
             {
-                stage.Status = StageStatus.InProgress;
+                // Two retries raced past the lookup above; the winner is the capture.
+                _context.Entry(update).State = EntityState.Detached;
+                var winner = await _context.tbl_ProgressUpdates.AsNoTracking()
+                    .Where(u => u.ProjectId == project.Id && u.ClientCaptureId == update.ClientCaptureId)
+                    .Select(u => u.Id).FirstOrDefaultAsync(ct);
+                if (winner is null) throw;
+                return await GetProgressUpdateById(winner, userId);
             }
 
-            // Save images (in production, upload to Azure Blob here)
-            if (dto.Images?.Any() == true)
-            {
-                int order = 1;
-                foreach (var img in dto.Images)
-                {
-                    // Interim storage: a data URI on the row. P2 replaces this with
-                    // the hash-addressed Artifact store (plan.md), at which point
-                    // this becomes an ArtifactId pointer.
-                    var imageUrl = BuildImageUrl(img);
+            // Captured offline at 22:00 belongs to that evening's brief, not to the
+            // morning the signal came back; every reader files by DateTimeCreated.
+            if (update.CapturedAt is { } shot && Math.Abs((shot - update.DateTimeCreated!.Value).TotalMinutes) > 2)
+                await _context.tbl_ProgressUpdates.Where(u => u.Id == update.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(u => u.DateTimeCreated, shot), ct);
 
-                    _context.tbl_ProgressImages.Add(new tbl_ProgressImage
+            if (dto.CompletionPercentage is { } pct)
+            {
+                if (pct != stage.CompletionPercentage)
+                    _context.tbl_ProgressReadings.Add(new tbl_ProgressReading
                     {
-                        ProgressUpdateId = update.Id,
-                        ImageUrl = imageUrl,
-                        ThumbnailUrl = imageUrl, // Same for MVP; generate thumbnails in prod
-                        Caption = img.Caption,
-                        DisplayOrder = order++
+                        ProjectId = stage.ProjectId,
+                        TenantId = stage.TenantId,
+                        StageId = stage.Id,
+                        Subject = stage.StageName,
+                        Percent = Math.Clamp(pct, 0, 100),
+                        ObservedAt = update.CapturedAt ?? DateTime.UtcNow,
+                        SourceKind = ProgressReadingSource.Capture,
+                        SourceId = update.Id
                     });
+
+                stage.CompletionPercentage = pct;
+                if (pct >= 100)
+                {
+                    stage.Status = StageStatus.Completed;
+                    stage.ActualEndDate ??= DateTime.UtcNow;
                 }
-                await _context.SaveChangesAsync();
+                else if (pct > 0 && stage.Status == StageStatus.NotStarted)
+                {
+                    stage.Status = StageStatus.InProgress;
+                }
             }
 
-            return await GetProgressUpdateById(update.Id, userId);
+            if (deliverable is not null && deliverable.Status == DeliverableStatus.NotStarted)
+                await _context.tbl_Deliverables.Where(d => d.Id == deliverable.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(d => d.Status, DeliverableStatus.InProgress), ct);
+
+            var order = 1;
+            var images = stored.Select(s => new tbl_ProgressImage
+            {
+                ProgressUpdateId = update.Id,
+                ArtifactId = s.ArtifactId,
+                Caption = s.Caption,
+                DisplayOrder = order++,
+                Channel = Channel.Crew
+            }).ToList();
+            _context.tbl_ProgressImages.AddRange(images);
+            await _context.SaveChangesAsync(ct);
+
+            await _exposure.AddRefsAsync(update, images, ct);
+            if (voiceId is not null)
+                await _exposure.AddRefsAsync(update, new[] { new tbl_ProgressImage { ProgressUpdateId = update.Id, ArtifactId = voiceId, Channel = Channel.Crew, Caption = "Voice note" } }, ct);
+
+            // An entry posted straight to the client side still exposes frame by frame.
+            if (update.Channel == Channel.Client && images.Count > 0)
+                await _exposure.ExposeAsync(images, userId, ct);
+
+            // Whoever mediates hears about it at WhatsApp speed; the bench's traffic
+            // never wakes the client side (assetlen.md D5).
+            var author = await _context.Users.AsNoTracking().Where(u => u.Id == userId)
+                .Select(u => (u.FirstName + " " + u.LastName).Trim()).FirstOrDefaultAsync(ct);
+            var what = deliverable?.Title ?? stage.StageName ?? "site";
+            await _notifier.NotifyAsync(project.Id!, a => a.CanSeeSiteLog && a.CanExposeToClient, userId, PushKind.Capture,
+                $"{author}: {(images.Count == 0 ? "a note" : images.Count == 1 ? "1 photo" : $"{images.Count} photos")} on {what}",
+                update.Description ?? (voiceId is null ? "Captured on site" : "Voice note"),
+                $"/project/{project.Id}/entry/{update.Id}", ct);
+
+            return await GetProgressUpdateById(update.Id!, userId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error adding progress update");
+            _logger.LogError(ex, "Error posting a capture");
             return ServiceResult<ProgressUpdateDto>.Failure(new ServerErrorException(ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// A shot time from the phone is trusted within reason: not in the future, and
+    /// not older than a fortnight — an older one is a clock problem, not a capture.
+    /// </summary>
+    private static DateTime? ClampCapturedAt(DateTime? capturedAt)
+    {
+        if (capturedAt is not { } at) return null;
+        var utc = at.Kind == DateTimeKind.Local ? at.ToUniversalTime() : DateTime.SpecifyKind(at, DateTimeKind.Utc);
+        var now = DateTime.UtcNow;
+        return utc > now ? now : utc < now.AddDays(-14) ? null : utc;
+    }
+
+    public async Task<ServiceResult<CaptureTodayDto>> GetCaptureToday(string projectId, string userId, CancellationToken ct = default)
+    {
+        try
+        {
+            var project = await _context.tbl_Projects_RS.Include(p => p.ParentProject).AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId, ct);
+            if (project is null) return ServiceResult<CaptureTodayDto>.Failure(new NotFoundException("Project not found"));
+            var access = await _access.ResolveAsync(project, userId, ct);
+            if (!access.CanCapture)
+                return ServiceResult<CaptureTodayDto>.Failure(new NotFoundException("Project not found"));
+
+            var activeId = await _activeStage.ResolveAsync(projectId, null, ct);
+            var stages = await _context.tbl_Stages.AsNoTracking().Where(s => s.ProjectId == projectId).ToListAsync(ct);
+            var deliverables = await _context.tbl_Deliverables.AsNoTracking().Where(d => d.ProjectId == projectId).ToListAsync(ct);
+
+            var todayUtc = DateTime.Today.ToUniversalTime();
+            var since = todayUtc.AddDays(-30);
+            var recent = await _context.tbl_ProgressUpdates.AsNoTracking()
+                .Where(u => u.ProjectId == projectId && u.DateTimeCreated >= since)
+                .Select(u => new { u.DeliverableId, u.DateTimeCreated })
+                .ToListAsync(ct);
+
+            var stageById = stages.ToDictionary(s => s.Id!);
+            // Today's work first: deliverables on stages under way, then on the stage
+            // capture would fall to, then what is next. Finished ones go last, not away —
+            // a snag photographed on a signed-off item still belongs to it.
+            int Rank(tbl_Deliverable d)
+            {
+                var s = d.StageId is null ? null : stageById.GetValueOrDefault(d.StageId);
+                if (d.Status == DeliverableStatus.Done) return 4;
+                if (s?.Status == StageStatus.InProgress) return d.Status == DeliverableStatus.InProgress ? 0 : 1;
+                if (s?.Id == activeId) return 2;
+                return 3;
+            }
+
+            var list = deliverables
+                .OrderBy(Rank)
+                .ThenBy(d => d.StageId is null ? int.MaxValue : stageById.GetValueOrDefault(d.StageId)?.DisplayOrder ?? int.MaxValue)
+                .ThenBy(d => d.DisplayOrder)
+                .Select(d =>
+                {
+                    var s = d.StageId is null ? null : stageById.GetValueOrDefault(d.StageId);
+                    var mine = recent.Where(r => r.DeliverableId == d.Id).ToList();
+                    return new CaptureDeliverableDto
+                    {
+                        Id = d.Id,
+                        Title = d.Title,
+                        StageId = d.StageId,
+                        StageName = s?.StageName,
+                        Phase = s?.Phase,
+                        Status = d.Status,
+                        CapturesToday = mine.Count(r => r.DateTimeCreated >= todayUtc),
+                        LastCapturedAt = mine.Count == 0 ? null : mine.Max(r => r.DateTimeCreated)
+                    };
+                }).ToList();
+
+            return ServiceResult<CaptureTodayDto>.Success(new CaptureTodayDto
+            {
+                ProjectId = projectId,
+                ActiveStageId = activeId,
+                ActiveStageName = activeId is null ? null : stageById.GetValueOrDefault(activeId)?.StageName,
+                Deliverables = list,
+                CapturesToday = recent.Count(r => r.DateTimeCreated >= todayUtc)
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading today's deliverables for {ProjectId}", projectId);
+            return ServiceResult<CaptureTodayDto>.Failure(new ServerErrorException(ex.Message));
         }
     }
 
@@ -150,6 +363,7 @@ public class ProgressDAL : IProgressDAL
                     .ThenInclude(p => p!.ParentProject)
                 .Include(u => u.CreatedBy)
                 .Include(u => u.Stage)
+                .Include(u => u.Deliverable)
                 .Include(u => u.Images.OrderBy(i => i.DisplayOrder))
                 .Include(u => u.Comments.Where(c => c.ParentCommentId == null).OrderBy(c => c.DateTimeCreated))
                     .ThenInclude(c => c.Author)
@@ -161,7 +375,7 @@ public class ProgressDAL : IProgressDAL
 
             var access = await _access.ResolveAsync(update.Project, userId);
             if (!access.CanRead)
-                return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException("Access denied"));
+                return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
 
             // Per-project side, not the tenant-global role. The same person can
             // be client-side on one project and mediate another; a global
@@ -169,7 +383,7 @@ public class ProgressDAL : IProgressDAL
             if (!access.CanSeeSiteLog && update.Channel != Channel.Client)
                 return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Entry not found"));
 
-            return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update, access));
+            return ServiceResult<ProgressUpdateDto>.Success((await MapAsync(new[] { update }, access)).Single());
         }
         catch (Exception ex)
         {
@@ -203,20 +417,14 @@ public class ProgressDAL : IProgressDAL
             // behaviour and it forwarded whole batches. Withdrawing it does pull
             // the frames back, because a frame cannot be visible on an entry the
             // reader can no longer open.
+            await _context.SaveChangesAsync();
             if (channel == Channel.Crew)
             {
                 var frames = await _context.tbl_ProgressImages
                     .Where(i => i.ProgressUpdateId == update.Id && i.Channel == Channel.Client)
                     .ToListAsync();
-                foreach (var frame in frames)
-                {
-                    frame.Channel = Channel.Crew;
-                    frame.ExposedById = null;
-                    frame.ExposedAt = null;
-                }
+                await _exposure.WithdrawAsync(frames);
             }
-
-            await _context.SaveChangesAsync();
 
             return await GetProgressUpdateById(update.Id, userId);
         }
@@ -272,6 +480,7 @@ public class ProgressDAL : IProgressDAL
             var query = _context.tbl_ProgressUpdates
                 .Include(u => u.CreatedBy)
                 .Include(u => u.Stage)
+                .Include(u => u.Deliverable)
                 .Include(u => u.Images.OrderBy(i => i.DisplayOrder))
                 .Include(u => u.Comments.Where(c => c.ParentCommentId == null))
                     .ThenInclude(c => c.Author)
@@ -294,7 +503,7 @@ public class ProgressDAL : IProgressDAL
                 .Take(limit)
                 .ToListAsync(ct);
 
-            var dtos = updates.Select(u => MapUpdateToDto(u, access)).ToList();
+            var dtos = await MapAsync(updates, access);
 
             return ServiceResult<PaginationDetails<ProgressUpdateDto>>.Success(
                 new PaginationDetails<ProgressUpdateDto>
@@ -343,7 +552,10 @@ public class ProgressDAL : IProgressDAL
                 return ServiceResult<ProgressCommentDto>.Failure(new NotFoundException("Target not found"));
 
             // Commenting is how Peter asks a question — any active member may.
-            if (!await _access.CanWriteAsync(project, userId))
+            var access = await _access.ResolveAsync(project, userId);
+            if (!access.CanSeeSiteLog && parentEntry?.Channel != Channel.Client)
+                return ServiceResult<ProgressCommentDto>.Failure(new NotFoundException("Target not found"));
+            if (!access.CanWrite)
                 return ServiceResult<ProgressCommentDto>.Failure(new ForbiddenException("Access denied"));
 
             var comment = new tbl_ProgressComment
@@ -352,7 +564,9 @@ public class ProgressDAL : IProgressDAL
                 ProgressImageId = dto.ProgressImageId,
                 CommentText = dto.CommentText,
                 AuthorId = userId,
-                ParentCommentId = dto.ParentCommentId
+                ParentCommentId = dto.ParentCommentId,
+                // Said where the entry already stood: a remark on a Diary entry stays in the Diary if its frames later cross.
+                Channel = parentEntry?.Channel ?? Channel.Crew
             };
 
             _context.tbl_ProgressComments.Add(comment);
@@ -452,39 +666,6 @@ public class ProgressDAL : IProgressDAL
         }
     }
 
-    /// <summary>
-    /// Normalise an uploaded image into a storable URL.
-    /// <para>
-    /// Remote URLs pass through. Otherwise the payload is stored as a data URI
-    /// with its declared content type.
-    /// </para>
-    /// <para>
-    /// <b>Do not "simplify" this with <c>TrimStart(string.ToCharArray())</c>.</b>
-    /// That overload strips <em>any</em> leading character in the set, and '/'
-    /// appears in "image/jpeg" — so it ate the leading '/' of every JPEG's
-    /// "/9j/..." payload and silently corrupted every photo ever uploaded.
-    /// See plan.md finding A2.
-    /// </para>
-    /// </summary>
-    private static string BuildImageUrl(ProgressImageUploadDto img)
-    {
-        var raw = img.Base64Image ?? string.Empty;
-
-        if (raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-            || raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            return raw;
-
-        // Strip an existing "data:<mime>;base64," prefix by finding the comma,
-        // never by trimming characters.
-        if (raw.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-        {
-            var comma = raw.IndexOf(',');
-            if (comma >= 0) raw = raw[(comma + 1)..];
-        }
-
-        var mime = string.IsNullOrWhiteSpace(img.ContentType) ? "image/jpeg" : img.ContentType;
-        return $"data:{mime};base64,{raw}";
-    }
 
     private async Task<ServiceResult<ProgressUpdateDto>> GetProgressUpdateById(string updateId, string userId)
     {
@@ -493,6 +674,7 @@ public class ProgressDAL : IProgressDAL
                 .ThenInclude(p => p!.ParentProject)
             .Include(u => u.CreatedBy)
             .Include(u => u.Stage)
+            .Include(u => u.Deliverable)
             .Include(u => u.Images.OrderBy(i => i.DisplayOrder))
             .Include(u => u.Comments.Where(c => c.ParentCommentId == null))
                 .ThenInclude(c => c.Author)
@@ -503,7 +685,7 @@ public class ProgressDAL : IProgressDAL
             return ServiceResult<ProgressUpdateDto>.Failure(new NotFoundException("Update not found"));
 
         var access = await _access.ResolveAsync(update.Project, userId);
-        return ServiceResult<ProgressUpdateDto>.Success(MapUpdateToDto(update, access));
+        return ServiceResult<ProgressUpdateDto>.Success((await MapAsync(new[] { update }, access)).Single());
     }
 
     /// <summary>
@@ -540,23 +722,10 @@ public class ProgressDAL : IProgressDAL
                 return ServiceResult<ProgressUpdateDto>.Failure(new ForbiddenException(
                     "Only a project mediator, owner or manager can change what the client sees"));
 
-            var exposing = dto.Channel == Channel.Client;
-            foreach (var image in images)
-            {
-                image.Channel = dto.Channel;
-                image.ExposedById = exposing ? userId : null;
-                image.ExposedAt = exposing ? DateTime.UtcNow : null;
-            }
-
-            // A frame is unreachable on an entry the client cannot open, so
-            // exposing any frame carries its entry across with it.
-            if (exposing && entry is not null && entry.Channel != Channel.Client)
-            {
-                var tracked = await _context.tbl_ProgressUpdates.FirstAsync(u => u.Id == entry.Id);
-                tracked.Channel = Channel.Client;
-            }
-
-            await _context.SaveChangesAsync();
+            // Frame and pointer move together (IFrameExposure), and exposing a frame
+            // carries its entry across — a frame is unreachable on an entry the client cannot open.
+            if (dto.Channel == Channel.Client) await _exposure.ExposeAsync(images, userId);
+            else await _exposure.WithdrawAsync(images);
 
             return await GetProgressUpdateById(entry!.Id, userId);
         }
@@ -581,13 +750,60 @@ public class ProgressDAL : IProgressDAL
     /// a mediator sitting on the client side still reads the whole Site Diary.
     /// </para>
     /// </summary>
-    private static ProgressUpdateDto MapUpdateToDto(tbl_ProgressUpdate u, ProjectAccess access)
+    private async Task<List<ProgressUpdateDto>> MapAsync(IReadOnlyList<tbl_ProgressUpdate> updates, ProjectAccess access)
     {
-        var visibleImages = access.CanSeeSiteLog
+        // Everything that crosses reads in the accountable face's name (§10.1); true
+        // authorship stays on the delivery side, where it is the mediator's own record.
+        string? face = null;
+        if (!access.CanSeeSiteLog && updates.FirstOrDefault()?.ProjectId is { } pid)
+            face = (await _exposure.AccountableFaceAsync(pid)).Name;
+
+        // A comment crosses only on the client channel or from the client side's own
+        // hand; the bench's remarks on an entry stay in the Site Diary when its frames cross.
+        var clientSide = new HashSet<string>();
+        if (!access.CanSeeSiteLog && updates.FirstOrDefault()?.ProjectId is { } projectId)
+        {
+            var project = await _context.tbl_Projects_RS.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => p.Id == projectId).Select(p => new { p.ParentProjectId, p.InvestorId }).FirstOrDefaultAsync();
+            var parentId = project?.ParentProjectId;
+            var ids = await _context.tbl_ProjectMembers.IgnoreQueryFilters().AsNoTracking()
+                .Where(m => (m.ProjectId == projectId || (parentId != null && m.ProjectId == parentId))
+                            && m.Side == ProjectSide.Client && m.UserId != null && m.IsDeleted != true)
+                .Select(m => m.UserId!).ToListAsync();
+            clientSide.UnionWith(ids);
+            if (project?.InvestorId is { } investor) clientSide.Add(investor);
+        }
+
+        var voiceIds = access.CanSeeSiteLog
+            ? updates.Select(u => u.VoiceArtifactId).OfType<string>().ToList()
+            : new List<string>();
+        var texts = voiceIds.Count == 0
+            ? new Dictionary<string, tbl_ArtifactText>()
+            : await _context.tbl_ArtifactTexts.AsNoTracking()
+                .Where(t => t.ArtifactId != null && voiceIds.Contains(t.ArtifactId))
+                .ToDictionaryAsync(t => t.ArtifactId!);
+
+        return updates.Select(u => MapUpdateToDto(u, access, face, texts, clientSide)).ToList();
+    }
+
+    /// <summary>
+    /// Map an entry for one specific reader.
+    /// <para>
+    /// <b>The image filter is the point of P2.</b> Each frame carries its own
+    /// channel and a client-side reader sees only the ones a mediator exposed —
+    /// a real capture is thirteen to eighteen frames, and the batch is not the unit.
+    /// </para>
+    /// </summary>
+    private static ProgressUpdateDto MapUpdateToDto(tbl_ProgressUpdate u, ProjectAccess access,
+        string? accountableName, IReadOnlyDictionary<string, tbl_ArtifactText> texts, IReadOnlySet<string> clientSide)
+    {
+        var diary = access.CanSeeSiteLog;
+        var visibleImages = diary
             ? u.Images ?? new List<tbl_ProgressImage>()
             : (u.Images ?? new List<tbl_ProgressImage>())
                 .Where(i => i.Channel == Channel.Client)
                 .ToList();
+        var voiceText = u.VoiceArtifactId is not null ? texts.GetValueOrDefault(u.VoiceArtifactId) : null;
 
         return new ProgressUpdateDto
         {
@@ -597,12 +813,22 @@ public class ProgressDAL : IProgressDAL
             Description = u.Description,
             CompletionPercentage = u.CompletionPercentage,
             HasIssues = u.HasIssues,
-            CreatedById = u.CreatedById,
+            CreatedById = diary ? u.CreatedById : null,
             ApprovalStatus = u.ApprovalStatus,
             Channel = u.Channel,
-            CreatedByName = u.CreatedBy != null
-                ? $"{u.CreatedBy.FirstName} {u.CreatedBy.LastName}" : null,
+            CreatedByName = diary
+                ? (u.CreatedBy != null ? $"{u.CreatedBy.FirstName} {u.CreatedBy.LastName}" : null)
+                : accountableName,
             StageName = u.Stage?.StageName,
+            DeliverableId = u.DeliverableId,
+            DeliverableTitle = u.Deliverable?.Title,
+            CapturedAt = u.CapturedAt,
+            ClientCaptureId = diary ? u.ClientCaptureId : null,
+            // A voice note is the bench talking; it stays in the Site Diary.
+            VoiceArtifactId = diary ? u.VoiceArtifactId : null,
+            VoiceUrl = diary && u.VoiceArtifactId is not null ? $"/api/Artifacts/{u.VoiceArtifactId}/content" : null,
+            VoiceTranscript = diary ? voiceText?.Text : null,
+            VoiceTranscriptStatus = diary && u.VoiceArtifactId is not null ? voiceText?.Status ?? ArtifactTextStatus.Pending : null,
             DateTimeCreated = u.DateTimeCreated,
             ImageCount = u.Images?.Count ?? 0,
             Images = visibleImages.Select(i => new ProgressImageDto
@@ -619,22 +845,29 @@ public class ProgressDAL : IProgressDAL
                 Caption = i.Caption,
                 DisplayOrder = i.DisplayOrder,
                 Channel = i.Channel,
-                ExposedById = i.ExposedById,
+                ExposedById = diary ? i.ExposedById : null,
                 ExposedAt = i.ExposedAt,
+                Curation = diary ? i.Curation : FrameCuration.Auto,
                 DateTimeCreated = i.DateTimeCreated
             }).ToList(),
-            Comments = u.Comments?.Select(c => new ProgressCommentDto
-            {
-                Id = c.Id,
-                ProgressUpdateId = c.ProgressUpdateId,
-                ProgressImageId = c.ProgressImageId,
-                CommentText = c.CommentText,
-                AuthorId = c.AuthorId,
-                AuthorName = c.Author != null
-                    ? $"{c.Author.FirstName} {c.Author.LastName}" : null,
-                AuthorProfilePicUrl = c.Author?.ProfilePicUrl,
-                DateTimeCreated = c.DateTimeCreated
-            }).ToList() ?? new()
+            Comments = u.Comments?
+                .Where(c => diary || c.Channel == Channel.Client || (c.AuthorId is not null && clientSide.Contains(c.AuthorId)))
+                .Select(c =>
+                {
+                    var trueName = diary || (c.AuthorId is not null && clientSide.Contains(c.AuthorId));
+                    return new ProgressCommentDto
+                    {
+                        Id = c.Id,
+                        ProgressUpdateId = c.ProgressUpdateId,
+                        ProgressImageId = c.ProgressImageId,
+                        CommentText = c.CommentText,
+                        AuthorId = trueName ? c.AuthorId : null,
+                        AuthorName = !trueName ? accountableName
+                            : c.Author != null ? $"{c.Author.FirstName} {c.Author.LastName}" : null,
+                        AuthorProfilePicUrl = trueName ? c.Author?.ProfilePicUrl : null,
+                        DateTimeCreated = c.DateTimeCreated
+                    };
+                }).ToList() ?? new()
         };
     }
 }

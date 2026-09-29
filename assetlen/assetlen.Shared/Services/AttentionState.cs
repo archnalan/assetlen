@@ -39,8 +39,7 @@ public sealed class AttentionState
 {
     private const string SeenKey = "al-seen";
 
-    private readonly IFlagsApi _flags;
-    private readonly IFundingApi _funding;
+    private readonly IBriefApi _brief;
     private readonly IStorageService _storage;
     private readonly ISD _sd;
     private readonly ILogger<AttentionState> _logger;
@@ -53,14 +52,12 @@ public sealed class AttentionState
     private bool _refreshing;
 
     public AttentionState(
-        IFlagsApi flags,
-        IFundingApi funding,
+        IBriefApi brief,
         IStorageService storage,
         ISD sd,
         ILogger<AttentionState> logger)
     {
-        _flags = flags;
-        _funding = funding;
+        _brief = brief;
         _storage = storage;
         _sd = sd;
         _logger = logger;
@@ -123,114 +120,72 @@ public sealed class AttentionState
         _refreshing = true;
 
         // Snapshot before the first await. Callers pass ShellState's live list,
-        // which another screen's dashboard read replaces underneath a scan that
-        // is one request per project long.
+        // which another screen's dashboard read replaces underneath a scan.
         var roots = projects.ToList();
 
         try
         {
             await EnsureSeenLoadedAsync();
 
-            var me = _sd.CurrentUser?.Id;
-            var flat = roots
-                .Concat(roots.SelectMany(p => p.SubProjects))
-                .ToList();
-
-            var found = new List<AttentionItem>();
-
-            foreach (var project in flat)
-            {
-                // The dashboard already knows when work was last posted, so the
-                // movement signal costs no extra request.
+            // The dashboard already knows when work was last posted, so the
+            // movement signal costs no extra request.
+            foreach (var project in roots.Concat(roots.SelectMany(p => p.SubProjects)))
                 if (project.LastUpdateDate is { } last) Remember(project.Id, last);
 
-                try
-                {
-                    var response = await _flags.GetFlagsByProject(project.Id, FlagStatus.Open);
-                    if (!response.IsSuccessStatusCode || response.Content is null) continue;
-
-                    foreach (var flag in response.Content)
-                    {
-                        if (flag.AssignedToId == me && me is not null)
-                        {
-                            found.Add(new AttentionItem(
-                                Key: $"flag:{flag.Id}",
-                                Kind: AttentionKind.Decision,
-                                Title: flag.Title ?? "Open question",
-                                ProjectId: project.Id,
-                                ProjectName: project.ProjectName,
-                                Detail: flag.StageName,
-                                Consequence: Trim(flag.Description),
-                                Href: $"/project/{project.Id}/register#{flag.Id}",
-                                Icon: "decision",
-                                Due: flag.DueDate));
-                        }
-                        else if (flag.DateTimeCreated is { } raised)
-                        {
-                            // Someone else owes this one. It is still a live
-                            // query on the reader's project, which is the
-                            // "something out of the ordinary" the dot is for.
-                            Remember(project.Id, raised);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not read open questions on {ProjectId}", project.Id);
-                }
-            }
-
-            // A release stalls just as badly at either end — unacknowledged by
-            // the delivery side, or reported short and unanswered by the funder —
-            // so one queue serves both and the server decides which rows name
-            // this reader. The earlier version asked only the delivery side's
-            // question and had to be role-gated to avoid a refusal.
-            try
+            // One request, answered by the server across every project: choices
+            // owed, spoken agreements waiting on this reader, questions assigned,
+            // claims and extras the funder decides, stalled releases, and what
+            // was read from the thread (plan.md P7). The rail, Home and Needs-you
+            // read this one list, so they cannot disagree.
+            var response = await _brief.Owed();
+            if (!response.IsSuccessStatusCode || response.Content is null)
             {
-                var waiting = await _funding.GetFundingNeedingMe();
-                if (waiting.IsSuccessStatusCode && waiting.Content is not null)
-                {
-                    foreach (var entry in waiting.Content)
-                    {
-                        var mine = entry.HasGap;
-
-                        found.Add(new AttentionItem(
-                            Key: $"funding:{entry.Id}",
-                            Kind: AttentionKind.Money,
-                            Title: mine
-                                ? $"{Fmt.Money(entry.Shortfall)} less arrived than you sent on {entry.StageName ?? "this project"}"
-                                : $"Confirm {Fmt.Money(entry.Amount)} on {entry.StageName ?? "this project"}",
-                            ProjectId: entry.ProjectId ?? "",
-                            ProjectName: entry.ProjectName ?? "—",
-                            Detail: mine
-                                ? $"They received {Fmt.Money(entry.SettledAmount)}"
-                                : $"Recorded {Fmt.Date(entry.PaymentDate)}",
-                            Consequence: Trim(mine ? entry.ReceiptNote ?? entry.Notes : entry.Notes),
-                            Href: $"/project/{entry.ProjectId}/money",
-                            Icon: "money",
-                            Due: null));
-                    }
-                }
+                _logger.LogWarning("Could not read what this reader owes: {Status}", response.StatusCode);
+                return;
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Could not read the funding waiting on this reader");
-            }
-
-            // Soonest first, undated last — an item with a real deadline
-            // outranks one someone can sit on.
-            found.Sort((a, b) => (a.Due ?? DateTime.MaxValue).CompareTo(b.Due ?? DateTime.MaxValue));
 
             _owed.Clear();
-            _owed.AddRange(found);
+            _owed.AddRange(response.Content.Select(ToItem));
             Loaded = true;
             Notify();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read what this reader owes");
         }
         finally
         {
             _refreshing = false;
         }
     }
+
+    private static AttentionItem ToItem(OwedItemDto o)
+    {
+        var money = o.Kind is OwedKind.Claim or OwedKind.Variation or OwedKind.Funding;
+        var detail = o.DeliverableTitle ?? o.StageName;
+        if (o.Amount is { } amount) detail = detail is null ? Fmt.Money(amount, o.Currency) : $"{detail} · {Fmt.Money(amount, o.Currency)}";
+
+        return new AttentionItem(
+            Key: o.Key,
+            Kind: money ? AttentionKind.Money : AttentionKind.Decision,
+            Title: o.Title,
+            ProjectId: o.ProjectId,
+            ProjectName: o.ProjectName,
+            Detail: detail,
+            Consequence: Trim(o.Consequence),
+            Href: o.Href,
+            Icon: o.Kind switch
+            {
+                OwedKind.Claim or OwedKind.Funding => "money",
+                OwedKind.Variation => "variation",
+                OwedKind.Question => "query",
+                OwedKind.Proposals => "message",
+                OwedKind.ParkedIdea => "idea",
+                _ => "decision"
+            },
+            Due: o.DueBy);
+    }
+
 
     private void Remember(string projectId, DateTime when)
     {

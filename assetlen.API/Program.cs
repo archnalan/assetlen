@@ -165,6 +165,7 @@ builder.Services.AddScoped<IProgressDAL, ProgressDAL>();
 builder.Services.AddScoped<IPMDashboardDAL, PMDashboardDAL>();
 builder.Services.AddScoped<IFlagDAL, FlagDAL>();
 builder.Services.AddScoped<ICommitmentDAL, CommitmentDAL>();
+builder.Services.AddScoped<IAnnotationDAL, AnnotationDAL>();
 builder.Services.AddScoped<ILedgerDAL, LedgerDAL>();
 builder.Services.AddScoped<IBudgetDAL, BudgetDAL>();
 builder.Services.AddScoped<IProjectHealthService, ProjectHealthService>();
@@ -200,6 +201,19 @@ builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Brief.IVan
     assetlen.Service.FileProcessingServices.Brief.VantageIndex>();
 builder.Services.AddScoped<IBriefDAL, BriefDAL>();
 
+// ── The works report (works-report.md): assembled, drafted under a validator, issued ──
+// The template narrator is always registered and always the fallback; Claude
+// drafts only with a key, Report:UseClaude, and the project owner's consent.
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Report.IReportNarrator,
+    assetlen.Service.FileProcessingServices.Report.TemplateReportNarrator>();
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Report.IReportNarrator,
+    assetlen.Service.FileProcessingServices.Report.ClaudeReportNarrator>();
+builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Report.IVideoPosterQueue,
+    assetlen.Service.FileProcessingServices.Report.HangfireVideoPosterQueue>();
+builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Report.VideoPosterJob>();
+builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Report.ScheduledReportJob>();
+builder.Services.AddScoped<IWorksReportDAL, WorksReportDAL>();
+
 // OCR: Tesseract when configured or on the PATH, otherwise Windows' own OCR.
 // Registration order is the preference order under Ocr:Engine = auto.
 builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Ocr.IImageOcrEngine,
@@ -211,6 +225,25 @@ builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Ocr.IOcrSe
 builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Ocr.IArtifactTextQueue,
     assetlen.Service.FileProcessingServices.Ocr.HangfireArtifactTextQueue>();
 builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Ocr.ArtifactTextJob>();
+
+// Voice notes are read into the same table as OCR text, so they are searchable (P9).
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Ocr.IAudioTranscriber,
+    assetlen.Service.FileProcessingServices.Ocr.WindowsSpeechTranscriber>();
+
+// ── The contractor tier (P9 — tier 3; nothing above depends on it) ──
+builder.Services.AddScoped<IFrameExposure, FrameExposureService>();
+builder.Services.AddScoped<ICurationDAL, CurationDAL>();
+builder.Services.AddScoped<CutoffPublishJob>();
+builder.Services.AddSingleton(sp => new assetlen.Service.FileProcessingServices.Push.VapidKeys(
+    builder.Configuration,
+    Path.Combine(builder.Configuration["Artifacts:StorageRoot"] ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data"),
+        "push", "vapid.json")));
+builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Push.PushQueue>();
+builder.Services.AddScoped<assetlen.Service.FileProcessingServices.Push.INotifier,
+    assetlen.Service.FileProcessingServices.Push.Notifier>();
+builder.Services.AddScoped<IPushDAL, PushDAL>();
+builder.Services.AddHttpClient("webpush", c => c.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHostedService<assetlen.Service.FileProcessingServices.Push.PushDispatcher>();
 
 // ── Development demo world ──
 // Registered unconditionally so the container is identical in every
@@ -564,6 +597,33 @@ using (var scope = app.Services.CreateScope())
 EnsureHangfireSchema(
     builder.Configuration.GetConnectionString("DefaultConnectionHangfire"),
     app.Logger);
+
+// Works reports issue on their own — weekly and on milestones — whether or not
+// anybody logs in (works-report.md §7, Law 0).
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var recurring = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+        recurring.AddOrUpdate<assetlen.Service.FileProcessingServices.Report.ScheduledReportJob>(
+            "works-report-weekly", j => j.WeeklyAsync(),
+            builder.Configuration["Report:WeeklyCron"] ?? Cron.Weekly(DayOfWeek.Sunday, 18),
+            TimeZoneInfo.Local);
+        recurring.AddOrUpdate<assetlen.Service.FileProcessingServices.Report.ScheduledReportJob>(
+            "works-report-milestones", j => j.MilestonesAsync(), Cron.Hourly(),
+            TimeZoneInfo.Local);
+
+        // The brief's curated frames cross at the cutoff whether or not the mediator
+        // touched them (assetlen.md §5). Every quarter hour; the cutoff hour decides.
+        recurring.AddOrUpdate<CutoffPublishJob>(
+            "brief-cutoff", j => j.RunAsync(), "*/15 * * * *", TimeZoneInfo.Local);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Scheduled works reports are not registered; background jobs may be unavailable.");
+    }
+}
+
 
 static void EnsureHangfireSchema(string? connectionString, Microsoft.Extensions.Logging.ILogger logger)
 {

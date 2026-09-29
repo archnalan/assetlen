@@ -20,6 +20,7 @@
 @inject ShellState Shell
 @inject AttentionState Attention
 @inject IArtifactImageService Images
+@inject CaptureOutbox Outbox
 @inject CustomAuthStateProvider _custAuth
 
 <div class="shell">
@@ -201,6 +202,10 @@
 
         await LoadThemeAsync();
         await LoadProjectsAsync();
+
+        // Anything shot while offline goes out as soon as the app is open with signal,
+        // whichever page it is opened on.
+        _ = Outbox.StartAsync();
     }
 
     /// <summary>

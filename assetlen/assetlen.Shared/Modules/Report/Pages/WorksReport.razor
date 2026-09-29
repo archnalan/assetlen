@@ -1,0 +1,320 @@
+@page "/project/{ProjectId}/report"
+@page "/project/{ProjectId}/report/{ReportId}"
+@attribute [Authorize]
+@inject ILogger<WorksReport> Logger
+
+@*
+    The works report (works-report.md): where everything stands and what is
+    next, assembled from the record with nobody writing it.
+
+    Asked for in Peter's own words two days before his deadline — "send me a full
+    works report and let me know if you need more time and how long?" — so the
+    page runs in the order he asks: am I on time → where is each piece → what did
+    we agree → what is stuck → what's next → where is my money → show me.
+
+    One component tree renders the live page and an issued snapshot; the only
+    difference is where the data comes from. Every figure is computed on the
+    server from a table; the prose is a few cited sentences and nothing more.
+*@
+
+<PageTitle>Works report — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="report" Eyebrow="Works report"
+             Subtitle="Where everything stands, and what is next — assembled from the record, cited line by line." Context="ctx">
+
+    <div class="report__bar al-print-hide">
+        @if (ReportId is null)
+        {
+            <span class="report__mode">
+                <span class="report__live-dot"></span>
+                Live · as at now, never stored
+            </span>
+        }
+        else
+        {
+            <a class="al-btn al-btn--sm al-btn--quiet" href="/project/@ProjectId/report">
+                <Icon Name="arrow-left" Size="14" /> Live report
+            </a>
+        }
+        <span class="al-spacer"></span>
+        <button type="button" class="al-btn al-btn--sm al-btn--default" @onclick="PrintAsync" disabled="@(report is null)">
+            <Icon Name="download" Size="14" /> Print / save as PDF
+        </button>
+        @if (report?.CanIssue == true)
+        {
+            <button type="button" class="al-btn al-btn--sm al-btn--primary" @onclick="() => issuing = true">
+                <Icon Name="send" Size="14" /> Issue report
+            </button>
+        }
+    </div>
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The report didn't load" ErrorMessage="@errorMessage"
+                EmptyTitle="Report not found" EmptyIcon="document"
+                EmptyBody="It may belong to the other side of this project, or the link may be out of date.">
+        <Loading>
+            <div class="report__ghosts">
+                <div class="al-shimmer report__ghost-hero"></div>
+                <div class="al-shimmer al-ghost-line al-ghost-line--title"></div>
+                <div class="al-shimmer al-ghost-row"></div>
+                <div class="al-shimmer al-ghost-row"></div>
+                <div class="al-shimmer al-ghost-row"></div>
+            </div>
+        </Loading>
+        <ChildContent>
+            @if (report is not null)
+            {
+                <CascadingValue Value="sources" IsFixed="false">
+                    <div class="report al-print-root">
+
+                        @if (!report.IsLive)
+                        {
+                            <div class="report__issued">
+                                <Icon Name="lock" Size="16" />
+                                <span>
+                                    Issued @ReportFormat.DayYear(report.IssuedAt) by @report.IssuedByName
+                                    · @KindWord
+                                    @if (report.HashVerified == true)
+                                    {
+                                        <span> · frozen, content hash <span class="al-num report__hash">@report.ContentSha256?[..12]</span></span>
+                                    }
+                                    else
+                                    {
+                                        <strong> · the stored content no longer matches its hash</strong>
+                                    }
+                                </span>
+                                @if (report.DeliveryNote is not null)
+                                {
+                                    <span class="report__delivery">@report.DeliveryNote</span>
+                                }
+                            </div>
+                        }
+
+                        <ReportCover Report="report" />
+
+                        <section class="report__section" aria-labelledby="rs-headline">
+                            <h2 class="report__h" id="rs-headline"><span class="report__n">②</span> At a glance</h2>
+                            <HeadlineCards Cards="report.Headlines" />
+                            <p class="report__weighting">@report.Progress.WeightingNote</p>
+                        </section>
+
+                        <section class="report__section" aria-labelledby="rs-deadline">
+                            <h2 class="report__h" id="rs-deadline"><span class="report__n">③</span> The date</h2>
+                            <DeadlineStrip Strip="report.Deadline" />
+                        </section>
+
+                        @if (report.SinceLast is { } since)
+                        {
+                            <section class="report__section" aria-labelledby="rs-since">
+                                <h2 class="report__h" id="rs-since">Since the last report, @ReportFormat.Day(since.PreviousAsAt)</h2>
+                                <ul class="report__since">
+                                    <li class="al-num">Built @ReportFormat.Pct(since.OverallFrom) → @ReportFormat.Pct(since.OverallTo)</li>
+                                    @foreach (var m in since.StageMoves)
+                                    {
+                                        <li class="al-num">@m.StageName: @ReportFormat.Pct(m.From) → @ReportFormat.Pct(m.To)</li>
+                                    }
+                                    @if (since.LapsedTo != since.LapsedFrom)
+                                    {
+                                        <li class="al-num">Lapsed promises @since.LapsedFrom → @since.LapsedTo</li>
+                                    }
+                                    @if (since.ForecastTo != since.ForecastFrom)
+                                    {
+                                        <li class="al-num">Pace forecast @ReportFormat.Day(since.ForecastFrom) → @ReportFormat.Day(since.ForecastTo)</li>
+                                    }
+                                    @foreach (var d in since.NewDecisions) { <li>Agreed: @d</li> }
+                                    @foreach (var v in since.NewVariations) { <li>New variation: @v</li> }
+                                    @foreach (var b in since.BlockersOpened) { <li>Blocked: @b</li> }
+                                    @foreach (var b in since.BlockersCleared) { <li>Cleared: @b</li> }
+                                    @if (since.FundedDelta is { } fd && fd != 0)
+                                    {
+                                        <li class="al-num">Funded @(fd > 0 ? "+" : "")@ReportFormat.Money(fd, report.Currency)</li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+
+                        <section class="report__section al-print-break" aria-labelledby="rs-stages">
+                            <h2 class="report__h" id="rs-stages"><span class="report__n">④</span> Where each piece stands</h2>
+                            <StageBoard Report="report" />
+                        </section>
+
+                        @if (report.Changed.Count > 0)
+                        {
+                            <section class="report__section" aria-labelledby="rs-changed">
+                                <h2 class="report__h" id="rs-changed"><span class="report__n">⑤</span> Changed since the last report — same view, then and now</h2>
+                                <div class="report__pairs">
+                                    @foreach (var pair in report.Changed)
+                                    {
+                                        <BeforeAfterPair Pair="pair" />
+                                    }
+                                </div>
+                            </section>
+                        }
+
+                        <section class="report__section al-print-break" aria-labelledby="rs-decisions">
+                            <h2 class="report__h" id="rs-decisions"><span class="report__n">⑥</span> What was agreed</h2>
+                            @if (report.Decisions.Count == 0)
+                            {
+                                <p class="report__none">No decision or agreement is on record yet.</p>
+                            }
+                            else
+                            {
+                                <div class="report__cards">
+                                    @foreach (var d in report.Decisions)
+                                    {
+                                        <DecisionCard Decision="d" />
+                                    }
+                                </div>
+                            }
+                        </section>
+
+                        <section class="report__section" aria-labelledby="rs-variations">
+                            <h2 class="report__h" id="rs-variations"><span class="report__n">⑦</span> Variations</h2>
+                            @foreach (var gap in report.ScopeGaps)
+                            {
+                                <div class="report__scopegap">
+                                    <GapMarker Text="@gap.Text" Block="true" />
+                                    <SourceChip Ids="gap.SourceIds" />
+                                </div>
+                            }
+                            @if (report.Variations.Count == 0 && report.ScopeGaps.Count == 0)
+                            {
+                                <p class="report__none">No change of scope is on record.</p>
+                            }
+                            else
+                            {
+                                <div class="report__cards">
+                                    @foreach (var v in report.Variations)
+                                    {
+                                        <VariationCard Variation="v" />
+                                    }
+                                </div>
+                            }
+                        </section>
+
+                        <section class="report__section" aria-labelledby="rs-blockers">
+                            <h2 class="report__h" id="rs-blockers"><span class="report__n">⑧</span> What is stuck, and on whom</h2>
+                            <BlockerLanes Lanes="report.Blockers" />
+                        </section>
+
+                        <section class="report__section" aria-labelledby="rs-ahead">
+                            <h2 class="report__h" id="rs-ahead"><span class="report__n">⑨</span> Ahead — the next @report.Ahead.HorizonDays days</h2>
+                            <AheadList Ahead="report.Ahead" />
+                        </section>
+
+                        @if (report.Money is { } money)
+                        {
+                            <section class="report__section al-print-break" aria-labelledby="rs-money">
+                                <h2 class="report__h" id="rs-money"><span class="report__n">⑩</span> Money</h2>
+                                <MoneyLadder Money="money" />
+                            </section>
+                        }
+
+                        <section class="report__section" aria-labelledby="rs-footage">
+                            <h2 class="report__h" id="rs-footage"><span class="report__n">⑪</span> Footage — @report.WindowLabel</h2>
+                            <FootageGallery Groups="report.Footage" />
+                        </section>
+
+                        <section class="report__section al-print-break" aria-labelledby="rs-sources">
+                            <h2 class="report__h" id="rs-sources"><span class="report__n">⑫</span> Sources</h2>
+                            <p class="report__provenance">
+                                Every figure, date and state above is computed from the project's record. The sentences are
+                                @(report.Narrative.Engine.StartsWith("template") ? "written from templates" : $"drafted ({report.Narrative.Engine}) and checked against the facts")
+                                and each one cites what it says.
+                            </p>
+                            <SourceAppendix Sources="report.Sources" />
+                        </section>
+                    </div>
+                </CascadingValue>
+
+                <aside class="report__aside al-print-hide">
+                    <h2 class="report__h">Issued reports</h2>
+                    <ReportHistory ProjectId="@ProjectId" CurrentId="@ReportId" Version="historyVersion" />
+                    <DraftingSetting ProjectId="@ProjectId" />
+                </aside>
+            }
+        </ChildContent>
+    </StateBlock>
+
+    @if (issuing)
+    {
+        <IssueReportDialog ProjectId="@ProjectId" CanChooseAudience="@(ctx.Access?.CanSeeSiteLog == true)"
+                           OnClose="() => issuing = false" OnIssued="OnIssuedAsync" />
+    }
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+    [Parameter] public string? ReportId { get; set; }
+
+    private WorksReportDto? report;
+    private ReportSources sources = new(Array.Empty<ReportSourceDto>());
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string? loadedKey;
+    private bool issuing;
+    private int historyVersion;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ProjectId}|{ReportId}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = ReportId is null
+                ? await _reportApi.Live(ProjectId)
+                : await _reportApi.Issued(ReportId);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                phase = LoadPhase.Empty;
+                return;
+            }
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+
+            report = response.Content;
+            sources = new ReportSources(report.Sources);
+            phase = LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Works report failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private async Task OnIssuedAsync(WorksReportDto issued)
+    {
+        issuing = false;
+        historyVersion++;
+        ToastService.ShowSuccess("Report issued and frozen.");
+        if (issued.Id is { } id) _nav.NavigateTo($"/project/{ProjectId}/report/{id}");
+        else await LoadAsync();
+    }
+
+    private async Task PrintAsync() => await JS.InvokeVoidAsync("print");
+
+    private string KindWord => report?.IssueKind switch
+    {
+        ReportIssueKind.Scheduled => "on the weekly schedule",
+        ReportIssueKind.Milestone => $"on a milestone{(report.IssueReason is null ? "" : $" — {report.IssueReason}")}",
+        _ => "by hand"
+    };
+}

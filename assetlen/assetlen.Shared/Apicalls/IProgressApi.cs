@@ -39,5 +39,28 @@ namespace assetlen.Shared.Apicalls
 
         [Get("/api/Progress/GetPMDashboard")]
         Task<IApiResponse<PMDashboardDto>> GetPMDashboard();
+
+        /// <summary>
+        /// The capture path: frames as parts, never base64. The offline queue sends
+        /// the same clientCaptureId until it hears back, and the server keeps one.
+        /// </summary>
+        [Multipart]
+        [Post("/api/Progress/Capture")]
+        Task<IApiResponse<ProgressUpdateDto>> Capture(
+            [AliasAs("projectId")] string projectId,
+            [AliasAs("files")] IEnumerable<ByteArrayPart> files,
+            [AliasAs("captions")] IEnumerable<string> captions,
+            [AliasAs("deliverableId")] string? deliverableId = null,
+            [AliasAs("stageId")] string? stageId = null,
+            [AliasAs("description")] string? description = null,
+            [AliasAs("completionPercentage")] string? completionPercentage = null,
+            [AliasAs("hasIssues")] bool hasIssues = false,
+            [AliasAs("channel")] string channel = "Crew",
+            [AliasAs("clientCaptureId")] string? clientCaptureId = null,
+            [AliasAs("capturedAt")] string? capturedAt = null,
+            [AliasAs("voice")] ByteArrayPart? voice = null);
+
+        [Get("/api/Progress/GetCaptureToday")]
+        Task<IApiResponse<CaptureTodayDto>> GetCaptureToday([Query] string projectId);
     }
 }

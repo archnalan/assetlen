@@ -251,10 +251,10 @@ public class FundingDAL : IFundingDAL
             if (project == null)
                 return ServiceResult<List<FundingEntryDto>>.Failure(new NotFoundException("Project not found"));
 
-            // Peter's core need: money against progress. Members read; only the
-            // investor adds funding and only the manager confirms it.
-            if (!await _access.CanReadAsync(project, userId))
-                return ServiceResult<List<FundingEntryDto>>.Failure(new ForbiddenException("Access denied"));
+            // Money is part of a seat, not of membership (CLAUDE.md §5.5): the bench
+            // is answered as if there were nothing here, as the Money tab is absent.
+            if (!(await _access.ResolveAsync(project, userId)).CanSeeMoney)
+                return ServiceResult<List<FundingEntryDto>>.Failure(new NotFoundException("Project not found"));
 
             var entries = await _context.tbl_FundingEntries
                 .Include(f => f.PaidBy)
@@ -294,8 +294,8 @@ public class FundingDAL : IFundingDAL
             if (stage == null)
                 return ServiceResult<List<FundingEntryDto>>.Failure(new NotFoundException("Stage not found"));
 
-            if (!await _access.CanReadAsync(stage.Project, userId))
-                return ServiceResult<List<FundingEntryDto>>.Failure(new ForbiddenException("Access denied"));
+            if (!(await _access.ResolveAsync(stage.Project, userId)).CanSeeMoney)
+                return ServiceResult<List<FundingEntryDto>>.Failure(new NotFoundException("Stage not found"));
 
             var entries = await _context.tbl_FundingEntries
                 .Include(f => f.PaidBy)

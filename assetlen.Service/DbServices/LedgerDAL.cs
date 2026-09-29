@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using assetlen.Service.DataAccess;
+using assetlen.Service.FileProcessingServices.Report;
+using assetlen.Service.FileProcessingServices.Push;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.ServiceHandler;
 using assetlen.Shared.Models.Models;
@@ -24,14 +26,18 @@ public class LedgerDAL : ILedgerDAL
     private readonly ILogger<LedgerDAL> _logger;
     private readonly IProjectAccessService _access;
     private readonly IActiveStageService _activeStage;
+    private readonly IFrameExposure _exposure;
+    private readonly INotifier _notifier;
 
     public LedgerDAL(AssetlenDbContext context, ILogger<LedgerDAL> logger,
-        IProjectAccessService access, IActiveStageService activeStage)
+        IProjectAccessService access, IActiveStageService activeStage, IFrameExposure exposure, INotifier notifier)
     {
         _context = context;
         _logger = logger;
         _access = access;
         _activeStage = activeStage;
+        _exposure = exposure;
+        _notifier = notifier;
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -58,89 +64,7 @@ public class LedgerDAL : ILedgerDAL
                 .Where(v => v.ProjectId == projectId)
                 .ToListAsync();
 
-            // Majors in order, each followed by its own sub-stages: the order a
-            // reader walks the build in, and the order a balance is carried.
-            var byParent = stages.Where(s => s.ParentStageId != null)
-                .GroupBy(s => s.ParentStageId!)
-                .ToDictionary(g => g.Key, g => g.OrderBy(s => s.DisplayOrder).ToList());
-            var ordered = new List<tbl_Stage>();
-            foreach (var major in stages.Where(s => s.ParentStageId == null || stages.All(p => p.Id != s.ParentStageId))
-                                        .OrderBy(s => s.DisplayOrder))
-            {
-                ordered.Add(major);
-                if (byParent.TryGetValue(major.Id, out var subs)) ordered.AddRange(subs);
-            }
-
-            var rows = new List<StageLedgerRowDto>();
-            decimal carry = 0m;
-            foreach (var s in ordered)
-            {
-                var forStage = funding.Where(f => f.StageId == s.Id).ToList();
-
-                // A settled release counts at what landed, not what was sent.
-                var funded = forStage
-                    .Where(f => f.Status is FundingStatus.Confirmed or FundingStatus.Settled)
-                    .Sum(f => f.ReceivedAmount ?? f.Amount);
-                var pending = forStage
-                    .Where(f => f.Status is FundingStatus.Pending or FundingStatus.AmountQueried)
-                    .Sum(f => f.ReceivedAmount ?? f.Amount);
-
-                var stageClaims = claims.Where(c => c.StageId == s.Id && c.Status != ClaimStatus.Withdrawn).ToList();
-                var claimed = stageClaims.Sum(c => c.Amount);
-                var cleared = stageClaims.Where(c => c.Status == ClaimStatus.Cleared).Sum(c => c.ClearedAmount ?? c.Amount);
-                var awaiting = stageClaims.Where(c => c.Status == ClaimStatus.Claimed).Sum(c => c.Amount);
-
-                var stageVariations = variations.Where(v => v.StageId == s.Id).ToList();
-
-                var carriedIn = carry;
-                var inHand = carriedIn + funded - cleared;
-                var closed = s.Status == StageStatus.Completed;
-
-                // "Issue a receipt and carry the balance towards the next stage"
-                // (evidence F3): only a closed stage passes its balance on. An open
-                // one keeps it in hand, because the work it pays for is not done.
-                carry = closed ? inHand : 0m;
-
-                rows.Add(new StageLedgerRowDto
-                {
-                    StageId = s.Id,
-                    StageName = s.StageName,
-                    ParentStageId = s.ParentStageId,
-                    DisplayOrder = s.DisplayOrder,
-                    Phase = s.Phase,
-                    Status = s.Status,
-                    Budget = s.BudgetAmount ?? 0m,
-                    Funded = funded,
-                    PendingFunding = pending,
-                    CarriedIn = carriedIn,
-                    Claimed = claimed,
-                    Cleared = cleared,
-                    AwaitingClearance = awaiting,
-                    InHand = inHand,
-                    CarriedForward = closed ? inHand : null,
-                    VariationsApproved = stageVariations.Where(v => v.Status == VariationStatus.Approved).Sum(v => v.CostDelta ?? 0m),
-                    VariationsProposed = stageVariations.Count(v => v.Status == VariationStatus.Proposed),
-                    VariationsUncosted = stageVariations.Count(v => v.CostDelta is null
-                                                                    && v.Status is VariationStatus.Proposed or VariationStatus.Approved)
-                });
-            }
-
-            var dto = new StageLedgerDto
-            {
-                ProjectId = projectId,
-                Currency = project!.Currency ?? "UGX",
-                Rows = rows,
-                TotalBudget = rows.Sum(r => r.Budget),
-                TotalFunded = rows.Sum(r => r.Funded),
-                TotalPending = rows.Sum(r => r.PendingFunding),
-                TotalClaimed = rows.Sum(r => r.Claimed),
-                TotalCleared = rows.Sum(r => r.Cleared),
-
-                // Conservation: whatever was funded and not cleared is still held
-                // somewhere, carried or not. The total never depends on ordering.
-                TotalInHand = rows.Sum(r => r.Funded) - rows.Sum(r => r.Cleared),
-                TotalVariationsApproved = rows.Sum(r => r.VariationsApproved)
-            };
+            var dto = StageLedgerMath.Build(projectId, project!.Currency ?? "UGX", stages, funding, claims, variations);
 
             return ServiceResult<StageLedgerDto>.Success(dto);
         }
@@ -170,7 +94,7 @@ public class LedgerDAL : ILedgerDAL
             if (!string.IsNullOrEmpty(stageId)) query = query.Where(c => c.StageId == stageId);
 
             var rows = await query.OrderByDescending(c => c.ClaimedAt).ToListAsync();
-            return ServiceResult<List<StageClaimDto>>.Success(rows.Select(c => ToDto(c, access, userId)).ToList());
+            return ServiceResult<List<StageClaimDto>>.Success(await WithEvidenceAsync(rows, access, userId));
         }
         catch (Exception ex)
         {
@@ -199,6 +123,25 @@ public class LedgerDAL : ILedgerDAL
                 && !await _context.tbl_Artifacts.AnyAsync(a => a.Id == dto.EvidenceArtifactId && a.ProjectId == project.Id))
                 return Fail<StageClaimDto>(new BadRequestException("That file is not stored on this project."));
 
+            // A claim carries its own proof so it is paid without a phone call
+            // (assetlen.md §7). Attaching a site frame shows it to the funder, so it
+            // is the mediator's call, and it crosses in his name (§10.1).
+            var imageIds = (dto.EvidenceImageIds ?? new()).Where(i => !string.IsNullOrEmpty(i)).Distinct().ToList();
+            var frames = imageIds.Count == 0 ? new List<tbl_ProgressImage>() : await _context.tbl_ProgressImages
+                .Include(i => i.ProgressUpdate)
+                .Where(i => imageIds.Contains(i.Id) && i.ProgressUpdate != null && i.ProgressUpdate.ProjectId == project.Id)
+                .ToListAsync();
+            if (frames.Count != imageIds.Count)
+                return Fail<StageClaimDto>(new BadRequestException("A frame named as evidence is not on this project."));
+            if (frames.Any(f => f.Channel != Channel.Client) && !(access.CanSeeSiteLog && access.CanExposeToClient))
+                return Fail<StageClaimDto>(new ForbiddenException(
+                    "Attaching a site frame shows it to the funder, and only the mediator decides what crosses."));
+
+            var deliverableIds = (dto.EvidenceDeliverableIds ?? new()).Where(i => !string.IsNullOrEmpty(i)).Distinct().ToList();
+            if (deliverableIds.Count > 0
+                && await _context.tbl_Deliverables.CountAsync(d => deliverableIds.Contains(d.Id) && d.ProjectId == project.Id) != deliverableIds.Count)
+                return Fail<StageClaimDto>(new BadRequestException("A deliverable named as evidence is not on this project."));
+
             var claim = new tbl_StageClaim
             {
                 ProjectId = project.Id,
@@ -212,6 +155,45 @@ public class LedgerDAL : ILedgerDAL
             };
             _context.tbl_StageClaims.Add(claim);
             await _context.SaveChangesAsync();
+
+            var order = 0;
+            foreach (var f in frames)
+                _context.tbl_ClaimEvidence.Add(new tbl_ClaimEvidence
+                {
+                    ProjectId = project.Id, ClaimId = claim.Id, Kind = ClaimEvidenceKind.Frame,
+                    ProgressImageId = f.Id, ArtifactId = f.ArtifactId, DisplayOrder = order++
+                });
+            foreach (var d in deliverableIds)
+                _context.tbl_ClaimEvidence.Add(new tbl_ClaimEvidence
+                {
+                    ProjectId = project.Id, ClaimId = claim.Id, Kind = ClaimEvidenceKind.Deliverable,
+                    DeliverableId = d, DisplayOrder = order++
+                });
+            if (dto.AttachLatestReading)
+            {
+                var reading = await _context.tbl_ProgressReadings.AsNoTracking()
+                    .Where(r => r.StageId == stage.Id).OrderByDescending(r => r.ObservedAt).FirstOrDefaultAsync();
+                if (reading is not null)
+                    _context.tbl_ClaimEvidence.Add(new tbl_ClaimEvidence
+                    {
+                        ProjectId = project.Id, ClaimId = claim.Id, Kind = ClaimEvidenceKind.Reading,
+                        ProgressReadingId = reading.Id, DisplayOrder = order++
+                    });
+            }
+            await _context.SaveChangesAsync();
+
+            var crossing = frames.Where(f => f.Channel != Channel.Client).ToList();
+            if (crossing.Count > 0) await _exposure.ExposeAsync(crossing, userId);
+
+            var face = await _exposure.AccountableFaceAsync(project.Id!);
+            var proof = new List<string>();
+            if (frames.Count > 0) proof.Add(frames.Count == 1 ? "1 photo" : $"{frames.Count} photos");
+            if (deliverableIds.Count > 0) proof.Add(deliverableIds.Count == 1 ? "1 deliverable" : $"{deliverableIds.Count} deliverables");
+            if (dto.AttachLatestReading) proof.Add("the latest reading");
+            await _notifier.NotifyAsync(project.Id!, CanDecide, userId, PushKind.Claim,
+                $"{face.Name ?? "The contractor"} claims {project.Currency ?? "UGX"} {dto.Amount:N0} on {stage.StageName}",
+                proof.Count == 0 ? "No evidence attached" : $"With {string.Join(", ", proof)}",
+                $"/project/{project.Id}/money", default);
 
             return await OneClaim(claim.Id, access, userId);
         }
@@ -496,7 +478,123 @@ public class LedgerDAL : ILedgerDAL
             .Include(x => x.ClaimedBy)
             .Include(x => x.ClearedBy)
             .FirstAsync(x => x.Id == id);
-        return ServiceResult<StageClaimDto>.Success(ToDto(c, access, userId));
+        return ServiceResult<StageClaimDto>.Success((await WithEvidenceAsync(new List<tbl_StageClaim> { c }, access, userId)).Single());
+    }
+
+    /// <summary>
+    /// Claims with the proof they carry, as this reader may see it. The client side
+    /// reads the claim as the accountable face's word (§10.1) and sees only frames
+    /// still on its side — a frame the mediator later withdrew leaves the claim.
+    /// </summary>
+    private async Task<List<StageClaimDto>> WithEvidenceAsync(List<tbl_StageClaim> claims, ProjectAccess access, string userId)
+    {
+        var ids = claims.Select(c => c.Id).ToList();
+        var evidence = await _context.tbl_ClaimEvidence.AsNoTracking()
+            .Include(e => e.ProgressImage)
+            .Include(e => e.Deliverable)
+            .Include(e => e.ProgressReading)
+            .Where(e => e.ClaimId != null && ids.Contains(e.ClaimId))
+            .OrderBy(e => e.DisplayOrder)
+            .ToListAsync();
+
+        string? face = null;
+        if (!access.CanSeeSiteLog && claims.FirstOrDefault()?.ProjectId is { } pid)
+            face = (await _exposure.AccountableFaceAsync(pid)).Name;
+
+        return claims.Select(c =>
+        {
+            var dto = ToDto(c, access, userId);
+            if (!access.CanSeeSiteLog) dto.ClaimedByName = face ?? dto.ClaimedByName;
+            dto.Evidence = evidence.Where(e => e.ClaimId == c.Id)
+                .Where(e => e.Kind != ClaimEvidenceKind.Frame || access.CanSeeSiteLog || e.ProgressImage?.Channel == Channel.Client)
+                .Select(ToEvidenceDto).ToList();
+            return dto;
+        }).ToList();
+    }
+
+    private static ClaimEvidenceDto ToEvidenceDto(tbl_ClaimEvidence e) => new()
+    {
+        Id = e.Id,
+        Kind = e.Kind,
+        ArtifactId = e.ArtifactId,
+        ProgressImageId = e.ProgressImageId,
+        ProgressUpdateId = e.ProgressImage?.ProgressUpdateId,
+        ThumbnailUrl = e.ArtifactId is null ? null : $"/api/Artifacts/{e.ArtifactId}/thumbnail",
+        Caption = e.ProgressImage?.Caption,
+        DeliverableId = e.DeliverableId,
+        DeliverableTitle = e.Deliverable?.Title,
+        DeliverableStatus = e.Deliverable?.Status,
+        Percent = e.ProgressReading?.Percent,
+        At = e.ProgressReading?.ObservedAt ?? e.Deliverable?.CompletedAt
+    };
+
+    public async Task<ServiceResult<ClaimEvidenceOptionsDto>> GetClaimEvidenceOptions(string projectId, string stageId, string userId)
+    {
+        try
+        {
+            var (project, access, error) = await MoneySeat(projectId, userId);
+            if (error is not null) return Fail<ClaimEvidenceOptionsDto>(error);
+            var stage = await _context.tbl_Stages.AsNoTracking().FirstOrDefaultAsync(s => s.Id == stageId && s.ProjectId == projectId);
+            if (stage is null) return Fail<ClaimEvidenceOptionsDto>(new BadRequestException("That stage is not on this project."));
+
+            // What happened since the stage was last claimed is what this claim is for.
+            var lastClaim = await _context.tbl_StageClaims.AsNoTracking()
+                .Where(c => c.StageId == stageId && c.Status != ClaimStatus.Withdrawn)
+                .MaxAsync(c => (DateTime?)c.ClaimedAt);
+            var since = lastClaim ?? DateTime.UtcNow.AddDays(-60);
+
+            var frames = await _context.tbl_ProgressImages.AsNoTracking()
+                .Include(i => i.ProgressUpdate)
+                .Where(i => i.ArtifactId != null && i.ProgressUpdate != null && i.ProgressUpdate.StageId == stageId
+                            && i.ProgressUpdate.DateTimeCreated >= since
+                            && (access.CanSeeSiteLog || i.Channel == Channel.Client))
+                .OrderByDescending(i => i.ProgressUpdate!.DateTimeCreated).ThenBy(i => i.DisplayOrder)
+                .Take(48)
+                .ToListAsync();
+            var deliverables = await _context.tbl_Deliverables.AsNoTracking()
+                .Where(d => d.StageId == stageId).OrderBy(d => d.DisplayOrder).ToListAsync();
+            var reading = await _context.tbl_ProgressReadings.AsNoTracking()
+                .Where(r => r.StageId == stageId).OrderByDescending(r => r.ObservedAt).FirstOrDefaultAsync();
+
+            var dto = new ClaimEvidenceOptionsDto
+            {
+                StageId = stageId,
+                StageName = stage.StageName,
+                Since = lastClaim,
+                Frames = frames.Select(f => new ClaimEvidenceDto
+                {
+                    Kind = ClaimEvidenceKind.Frame,
+                    ProgressImageId = f.Id,
+                    ProgressUpdateId = f.ProgressUpdateId,
+                    ArtifactId = f.ArtifactId,
+                    ThumbnailUrl = $"/api/Artifacts/{f.ArtifactId}/thumbnail",
+                    Caption = f.Caption ?? f.ProgressUpdate?.Description,
+                    At = f.ProgressUpdate?.DateTimeCreated
+                }).ToList(),
+                Deliverables = deliverables.Select(d => new ClaimEvidenceDto
+                {
+                    Kind = ClaimEvidenceKind.Deliverable,
+                    DeliverableId = d.Id,
+                    DeliverableTitle = d.Title,
+                    DeliverableStatus = d.Status,
+                    At = d.CompletedAt
+                }).ToList(),
+                LatestReading = reading is null ? null : new ClaimEvidenceDto
+                {
+                    Kind = ClaimEvidenceKind.Reading,
+                    Percent = reading.Percent,
+                    At = reading.ObservedAt
+                },
+                // The newest of each capture, up to three: what the work looks like now.
+                SuggestedImageIds = frames.GroupBy(f => f.ProgressUpdateId).Select(g => g.First().Id!).Take(3).ToList()
+            };
+            return ServiceResult<ClaimEvidenceOptionsDto>.Success(dto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing claim evidence for {StageId}", stageId);
+            return Fail<ClaimEvidenceOptionsDto>(new ServerErrorException(ex.Message));
+        }
     }
 
     private async Task<ServiceResult<VariationDto>> OneVariation(string id, ProjectAccess access)

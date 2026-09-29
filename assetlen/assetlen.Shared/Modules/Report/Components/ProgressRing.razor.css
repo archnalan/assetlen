@@ -1,0 +1,24 @@
+.ring { flex: 0 0 auto; display: block; }
+
+.ring__track {
+    fill: none;
+    stroke: var(--al-border-strong);
+    stroke-width: 4;
+}
+
+.ring__arc {
+    fill: none;
+    stroke: var(--al-stage-accent, var(--al-text-muted));
+    stroke-width: 4;
+    stroke-linecap: round;
+}
+
+.ring__text {
+    fill: var(--al-text);
+    font-family: var(--al-font-body);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-anchor: middle;
+    dominant-baseline: central;
+}

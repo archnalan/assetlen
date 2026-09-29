@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using assetlen.Service.DataAccess;
+using assetlen.Service.FileProcessingServices.Report;
 using assetlen.Service.DbServices.ServiceInterfaces;
 using assetlen.Service.FileProcessingServices.Ocr;
 using assetlen.ServiceHandler;
@@ -20,6 +21,7 @@ public class ArtifactDAL : IArtifactDAL
     private readonly IThumbnailGenerator _thumbnails;
     private readonly IProjectAccessService _access;
     private readonly IArtifactTextQueue _textQueue;
+    private readonly IVideoPosterQueue _posterQueue;
 
     private const int ThumbnailMaxEdge = 480;
     private const long MaxUploadBytes = 40L * 1024 * 1024;
@@ -30,7 +32,8 @@ public class ArtifactDAL : IArtifactDAL
         IArtifactStorage storage,
         IThumbnailGenerator thumbnails,
         IProjectAccessService access,
-        IArtifactTextQueue textQueue)
+        IArtifactTextQueue textQueue,
+        IVideoPosterQueue posterQueue)
     {
         _context = context;
         _logger = logger;
@@ -38,6 +41,7 @@ public class ArtifactDAL : IArtifactDAL
         _thumbnails = thumbnails;
         _access = access;
         _textQueue = textQueue;
+        _posterQueue = posterQueue;
     }
 
     // ─── Ingest ──────────────────────────────────────────────────────────
@@ -157,6 +161,9 @@ public class ArtifactDAL : IArtifactDAL
 
             // Law 3: every new file is read for text, off the request path.
             _textQueue.Enqueue(artifact.Id!);
+
+            // A video with no still frame prints as a blank tile (works-report.md §5.3).
+            if (VideoPosterJob.IsVideo(mime)) _posterQueue.Enqueue(artifact.Id!);
 
             return ServiceResult<ArtifactDto>.Success(ToDto(artifact, 0));
         }
@@ -719,6 +726,14 @@ public class ArtifactDAL : IArtifactDAL
             ".heic" => "image/heic",
             ".gif" => "image/gif",
             ".pdf" => "application/pdf",
+            ".mp4" => "video/mp4",
+            ".3gp" => "video/3gpp",
+            ".mov" => "video/quicktime",
+            ".wav" => "audio/wav",
+            ".webm" => "audio/webm",
+            ".ogg" or ".opus" => "audio/ogg",
+            ".m4a" => "audio/mp4",
+            ".mp3" => "audio/mpeg",
             _ => "application/octet-stream"
         };
     }
@@ -737,6 +752,10 @@ public class ArtifactDAL : IArtifactDAL
             "image/heic" => ".heic",
             "image/gif" => ".gif",
             "application/pdf" => ".pdf",
+            "audio/wav" or "audio/x-wav" => ".wav",
+            "audio/webm" => ".webm",
+            "audio/ogg" => ".ogg",
+            "audio/mp4" => ".m4a",
             _ => ".bin"
         };
     }

@@ -1,0 +1,29 @@
+@*
+    Change at one vantage point: the one visual the seventeen-photo dump proved
+    was missing (whatsapp-evidence.md F2). Two 3/2 frames, dated.
+*@
+
+<figure class="bapair @ReportFormat.Phase(Pair.Phase)">
+    <div class="bapair__frames">
+        <a class="bapair__frame" href="@Href(Pair.Before)">
+            <ArtifactThumb ArtifactId="@Pair.Before.ArtifactId" HasThumbnail="@ReportFormat.HasPicture(Pair.Before)" MimeType="image/jpeg" Cover="true" />
+            <span class="bapair__tag al-num">Before · @ReportFormat.Day(Pair.Before.At)</span>
+        </a>
+        <a class="bapair__frame" href="@Href(Pair.After)">
+            <ArtifactThumb ArtifactId="@Pair.After.ArtifactId" HasThumbnail="@ReportFormat.HasPicture(Pair.After)" MimeType="image/jpeg" Cover="true" />
+            <span class="bapair__tag bapair__tag--now al-num">Now · @ReportFormat.Day(Pair.After.At)</span>
+        </a>
+    </div>
+    <figcaption class="bapair__caption">
+        <span class="al-stage-dot"></span>
+        <span>@Pair.StageName — @Pair.Basis, @(Pair.DaysApart == 1 ? "a day" : $"{Pair.DaysApart} days") apart</span>
+        <SourceChip Ids="new[] { Pair.Before.SourceId, Pair.After.SourceId }" />
+    </figcaption>
+</figure>
+
+@code {
+    [CascadingParameter] public ReportSources? Sources { get; set; }
+    [Parameter, EditorRequired] public ReportPairDto Pair { get; set; } = new();
+
+    private string? Href(ReportFrameDto f) => Sources?.Get(f.SourceId)?.Href;
+}

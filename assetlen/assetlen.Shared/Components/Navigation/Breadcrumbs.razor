@@ -109,6 +109,14 @@
             return;
         }
 
+        // A marked-up file is reached from the register, so the trail goes back there.
+        if (section == "artifact")
+        {
+            crumbs.Add(new Crumb("Commitments", $"/project/{projectId}/register"));
+            crumbs.Add(new Crumb("Markup", path));
+            return;
+        }
+
         crumbs.Add(new Crumb(SectionLabel(section), $"/project/{projectId}/{section}"));
     }
 
@@ -123,6 +131,7 @@
     private static string SectionLabel(string section) => section switch
     {
         "brief"     => "Daily brief",
+        "report"    => "Works report",
         "money"     => "Stages & money",
         "register"  => "Commitments",
         "documents" => "Drawings",

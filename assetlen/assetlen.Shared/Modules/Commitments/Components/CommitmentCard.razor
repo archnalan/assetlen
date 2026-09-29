@@ -52,6 +52,18 @@
             {
                 <span class="al-badge al-badge--neutral">Superseded</span>
             }
+            @if (Item.IsSurfaced && Item.DecideBy is not null)
+            {
+                <span class="al-badge al-badge--warning" title="@Item.DecideByReason">
+                    <Icon Name="clock" Size="11" /> Decide by @Fmt.DateShort(Item.DecideBy)
+                </span>
+            }
+            else if (Item.IsParkedIdea)
+            {
+                <span class="al-badge al-badge--outline" title="Held quietly until waiting costs something">
+                    <Icon Name="idea" Size="11" /> Parked
+                </span>
+            }
         </div>
     </header>
 
@@ -112,6 +124,56 @@
             <span class="al-provenance__step @StepClass(step)">@StepLabel(step)</span>
         }
     </div>
+
+    @if (Item.Maturity < CommitmentMaturity.Agreed && !Item.IsSuperseded
+         && (Item.IsParkedIdea || Item.EstimateCount > 0 || Item.DependsOnStageName is not null || Item.IsSurfaced))
+    {
+        @* A parked idea holds its references and estimates quietly and speaks
+           only when waiting costs something (assetlen.md Law 4). *@
+        <div class="commitment__parked @(Item.IsSurfaced ? "commitment__parked--due" : "")">
+            <Icon Name="@(Item.IsSurfaced ? "clock" : "idea")" Size="14" />
+            <span>
+                @if (Item.IsSurfaced && !string.IsNullOrEmpty(Item.DecideByReason))
+                {
+                    <strong>@Item.DecideByReason.</strong>
+                }
+                else if (Item.StageName is not null)
+                {
+                    <text>Parked for <strong>@Item.StageName</strong>. </text>
+                }
+                @if (Item.DependsOnStageName is not null && !Item.IsSurfaced)
+                {
+                    <text>Must be settled before @Item.DependsOnStageName starts. </text>
+                }
+                @if (Item.EstimateCount > 0)
+                {
+                    <text>@Item.EstimateCount @(Item.EstimateCount == 1 ? "estimate" : "estimates")</text>
+                    @if (Item.EstimateLow is { } lo && Item.EstimateHigh is { } hi)
+                    {
+                        <text>: <span class="al-num">@(lo == hi ? Fmt.Money(lo, Item.EstimateCurrency) : $"{Fmt.MoneyShort(lo, Item.EstimateCurrency)} – {Fmt.MoneyShort(hi, Item.EstimateCurrency)}")</span></text>
+                    }
+                    <text>.</text>
+                }
+            </span>
+        </div>
+    }
+
+    @if (Item.PreviousAmount is { } was && Item.Amount is { } now && was != now)
+    {
+        <p class="commitment__note commitment__note--revised">
+            <Icon Name="history" Size="14" />
+            <span>
+                Revised from <span class="al-num">@Fmt.Money(was, Item.Currency)</span>
+                (<span class="al-num">@(now > was ? "+" : "−")@Fmt.Money(Math.Abs(now - was), Item.Currency)</span>)@if (Item.PreviousClearedAt is not null) {<text>; the earlier figure was cleared on @Fmt.Date(Item.PreviousClearedAt)</text>}.
+            </span>
+        </p>
+    }
+
+    @if (Item.MarkupArtifactId is not null && Item.ProjectId is not null)
+    {
+        <MarkupPreview ProjectId="@Item.ProjectId" ArtifactId="@Item.MarkupArtifactId" LayerId="@Item.MarkupLayerId"
+                       CommitmentId="@Item.Id" Note="@Item.MarkupNote" />
+    }
 
     @if (Item.DisputedAt is not null)
     {
@@ -192,7 +254,7 @@
                         Mark cleared
                     </button>
                 }
-                @if (Item.CanAdvance || Item.CanVerify || Item.CanRaiseQuery || Item.CanRestate)
+                @if (Item.CanAdvance || Item.CanVerify || Item.CanRaiseQuery || Item.CanRestate || Item.CanAddEstimate || Item.CanPark)
                 {
                     <button type="button" class="al-iconbtn al-iconbtn--sm" aria-label="More actions" aria-expanded="@menuOpen"
                             @onclick="() => menuOpen = !menuOpen">
@@ -228,6 +290,18 @@
             {
                 <button type="button" role="menuitem" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => Open(Pane.Restate)">
                     Restate — a new date, figure or wording
+                </button>
+            }
+            @if (Item.CanAddEstimate)
+            {
+                <button type="button" role="menuitem" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => Open(Pane.Estimate)">
+                    Add an estimate
+                </button>
+            }
+            @if (Item.CanPark)
+            {
+                <button type="button" role="menuitem" class="al-btn al-btn--quiet al-btn--sm" @onclick="OpenParkAsync">
+                    Park — which stage, what it holds up, lead time
                 </button>
             }
         </div>
@@ -298,6 +372,58 @@
                     </div>
                     <span class="al-field__hint">The current statement is kept and marked superseded. Nothing is overwritten.</span>
                     break;
+
+                case Pane.Estimate:
+                    <div class="commitment__pane-row">
+                        @if (Item.CanPriceEstimate)
+                        {
+                            <div class="al-field">
+                                <label class="al-label" for="es-@Item.Id">Figure (optional)</label>
+                                <input id="es-@Item.Id" class="al-input al-input--money" type="number" min="0" step="1000" @bind="amount" />
+                            </div>
+                        }
+                    </div>
+                    <label class="al-label" for="esn-@Item.Id">Where it came from</label>
+                    <input id="esn-@Item.Id" class="al-input" maxlength="500" placeholder="e.g. Fabricator's quote, seen at a neighbour's"
+                           @bind="note" @bind:event="oninput" />
+                    <span class="al-field__hint">Kept with the idea quietly. Nobody is asked anything until it has a deadline.</span>
+                    break;
+
+                case Pane.Park:
+                    @if (stages is null)
+                    {
+                        <div class="al-shimmer al-ghost-row"></div>
+                    }
+                    else
+                    {
+                        <div class="commitment__pane-row">
+                            <div class="al-field">
+                                <label class="al-label" for="pk-@Item.Id">Parked for</label>
+                                <select id="pk-@Item.Id" class="al-select" @bind="parkStageId">
+                                    @foreach (var s in stages)
+                                    {
+                                        <option value="@s.Id">@s.StageName@(s.StartDate is null ? "" : $" · starts {Fmt.DateShort(s.StartDate)}")</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="al-field">
+                                <label class="al-label" for="pd-@Item.Id">Must be decided before</label>
+                                <select id="pd-@Item.Id" class="al-select" @bind="parkDependsOnId">
+                                    <option value="">Nothing in particular</option>
+                                    @foreach (var s in stages.Where(s => s.Id != parkStageId))
+                                    {
+                                        <option value="@s.Id">@s.StageName starts@(s.StartDate is null ? "" : $" ({Fmt.DateShort(s.StartDate)})")</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="al-field">
+                                <label class="al-label" for="pl-@Item.Id">Lead time, days</label>
+                                <input id="pl-@Item.Id" class="al-input" type="number" min="0" max="730" @bind="parkLead" />
+                            </div>
+                        </div>
+                        <span class="al-field__hint">The decide-by date is worked back from the stage start. It stays silent until waiting costs something.</span>
+                    }
+                    break;
             }
 
             @if (!string.IsNullOrEmpty(error))
@@ -366,6 +492,17 @@
                             {
                                 <a href="/project/@Item.ProjectId/register#c-@l.TargetId">@l.TargetLabel</a>
                             }
+                            else if (l.ArtifactId is not null)
+                            {
+                                @* Open the file to circle what is wrong with it and ask — Peter's fourth search. *@
+                                <a href="/project/@Item.ProjectId/artifact/@l.ArtifactId?commitment=@Item.Id">@l.TargetLabel</a>
+                                @if (Item.CanRaiseQuery && l.TargetType == CommitmentLinkTarget.Artifact)
+                                {
+                                    <a class="commitment__markup-link" href="/project/@Item.ProjectId/artifact/@l.ArtifactId?commitment=@Item.Id">
+                                        <Icon Name="markup" Size="12" /> Mark up &amp; ask
+                                    </a>
+                                }
+                            }
                             else
                             {
                                 <span>@l.TargetLabel</span>
@@ -392,7 +529,12 @@
     /// <summary>Raised with the fresh item after any change — a restatement or resolution may hand back a new id.</summary>
     [Parameter] public EventCallback<CommitmentDto> OnChanged { get; set; }
 
-    private enum Pane { None, Dispute, Query, Resolve, Restate }
+    private enum Pane { None, Dispute, Query, Resolve, Restate, Estimate, Park }
+
+    private List<StageDto>? stages;
+    private string? parkStageId;
+    private string? parkDependsOnId;
+    private int? parkLead;
 
     private Pane pane;
     private bool menuOpen;
@@ -442,11 +584,70 @@
 
     private void Close() { pane = Pane.None; error = null; }
 
+    private async Task OpenParkAsync()
+    {
+        Open(Pane.Park);
+        amount = null;
+        parkStageId = Item.StageId;
+        parkDependsOnId = Item.DependsOnStageId ?? "";
+        parkLead = Item.LeadTimeDays;
+        if (stages is not null || Item.ProjectId is null) return;
+        try
+        {
+            var response = await _stagesApi.GetStagesByProjectId(Item.ProjectId);
+            stages = response.IsSuccessStatusCode ? (response.Content ?? new()).OrderBy(s => s.DisplayOrder).ToList() : new();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Stages failed to load for {ProjectId}", Item.ProjectId);
+            stages = new();
+        }
+    }
+
+    /// <summary>An estimate is not a change to the item, so it has its own call — then the card reads itself again.</summary>
+    private async Task EstimateAsync()
+    {
+        busy = true;
+        error = null;
+        StateHasChanged();
+        try
+        {
+            var response = await _commitmentsApi.AddEstimate(new CommitmentEstimateCreateDto
+            {
+                CommitmentId = Item.Id,
+                Amount = amount is > 0 ? amount : null,
+                Note = Clean(note)
+            });
+            if (!response.IsSuccessStatusCode)
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(response) ?? "That did not go through.";
+                return;
+            }
+            pane = Pane.None;
+            ToastService.ShowSuccess("Kept with the idea. Nobody has been asked anything.");
+            var fresh = await _commitmentsApi.GetCommitment(Item.Id!);
+            if (fresh.IsSuccessStatusCode && fresh.Content is not null && OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync(fresh.Content);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Estimate failed on {Id}", Item.Id);
+            error = "That did not go through.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
     private bool PaneReady => pane switch
     {
         Pane.Dispute => true,
         Pane.Query or Pane.Resolve => !string.IsNullOrWhiteSpace(note),
         Pane.Restate => !string.IsNullOrWhiteSpace(title),
+        Pane.Estimate => amount is > 0 || !string.IsNullOrWhiteSpace(note),
+        Pane.Park => stages is not null && !string.IsNullOrEmpty(parkStageId),
         _ => false
     };
 
@@ -456,6 +657,8 @@
         Pane.Query => "Raise query",
         Pane.Resolve => "Resolve on the item",
         Pane.Restate => "Restate",
+        Pane.Estimate => "Keep the estimate",
+        Pane.Park => "Park it",
         _ => ""
     };
 
@@ -481,6 +684,15 @@
                                      Amount = amount != Item.Amount ? amount : null,
                                      DueDate = Utc(due) != Utc(Item.DueDate?.ToLocalTime()) ? Utc(due) : null
                                  }), "Restated. The earlier statement is kept beside it."),
+        Pane.Estimate => EstimateAsync(),
+        Pane.Park => RunAsync(() => _commitmentsApi.Park(new CommitmentParkDto
+                                 {
+                                     CommitmentId = Item.Id,
+                                     StageId = parkStageId != Item.StageId ? parkStageId : null,
+                                     DependsOnStageId = string.IsNullOrEmpty(parkDependsOnId) ? null : parkDependsOnId,
+                                     ClearDependency = string.IsNullOrEmpty(parkDependsOnId) && Item.DependsOnStageId is not null,
+                                     LeadTimeDays = parkLead ?? 0
+                                 }), "Parked. It stays quiet until waiting costs something."),
         _ => Task.CompletedTask
     };
 

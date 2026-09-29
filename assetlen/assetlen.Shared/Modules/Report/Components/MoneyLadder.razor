@@ -1,0 +1,86 @@
+@*
+    ⑩ Per stage: funded → sent and not yet acknowledged → cleared against
+    claims, on the stage ledger's own arithmetic, so the Money tab and the
+    report cannot disagree. Rendered only for a reader on the money — the
+    section is absent from anyone else's payload, not hidden here.
+*@
+
+<div class="mladder">
+    <dl class="mladder__totals">
+        <div><dt class="al-label">Budget</dt><dd class="al-num">@ReportFormat.Money(Money.TotalBudget, Money.Currency)</dd></div>
+        <div><dt class="al-label">Funded</dt><dd class="al-num">@ReportFormat.Money(Money.TotalFunded, Money.Currency)</dd></div>
+        <div><dt class="al-label">Sent, not acknowledged</dt><dd class="al-num">@ReportFormat.Money(Money.TotalPending, Money.Currency)</dd></div>
+        <div><dt class="al-label">Cleared</dt><dd class="al-num">@ReportFormat.Money(Money.TotalCleared, Money.Currency)</dd></div>
+        <div><dt class="al-label">In hand</dt><dd class="al-num">@ReportFormat.Money(Money.TotalInHand, Money.Currency)</dd></div>
+    </dl>
+
+    @foreach (var g in Money.Gaps)
+    {
+        <GapMarker Text="@g" Block="true" />
+    }
+
+    <div class="al-legend mladder__legend" aria-hidden="true">
+        <span><i class="mladder__key mladder__key--funded"></i>Funded</span>
+        <span><i class="mladder__key mladder__key--pending"></i>Sent, not acknowledged</span>
+        <span><i class="mladder__key mladder__key--cleared"></i>Cleared</span>
+    </div>
+
+    <table class="mladder__table">
+        <thead>
+            <tr>
+                <th scope="col">Stage</th>
+                <th scope="col" class="mladder__bar-col">Against budget</th>
+                <th scope="col" class="al-num">Funded</th>
+                <th scope="col" class="al-num">Cleared</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Money.Rows.Where(r => r.Budget > 0 || r.Funded > 0 || r.Pending > 0 || r.Claimed > 0))
+            {
+                var scale = Math.Max(r.Budget, r.Funded + r.Pending);
+                <tr class="@ReportFormat.Phase(r.Phase)" title="@Title(r)">
+                    <td><span class="al-stage-dot"></span> @r.StageName</td>
+                    <td class="mladder__bar-col">
+                        <span class="mladder__bar">
+                            <span class="mladder__seg mladder__seg--funded" style="width:@W(r.Funded, scale)"></span>
+                            <span class="mladder__seg mladder__seg--pending" style="width:@W(r.Pending, scale)"></span>
+                        </span>
+                        <span class="mladder__bar mladder__bar--thin">
+                            <span class="mladder__seg mladder__seg--cleared" style="width:@W(r.Cleared, scale)"></span>
+                        </span>
+                    </td>
+                    <td class="al-num">@ReportFormat.Short(r.Funded)@(r.Pending > 0 ? $" (+{ReportFormat.Short(r.Pending)})" : "")</td>
+                    <td class="al-num">@ReportFormat.Short(r.Cleared)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (Money.Releases.Count > 0)
+    {
+        <h4 class="mladder__sub">Releases</h4>
+        <ul class="mladder__releases">
+            @foreach (var rel in Money.Releases)
+            {
+                <li>
+                    <span class="al-num">@ReportFormat.Day(rel.At)</span>
+                    <span class="al-num">@ReportFormat.Money(rel.Amount, Money.Currency)</span>
+                    @if (rel.StageName is not null) { <span class="al-stage-chip">@rel.StageName</span> }
+                    @if (rel.Gap is not null) { <GapMarker Text="@rel.Gap" /> }
+                    <SourceChip Ids="new[] { rel.SourceId }" />
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public MoneyReportDto Money { get; set; } = new();
+
+    private static string W(decimal part, decimal scale) =>
+        scale <= 0 ? "0%" : (Math.Clamp(part / scale, 0, 1) * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    private string Title(MoneyRowDto r) =>
+        $"{r.StageName}: budget {ReportFormat.Money(r.Budget, Money.Currency)}, funded {ReportFormat.Money(r.Funded, Money.Currency)}, " +
+        $"sent not acknowledged {ReportFormat.Money(r.Pending, Money.Currency)}, claimed {ReportFormat.Money(r.Claimed, Money.Currency)}, cleared {ReportFormat.Money(r.Cleared, Money.Currency)}";
+}

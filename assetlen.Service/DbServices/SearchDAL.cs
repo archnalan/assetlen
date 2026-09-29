@@ -97,7 +97,8 @@ public class SearchDAL : ISearchDAL
                 Backend = "substring",
                 ProjectsSearched = scope.Projects.Count,
                 OcrEngine = _ocr.ImageEngine,
-                FilesAwaitingText = await FilesAwaitingTextAsync(scope, ct)
+                FilesAwaitingText = await FilesAwaitingTextAsync(scope, ct),
+                SearchedSiteDiary = scope.Projects.Values.Any(p => p.Access.CanSeeSiteLog)
             };
 
             AddGroup(result, SearchHitKind.Commitment, "Commitments", commitments.Values, take);

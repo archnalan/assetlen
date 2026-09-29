@@ -1,0 +1,197 @@
+/* The file is the hero; the side column recedes around it (CLAUDE.md §2).
+   One column on a phone — picture, then what to do with it — two from 1024. */
+.markup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--al-space-5);
+    align-items: start;
+}
+
+@media (min-width: 1024px) {
+    .markup {
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    }
+
+    .markup__side {
+        position: sticky;
+        top: var(--al-space-5);
+    }
+}
+
+.markup__ghost {
+    width: 100%;
+    aspect-ratio: var(--al-aspect-thumb);
+    border-radius: var(--al-radius);
+}
+
+.markup__stage,
+.markup__side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    min-width: 0;
+}
+
+.markup__file {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+}
+
+.markup__file-name {
+    color: var(--al-text);
+    font-weight: var(--al-weight-medium);
+    min-width: 0;
+    max-width: 100%;
+}
+
+.markup__file-date { font-variant-numeric: tabular-nums; }
+
+.markup__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    flex-wrap: wrap;
+}
+
+.markup__tools .al-segmented { max-width: 100%; overflow-x: auto; }
+
+.markup__viewing {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-3);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-surface-2);
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+}
+
+.markup__hint { margin: 0; }
+
+.markup__compose {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: var(--al-space-4);
+}
+
+.markup__mode { align-self: flex-start; max-width: 100%; }
+
+.markup__compose-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+}
+
+.markup__layers {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.markup__layers-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--al-space-2);
+    padding-bottom: var(--al-space-2);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.markup__h {
+    margin: 0;
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-medium);
+}
+
+.markup__empty { padding: var(--al-space-4) 0; }
+
+.markup__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.markup__layer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-1);
+    padding: var(--al-space-3) 0;
+    border-bottom: 1px solid var(--al-border);
+    transition: opacity var(--al-transition) var(--al-ease);
+}
+
+.markup__layer.is-hidden { opacity: 0.55; }
+
+.markup__layer-head {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-sm);
+}
+
+/* The swatch repeats the stroke the layer is drawn in: dashed muted for anyone's, accent for a question. */
+.markup__swatch {
+    width: 14px;
+    height: 0;
+    border-top: 2px dashed var(--al-text-muted);
+    flex: none;
+}
+
+.markup__layer--question .markup__swatch { border-top: 3px solid var(--al-accent); }
+
+.markup__layer-who { font-weight: var(--al-weight-medium); }
+
+.markup__layer-note {
+    margin: 0;
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.markup__layer-meta,
+.markup__layer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2);
+}
+
+.markup__layer-meta .al-badge { max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-decoration: none; }
+
+.markup__history-toggle { align-self: flex-start; }
+
+.markup__history {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-1);
+}
+
+.markup__history-item {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--al-space-2);
+    width: 100%;
+    padding: var(--al-space-2) var(--al-space-3);
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius-sm);
+    background: var(--al-bg-elevated);
+    color: var(--al-text);
+    font: inherit;
+    font-size: var(--al-font-size-sm);
+    cursor: pointer;
+    transition: background var(--al-transition-fast) var(--al-ease);
+}
+
+.markup__history-item:hover,
+.markup__history-item.is-active { background: var(--al-surface-2); border-color: var(--al-border-strong); }

@@ -82,3 +82,12 @@
     padding-top: var(--al-space-4);
     border-top: 1px solid var(--al-border);
 }
+
+.entry__voice { width: 100%; max-width: 28rem; height: 40px; }
+.entry__voice-wait { display: block; width: 100%; max-width: 28rem; height: 40px; border-radius: var(--al-radius-sm); }
+.entry__transcript {
+    margin: var(--al-space-2) 0 0;
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-sm);
+    max-width: var(--al-reading-max);
+}

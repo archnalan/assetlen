@@ -1,0 +1,81 @@
+@inject ILogger<MarkupPreview> Logger
+
+@*
+    What was circled, beside the item it was asked about. The question lives
+    on the commitment; the circle stays on the file — this shows the two
+    together so nobody has to scroll for the photo (assetlen.md §1).
+*@
+
+<a class="mpreview" href="@Href">
+    <span class="mpreview__pic">
+        @if (phase == LoadPhase.Loading)
+        {
+            <span class="al-shimmer mpreview__ghost"></span>
+        }
+        else if (artifact is not null)
+        {
+            <ArtifactThumb ArtifactId="@ArtifactId" HasThumbnail="@(!string.IsNullOrEmpty(artifact.ThumbnailUrl))"
+                           MimeType="@artifact.MimeType" Natural="true" Alt="@(artifact.OriginalFileName ?? "")">
+                <Overlay>
+                    <MarkupOverlay Layers="layers" Aspect="Aspect" />
+                </Overlay>
+            </ArtifactThumb>
+        }
+        else
+        {
+            <span class="mpreview__ghost mpreview__ghost--empty"><Icon Name="markup" Size="20" /></span>
+        }
+    </span>
+    <span class="mpreview__text">
+        <span class="al-label">Asked on a marked-up file</span>
+        @if (!string.IsNullOrWhiteSpace(Note))
+        {
+            <span class="mpreview__note">“@Note”</span>
+        }
+        <span class="mpreview__open">@(artifact?.OriginalFileName ?? "Open the file") <Icon Name="arrow-right" Size="12" /></span>
+    </span>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter, EditorRequired] public string ArtifactId { get; set; } = "";
+    [Parameter] public string? LayerId { get; set; }
+    [Parameter] public string? CommitmentId { get; set; }
+    [Parameter] public string? Note { get; set; }
+
+    private LoadPhase phase = LoadPhase.Loading;
+    private ArtifactDto? artifact;
+    private IReadOnlyList<MarkupLayerView> layers = Array.Empty<MarkupLayerView>();
+    private string? loadedKey;
+
+    private string Href => $"/project/{ProjectId}/artifact/{ArtifactId}" + (CommitmentId is null ? "" : $"?commitment={CommitmentId}");
+
+    private double Aspect => artifact?.Width is > 0 && artifact.Height is > 0 ? (double)artifact.Width!.Value / artifact.Height!.Value : 1.0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{ArtifactId}/{LayerId}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        phase = LoadPhase.Loading;
+
+        try
+        {
+            var response = await _annotationsApi.GetForArtifact(ArtifactId);
+            if (!response.IsSuccessStatusCode || response.Content?.Artifact is null)
+            {
+                phase = LoadPhase.Error;
+                return;
+            }
+            artifact = response.Content.Artifact;
+            var layer = response.Content.Layers.FirstOrDefault(l => l.LayerId == LayerId);
+            layers = layer is null ? Array.Empty<MarkupLayerView>() : new[] { new MarkupLayerView(layer.Shapes, MarkupTone.Question) };
+            phase = LoadPhase.Ready;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Markup preview failed for {ArtifactId}", ArtifactId);
+            phase = LoadPhase.Error;
+        }
+    }
+}

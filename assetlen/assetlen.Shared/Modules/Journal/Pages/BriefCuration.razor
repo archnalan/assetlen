@@ -1,0 +1,216 @@
+@page "/project/{ProjectId}/log/curate"
+@attribute [Authorize]
+@inject ILogger<BriefCuration> Logger
+
+@*
+    Tonight's brief — curation by exception (assetlen.md §5, tier 3).
+
+    The mediator does not assemble the brief; it assembles itself. At the cutoff
+    a few frames from each piece of work cross to the client side in his name,
+    whether or not he opened this page. What he gets here is the three-minute
+    edit: keep this one, drop that one, send now. The truth floor is not on this
+    page because it is not his to curate.
+*@
+
+<PageTitle>Tonight's brief — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="log" GateBySection="false" Eyebrow="Site Diary · tonight's brief"
+             Subtitle="What crosses to the client at the cutoff. Keep or drop individual frames; nothing else is needed." Context="ctx">
+
+    @if (!(ctx.CanSeeSiteLog && ctx.CanExposeToClient))
+    {
+        <div class="al-empty">
+            <Icon Name="lock" Size="40" Class="al-empty__icon" Weight="1.25" />
+            <h3 class="al-empty__title">The mediator curates the brief</h3>
+            <p class="al-empty__body">Whoever stands between the two sides decides which frames cross. Everything you capture stays in the Site Diary.</p>
+            <a class="al-btn al-btn--primary" href="/project/@ProjectId/log">Open the Site Diary</a>
+        </div>
+    }
+    else
+    {
+        <div class="curate__bar">
+            <div class="curate__day">
+                <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => MoveAsync(-1)" aria-label="Previous day">
+                    <Icon Name="chevron-left" Size="16" />
+                </button>
+                <span class="curate__date">@day.ToString("ddd d MMM", CultureInfo.InvariantCulture)</span>
+                <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@(day >= DateTime.Today)" @onclick="() => MoveAsync(1)" aria-label="Next day">
+                    <Icon Name="chevron-right" Size="16" />
+                </button>
+            </div>
+            <span class="al-spacer"></span>
+            @if (draft is not null && draft.FrameTotal > 0)
+            {
+                <button type="button" class="al-btn al-btn--primary" disabled="@(busy || draft.WillPublish == 0)" @onclick="PublishAsync">
+                    <Icon Name="send" Size="16" /> Send @draft.WillPublish now
+                </button>
+            }
+        </div>
+
+        <StateBlock Phase="phase" OnRetry="LoadAsync"
+                    ErrorTitle="Tonight's brief didn't load" ErrorMessage="@errorMessage"
+                    EmptyIcon="camera" EmptyTitle="Nothing captured on this day"
+                    EmptyBody="The brief still publishes from what arrived in the thread. Captured frames join it when there are some.">
+            <ChildContent>
+                <p class="curate__summary">
+                    <strong class="al-num">@draft!.WillPublish of @draft.FrameTotal</strong> frames will cross
+                    @if (draft.PublishedAt is { } at)
+                    {
+                        <span>— @(draft.PublishedBy == BriefPublishTrigger.Cutoff ? "sent at the cutoff" : "sent") @Fmt.DateTimeFull(at)</span>
+                    }
+                    else
+                    {
+                        <span>at @($"{draft.CutoffHour:00}:00") whether or not you touch them</span>
+                    }
+                    · @draft.AlreadyShown already shown · @draft.Dropped dropped.
+                    Each crosses as <strong>@(draft.AccountableName ?? "the mediator")</strong>'s word — the client never sees who took it.
+                </p>
+
+                @foreach (var block in draft.Blocks)
+                {
+                    <section class="curate__block @(block.Phase is { } p ? $"al-stage--{(int)p}" : "")">
+                        <header class="curate__block-head">
+                            <h3 class="curate__block-title">@block.Title</h3>
+                            @if (block.StageName is not null)
+                            {
+                                <span class="curate__block-stage">@block.StageName</span>
+                            }
+                            <span class="curate__block-count al-num">@block.Frames.Count(f => f.WillPublish || f.Channel == Channel.Client) of @block.Frames.Count</span>
+                        </header>
+                        <div class="curate__frames">
+                            @foreach (var f in block.Frames)
+                            {
+                                var state = f.Channel == Channel.Client ? "shown" : f.WillPublish ? "going" : f.Curation == FrameCuration.Dropped ? "dropped" : "held";
+                                <figure class="curate__frame curate__frame--@state">
+                                    <ArtifactThumb ArtifactId="@(f.ArtifactId ?? "")" HasThumbnail="true" MimeType="image/jpeg" Cover="true" Alt="@(f.Caption ?? f.EntryNote ?? block.Title ?? "")" />
+                                    <figcaption class="curate__meta">
+                                        <span class="curate__state">@StateLabel(state)</span>
+                                        <span class="curate__who">@f.CapturedByName · @f.At.ToString("HH:mm", CultureInfo.InvariantCulture)</span>
+                                        @if (f.Reason is not null && state == "going")
+                                        {
+                                            <span class="curate__why">@f.Reason</span>
+                                        }
+                                    </figcaption>
+                                    <div class="curate__actions">
+                                        @if (f.Curation == FrameCuration.Dropped)
+                                        {
+                                            <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="() => MarkAsync(f, FrameCuration.Auto)">Undo</button>
+                                        }
+                                        else
+                                        {
+                                            @if (f.Curation != FrameCuration.Promoted && f.Channel != Channel.Client)
+                                            {
+                                                <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="() => MarkAsync(f, FrameCuration.Promoted)">Keep</button>
+                                            }
+                                            <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="() => MarkAsync(f, FrameCuration.Dropped)">Drop</button>
+                                        }
+                                    </div>
+                                </figure>
+                            }
+                        </div>
+                    </section>
+                }
+            </ChildContent>
+        </StateBlock>
+    }
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "day")] public string? DayParam { get; set; }
+
+    private DateTime day = DateTime.Today;
+    private CurationDraftDto? draft;
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private bool busy;
+    private string? loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (DateTime.TryParseExact(DayParam, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)) day = d;
+        var key = $"{ProjectId}|{day:yyyy-MM-dd}";
+        if (loadedKey == key) return;
+        loadedKey = key;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var r = await _curationApi.Draft(ProjectId, day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            // Not the mediator: the page already says so, and there is no error to report.
+            if ((int)r.StatusCode == 404)
+            {
+                phase = LoadPhase.Empty;
+                return;
+            }
+            if (!r.IsSuccessStatusCode || r.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(r);
+                return;
+            }
+            Show(r.Content);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Curation draft failed for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void Show(CurationDraftDto d)
+    {
+        draft = d;
+        phase = d.FrameTotal == 0 ? LoadPhase.Empty : LoadPhase.Ready;
+    }
+
+    private async Task MoveAsync(int days)
+    {
+        day = day.AddDays(days);
+        loadedKey = $"{ProjectId}|{day:yyyy-MM-dd}";
+        await LoadAsync();
+    }
+
+    private async Task MarkAsync(CurationFrameDto f, FrameCuration curation)
+    {
+        busy = true;
+        try
+        {
+            var r = await _curationApi.Mark(new CurationMarkDto { ImageIds = new() { f.ImageId! }, Curation = curation });
+            if (r.IsSuccessStatusCode && r.Content is not null) Show(r.Content);
+            else ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(r) ?? "Could not change that frame.");
+        }
+        finally { busy = false; }
+    }
+
+    private async Task PublishAsync()
+    {
+        busy = true;
+        try
+        {
+            var r = await _curationApi.Publish(ProjectId, day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            if (r.IsSuccessStatusCode && r.Content is not null)
+            {
+                ToastService.ShowSuccess(r.Content.FramesExposed == 0 ? "Nothing new to send." : $"Sent {r.Content.FramesExposed} to the client's brief.");
+                await LoadAsync();
+            }
+            else ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(r) ?? "Could not send.");
+        }
+        finally { busy = false; }
+    }
+
+    private static string StateLabel(string state) => state switch
+    {
+        "shown" => "Shown to the client",
+        "going" => "Goes at the cutoff",
+        "dropped" => "Dropped",
+        _ => "Stays in the Diary"
+    };
+}

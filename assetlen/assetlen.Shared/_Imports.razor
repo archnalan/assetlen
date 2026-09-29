@@ -57,6 +57,7 @@
 @inject IProgressApi _progressApi
 @inject IFlagsApi _flagsApi
 @inject ICommitmentsApi _commitmentsApi
+@inject IAnnotationsApi _annotationsApi
 @inject ILedgerApi _ledgerApi
 @inject IBudgetApi _budgetApi
 @inject IProjectMembersApi _projectMembersApi
@@ -65,6 +66,9 @@
 @inject IExtractionApi _extractionApi
 @inject ISearchApi _searchApi
 @inject IBriefApi _briefApi
+@inject IWorksReportApi _reportApi
+@inject ICurationApi _curationApi
+@inject IPushApi _pushApi
 
 @* ── Infrastructure ── *@
 @inject IToastService ToastService
@@ -85,3 +89,5 @@
 @using assetlen.Shared.Modules.Extraction.Components
 @using assetlen.Shared.Modules.Search.Components
 @using assetlen.Shared.Modules.Brief.Components
+@using assetlen.Shared.Modules.Markup.Components
+@using assetlen.Shared.Modules.Report.Components

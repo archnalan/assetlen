@@ -119,7 +119,7 @@
                 <h3 class="al-empty__title">Nothing matched “@result.Query”</h3>
                 <p class="al-empty__body">
                     Try one word instead of a phrase, or a supplier's name. Commitments, the imported thread,
-                    the text read from photos and files, the Site Diary and stages were all searched.
+                    the text read from photos and files, @(result.SearchedSiteDiary ? "the Site Diary and stages" : "and stages") were all searched.
                 </p>
             </div>
         }
@@ -340,7 +340,7 @@
             if (result is null) return "";
             var parts = new List<string>
             {
-                "Searched commitments, the imported thread, text read from photos and files, file names and captions, the Site Diary and stages — only what you can open on each project."
+                $"Searched commitments, the imported thread, text read from photos and files, file names and captions, {(result.SearchedSiteDiary ? "the Site Diary and stages" : "and stages")} — only what you can open on each project."
             };
             if (result.OcrEngine is null)
                 parts.Add("This server cannot read text in photos yet, so a receipt is found only by its caption or file name.");

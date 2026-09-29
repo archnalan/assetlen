@@ -122,6 +122,23 @@ public class CommitmentsController : ControllerBase
     public async Task<ActionResult> Restate([FromBody] CommitmentRestateDto dto)
         => Answer(await _dal.Restate(dto, _tenant.GetUserId()));
 
+    // ─── Parked ideas ─────────────────────────────────────────
+
+    [HttpPut]
+    [ProducesResponseType(typeof(CommitmentDto), 200)]
+    public async Task<ActionResult> Park([FromBody] CommitmentParkDto dto)
+        => Answer(await _dal.Park(dto, _tenant.GetUserId()));
+
+    [HttpPost]
+    [ProducesResponseType(typeof(CommitmentEstimateDto), 200)]
+    public async Task<ActionResult> AddEstimate([FromBody] CommitmentEstimateCreateDto dto)
+        => Answer(await _dal.AddEstimate(dto, _tenant.GetUserId()));
+
+    [HttpGet]
+    [ProducesResponseType(typeof(List<CommitmentEstimateDto>), 200)]
+    public async Task<ActionResult> GetEstimates([FromQuery][Required] string commitmentId)
+        => Answer(await _dal.GetEstimates(commitmentId, _tenant.GetUserId()));
+
     // ─── Links ────────────────────────────────────────────────
 
     [HttpPost]

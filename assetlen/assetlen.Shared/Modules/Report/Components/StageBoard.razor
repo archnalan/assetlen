@@ -1,0 +1,30 @@
+@* ④ The stage board, grouped by phase — Peter thinks in stages, not networks. *@
+
+@if (Report.StageGroups.Count == 0)
+{
+    <GapMarker Text="No stages are set up on this project yet — the report can only say where the work stands once there is work to name." Block="true" />
+}
+else
+{
+    <div class="sboard">
+        @foreach (var group in Report.StageGroups)
+        {
+            <section class="sboard__group @ReportFormat.Phase(group.Phase)">
+                <div class="al-stage-rule">
+                    <span class="al-stage-dot"></span>
+                    <span>@group.Label</span>
+                </div>
+                <div class="sboard__grid">
+                    @foreach (var s in group.Stages)
+                    {
+                        <StageReportCard Stage="s" Words="@ReportFormat.Words(Report, $"stage:{s.StageId}")" AsAt="Report.AsAt" />
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public WorksReportDto Report { get; set; } = new();
+}

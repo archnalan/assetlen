@@ -247,6 +247,21 @@
                 break;
 
             default:
+                @* Extraction fills the register only once someone accepts it; an
+                   empty register above 21 waiting items reads as "nothing came in". *@
+                @if (pendingProposals > 0)
+                {
+                    <div class="al-alert al-alert--info register__waiting" role="status">
+                        <Icon Name="message" Size="18" />
+                        <div>
+                            <strong class="al-alert__title">
+                                @pendingProposals @(pendingProposals == 1 ? "item" : "items") read from the thread @(pendingProposals == 1 ? "waits" : "wait") for you
+                            </strong>
+                            <span>Nothing extracted is on the register until you accept it.</span>
+                        </div>
+                        <button type="button" class="al-btn al-btn--default al-btn--sm register__waiting-go" @onclick='() => SetView("thread")'>Review</button>
+                    </div>
+                }
                 <CommitmentRegister ProjectId="@ProjectId" ReaderSide="ctx.Access?.Side" Version="version" FocusId="@CommitmentParam" />
                 break;
         }

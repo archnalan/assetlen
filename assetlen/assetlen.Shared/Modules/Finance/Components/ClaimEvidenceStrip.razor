@@ -1,0 +1,49 @@
+@*
+    The proof a claim carries, on the claim itself — so the funder clears it from
+    the page rather than from a phone call (assetlen.md §7). Frames first, then
+    what was signed off, then where the stage stood.
+*@
+
+@if (Evidence.Count > 0)
+{
+    <span class="cev">
+        @foreach (var f in Frames.Take(MaxThumbs))
+        {
+            <span class="cev__thumb">
+                <ArtifactThumb ArtifactId="@(f.ArtifactId ?? "")" HasThumbnail="true" MimeType="image/jpeg" Cover="true" Alt="@(f.Caption ?? "Evidence photo")" />
+            </span>
+        }
+        @if (Frames.Count > MaxThumbs)
+        {
+            <span class="cev__more al-num">+@(Frames.Count - MaxThumbs)</span>
+        }
+        <span class="cev__facts">
+            @if (Frames.Count > 0)
+            {
+                <span>@(Frames.Count == 1 ? "1 photo" : $"{Frames.Count} photos")</span>
+            }
+            @if (Deliverables.Count > 0)
+            {
+                <span>@Deliverables.Count(d => d.DeliverableStatus == DeliverableStatus.Done) of @Deliverables.Count deliverables done</span>
+            }
+            @if (Reading is { Percent: { } pct })
+            {
+                <span>@Fmt.Percent(pct) on @Fmt.DateShort(Reading.At)</span>
+            }
+        </span>
+    </span>
+}
+else
+{
+    <span class="cev cev--none">No evidence attached</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<ClaimEvidenceDto> Evidence { get; set; } = new();
+
+    private const int MaxThumbs = 4;
+
+    private List<ClaimEvidenceDto> Frames => Evidence.Where(e => e.Kind == ClaimEvidenceKind.Frame && e.ArtifactId is not null).ToList();
+    private List<ClaimEvidenceDto> Deliverables => Evidence.Where(e => e.Kind == ClaimEvidenceKind.Deliverable).ToList();
+    private ClaimEvidenceDto? Reading => Evidence.FirstOrDefault(e => e.Kind == ClaimEvidenceKind.Reading);
+}

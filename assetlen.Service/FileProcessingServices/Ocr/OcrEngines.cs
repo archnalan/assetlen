@@ -29,15 +29,24 @@ public interface IOcrService
 
     bool IsImage(string? mimeType);
 
+    bool IsAudio(string? mimeType);
+
+    /// <summary>The voice-note engine in use, or null when none is configured.</summary>
+    string? AudioEngine { get; }
+
     Task<OcrResult> ReadAsync(string filePath, string? mimeType, CancellationToken ct = default);
 }
 
 public sealed class OcrService : IOcrService
 {
     private readonly IImageOcrEngine? _image;
+    private readonly IAudioTranscriber? _audio;
 
-    public OcrService(IEnumerable<IImageOcrEngine> engines, IConfiguration config)
+    public OcrService(IEnumerable<IImageOcrEngine> engines, IEnumerable<IAudioTranscriber> transcribers, IConfiguration config)
     {
+        _audio = (config["Transcription:Engine"]?.Trim().ToLowerInvariant() ?? "auto") == "none"
+            ? null : transcribers.FirstOrDefault(t => t.IsAvailable);
+
         var wanted = config["Ocr:Engine"]?.Trim().ToLowerInvariant() ?? "auto";
         var available = engines.Where(e => e.IsAvailable).ToList();
 
@@ -58,7 +67,12 @@ public sealed class OcrService : IOcrService
         mimeType is not null && (mimeType.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
                                  || mimeType is "application/json" or "application/xml");
 
-    public bool CanRead(string? mimeType) => IsText(mimeType) || (IsImage(mimeType) && _image is not null);
+    public string? AudioEngine => _audio?.Name;
+
+    public bool IsAudio(string? mimeType) => mimeType is not null && mimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase);
+
+    public bool CanRead(string? mimeType) => IsText(mimeType) || (IsImage(mimeType) && _image is not null)
+                                             || (IsAudio(mimeType) && _audio is not null && _audio.CanRead(mimeType));
 
     public async Task<OcrResult> ReadAsync(string filePath, string? mimeType, CancellationToken ct = default)
     {
@@ -67,6 +81,9 @@ public sealed class OcrService : IOcrService
 
         if (IsImage(mimeType) && _image is not null)
             return await _image.ReadAsync(filePath, ct);
+
+        if (IsAudio(mimeType) && _audio is not null)
+            return await _audio.TranscribeAsync(filePath, mimeType, ct);
 
         return new OcrResult(false, null, "No engine for this type.");
     }

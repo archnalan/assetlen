@@ -1,0 +1,36 @@
+@*
+    Every claim is one tap from its evidence (works-report.md §2.4). On screen a
+    chip opens the original; on paper it prints as a short reference the
+    sources appendix resolves.
+*@
+
+@if (Resolved.Count > 0)
+{
+    <span class="srcchips">
+        @foreach (var s in Resolved.Take(Max))
+        {
+            <a class="srcchip" href="@(s.Href ?? $"#source-{s.Ref}")" title="@s.Label">
+                <Icon Name="@ReportFormat.SourceIcon(s.Kind)" Size="11" />
+                <span class="srcchip__ref al-num">@s.Ref</span>
+                @if (s.At is not null)
+                {
+                    <span class="srcchip__day al-num">@ReportFormat.Day(s.At)</span>
+                }
+            </a>
+        }
+        @if (Resolved.Count > Max)
+        {
+            <span class="srcchip srcchip--more al-num" title="@string.Join(", ", Resolved.Skip(Max).Select(s => s.Ref))">+@(Resolved.Count - Max)</span>
+        }
+    </span>
+}
+
+@code {
+    [CascadingParameter] public ReportSources? Sources { get; set; }
+    [Parameter] public IEnumerable<string>? Ids { get; set; }
+    [Parameter] public int Max { get; set; } = 3;
+
+    private List<ReportSourceDto> Resolved => Sources is null || Ids is null
+        ? new()
+        : Ids.Distinct().Select(Sources.Get).OfType<ReportSourceDto>().ToList();
+}

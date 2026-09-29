@@ -59,6 +59,12 @@ public class LedgerController : ControllerBase
     public async Task<ActionResult> WithdrawClaim([FromQuery][Required] string claimId)
         => Answer(await _dal.WithdrawClaim(claimId, _tenant.GetUserId()));
 
+    /// <summary>What a claim on this stage could carry, so it is paid without a phone call.</summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(ClaimEvidenceOptionsDto), 200)]
+    public async Task<ActionResult> GetClaimEvidenceOptions([FromQuery][Required] string projectId, [FromQuery][Required] string stageId)
+        => Answer(await _dal.GetClaimEvidenceOptions(projectId, stageId, _tenant.GetUserId()));
+
     // ─── Variations ───────────────────────────────────────────
 
     [HttpGet]

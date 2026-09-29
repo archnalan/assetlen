@@ -1,0 +1,112 @@
+@*
+    Issuing freezes a snapshot: content hashed, the previous report linked,
+    delivered to the audience. One tap, with an optional covering note — the
+    mediator may add words; nobody may remove a truth-floor item (§2.3).
+*@
+
+@inject ILogger<IssueReportDialog> Logger
+
+<div class="issue al-dialog" role="dialog" aria-modal="true" aria-labelledby="issue-title">
+    <div class="al-scrim" @onclick="CloseAsync"></div>
+
+    <div class="al-dialog__panel issue__panel">
+        <div class="al-dialog__grip" aria-hidden="true"></div>
+
+        <header class="issue__head">
+            <span class="issue__mark"><Icon Name="document" Size="22" /></span>
+            <div>
+                <span class="al-label">Works report</span>
+                <h2 class="issue__title" id="issue-title">Issue the report</h2>
+            </div>
+            <span class="al-spacer"></span>
+            <button type="button" class="al-iconbtn" @onclick="CloseAsync" aria-label="Close">
+                <Icon Name="close" Size="20" />
+            </button>
+        </header>
+
+        <div class="issue__body">
+            <p class="issue__lead">
+                An issued report is frozen: it will read the same every time it is opened, and the next one will say
+                what changed since. It reaches every principal on your side of the project.
+            </p>
+
+            <label class="al-field">
+                <span class="al-label">As at the end of</span>
+                <input class="al-input" type="date" @bind="asAt" max="@DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" />
+                <span class="al-field__hint">Today by default. A past day issues the record as it stood then.</span>
+            </label>
+
+            @if (CanChooseAudience)
+            {
+                <label class="al-field">
+                    <span class="al-label">For</span>
+                    <select class="al-select" @bind="audience">
+                        <option value="@ProjectSide.Client">The client side</option>
+                        <option value="@ProjectSide.Contractor">The delivery side (includes the Site Diary's footage)</option>
+                    </select>
+                </label>
+            }
+
+            <label class="al-field">
+                <span class="al-label">Covering note (optional)</span>
+                <textarea class="al-textarea" rows="3" maxlength="1000" @bind="note"
+                          placeholder="A line to go with it. It is added to the report; it cannot take anything out."></textarea>
+            </label>
+
+            @if (error is not null)
+            {
+                <div class="al-alert al-alert--error"><Icon Name="error" Size="18" /><span>@error</span></div>
+            }
+        </div>
+
+        <footer class="issue__foot">
+            <button type="button" class="al-btn al-btn--quiet" @onclick="CloseAsync" disabled="@busy">Cancel</button>
+            <button type="button" class="al-btn al-btn--primary" @onclick="IssueAsync" disabled="@busy">
+                @(busy ? "Issuing…" : "Issue and freeze")
+            </button>
+        </footer>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter] public bool CanChooseAudience { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<WorksReportDto> OnIssued { get; set; }
+
+    private DateTime asAt = DateTime.Now.Date;
+    private ProjectSide audience = ProjectSide.Client;
+    private string? note;
+    private bool busy;
+    private string? error;
+
+    private Task CloseAsync() => busy ? Task.CompletedTask : OnClose.InvokeAsync();
+
+    private async Task IssueAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            var response = await _reportApi.Issue(new IssueReportDto
+            {
+                ProjectId = ProjectId,
+                AsAt = asAt.Date >= DateTime.Now.Date ? null : asAt.Date,
+                Audience = audience,
+                CoveringNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
+            });
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                error = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+            await OnIssued.InvokeAsync(response.Content);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Issuing the works report failed for {ProjectId}", ProjectId);
+            error = "The report did not issue. Nothing was frozen — try again.";
+        }
+        finally { busy = false; }
+    }
+}

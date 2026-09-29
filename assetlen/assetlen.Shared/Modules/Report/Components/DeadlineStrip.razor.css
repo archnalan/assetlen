@@ -1,0 +1,113 @@
+.strip {
+    display: grid;
+    gap: var(--al-space-3);
+}
+
+.strip__svg {
+    display: block;
+    width: 100%;
+    max-width: 46rem;
+    height: auto;
+    overflow: visible;
+}
+
+.strip__axis {
+    stroke: var(--al-blueprint);
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+/* The days between the promise and the pace forecast — the gap is the finding. */
+.strip__overrun {
+    stroke: var(--al-warning);
+    stroke-width: 4;
+    stroke-linecap: round;
+    opacity: 0.55;
+}
+
+.strip__month { stroke: var(--al-border-strong); stroke-width: 1; }
+
+.strip__monthlabel {
+    fill: var(--al-text-subtle);
+    font-family: var(--al-font-body);
+    font-size: 11px;
+    text-anchor: middle;
+}
+
+.strip__solid {
+    fill: var(--al-blueprint);
+    stroke: var(--al-bg-elevated);
+    stroke-width: 2;
+}
+
+.strip__hollow {
+    fill: var(--al-bg-elevated);
+    stroke: var(--al-blueprint);
+    stroke-width: 2;
+}
+
+.strip__dashed { stroke-dasharray: 2.5 2.5; }
+
+.strip__lapsed {
+    fill: none;
+    stroke: var(--al-danger);
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.strip__today { fill: var(--al-text); }
+
+.strip__label {
+    fill: var(--al-text);
+    font-family: var(--al-font-body);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-anchor: middle;
+}
+
+.strip__label--muted { fill: var(--al-text-muted); font-weight: 500; }
+.strip__label--today { fill: var(--al-text-muted); font-weight: 500; font-size: 11px; }
+
+.strip__mark { cursor: default; }
+.strip__mark:hover .strip__solid,
+.strip__mark:hover .strip__hollow { stroke-width: 3; }
+
+.strip__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--al-font-size-sm);
+}
+
+.strip__table td {
+    padding: var(--al-space-1) var(--al-space-2) var(--al-space-1) 0;
+    border-top: 1px solid var(--al-border);
+    vertical-align: top;
+    color: var(--al-text);
+}
+
+.strip__glyph {
+    width: 1.5em;
+    color: var(--al-blueprint);
+    text-align: center;
+}
+
+.strip__when {
+    width: 4.5em;
+    white-space: nowrap;
+    color: var(--al-text-muted);
+}
+
+.strip__src { text-align: right; }
+
+.strip__note {
+    margin: 0;
+    color: var(--al-text-muted);
+    font-size: var(--al-font-size-xs);
+    line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+    .strip__table tr { display: grid; grid-template-columns: 1.5em 4.5em 1fr; }
+    .strip__src { grid-column: 3; text-align: left; border-top: 0 !important; }
+}

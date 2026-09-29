@@ -1,0 +1,84 @@
+@*
+    ⑦ A change of scope: its cost, its time, its approval — or a visible gap
+    where each should be. An uncosted extra is never shown as zero (F3 is caused by F4).
+*@
+
+<article class="vcard al-print-avoid @ReportFormat.Phase(Variation.Phase)">
+    <div class="vcard__head">
+        <span class="vcard__status">@Status</span>
+        @if (Variation.IsNew)
+        {
+            <span class="vcard__new">New in this window</span>
+        }
+        <span class="vcard__when al-num">@ReportFormat.Day(Variation.RaisedAt)</span>
+    </div>
+    <h4 class="vcard__title">@Variation.Title</h4>
+    @if (Variation.Reason is not null)
+    {
+        <p class="vcard__reason">@Variation.Reason</p>
+    }
+    <dl class="vcard__facts">
+        <div>
+            <dt class="al-label">Cost</dt>
+            <dd class="al-num">
+                @if (Variation.CostDelta is { } cost)
+                {
+                    @ReportFormat.Money(cost, Variation.Currency)
+                }
+                else if (Variation.AmountHidden)
+                {
+                    <span class="vcard__muted">Costed — not part of your seat</span>
+                }
+                else
+                {
+                    <GapMarker Text="not costed" />
+                }
+            </dd>
+        </div>
+        <div>
+            <dt class="al-label">Time</dt>
+            <dd class="al-num">
+                @if (Variation.TimeDeltaDays is { } days)
+                {
+                    @($"{(days > 0 ? "+" : "")}{days} days")
+                }
+                else
+                {
+                    <GapMarker Text="not stated" />
+                }
+            </dd>
+        </div>
+        <div>
+            <dt class="al-label">Approval</dt>
+            <dd>
+                @if (Variation.ApprovedAt is { } at)
+                {
+                    <span class="al-num">@ReportFormat.Day(at)@(Variation.ApprovedByName is null ? "" : $" · {Variation.ApprovedByName}")</span>
+                }
+                else
+                {
+                    <GapMarker Text="no approval on record" />
+                }
+            </dd>
+        </div>
+    </dl>
+    <div class="vcard__foot">
+        @if (Variation.StageName is not null)
+        {
+            <span class="al-stage-chip">@Variation.StageName</span>
+        }
+        <SourceChip Ids="Variation.SourceIds" />
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public VariationReportDto Variation { get; set; } = new();
+
+    private string Status => Variation.Status switch
+    {
+        VariationStatus.Approved => "Approved",
+        VariationStatus.Rejected => "Declined",
+        VariationStatus.Withdrawn => "Withdrawn",
+        _ => "Proposed"
+    };
+}

@@ -1,0 +1,50 @@
+@* ⑥ What was agreed: what · who · when · proof. A spoken agreement the other side never confirmed says so. *@
+
+<article class="dcard al-print-avoid @ReportFormat.Phase(Decision.Phase)">
+    <div class="dcard__head">
+        <span class="dcard__kind">@Decision.Kind</span>
+        @if (Decision.IsNew)
+        {
+            <span class="dcard__new">New in this window</span>
+        }
+        <span class="dcard__when al-num">@ReportFormat.Day(Decision.AgreedAt)</span>
+    </div>
+    <h4 class="dcard__title">@Decision.Title</h4>
+    <p class="dcard__who">
+        @if (Decision.AgreedByName is not null)
+        {
+            <span>@Decision.AgreedByName</span>
+        }
+        @if (Decision.AgreedWith is not null)
+        {
+            <span> with @Decision.AgreedWith</span>
+        }
+        @if (Decision.StageName is not null)
+        {
+            <span class="al-stage-chip dcard__stage">@Decision.StageName</span>
+        }
+        @if (Decision.Restatements > 0)
+        {
+            <span class="dcard__restated">restated @Decision.Restatements×</span>
+        }
+    </p>
+    @if (Decision.Amount is { } amount)
+    {
+        <span class="dcard__amount al-num">@ReportFormat.Money(amount, Decision.Currency)</span>
+    }
+    else if (Decision.AmountHidden)
+    {
+        <GapMarker Text="A figure is on record — not part of your seat" />
+    }
+    <div class="dcard__foot">
+        @foreach (var g in Decision.Gaps)
+        {
+            <GapMarker Text="@g" />
+        }
+        <SourceChip Ids="Decision.SourceIds" />
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public DecisionReportDto Decision { get; set; } = new();
+}

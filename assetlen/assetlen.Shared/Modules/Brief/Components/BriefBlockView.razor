@@ -20,6 +20,10 @@
             {
                 <span class="al-badge al-badge--accent">@Block.EmphasisReason</span>
             }
+            @if (Block.CatalogueKey is not null)
+            {
+                <span class="al-badge al-badge--outline" title="Named by the stage catalogue — add it to the project to fund and track it">Not a stage on this project yet</span>
+            }
             @if (Block.DeliverableStatus is { } ds)
             {
                 <span class="al-badge al-badge--neutral">@StatusLabel(ds)</span>

@@ -1,0 +1,62 @@
+@implements IDisposable
+@inject CaptureOutbox Outbox
+
+@*
+    What is still on this phone. A capture that has not reached the server is
+    not in anyone's brief yet, so the person holding it is told — plainly, and
+    only while there is something to say.
+*@
+
+@if (Mine.Count > 0)
+{
+    <div class="outbox @(Refused.Count > 0 ? "outbox--refused" : "")" role="status" aria-live="polite">
+        <Icon Name="@(Refused.Count > 0 ? "alert" : "cloud-off")" Size="18" />
+        <div class="outbox__text">
+            <strong>@Waiting(Mine.Count) on this phone</strong>
+            <span>
+                @if (Refused.Count > 0)
+                {
+                    @($"The server refused {Refused.Count}: {Refused[0].LastError}")
+                }
+                else
+                {
+                    @("They send on their own when there is signal. Nothing to do.")
+                }
+            </span>
+        </div>
+        @if (Refused.Count > 0)
+        {
+            <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => Outbox.DiscardAsync(Refused[0].Id)">Discard</button>
+        }
+        <button type="button" class="al-btn al-btn--quiet al-btn--sm" disabled="@busy" @onclick="RetryAsync">
+            <Icon Name="refresh" Size="14" /> Send now
+        </button>
+    </div>
+}
+
+@code {
+    /// <summary>Only this project's captures; null shows every project's.</summary>
+    [Parameter] public string? ProjectId { get; set; }
+
+    private bool busy;
+
+    private List<OutboxItem> Mine => Outbox.Pending.Where(p => ProjectId is null || p.ProjectId == ProjectId).ToList();
+
+    // A capture that was refused (not merely unsent) carries the server's reason.
+    private List<OutboxItem> Refused => Mine.Where(p => p.Attempts > 0 && !string.IsNullOrEmpty(p.LastError)).ToList();
+
+    private static string Waiting(int n) => n == 1 ? "1 capture waiting" : $"{n} captures waiting";
+
+    protected override void OnInitialized() => Outbox.Changed += Refresh;
+
+    public void Dispose() => Outbox.Changed -= Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private async Task RetryAsync()
+    {
+        busy = true;
+        try { await Outbox.SyncAsync(); }
+        finally { busy = false; }
+    }
+}

@@ -222,3 +222,34 @@
     border-color: var(--al-accent);
     box-shadow: 0 0 0 3px var(--al-accent-soft);
 }
+
+/* The answer wrote into the item: the figure it replaced stays in view (assetlen.md §3). */
+.commitment__note--revised { border-left-color: var(--al-accent); color: var(--al-text); }
+
+/* A parked idea speaks quietly; it only takes the warning colour once waiting costs something (Law 4). */
+.commitment__parked {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-3);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    background: var(--al-surface-2);
+    border-radius: var(--al-radius-sm);
+    overflow-wrap: anywhere;
+}
+
+.commitment__parked--due {
+    color: var(--al-text);
+    background: var(--al-warning-soft);
+}
+
+.commitment__parked strong { font-weight: var(--al-weight-medium); color: var(--al-text); }
+
+.commitment__markup-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--al-space-1);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-accent);
+}

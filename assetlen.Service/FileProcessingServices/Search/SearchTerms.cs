@@ -16,6 +16,22 @@ public sealed record SearchTerms(IReadOnlyList<string> Terms, IReadOnlyList<stri
 {
     public const int MaxTerms = 6;
 
+    /// <summary>
+    /// Accept a word that is only nearly the term — an OCR misread, ZENTAHA for
+    /// ZENTARA. Set when the database can find such words (pg_trgm), so what
+    /// the query found and what scoring keeps follow one rule.
+    /// </summary>
+    public bool Fuzzy { get; init; }
+
+    /// <summary>pg_trgm <c>word_similarity</c> at or above which a word counts as the term.</summary>
+    public const double FuzzyThreshold = 0.6;
+
+    /// <summary>
+    /// Short words and numbers are matched exactly: "tile" is three trigrams from
+    /// "title", and a receipt number that is nearly right is a different receipt.
+    /// </summary>
+    public static bool FuzzyEligible(string term) => term.Length >= 6 && !term.All(char.IsDigit);
+
     private static readonly HashSet<string> Function = new(StringComparer.OrdinalIgnoreCase)
     {
         "a", "an", "and", "are", "as", "at", "be", "been", "by", "can", "could", "did", "do", "does",
@@ -77,8 +93,33 @@ public sealed record SearchTerms(IReadOnlyList<string> Terms, IReadOnlyList<stri
     {
         var n = 0;
         foreach (var t in Terms)
-            if (texts.Any(x => x is not null && x.Contains(t, StringComparison.OrdinalIgnoreCase))) n++;
+            if (texts.Any(x => Occurs(t, x))) n++;
         return n;
+    }
+
+    private bool Occurs(string term, string? text) =>
+        text is not null
+        && (text.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (Fuzzy && FuzzyEligible(term) && Word.Matches(text).Any(w => WordSimilarity(term, w.Value) >= FuzzyThreshold)));
+
+    /// <summary>
+    /// pg_trgm's <c>word_similarity</c> for a single word: the share of the term's
+    /// trigrams (lower-cased, padded two spaces before and one after) found in it.
+    /// </summary>
+    public static double WordSimilarity(string term, string word)
+    {
+        var a = Trigrams(term);
+        if (a.Count == 0) return 0;
+        var b = Trigrams(word);
+        return (double)a.Count(b.Contains) / a.Count;
+    }
+
+    private static HashSet<string> Trigrams(string w)
+    {
+        var padded = "  " + w.ToLowerInvariant() + " ";
+        var set = new HashSet<string>();
+        for (var i = 0; i + 3 <= padded.Length; i++) set.Add(padded.Substring(i, 3));
+        return set;
     }
 
     /// <summary>

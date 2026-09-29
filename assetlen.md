@@ -265,7 +265,7 @@ faster because claims carry their own evidence. Everything above still works if 
 | **Holding or moving money** | Escrow licensing will consume the entire runway before anyone has posted a photo. Funds on the real project moved through three agents, two banks and a third party's account — rails Assetlen could not see if it tried. Record that a stage was funded and released; the transfer happens at the bank. |
 | **Any in-app informal channel** | **Cut harder than before.** Under D3 the conversation stays in WhatsApp and Assetlen ingests it. Building a second-class chat spends effort competing where we have decided not to compete, and splits the record in two. |
 | **Voice notes and transcription as a launch item** | Parity aimed at a contractor who may never log in. Tier 3 at the earliest. |
-| Gantt charts and critical path | Peter thinks in stages, not networks |
+| Gantt charts and critical path | Peter thinks in stages, not networks. *Narrowed 2026-09-29:* **holds** — a wait placed in front of chosen activities, pushing only those, shown per stage as wait vs work — are in scope (works-report.md §4.4); a project-wide network and a computed critical path stay out. |
 | Bills of quantities | Reintroduces the machinery he is avoiding; his own BoQ was cut down twice for being too heavy |
 | Accounting integrations | Not the bottleneck |
 | Roles beyond developer / representative / mediator / delivery | Permissions complexity, no user value |

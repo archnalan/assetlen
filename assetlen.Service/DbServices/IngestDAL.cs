@@ -719,7 +719,7 @@ public class IngestDAL : IIngestDAL
                 .FirstOrDefaultAsync(m => m.ProjectId == project.Id
                                        && m.IsActive
                                        && m.User != null
-                                       && m.User.Email == dto.From, ct);
+                                       && m.User.Email != null && m.User.Email.ToLower() == (dto.From ?? "").ToLower(), ct);
 
             var side = sender?.Side ?? ProjectSide.Client;
             var sentAt = dto.SentAt ?? DateTime.UtcNow;
@@ -955,7 +955,9 @@ public class IngestDAL : IIngestDAL
         var plus = local.IndexOf('+');
         var key = plus >= 0 ? local[(plus + 1)..] : local;
 
-        key = key.Trim();
+        // Keys are issued lower-case; a relay or a person retyping the address may not keep it so,
+        // and Postgres compares exactly (CLAUDE.md §5.1.1).
+        key = key.Trim().ToLowerInvariant();
         return key.Length is >= 8 and <= 40 ? key : null;
     }
 
@@ -1332,7 +1334,7 @@ public class IngestDAL : IIngestDAL
                 q = q.Where(m => m.BatchId == query.BatchId);
 
             if (!string.IsNullOrWhiteSpace(query.Search))
-                q = q.Where(m => m.Body != null && m.Body.Contains(query.Search));
+                q = q.Where(m => m.Body != null && m.Body.ToLower().Contains(query.Search.ToLower()));
 
             if (query.From.HasValue) q = q.Where(m => m.SentAt >= query.From.Value);
             if (query.To.HasValue) q = q.Where(m => m.SentAt <= query.To.Value);
@@ -1451,9 +1453,8 @@ public class IngestDAL : IIngestDAL
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
     /// <summary>
-    /// Which of these keys are already on the project. Chunked because a year's
-    /// export is 1,529 keys and a single <c>IN</c> clause that size is rejected
-    /// by SQL Server's parameter limit.
+    /// Which of these keys are already on the project. Chunked so no one query
+    /// carries a whole year's export (1,529 keys) as its parameter list.
     /// </summary>
     private async Task<HashSet<string>> ExistingKeysAsync(
         string projectId, List<string> keys, CancellationToken ct)

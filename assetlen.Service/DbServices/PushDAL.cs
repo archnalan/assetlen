@@ -100,12 +100,15 @@ public sealed class PushDAL : IPushDAL
         return ServiceResult<PushStatusDto>.Success(await GetStatus(userId, ct));
     }
 
-    public async Task<List<PushDeliveryDto>> GetMyDeliveries(int take, string userId, CancellationToken ct = default) =>
-        await _context.tbl_PushDeliveries.IgnoreQueryFilters().AsNoTracking()
+    public async Task<List<PushDeliveryDto>> GetMyDeliveries(int take, string userId, CancellationToken ct = default)
+    {
+        var rows = await _context.tbl_PushDeliveries.IgnoreQueryFilters().AsNoTracking()
             .Where(d => d.UserId == userId)
             .OrderByDescending(d => d.QueuedAt)
             .Take(Math.Clamp(take, 1, 100))
-            .Select(d => new PushDeliveryDto
+            .ToListAsync(ct);
+
+        return rows.Select(d => new PushDeliveryDto
             {
                 Id = d.Id,
                 Kind = d.Kind,
@@ -116,9 +119,10 @@ public sealed class PushDAL : IPushDAL
                 QueuedAt = d.QueuedAt,
                 SentAt = d.SentAt,
                 HttpStatus = d.HttpStatus,
-                LatencyMs = d.SentAt == null ? null : (int?)EF.Functions.DateDiffMillisecond(d.QueuedAt, d.SentAt.Value)
+                LatencyMs = d.SentAt == null ? null : (int)(d.SentAt.Value - d.QueuedAt).TotalMilliseconds
             })
-            .ToListAsync(ct);
+            .ToList();
+    }
 
     public Task<int> SendTest(string userId, CancellationToken ct = default) =>
         _notifier.NotifyUsersAsync(new[] { userId }, null, PushKind.Test,

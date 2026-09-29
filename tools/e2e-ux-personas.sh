@@ -87,7 +87,7 @@ head_ "The correction — one engagement, not nine"
 HOME=$(req GET /ProjectsRS/GetPortfolioDashboard "$PETER")
 ROOTS=$(count "$HOME" '"parentProjectId":null')
 eq "Peter's home shows exactly one top-level project"   1 "$(jnum "$HOME" activeProjectsCount)"
-eq "…and it is the residence"                           "Kira Residence" "$(jget "$HOME" projectName)"
+eq "…and it is the residence"                           "Riverstone Residence" "$(jget "$HOME" projectName)"
 eq "…with exactly one sub-project under it"             1 "$(jnum "$HOME" subProjectCount)"
 
 PROJ=$(req GET "/ProjectsRS/GetProjectById?projectId=$PID" "$PETER")

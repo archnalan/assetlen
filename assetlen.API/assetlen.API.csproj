@@ -61,15 +61,14 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
-    <PackageReference Include="Hangfire.AspNetCore" Version="1.7.33" />
-    <PackageReference Include="Hangfire.SqlServer" Version="1.7.33" />
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
+    <PackageReference Include="Hangfire.PostgreSql" Version="1.20.13" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\assetlen.Service\assetlen.Service.csproj" />
     <ProjectReference Include="..\assetlen.Shared.Models\assetlen.Shared.Models.csproj" />
-    <ProjectReference Include="..\assetlen.SqlServer\assetlen.SqlServer.csproj" />
+    <ProjectReference Include="..\assetlen.Postgres\assetlen.Postgres.csproj" />
   </ItemGroup>
 
   <ItemGroup>

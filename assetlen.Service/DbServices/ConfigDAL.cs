@@ -14,7 +14,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data.SqlClient;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Reflection;
@@ -296,204 +295,20 @@ namespace assetlen.Service.DbServices
 
         #endregion
 
-        #region Backup Database now
-        public async Task<ServiceResult<bool>> BackUpDataBaseNow()
-        {
+        #region Backup and restore
+        /// <summary>
+        /// BACKUP DATABASE and single-user RESTORE were SQL Server's. The database is
+        /// PostgreSQL (CLAUDE.md §5.1.1) and is backed up outside the app with pg_dump.
+        /// </summary>
+        private static ServiceResult<bool> NotFromInsideTheApp(string what) =>
+            ServiceResult<bool>.Failure(new NotImplementedException(
+                $"{what} is not available from inside the app. Use pg_dump / pg_restore on the server."));
 
-            try
-            {
-                // Parse original connection string
-                var connectionString = _context.Database.GetDbConnection().ConnectionString.Replace(";Connect Timeout=30;Encrypt=True;Trust Server Certificate=True;Application Intent=ReadWrite;Multi Subnet Failover=False", "")
-                    .Replace("Encrypt=True;", "")
-                    .Replace("Trust Server Certificate=True;", "")
-                    .Replace("Application Intent=ReadWrite;", "")
-                    .Replace("Multi Subnet Failover=False", "")
-                    .Replace("Connect Timeout=30;", ""); // Clean up for backup
+        public Task<ServiceResult<bool>> BackUpDataBaseNow() =>
+            Task.FromResult(NotFromInsideTheApp("Database backup"));
 
-                // _logger.LogError("trying to backup with connection {Connection}", connectionString);
-
-                var builder = new SqlConnectionStringBuilder(connectionString);
-                string databaseName = builder.InitialCatalog;
-                builder.InitialCatalog = "master"; // Connect to master DB
-                string masterConnection = builder.ConnectionString;
-
-                var backupDirectory = await GetSettingByID((int)statics.Configurations.BackUpDatabaseDirectory);
-                if (!backupDirectory.IsSuccess)
-                {
-                    _logger.LogError("Failed to get backup directory setting: {Error}", backupDirectory.Error);
-                    return ServiceResult<bool>.Failure(backupDirectory.Error);
-                }
-                // Ensure directory exists
-                if (!string.IsNullOrEmpty(backupDirectory?.Data?.StringValue ?? "") && !Directory.Exists(backupDirectory?.Data?.StringValue ?? "")) Directory.CreateDirectory(backupDirectory?.Data?.StringValue ?? "");
-                string backupPath = Path.Combine(backupDirectory?.Data?.StringValue, $"AssetlenBackupV2_{DateTime.Now.Ticks.ToString()}.bak");
-
-                using (var conn = new SqlConnection(masterConnection))
-                {
-                    await conn.OpenAsync();
-
-                    // Execute BACKUP command
-                    var backupCommand = $@"
-                        BACKUP DATABASE [{databaseName}]
-                        TO DISK = @backupPath
-                        WITH FORMAT, 
-                             MEDIANAME = 'SQLServerBackups',
-                             NAME = 'Full Backup of {databaseName}';";
-
-                    using (var cmd = new SqlCommand(backupCommand, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@backupPath", backupPath);
-                        await cmd.ExecuteNonQueryAsync();
-                    }
-                }
-
-
-                await DeleteExtraFilesFromBackupFolder();
-                return ServiceResult<bool>.Success(true);
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Error while backing up database: {Error}", ex);
-                return ServiceResult<bool>.Failure(
-                    new ServerErrorException("Could not backup database."));
-            }
-        }
-
-        public async Task DeleteExtraFilesFromBackupFolder() //cleaningup old database files from the server pc
-        {
-            try
-            {
-                //get no of files to keep from db
-                string currentDirectory = (await GetSettingByID((int)statics.Configurations.BackUpDatabaseDirectory))?.Data?.StringValue;
-                int noOfFilesToKeep = int.Parse((await GetSettingByID((int)statics.Configurations.NumberOfDatabaseFilesToKeep))?.Data.StringValue ?? "10");
-
-                List<string> fileNamesOfDbBackups = Directory.GetFiles(currentDirectory).Where(x => x.EndsWith(".bak")).Select(x => x.Replace(currentDirectory, "")).ToList();
-
-                //write last modified date to db
-                if (fileNamesOfDbBackups.Count > 0)
-                {
-                    string lastBackedUpFileName = fileNamesOfDbBackups.OrderByDescending(m => m).FirstOrDefault().ToString();
-                    string trimedDate = lastBackedUpFileName.Replace("AssetlenBackupV2_", "").Replace(".bak", "").Trim('/').Trim('\\'); //datestring toconvertback todatetime
-
-                    bool cleanup = long.TryParse(trimedDate, out long dateTime);
-                    if (cleanup)
-                    {
-                        DateTime date = new DateTime(dateTime);
-                        var lastBackupTime = await _context.tbl_Configurations.FirstOrDefaultAsync(x => x.ConfigId == (int)statics.Configurations.LastdbBackupDateTime);
-
-                        if (lastBackupTime.StringValue != trimedDate)
-                        {
-                            lastBackupTime.StringValue = date.Ticks.ToString();
-                        }
-
-                    }
-
-
-                }
-
-                if (fileNamesOfDbBackups.Count > noOfFilesToKeep)
-                {
-
-                    List<string> filesToDelete = fileNamesOfDbBackups.OrderBy(x => x).Take(fileNamesOfDbBackups.Count - noOfFilesToKeep).ToList();
-                    for (int i = 0; i < filesToDelete.Count; i++)
-                    {
-                        string fullPath = Path.Combine(currentDirectory, filesToDelete[i].ToString().Trim('/').Trim('\\'));
-                        File.Delete(fullPath);
-
-                    }
-                }
-            }
-            catch (Exception)
-            {
-
-            }
-
-
-        }
-
-        #endregion
-
-        #region Restore database from File
-        public async Task<ServiceResult<bool>> RestoreDatabaseAsync(string backupFilePath, bool backupDbFirst)
-        {
-            if (string.IsNullOrEmpty(backupFilePath))
-                return ServiceResult<bool>.Failure(new BadRequestException("Backup file path is required"));
-            if (_configuration["AppMode"] != "1") return ServiceResult<bool>.Failure(new UnauthorizedAccessException("Database restore not supported in the current mode"));
-            if (!File.Exists(backupFilePath))
-                throw new FileNotFoundException("Backup file not found", backupFilePath);
-
-            try
-            {
-                if (backupDbFirst)
-                {
-                    var backup = await BackUpDataBaseNow();
-                    if (!backup.IsSuccess) return ServiceResult<bool>.Failure(backup.Error);
-                }
-
-                string connectionString = _context.Database.GetDbConnection().ConnectionString.Replace(";Connect Timeout=30;Encrypt=True;Trust Server Certificate=True;Application Intent=ReadWrite;Multi Subnet Failover=False", "");
-
-                var builder = new SqlConnectionStringBuilder(connectionString);
-                string databaseName = builder.InitialCatalog;
-                builder.InitialCatalog = "master";  // Connect to master DB
-                string masterConnection = builder.ConnectionString;
-
-                using (var conn = new SqlConnection(masterConnection))
-                {
-                    await conn.OpenAsync();
-
-                    // 1. Set database to SINGLE_USER mode
-                    await SetSingleUserMode(conn, databaseName);
-
-                    // 2. Execute RESTORE command
-                    var restoreCommand = $@"
-                    RESTORE DATABASE [{databaseName}]
-                    FROM DISK = @backupPath
-                    WITH REPLACE, RECOVERY, 
-                     STATS = 5;";  // Show progress every 5%
-
-                    using (var cmd = new SqlCommand(restoreCommand, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@backupPath", backupFilePath);
-                        await cmd.ExecuteNonQueryAsync();
-                    }
-
-                    // 3. Return database to MULTI_USER mode
-                    await SetMultiUserMode(conn, databaseName);
-                    return ServiceResult<bool>.Success(true);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Error while restoring database: {Error}", ex);
-                return ServiceResult<bool>.Failure(
-                    new ServerErrorException("Could not restore database."));
-            }
-        }
-
-        private async Task SetSingleUserMode(SqlConnection conn, string databaseName)
-        {
-            var setSingleUser = $@"
-        ALTER DATABASE [{databaseName}]
-        SET SINGLE_USER
-        WITH ROLLBACK IMMEDIATE;";
-
-            using (var cmd = new SqlCommand(setSingleUser, conn))
-            {
-                await cmd.ExecuteNonQueryAsync();
-            }
-        }
-
-        private async Task SetMultiUserMode(SqlConnection conn, string databaseName)
-        {
-            var setMultiUser = $@"
-        ALTER DATABASE [{databaseName}]
-        SET MULTI_USER;";
-
-            using (var cmd = new SqlCommand(setMultiUser, conn))
-            {
-                await cmd.ExecuteNonQueryAsync();
-            }
-        }
+        public Task<ServiceResult<bool>> RestoreDatabaseAsync(string backupFilePath, bool backupDbFirst) =>
+            Task.FromResult(NotFromInsideTheApp("Database restore"));
         #endregion
 
         #region Read Setting from Database based on SettingID
@@ -587,24 +402,9 @@ namespace assetlen.Service.DbServices
         #endregion
 
         #region Update database Schema
-        public async Task<ServiceResult<bool>> UpdateDatabaseSchemaWithScript(string scriptFileName)
-        {
-            try
-            {
-                string scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dbLogScripts", scriptFileName);
-                string script = await File.ReadAllTextAsync(scriptPath);
-
-                await _context.Database.ExecuteSqlRawAsync(script);
-
-                return ServiceResult<bool>.Success(true);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Error while updating database schema: {Error}", ex);
-                return ServiceResult<bool>.Failure(
-                    new ServerErrorException("Could not update database schema."));
-            }
-        }
+        // The scripts were T-SQL; the schema now moves only by migration (assetlen.Postgres).
+        public Task<ServiceResult<bool>> UpdateDatabaseSchemaWithScript(string scriptFileName) =>
+            Task.FromResult(NotFromInsideTheApp("Running a schema script"));
         #endregion
 
         #region Turn on syncing with online server

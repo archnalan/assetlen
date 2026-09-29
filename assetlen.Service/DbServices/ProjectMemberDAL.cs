@@ -66,7 +66,7 @@ public class ProjectMemberDAL : IProjectMemberDAL
             {
                 user = !string.IsNullOrEmpty(dto.UserId)
                     ? await _context.Users.FirstOrDefaultAsync(u => u.Id == dto.UserId)
-                    : await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.UserEmail);
+                    : await _context.Users.FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == (dto.UserEmail ?? "").Trim().ToLower());
 
                 if (user is null)
                     return ServiceResult<ProjectMemberDto>.Failure(new NotFoundException("User not found."));

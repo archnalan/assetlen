@@ -210,7 +210,7 @@ public class WorksReportDAL : IWorksReportDAL
             ContentSha256 = Hash(snapshot, narrativeJson),
             PreviousReportId = previous?.Id,
             DeliveryNote = delivery,
-            DeliveredAt = DateTime.Now
+            DeliveredAt = DateTime.UtcNow
         };
         _context.tbl_WorksReports.Add(row);
         await _context.SaveChangesAsync(ct);

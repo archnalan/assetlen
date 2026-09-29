@@ -1,6 +1,6 @@
 # Leaves the machine idle and buildable: nothing listening, nothing holding a DLL.
 # A live assetlen.API outlives the `dotnet run` that launched it and keeps
-# assetlen.Service.dll / assetlen.SqlServer.dll open, so the next build fails with
+# assetlen.Service.dll / assetlen.Postgres.dll open, so the next build fails with
 # MSB3027/MSB3021 copy errors that read like a code problem (CLAUDE.md §0).
 #
 #   pwsh tools/stop-dev.ps1           stop the app and CLI build servers

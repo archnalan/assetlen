@@ -109,7 +109,7 @@ public class DevController : ControllerBase
     {
         if (!_env.IsDevelopment()) return NotFound();
         var user = await _context.Users.IgnoreQueryFilters().AsNoTracking()
-            .Where(u => u.Email == email).Select(u => new { u.Id }).FirstOrDefaultAsync(ct);
+            .Where(u => u.Email != null && u.Email.ToLower() == (email ?? "").ToLower()).Select(u => new { u.Id }).FirstOrDefaultAsync(ct);
         if (user is null) return Ok(new { exists = false, logins = 0, lastLoginAt = (DateTime?)null });
         var tokens = await _context.RefreshTokens.IgnoreQueryFilters().AsNoTracking()
             .Where(t => t.UserId == user.Id).ToListAsync(ct);

@@ -4,7 +4,6 @@ using assetlen.ServiceHandler;
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Shared.Models.Models.ViewModels.Users;
 using Mapster;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -55,34 +54,30 @@ namespace assetlen.Service.DbServices
 		{
 			try
 			{
-				string sql = "SELECT * FROM tbl_Logs WHERE CAST(TimeStamp AS DATE) BETWEEN @startDate AND @endDate";
+				// Whole days, inclusive — as the old CAST(TimeStamp AS DATE) BETWEEN did.
+				var from = startDate.Date;
+				var until = endDate.Date.AddDays(1);
+				var q = _context.tbl_Logs.Where(c => c.TimeStamp >= from && c.TimeStamp < until);
 
 				if (!string.IsNullOrEmpty(keywords))
 				{
-					sql += " AND (Id LIKE @keywords OR Message LIKE @keywords OR SaleId LIKE @keywords OR ShiftId LIKE @keywords)";
+					var k = keywords.ToLower();
+					q = q.Where(c => c.Id.ToLower().Contains(k)
+						|| (c.Message != null && c.Message.ToLower().Contains(k))
+						|| (c.SaleId != null && c.SaleId.ToLower().Contains(k))
+						|| (c.ShiftId != null && c.ShiftId.ToLower().Contains(k)));
 				}
 				if (userId > 0)
 				{
-					sql += " AND UserId = @userId";
+					var uid = userId.ToString();
+					q = q.Where(c => c.UserId == uid);
 				}
 				if (logTypeId > 0)
 				{
-					sql += " AND LogTypeId = @logTypeId";
+					q = q.Where(c => c.LogTypeId == logTypeId);
 				}
-				sql += " ORDER BY Id DESC";
 
-				var parameters = new[]
-				{
-					new SqlParameter("@startDate", startDate.ToString("yyyyMMdd")),
-					new SqlParameter("@endDate", endDate.ToString("yyyyMMdd")),
-					new SqlParameter("@keywords", $"%{keywords}%"),
-					new SqlParameter("@userId", userId),
-					new SqlParameter("@logTypeId", logTypeId)
-				};
-
-				var logs = await _context.tbl_Logs
-									.FromSqlRaw(sql, parameters)
-									.ToListAsync();
+				var logs = await q.OrderByDescending(c => c.Id).ToListAsync();
 
 				var logsDto = logs.Adapt<List<LogDto>>();
 

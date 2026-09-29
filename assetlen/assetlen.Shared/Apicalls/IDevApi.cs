@@ -11,7 +11,7 @@ public interface IDevApi
 {
     /// <summary>
     /// Provisions the canonical demo world: Peter's account, his three
-    /// counterparts, and <b>one</b> project — Kira Residence, with the guest
+    /// counterparts, and <b>one</b> project — Riverstone Residence, with the guest
     /// wing as its sub-project and everything else a stage.
     /// <para>
     /// Idempotent. Re-running returns the same ids and creates nothing, which

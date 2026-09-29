@@ -17,7 +17,7 @@ public class tbl_PushSubscription : BaseEntity
     [MaxLength(1000)]
     public string? Endpoint { get; set; }
 
-    /// <summary>SHA-256 of the endpoint, so the unique index stays within SQL Server's key size.</summary>
+    /// <summary>SHA-256 of the endpoint, so the unique index stays small however long the push service's URL is.</summary>
     [MaxLength(64)]
     public string? EndpointHash { get; set; }
 

@@ -26,7 +26,6 @@ using assetlen.Shared.Models.Models;
 using assetlen.Shared.Models.Models.ViewModels;
 using assetlen.Service.DbServices.SmtpClient;
 using assetlen.Shared.Models.Models.ViewModels.Users;
-using Azure.Core;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Hosting;
@@ -253,7 +252,7 @@ namespace assetlen.Service.DbServices
             {
                 if (!string.IsNullOrEmpty(keywords))
                 {
-                    query = query.Where(x => x.FirstName.Contains(keywords) || x.LastName.Contains(keywords) || x.UserName != null && x.UserName.Contains(keywords));
+                    query = query.Where(x => x.FirstName.ToLower().Contains(keywords.ToLower()) || x.LastName.ToLower().Contains(keywords.ToLower()) || x.UserName != null && x.UserName.ToLower().Contains(keywords.ToLower()));
                 }
                 var result = await query.Select(x => new ComboBoxDto
                 {
@@ -537,7 +536,7 @@ namespace assetlen.Service.DbServices
                 //TODO: check if user exists on the online api
 
                 var usernameExists = await _context.Users
-                                    .AnyAsync(x => x.UserName == createUserDto.UserName);
+                                    .AnyAsync(x => x.UserName != null && x.UserName.ToLower() == (createUserDto.UserName ?? "").ToLower());
 
                 if (usernameExists)
                     return ServiceResult<CreateUserResponseDto>.Failure(
@@ -640,7 +639,7 @@ namespace assetlen.Service.DbServices
                 // Check if username is taken and generate unique one
                 var originalUserName = userName;
                 int counter = 1;
-                while (await _context.Users.AnyAsync(x => x.UserName == userName))
+                while (await _context.Users.AnyAsync(x => x.UserName != null && x.UserName.ToLower() == userName.ToLower()))
                 {
                     userName = $"{originalUserName}{counter}";
                     counter++;
@@ -668,7 +667,7 @@ namespace assetlen.Service.DbServices
                 // Check if email is already taken
                 if (!string.IsNullOrEmpty(registerUserDto.Email))
                 {
-                    var emailExists = await _context.Users.AnyAsync(x => x.Email == registerUserDto.Email);
+                    var emailExists = await _context.Users.AnyAsync(x => x.Email != null && x.Email.ToLower() == registerUserDto.Email.ToLower());
                     if (emailExists)
                         return ServiceResult<CreateUserResponseDto>.Failure(
                             new BadRequestException($"Email: {registerUserDto.Email} is already registered."));
@@ -1798,11 +1797,13 @@ namespace assetlen.Service.DbServices
         private async Task<AppUser> Authenticate(UserLogin userLogin)
         {
             //var user = await _userManager.FindByEmailAsync(userLogin.Email);
-            var user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Email == userLogin.Email && x.IsDeleted != true);
+            // Case-folded on both sides (CLAUDE.md §5.1.1): Postgres compares case-sensitively.
+            var login = (userLogin.Email ?? "").Trim().ToLower();
+            var user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Email != null && x.Email.ToLower() == login && x.IsDeleted != true);
             if (user == null)
             {
                 //user = await _userManager.FindByNameAsync(userLogin.Email);
-                user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserName == userLogin.Email && x.IsDeleted != true);
+                user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserName != null && x.UserName.ToLower() == login && x.IsDeleted != true);
 
                 if (user == null && cleanPhoneNumber(userLogin.Email).Length > 5)
                 {

@@ -38,13 +38,13 @@ namespace assetlen.Service.DbServices
                 if (!string.IsNullOrEmpty(keywords))
                 {
                     query = query.
-                             Where(x => x.FirstName.ToString() == keywords ||
-                             x.LastName.Contains(keywords) ||
-                             x.UserName != null && x.UserName.Contains(keywords) ||
-                             x.Email != null && x.Email.Contains(keywords) ||
-                             x.Address != null && x.Address.Contains(keywords) ||
-                             x.Aboutme != null && x.Aboutme.Contains(keywords) ||
-                             x.Contacts != null && x.Contacts.Contains(keywords)
+                             Where(x => x.FirstName.ToLower().Contains(keywords.ToLower()) ||
+                             x.LastName.ToLower().Contains(keywords.ToLower()) ||
+                             x.UserName != null && x.UserName.ToLower().Contains(keywords.ToLower()) ||
+                             x.Email != null && x.Email.ToLower().Contains(keywords.ToLower()) ||
+                             x.Address != null && x.Address.ToLower().Contains(keywords.ToLower()) ||
+                             x.Aboutme != null && x.Aboutme.ToLower().Contains(keywords.ToLower()) ||
+                             x.Contacts != null && x.Contacts.ToLower().Contains(keywords.ToLower())
                              );
                 }
 
@@ -73,11 +73,11 @@ namespace assetlen.Service.DbServices
             try
             {
                 var query = _context.Users.AsNoTracking();
-                if (string.IsNullOrEmpty(keywords))
+                if (!string.IsNullOrEmpty(keywords))
                 {
-                    query = query.Where(c => c.FirstName.Contains(keywords) ||
-                                            c.LastName.Contains(keywords) ||
-                                            c.Email != null && c.Email.Contains(keywords));
+                    query = query.Where(c => c.FirstName.ToLower().Contains(keywords.ToLower()) ||
+                                            c.LastName.ToLower().Contains(keywords.ToLower()) ||
+                                            c.Email != null && c.Email.ToLower().Contains(keywords.ToLower()));
                 }
 
                 var users = await query
@@ -122,13 +122,13 @@ namespace assetlen.Service.DbServices
                 if (!string.IsNullOrEmpty(keywords))
                 {
                     query = query.
-                             Where(x => x.FirstName.ToString() == keywords ||
-                             x.LastName.Contains(keywords) ||
-                             x.UserName != null && x.UserName.Contains(keywords) ||
-                             x.Email != null && x.Email.Contains(keywords) ||
-                             x.Address != null && x.Address.Contains(keywords) ||
-                             x.Aboutme != null && x.Aboutme.Contains(keywords) ||
-                             x.Contacts != null && x.Contacts.Contains(keywords)
+                             Where(x => x.FirstName.ToLower().Contains(keywords.ToLower()) ||
+                             x.LastName.ToLower().Contains(keywords.ToLower()) ||
+                             x.UserName != null && x.UserName.ToLower().Contains(keywords.ToLower()) ||
+                             x.Email != null && x.Email.ToLower().Contains(keywords.ToLower()) ||
+                             x.Address != null && x.Address.ToLower().Contains(keywords.ToLower()) ||
+                             x.Aboutme != null && x.Aboutme.ToLower().Contains(keywords.ToLower()) ||
+                             x.Contacts != null && x.Contacts.ToLower().Contains(keywords.ToLower())
                              );
                 }
                 var result = await query.AsNoTracking().ToPaginatedResultAsync(offSet, limit, cancellationToken, sortByColumn, sortAscending);
@@ -153,10 +153,10 @@ namespace assetlen.Service.DbServices
 
                 if (!string.IsNullOrEmpty(keywords))
                 {
-                    query = query.Where(c => c.FirstName.Contains(keywords) ||
-                                             c.LastName.Contains(keywords) ||
-                                             c.Email != null && c.Email.Contains(keywords) ||
-                                             c.UserName != null && c.UserName.Contains(keywords));
+                    query = query.Where(c => c.FirstName.ToLower().Contains(keywords.ToLower()) ||
+                                             c.LastName.ToLower().Contains(keywords.ToLower()) ||
+                                             c.Email != null && c.Email.ToLower().Contains(keywords.ToLower()) ||
+                                             c.UserName != null && c.UserName.ToLower().Contains(keywords.ToLower()));
                 }
 
                 var users = await query.ToPaginatedResultAsync(offSet, limit, cancellationToken, sortByColumn, sortAscending);
@@ -186,10 +186,10 @@ namespace assetlen.Service.DbServices
 
                 if (!string.IsNullOrEmpty(keywords))
                 {
-                    query = query.Where(c => c.FirstName.Contains(keywords) ||
-                                             c.LastName.Contains(keywords) ||
-                                             c.Email != null && c.Email.Contains(keywords) ||
-                                             c.UserName != null && c.UserName.Contains(keywords));
+                    query = query.Where(c => c.FirstName.ToLower().Contains(keywords.ToLower()) ||
+                                             c.LastName.ToLower().Contains(keywords.ToLower()) ||
+                                             c.Email != null && c.Email.ToLower().Contains(keywords.ToLower()) ||
+                                             c.UserName != null && c.UserName.ToLower().Contains(keywords.ToLower()));
                 }
 
                 var users = await query.ToPaginatedResultAsync(offSet, limit, cancellationToken, sortByColumn, sortAscending);
@@ -217,10 +217,10 @@ namespace assetlen.Service.DbServices
 
                 if (!string.IsNullOrEmpty(keywords))
                 {
-                    query = query.Where(c => c.FirstName.Contains(keywords) ||
-                                             c.LastName.Contains(keywords) ||
-                                             c.Email != null && c.Email.Contains(keywords) ||
-                                             c.UserName != null && c.UserName.Contains(keywords));
+                    query = query.Where(c => c.FirstName.ToLower().Contains(keywords.ToLower()) ||
+                                             c.LastName.ToLower().Contains(keywords.ToLower()) ||
+                                             c.Email != null && c.Email.ToLower().Contains(keywords.ToLower()) ||
+                                             c.UserName != null && c.UserName.ToLower().Contains(keywords.ToLower()));
                 }
 
                 var users = await query.ToPaginatedResultAsync(offSet, limit, cancellationToken, sortByColumn, sortAscending);

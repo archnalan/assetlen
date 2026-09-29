@@ -182,6 +182,12 @@ if [ "$OCR" = "Done" ]; then
   eq "lower case, two words, still found"          "1" "$(search "$PETER" "zentara tiles" | jx '(g File).total')"
   eq "asked as a question, still found"            "1" "$(search "$PETER" "where is the receipt from Zentara?" | jx '(g File).total')"
   eq "the server says how it matched"              "true" "$(printf '%s' "$S" | jx '$r.backend -in @("substring","full-text")')"
+  # Postgres (CLAUDE.md §5.1.1): pg_trgm word similarity forgives one misread letter.
+  if [ "$(printf '%s' "$S" | jx '$r.backend')" = "full-text" ]; then
+    eq "an OCR misread still finds it: ZENTAHA"    "$RECEIPT" "$(search "$PETER" "zentaha" | jx '(g File).hits[0].artifactId')"
+  else
+    skip "an OCR misread still finds it" "substring backend has no fuzzy matching"
+  fi
 else
   skip "the photo was read by OCR" "status $OCR — no OCR engine on this host (Ocr:TesseractPath)"
   skip "the exit criterion" "cannot be shown without an OCR engine"

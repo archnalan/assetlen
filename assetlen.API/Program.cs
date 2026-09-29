@@ -10,6 +10,7 @@ using assetlen.API.Domain;
 using assetlen.API.Domain.Interfaces;
 using assetlen.API.Middlewares;
 using Hangfire;
+using Hangfire.PostgreSql;
 using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -122,16 +123,18 @@ builder.Services.AddCors(options =>
 // Hangfire builds its own schema when the storage is constructed, which happens
 // during service registration — before EF has had a chance to create the
 // database. On a first boot against an empty server that raced and lost: the
-// HangFire.* tables were never created, and every endpoint that enqueues a job
-// then returned 500 with "Invalid object name 'HangFire.Job'".
+// job tables were never created, and every endpoint that enqueues a job then
+// returned 500.
 //
 // So: don't prepare the schema here. EnsureHangfireSchema() below runs it once
 // the database provably exists.
-builder.Services.AddHangfire(config => config.UseSimpleAssemblyNameTypeSerializer()
-.UseRecommendedSerializerSettings()
-.UseSqlServerStorage(
-    builder.Configuration.GetConnectionString("DefaultConnectionHangfire"),
-    new Hangfire.SqlServer.SqlServerStorageOptions { PrepareSchemaIfNecessary = false }));
+builder.Services.AddHangfire(config =>
+{
+    config.UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings();
+    config.UsePostgreSqlStorage(
+        o => o.UseNpgsqlConnection(HangfireConnectionString(builder.Configuration)),
+        new PostgreSqlStorageOptions { PrepareSchemaIfNecessary = false });
+});
 builder.Services.AddHangfireServer();
 
 // OCR runs on its own queue with two workers: each job may start an OCR
@@ -380,84 +383,23 @@ builder.Services.AddHttpClient();
 
 var provider = builder.Configuration["AppMode"];
 
-//builder.Services.AddDbContext<AssetlenDbContext>((serviceProvider, options) =>
-//    options.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"],
-//        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
-//            maxRetryCount: 5,
-//            maxRetryDelay: TimeSpan.FromSeconds(30),
-//            errorNumbersToAdd: null)
+if (provider is not ("1" or "2" or "3"))
+    throw new Exception($"Unsupported AppMode: {provider}. use 1, 2 or 3");
 
-//        ), ServiceLifetime.Scoped);
+// §5.1.1 — PostgreSQL is the only database; migrations live in assetlen.Postgres.
+builder.Services.AddDbContext<AssetlenDbContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("Postgres"), //dont edit this line. edit appsettings.json instead
+        npgsql =>
+        {
+            npgsql.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorCodesToAdd: null);
+            npgsql.MigrationsAssembly("assetlen.Postgres");
+        }));
 
-//if (provider == "1")
-//{
-//    var dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "assetlen");
-//    Directory.CreateDirectory(dbPath);
-//    builder.Configuration["ConnectionStrings:SqliteConnection"] = $"Data Source={Path.Combine(dbPath, "app.db")}";
-//}
 
-builder.Services.AddDbContext<AssetlenDbContext>((serviceProvider, options)
-    => _ = provider switch
-    {
-        //"1" => options.UseSqlite(
-        //   builder.Configuration["ConnectionStrings:SqliteConnection"],
-        //    x => x.MigrationsAssembly("assetlen.Sqlite")),
-
-        "1" => options.UseSqlServer(
-           builder.Configuration["ConnectionStrings:DefaultConnection"], //dont edit this line. edit appsettings.json instead
-           sqlServerOptions =>
-           {
-               // Enable retry-on-failure for SQL Server
-               sqlServerOptions.EnableRetryOnFailure(
-                   maxRetryCount: 5,
-                   maxRetryDelay: TimeSpan.FromSeconds(30),
-                   errorNumbersToAdd: null
-               );
-               sqlServerOptions.MigrationsAssembly("assetlen.SqlServer");
-           }
-       ),
-        "2" => options.UseSqlServer(
-                  builder.Configuration["ConnectionStrings:DefaultConnection"], //dont edit this line. edit appsettings.json instead
-                  sqlServerOptions =>
-                  {
-                      // Enable retry-on-failure for SQL Server
-                      sqlServerOptions.EnableRetryOnFailure(
-                          maxRetryCount: 5,
-                          maxRetryDelay: TimeSpan.FromSeconds(30),
-                          errorNumbersToAdd: null
-                      );
-                      sqlServerOptions.MigrationsAssembly("assetlen.SqlServer");
-                      sqlServerOptions.MigrationsHistoryTable("__EFMigrationsHistory", "dbo");
-                  }
-              ),
-        "3" => options.UseSqlServer(
-            builder.Configuration["ConnectionStrings:DefaultConnection"], //dont edit this line. edit appsettings.json instead
-            sqlServerOptions =>
-            {
-                // Enable retry-on-failure for SQL Server
-                sqlServerOptions.EnableRetryOnFailure(
-                    maxRetryCount: 5,
-                    maxRetryDelay: TimeSpan.FromSeconds(30),
-                    errorNumbersToAdd: null
-                );
-                sqlServerOptions.MigrationsAssembly("assetlen.SqlServer");
-            }
-        ),
-        _ => throw new Exception($"Unsupported provider: {provider}. use 1 or 2")
-    });
-
-//builder.Services.AddDbContext<AssetlenDbContext>((serviceProvider, options) =>
-//{
-//    options.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"]);
-//    options.AddInterceptors(serviceProvider.GetRequiredService<TenantCommandInterceptor>());
-//});
-
-//builder.Services.AddDbContextFactory<AssetlenDbContext>(options =>
-//    options.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"],
-//        sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
-//            maxRetryCount: 5,
-//            maxRetryDelay: TimeSpan.FromSeconds(30),
-//            errorNumbersToAdd: null)),lifetime:ServiceLifetime.Scoped);
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .Enrich.FromLogContext()
@@ -558,21 +500,6 @@ if (syncType.IsOnlineApi())
 else
 {
     app.UseMiddleware<OnlineSyncMiddleware>();
-
-    using (var scope = app.Services.CreateScope())
-    {
-        try
-        {
-            var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
-            recurringJobManager.AddOrUpdate<SyncDAL>(
-                "pull-changes",
-                s => s.PullChangesFromOnlineAsync(),
-                Cron.MinuteInterval(int.Parse(builder.Configuration["OnlineApi:Interval"])));
-        }
-        catch (Exception)
-        {
-        }
-    }
 }
 
 app.UseHttpsRedirection();
@@ -594,9 +521,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // The database now exists, so Hangfire can safely build its tables.
-EnsureHangfireSchema(
-    builder.Configuration.GetConnectionString("DefaultConnectionHangfire"),
-    app.Logger);
+EnsureHangfireSchema(HangfireConnectionString(builder.Configuration), app.Logger);
 
 // Works reports issue on their own — weekly and on milestones — whether or not
 // anybody logs in (works-report.md §7, Law 0).
@@ -605,6 +530,15 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var recurring = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+        // Registered only now: on a fresh database the job tables did not exist
+        // until EnsureHangfireSchema above.
+        if (!syncType.IsOnlineApi())
+            recurring.AddOrUpdate<SyncDAL>(
+                "pull-changes",
+                s => s.PullChangesFromOnlineAsync(),
+                Cron.MinuteInterval(int.Parse(builder.Configuration["OnlineApi:Interval"] ?? "1")));
+
         recurring.AddOrUpdate<assetlen.Service.FileProcessingServices.Report.ScheduledReportJob>(
             "works-report-weekly", j => j.WeeklyAsync(),
             builder.Configuration["Report:WeeklyCron"] ?? Cron.Weekly(DayOfWeek.Sunday, 18),
@@ -625,6 +559,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 
+static string? HangfireConnectionString(IConfiguration configuration) =>
+    configuration.GetConnectionString("PostgresHangfire") ?? configuration.GetConnectionString("Postgres");
+
 static void EnsureHangfireSchema(string? connectionString, Microsoft.Extensions.Logging.ILogger logger)
 {
     if (string.IsNullOrWhiteSpace(connectionString))
@@ -633,24 +570,14 @@ static void EnsureHangfireSchema(string? connectionString, Microsoft.Extensions.
         return;
     }
 
-    // Hangfire's storage already tried to connect during service registration,
-    // when the database might not have existed yet. SqlClient caches that
-    // failure for a few seconds (the pool blocking period) and fails fast
-    // without contacting the server, so drop the poisoned pool first.
-    System.Data.SqlClient.SqlConnection.ClearAllPools();
-
     for (var attempt = 1; attempt <= 5; attempt++)
     {
         try
         {
-            // System.Data.SqlClient, not Microsoft.Data.SqlClient — this must
-            // behave exactly like the connection Hangfire opens for itself. The
-            // newer driver defaults Encrypt=true, and DefaultConnectionHangfire
-            // carries no TrustServerCertificate, so it would fail the TLS
-            // handshake against a local instance with a self-signed cert.
-            using var connection = new System.Data.SqlClient.SqlConnection(connectionString);
+            // Its own "hangfire" schema, beside EF's tables in the same database.
+            using var connection = new Npgsql.NpgsqlConnection(connectionString);
             connection.Open();
-            Hangfire.SqlServer.SqlServerObjectsInstaller.Install(connection);
+            PostgreSqlObjectsInstaller.Install(connection, "hangfire");
             logger.LogInformation("Hangfire schema is present.");
             return;
         }
@@ -658,7 +585,6 @@ static void EnsureHangfireSchema(string? connectionString, Microsoft.Extensions.
         {
             logger.LogWarning("Hangfire schema attempt {Attempt} failed ({Message}); retrying.",
                 attempt, ex.Message);
-            System.Data.SqlClient.SqlConnection.ClearAllPools();
             Thread.Sleep(TimeSpan.FromSeconds(2));
         }
         catch (Exception ex)

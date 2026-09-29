@@ -15,6 +15,7 @@
             if (Error is ConflictException) return 409;
             if (Error is UnAuthorizedException) return 401;
             if (Error is ForbiddenException) return 403;
+            if (Error is NotImplementedException) return 501;
             return 500;
         }
 

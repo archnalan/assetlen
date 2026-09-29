@@ -72,6 +72,9 @@ f() {
 
 echo "ASSETLEN P5 — money and staging — $API"
 
+# Idempotent; on a fresh database this suite runs before any other has seeded.
+"${CURL[@]}" -o /dev/null -X POST "$API/Dev/SeedDemo"
+
 PETER=$(tok peter); NALAN=$(tok nalan); MUSA=$(tok musa)
 
 if [ -z "$PETER" ] || [ -z "$NALAN" ]; then

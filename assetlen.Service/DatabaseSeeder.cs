@@ -55,8 +55,8 @@ namespace assetlen.API
                 };
 
                 var userPassword = Configuration.GetSection("UserSettings")["UserPassword"];
-                var _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Email == desiredEmail);
-                if (_user is null) _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserName == desiredUserName);
+                var _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Email != null && x.Email.ToLower() == (desiredEmail ?? "").ToLower());
+                if (_user is null) _user = await context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserName != null && x.UserName.ToLower() == (desiredUserName ?? "").ToLower());
 
 
                 if (_user == null && !context.tbl_Tenants.IgnoreQueryFilters().Any())
@@ -155,8 +155,10 @@ namespace assetlen.API
                 using var scope = app.Services.CreateScope();
                 {
                     var database = scope.ServiceProvider.GetRequiredService<AssetlenDbContext>().Database;
-                    var connection = database.GetConnectionString();
-                    _logger.LogInformation("Starting app with Connection string {conn}", connection);
+                    var connection = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = database.GetConnectionString() ?? "" };
+                    connection.Remove("Password");
+                    connection.Remove("Pwd");
+                    _logger.LogInformation("Starting app with Connection string {conn}", connection.ConnectionString);
                     database.Migrate();
                 }
             }

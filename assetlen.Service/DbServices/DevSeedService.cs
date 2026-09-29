@@ -122,7 +122,7 @@ public sealed class DevSeedService : IDevSeedService
 
         await _context.SaveChangesAsync(ct);
 
-        result.ProjectName = "Kira Residence";
+        result.ProjectName = "Riverstone Residence";
         result.Notes.Add("One top-level project. The guest wing is a sub-project; everything else is a stage.");
         result.Notes.Add($"All personas sign in with the password {Password}.");
 
@@ -164,7 +164,7 @@ public sealed class DevSeedService : IDevSeedService
     private async Task<AppUser> EnsureUserAsync(
         string email, string userName, string first, string last, string role, DevSeedResult result)
     {
-        var user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == email);
+        var user = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
 
         if (user is not null)
         {
@@ -229,7 +229,7 @@ public sealed class DevSeedService : IDevSeedService
         for (var attempt = 2; attempt < 100; attempt++)
         {
             var taken = await _context.Users.IgnoreQueryFilters()
-                .AnyAsync(u => u.UserName == candidate);
+                .AnyAsync(u => u.UserName != null && u.UserName.ToLower() == candidate.ToLower());
 
             if (!taken) return candidate;
 
@@ -297,10 +297,10 @@ public sealed class DevSeedService : IDevSeedService
                 Id = ProjectId,
                 TenantId = TenantId,
                 OwnerTenantId = TenantId,
-                ProjectName = "Kira Residence",
+                ProjectName = "Riverstone Residence",
                 Description = "Four-bedroom residence on a sloping plot, with a guest wing and external works. "
                             + "Designed and built by the same practice; funded stage by stage.",
-                Location = "Kira, Wakiso",
+                Location = "Riverstone Heights",
                 TotalBudget = 1_170_000_000m,
                 Currency = "UGX",
                 ExpectedStartDate = start,
@@ -335,7 +335,7 @@ public sealed class DevSeedService : IDevSeedService
                 ProjectName = "Guest Wing",
                 Description = "Two-bedroom guest wing at the rear of the plot. A sub-project: it enlarges the "
                             + "residence's billable area rather than becoming a second invoice.",
-                Location = "Kira, Wakiso",
+                Location = "Riverstone Heights",
                 TotalBudget = 206_000_000m,
                 Currency = "UGX",
                 ExpectedStartDate = new DateTime(2026, 1, 12, 0, 0, 0, DateTimeKind.Utc),
@@ -801,10 +801,9 @@ public sealed class DevSeedService : IDevSeedService
         // the first time anyone looks at it.
         foreach (var e in entries)
         {
-            await _context.Database.ExecuteSqlRawAsync(
-                "UPDATE tbl_ProgressUpdates SET DateTimeCreated = {0} WHERE Id = {1}",
-                new object[] { DateTime.SpecifyKind(e.When, DateTimeKind.Utc), e.Id },
-                ct);
+            var when = DateTime.SpecifyKind(e.When, DateTimeKind.Utc);
+            await _context.tbl_ProgressUpdates.IgnoreQueryFilters().Where(u => u.Id == e.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.DateTimeCreated, when), ct);
         }
     }
 
@@ -1052,9 +1051,10 @@ public sealed class DevSeedService : IDevSeedService
         // for the same reason as the site diary above.
         foreach (var f in flags)
         {
-            await _context.Database.ExecuteSqlRawAsync(
-                "UPDATE tbl_Flags SET DateTimeCreated = {0} WHERE Id = {1}",
-                new object[] { f.Raised, FlagId(f.N) }, ct);
+            var id = FlagId(f.N);
+            DateTime? raised = f.Raised;
+            await _context.tbl_Flags.IgnoreQueryFilters().Where(x => x.Id == id)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.DateTimeCreated, raised), ct);
         }
     }
 

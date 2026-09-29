@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using assetlen.Service.DataAccess;
@@ -13,11 +14,14 @@ namespace assetlen.Service.DbServices;
 
 /// <inheritdoc cref="ISearchDAL"/>
 /// <remarks>
-/// <b>Matching.</b> Case-insensitive substring per term (the database collation
-/// is CI), scored in memory. SQL Server Full-Text Search is not installed on the
-/// dev instance, and the corpus per project is thousands of rows, not millions;
-/// <see cref="CandidatesAsync{T}"/> is the one place a <c>CONTAINS</c> query
-/// would replace the <c>LIKE</c> when it is. The server reports which one answered.
+/// <b>Matching.</b> On PostgreSQL (CLAUDE.md §5.1.1) each term is looked for three
+/// ways in <see cref="CandidatesAsync{T}"/>: <c>ILIKE</c> for the substring the
+/// old search promised, a <c>'simple'</c> <c>tsvector @@ tsquery</c> prefix match
+/// (no stemmer: the thread is English and Luganda), and <c>pg_trgm</c> word
+/// similarity so an OCR misread — ZENTAHA for ZENTARA — still finds the receipt.
+/// Candidates are then scored in memory by <see cref="SearchTerms"/>, which applies
+/// the same fuzzy rule. On any other provider it falls back to a case-folded
+/// substring. The server reports which one answered.
 /// </remarks>
 public class SearchDAL : ISearchDAL
 {
@@ -27,8 +31,6 @@ public class SearchDAL : ISearchDAL
     private readonly IProjectAccessService _access;
     private readonly IOcrService _ocr;
     private readonly ILogger<SearchDAL> _logger;
-
-    private static bool? _fullTextInstalled;
 
     public SearchDAL(AssetlenDbContext context, IProjectAccessService access, IOcrService ocr, ILogger<SearchDAL> logger)
     {
@@ -61,7 +63,8 @@ public class SearchDAL : ISearchDAL
     {
         try
         {
-            var terms = SearchTerms.Parse(query);
+            var fullText = _context.Database.IsNpgsql();
+            var terms = SearchTerms.Parse(query) with { Fuzzy = fullText };
             if (terms.Terms.Count == 0)
                 return Fail(new BadRequestException("Type a word to look for."));
 
@@ -93,8 +96,8 @@ public class SearchDAL : ISearchDAL
                 Query = query?.Trim() ?? "",
                 Terms = terms.Terms.ToList(),
                 SetAside = terms.SetAside.ToList(),
-                FullTextInstalled = await FullTextInstalledAsync(ct),
-                Backend = "substring",
+                FullTextInstalled = fullText,
+                Backend = fullText ? "full-text" : "substring",
                 ProjectsSearched = scope.Projects.Count,
                 OcrEngine = _ocr.ImageEngine,
                 FilesAwaitingText = await FilesAwaitingTextAsync(scope, ct),
@@ -203,24 +206,63 @@ public class SearchDAL : ISearchDAL
     // Sources
     // ═════════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Ids matching at least one term, one query per term, unioned. The single
-    /// seam where full-text <c>CONTAINS</c> would replace substring matching.
-    /// </summary>
+    private static Expression<Func<T, string?>>[] Columns<T>(params Expression<Func<T, string?>>[] columns) => columns;
+
+    /// <summary>Ids matching at least one term in any of the columns, one query per term, unioned.</summary>
     private async Task<HashSet<string>> CandidatesAsync<T>(
         IQueryable<T> source,
-        Func<string, System.Linq.Expressions.Expression<Func<T, bool>>> matches,
-        System.Linq.Expressions.Expression<Func<T, string>> id,
+        Expression<Func<T, string?>>[] columns,
+        Expression<Func<T, string>> id,
         SearchTerms terms,
         CancellationToken ct)
     {
+        var postgres = _context.Database.IsNpgsql();
         var ids = new HashSet<string>();
         foreach (var t in terms.Terms)
         {
-            var found = await source.Where(matches(t)).Select(id).Take(CandidateCap).ToListAsync(ct);
+            var found = await source.Where(AnyColumnMatches(columns, postgres ? PostgresMatch(t) : SubstringMatch(t)))
+                .Select(id).Take(CandidateCap).ToListAsync(ct);
             ids.UnionWith(found);
         }
         return ids;
+    }
+
+    private static Expression<Func<string?, bool>> SubstringMatch(string term) =>
+        s => s != null && s.ToLower().Contains(term);
+
+    /// <summary>
+    /// Terms are letters and digits only (<see cref="SearchTerms.Parse"/>), so they
+    /// are safe inside a LIKE pattern and a tsquery without escaping.
+    /// </summary>
+    private static Expression<Func<string?, bool>> PostgresMatch(string term)
+    {
+        var like = $"%{term}%";
+        var prefix = $"{term}:*";
+        if (!SearchTerms.FuzzyEligible(term))
+            return s => s != null && (EF.Functions.ILike(s, like)
+                || EF.Functions.ToTsVector("simple", s).Matches(EF.Functions.ToTsQuery("simple", prefix)));
+
+        return s => s != null && (EF.Functions.ILike(s, like)
+            || EF.Functions.ToTsVector("simple", s).Matches(EF.Functions.ToTsQuery("simple", prefix))
+            || EF.Functions.TrigramsWordSimilarity(term, s) >= SearchTerms.FuzzyThreshold);
+    }
+
+    private static Expression<Func<T, bool>> AnyColumnMatches<T>(Expression<Func<T, string?>>[] columns, Expression<Func<string?, bool>> test)
+    {
+        var row = Expression.Parameter(typeof(T), "row");
+        Expression? body = null;
+        foreach (var column in columns)
+        {
+            var value = new Rebind(column.Parameters[0], row).Visit(column.Body);
+            var one = new Rebind(test.Parameters[0], value).Visit(test.Body);
+            body = body is null ? one : Expression.OrElse(body, one);
+        }
+        return Expression.Lambda<Func<T, bool>>(body ?? Expression.Constant(false), row);
+    }
+
+    private sealed class Rebind(ParameterExpression from, Expression to) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node) => node == from ? to : base.VisitParameter(node);
     }
 
     private async Task<Dictionary<string, SearchHitDto>> SearchCommitmentsAsync(Scope scope, CancellationToken ct)
@@ -232,8 +274,7 @@ public class SearchDAL : ISearchDAL
 
         var ids = await CandidatesAsync(
             _context.tbl_Commitments.AsNoTracking().Where(c => c.ProjectId != null && pids.Contains(c.ProjectId) && c.SupersededAt == null),
-            t => c => (c.Title != null && c.Title.Contains(t)) || (c.Body != null && c.Body.Contains(t))
-                      || (c.AgreedWithPartyName != null && c.AgreedWithPartyName.Contains(t)),
+            Columns<tbl_Commitment>(c => c.Title, c => c.Body, c => c.AgreedWithPartyName),
             c => c.Id, scope.Terms, ct);
 
         foreach (var c in await LoadCommitmentsAsync(ids, ct))
@@ -322,7 +363,7 @@ public class SearchDAL : ISearchDAL
 
         var ids = await CandidatesAsync(
             _context.tbl_IngestedMessages.AsNoTracking().Where(m => m.BatchId != null && batches.Contains(m.BatchId) && !m.IsSystemMessage),
-            t => m => m.Body != null && m.Body.Contains(t),
+            Columns<tbl_IngestedMessage>(m => m.Body),
             m => m.Id, scope.Terms, ct);
 
         var idList = ids.ToList();
@@ -371,17 +412,17 @@ public class SearchDAL : ISearchDAL
         // the caption a person gave it. The first is the one WhatsApp cannot do.
         var byText = await CandidatesAsync(
             _context.tbl_ArtifactTexts.AsNoTracking().Where(x => x.ProjectId != null && pids.Contains(x.ProjectId) && x.Status == ArtifactTextStatus.Done),
-            t => x => x.Text != null && x.Text.Contains(t),
+            Columns<tbl_ArtifactText>(x => x.Text),
             x => x.ArtifactId!, scope.Terms, ct);
 
         var byName = await CandidatesAsync(
             _context.tbl_Artifacts.AsNoTracking().Where(a => a.ProjectId != null && pids.Contains(a.ProjectId)),
-            t => a => a.OriginalFileName != null && a.OriginalFileName.Contains(t),
+            Columns<tbl_Artifact>(a => a.OriginalFileName),
             a => a.Id, scope.Terms, ct);
 
         var byCaption = await CandidatesAsync(
             _context.tbl_ArtifactRefs.AsNoTracking().Where(r => r.ProjectId != null && pids.Contains(r.ProjectId)),
-            t => r => r.Caption != null && r.Caption.Contains(t),
+            Columns<tbl_ArtifactRef>(r => r.Caption),
             r => r.ArtifactId!, scope.Terms, ct);
 
         var ids = byText.Union(byName).Union(byCaption).Where(id => !scope.ArchiveArtifacts.Contains(id)).ToList();
@@ -559,7 +600,7 @@ public class SearchDAL : ISearchDAL
 
         var ids = await CandidatesAsync(
             _context.tbl_ProgressUpdates.AsNoTracking().Where(u => u.ProjectId != null && pids.Contains(u.ProjectId)),
-            t => u => u.Description != null && u.Description.Contains(t),
+            Columns<tbl_ProgressUpdate>(u => u.Description),
             u => u.Id, scope.Terms, ct);
 
         var idList = ids.ToList();
@@ -630,7 +671,7 @@ public class SearchDAL : ISearchDAL
 
         var ids = await CandidatesAsync(
             _context.tbl_Stages.AsNoTracking().Where(s => s.ProjectId != null && pids.Contains(s.ProjectId)),
-            t => s => (s.StageName != null && s.StageName.Contains(t)) || (s.Description != null && s.Description.Contains(t)),
+            Columns<tbl_Stage>(s => s.StageName, s => s.Description),
             s => s.Id, scope.Terms, ct);
         var idList = ids.ToList();
         var stages = await _context.tbl_Stages.AsNoTracking().Where(s => idList.Contains(s.Id)).ToListAsync(ct);
@@ -911,24 +952,6 @@ public class SearchDAL : ISearchDAL
                         && t.Status != ArtifactTextStatus.EngineUnavailable
                         && t.Status != ArtifactTextStatus.Failed))
             .CountAsync(ct);
-    }
-
-    private async Task<bool> FullTextInstalledAsync(CancellationToken ct)
-    {
-        if (_fullTextInstalled is { } known) return known;
-        try
-        {
-            var v = await _context.Database
-                .SqlQueryRaw<int>("SELECT CAST(ISNULL(SERVERPROPERTY('IsFullTextInstalled'), 0) AS int) AS [Value]")
-                .FirstAsync(ct);
-            _fullTextInstalled = v == 1;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Could not ask the server whether full-text search is installed");
-            _fullTextInstalled = false;
-        }
-        return _fullTextInstalled.Value;
     }
 
     // ═════════════════════════════════════════════════════════════════════

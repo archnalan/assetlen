@@ -61,10 +61,22 @@ document that gets forwarded, printed, and pulled in a dispute.
    photo, capture, release — that open the original.
 5. **Issued means frozen.** An issued report is an immutable snapshot with a permanent
    address. The next report shows what changed since this one; it never rewrites it.
-6. **No Gantt, no critical path** ([plan.md](plan.md) *Explicitly not building*). Peter thinks
-   in stages. The schedule is shown as stage cards with dates and **one** project deadline
-   strip — no dependency arrows, no network.
-7. **Sides and seats.** The client-side report never contains Crew-channel material. Money
+6. **Holds, not a network** (amended 2026-09-29 — see §4.4). Peter thinks in stages, so there
+   is still no project-wide Gantt, no network of arrows and no computed critical path. What
+   *is* drawn is the pattern the contractor reports from site: an activity **waits** while
+   something is put in place, then **works** in a day or three. A hold is a wait placed in front
+   of the activities a person chose; it pushes those, and only those. The one project deadline
+   strip stays.
+7. **About the work, not the people** (owner decision, 2026-09-29). The report names roles —
+   *client*, *contractor*, *engineer*, *aluminium team* — never a person's name, in every
+   section: decisions, blockers, quotes, footers and the drafting model's output. Accountability
+   still lives in the app (the register keeps who agreed what); the report is the document that
+   gets forwarded and printed, and it describes the work.
+8. **Slides, not screens** (owner decision, 2026-09-29). The report reads as a deck: one claim
+   per 16:9 sheet, a headline that states it, one piece of evidence under it — usually a site
+   photo — and generous space. It prints one sheet per page to PDF and keeps a viewing link.
+   Reference: the hand-built R0 deck of 29 Sep.
+9. **Sides and seats.** The client-side report never contains Crew-channel material. Money
    sections render only for `CanSeeMoney`; a reader without it gets no money section at all —
    absent, not refused. Support seats do not receive the report.
 
@@ -138,7 +150,8 @@ building them.
 | **Deadline strip** | The project completion commitment and its history | The only use of `--al-blueprint`. Markers: ● set, ◆ restated, ▲ today, ■ promised, × lapsed short-horizon promise, ○ contractor's revised date, ◌ pace forecast. One axis, no rows. |
 | **Progress ring** | Stage completion % | Stroke in `--al-stage-accent` at the stage's phase; track in `--al-border`. |
 | **Sparkline** | Progress readings over time | 64×16, no axes. A flat tail longer than the stall threshold gets a `--al-warning` segment and the word **Stalled**. |
-| **Plan/forecast tick** | Planned end vs forecast end on a stage card | Two dots on a hairline; distance in days as text. Not a bar — no Gantt by the back door. |
+| **Plan/forecast tick** | Planned end vs forecast end on a stage card | Two dots on a hairline; distance in days as text. |
+| **Hold lanes** | Wait vs work, and what a hold pushes | See §4.4. Hatched `--al-warning` wait segment, solid `--al-stage-accent` work segment, dashed ghost at the original position, a `+n d` push chip. Rows grouped under their stage — never one project-wide network. |
 | **Money bar** | funded → received → released → carried | Stacked hairline segments using existing `.al-meter__seg--*`. |
 | **Before/after pair** | Change at one vantage point | Two 3/2 frames side by side with dates; the one visual the 17-photo dump proved is missing. |
 | **Source chip** | Provenance | Icon by kind (message, photo, capture, release, document) + date. Tap opens the original. |
@@ -207,13 +220,102 @@ Peter reads abroad, on a phone, and the conversation stays in WhatsApp (D3). So:
 |---|---|---|
 | **Overall progress** | Budget-weighted mean of leaf-stage completion; stage count weighting when budgets are missing — and the page says which. | "nn% built · weighted by budget" |
 | **Stall** | Stage `InProgress`, latest reading unchanged for ≥ 10 days (configurable) while the thread still says it continues | "Stalled 26 days at 90%" |
-| **Pace forecast** | Per open stage: pace from readings in the last 21 days; forecast end = today + remaining ÷ pace. Zero pace → *no forecast*, never a guess. Project forecast = the latest open-stage forecast. | ◌ on the strip, with *"from pace since 7 Sep"* |
+| **Pace forecast** | Superseded by the wait + work forecast in §4.4 wherever an activity has a work duration. Pace (readings over the last 21 days) remains only as the fallback for long, steady trades with no stated duration — plaster, blockwork — and is labelled as such. | ◌ on the strip, with *"from waits and work"* or *"from pace since 7 Sep"* |
 | **Contractor's date** | The latest `Date` commitment from the delivery side | ○ on the strip, beside ◌ — two answers to "how long", side by side |
 | **Lapsed promise** | A `Date` commitment whose due date passed with its deliverable not done | × on the strip; counted on the headline card |
 | **Days open** | Today − blocker raised | Blocker lanes |
 
 A forecast is never presented as a promise. When pace and the contractor's date disagree,
 both are shown and neither wins — the gap between them is the finding.
+
+### 4.4 Holds — the wait before the work (added 2026-09-29)
+
+**The pattern.** Nalan, from site: an activity can sit for weeks while things get in place —
+material, a third-party team, money, a decision, the machine, the weather, the screed drying —
+and once the thing holding it is dealt with, it completes in a day or two. Epoxy waits 20-odd
+days for the screed and then goes down in three. A pace forecast reads that as "zero progress,
+no forecast" and then, after one busy day, as "done tomorrow". Both are wrong. The honest model
+has two parts, and the report draws both.
+
+**The objects.**
+
+| Object | Holds | Notes |
+|---|---|---|
+| **Activity** — a deliverable with `WorkDays` (the burst) and an optional `EarliestStart` | How long the doing takes once it starts | A stated duration ("2 days to level") is work, not wait. |
+| **Hold** — `tbl_Hold { ProjectId, StageId?, Title, Cause, OwnerMemberId?, OwnerPartyName?, ExpectedDays, StartsAfter (date or another hold/activity), Status (Open\|Cleared), ClearedAt?, Source }` | The wait: its cause, who owns it, how long it is expected to last | `Cause` ∈ Curing / Material / ThirdPartyTeam / Money / ClientDecision / Machinery / Weather / Power / Design / Other. A P4 blocker flag can be promoted to a hold. |
+| **Push** — `tbl_HoldPush { HoldId, TargetType (Deliverable\|Hold), TargetId }` | Which activities this hold pushes | **Chosen by a person.** Nothing is inferred and nothing propagates beyond what was chosen — one level, like sub-projects. A hold may push another hold (screed drying → epoxy team booking), which is as deep as a chain goes. |
+| **Project calendar** — rest days (the Sabbath), public holidays, a rainy-season flag per month | Which days count | Curing and drying run on calendar days; work runs on working days. |
+
+**The forecast.** For each activity: *start = the later of its earliest start and the clear date
+of every hold that pushes it; finish = start + WorkDays working days.* An open hold's clear date
+is `today + max(0, ExpectedDays − days already held)`, and once a hold outlives its expected
+days it is extended by the cause's measured overrun rather than frozen at today — a hold that is
+already late is the likeliest to stay late. Each cause (and each owner party) carries a
+**measured lag** from this project's own history: expected vs actual days on cleared holds, and
+promised vs delivered dates extracted by P5. That gives two dates per activity and for the
+project: **P50** (as likely early as late) and **P80** (four times in five). Weather-exposed
+activities in a rainy month take the rainy-month factor. The contractor's own date sits beside
+both, as before.
+
+**The picture — the part that must be beautiful.** One component, `HoldLanes.razor`, used on the
+stage page, on the works report (§3 ④ and ⑨) and on the projection view:
+
+```
+ Epoxy · main house              today▼                         promised■
+ ┊ screed drying (curing, 20 d) ░░░░░░░░░░░░░░░░░░░░┐
+ ┊                                                  └▶███ apply 3 d          +20 d
+ Boundary wall
+ ┊ septic slab 3 d ███─┐
+ ┊ levelling 2 d       └▶██─┐
+ ┊ wall 7 d                 └▶███████                                         +5 d
+ ┊ ╌╌╌╌╌╌╌ (ghost: where the wall sat before the holds) ╌╌╌╌╌╌╌
+```
+
+- **Wait** is a hatched `--al-warning` segment labelled with cause and owner
+  (*"Aluminium team · fabrication"*). **Work** is a solid segment in the stage accent, labelled
+  with its days. The eye should read at once that two days of work are being pushed by three
+  days of preparation.
+- A **ghost** outline stays where the activity sat before the hold; a `+n d` chip states the push.
+- Adding, extending or clearing a hold **animates the push**: the pushed segments slide
+  (`--al-transition-slow`, `--al-ease`) and the ghost fades in behind them. Clearing a hold
+  snaps the work segment left to today.
+- The P50 / P80 range is a soft band behind the finish, not a second bar.
+- **Wait vs work** headline: a single stacked hairline per stage and for the project — *"Held
+  41 days · worked 12"* — the number that explains a late project without blaming anyone.
+- Rows are grouped under their stage, with connectors only between a hold and what it pushes.
+  There is no project-wide canvas of arrows; Peter still reads stage by stage.
+- At 360 px each activity is a card: the wait/work strip across its width, dates beneath, the
+  hold's cause and owner as a chip. Inline SVG, tokens only, prints to A4.
+
+**Adding a hold** is one sheet from the stage page, the register's blocker list, or a gap on the
+lanes themselves: cause, owner, expected days (pre-filled from the cause's measured lag), and
+tick-boxes for the activities it pushes. Extraction (P5) proposes holds from the thread —
+*"we are waiting for…"*, *"once the … arrive"*, *"the team didn't show"* — into the same review
+queue; accepted, they appear on the lanes.
+
+**Calibration — measured on the real thread (2026-09-29).** 44 dated promise → delivery pairs and
+14 closed open-ended waits, 18 Sep 2025 – 28 Sep 2026 (analysis kept outside the repo). The
+pattern is real but **only for gated work**; own-crew wet trades behave differently. The
+forecaster's defaults, until the project's own cleared holds replace them:
+
+| Rule | Default |
+|---|---|
+| **Forecast the gate, not the announced date.** Start = later of predecessor finish and every hold clearing. | Hold lag by cause/state: third party **not yet confirmed** ~3 wk (tail 7–16 wk) · third party **confirmed "tomorrow"** 0–2 d · client decision, open-ended ~4–6 wk · funding 2–5 d (tail ~2 wk), work starts ~3–4 d after money lands · machinery ~1 d · authority ~4 wk · curing/drying = stated calendar days, +30 % chance of 3–7 d in humid months |
+| **Trust depends on the horizon.** | A "today/tomorrow" from the delivery side: P50 +0, P80 +2 d (+1–2 d if it lands on the rest day). A date a week or more out, or project-level: little signal — forecast from the holds, never from the date. An *"on track"* reassurance is **zero evidence**. |
+| **After start, the work model depends on the trade.** | Third-party installs, casts, fix-ups: stated duration ×1.0–1.5. Own-crew wet trades (formwork, plaster, screed, paint, stonework, fabrication): stated remaining ×2 at P50, ×3 at P80. *"90 % done"* = 1–2 more weeks. |
+| **Stalls re-draw; a team is a queue.** | A hold with no activity for > 7 d re-draws its lag from the tail rather than counting down; *"following up"* is not progress. Items owned by the **same third party** (e.g. one aluminium team's guest-wing windows, missing units and doors) run in series, not in parallel. |
+| **Calendar and absences.** | 6-day week with the rest day, public holidays, a holiday break; rain loss on outdoor work from climate data (the record is mostly dry-season); 1–2 wk gaps for contractor-absence events. |
+
+The lanes must make the two families visibly different: a **gated** activity is a long hatched
+wait then a short solid burst; an **own-crew trade** is a short or no wait then a long solid run
+with its ×2 overrun drawn as a lighter extension. Sample-size caveats (few long-horizon pairs,
+seven duration overruns) are stated on the page wherever a default, not the project's own
+history, sets a date.
+
+**Law 0.** Holds and their pushes can be entered by either side and are proposed from the
+thread, so the projection still moves when the contractor is silent. Clearing a hold is
+attributable and dated, and a cleared hold is never deleted — the waits are the record of why
+the project took as long as it did.
 
 ---
 

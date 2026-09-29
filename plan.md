@@ -121,6 +121,7 @@ must work with the contractor silent.
 | P9 | The contractor tier | 3 | **Built** — 90/90, and the P7 and report suites re-run with the contractor never signing in; §11 test 2 awaits the contractor and Peter |
 | R | **Works Report** — track across P3–P7, slices R0–R5 ([works-report.md](works-report.md)) | 1 | **R1–R5 built** — 117/117; R0 (Peter reads it) and live drafting await a human and a key; see *Works Report* below |
 | — | **Full test pass** after P4–P9 and the report (2026-09-29) | — | **Done** — chain green at 900/900 with a new Law 0 suite; six UI/seat faults found in the browser and fixed; see *Full test pass* below |
+| — | **PostgreSQL** — the switch from SQL Server (2026-09-29) | — | **Done** — one baseline migration, Hangfire on Postgres, full-text + pg_trgm search; chain green at 906/906 from an empty database, twice, the second time with the SQL Server code removed; browser walk clean; an adversarial review fixed three Postgres-only defects (user search, inbound-address case, NUL characters) and an older inverted keyword filter, added `e2e-postgres.sh` and rewrote `remote-db-setup.md` for Postgres — **919/919** from an empty database; see *Postgres* below |
 
 > **Added 2026-09-28.** Peter asked for *"a full works report … do you need more time and
 > how long?"* two days before his 30 Sep completion date. The report is the §8 ship test in
@@ -1285,6 +1286,114 @@ Development.
   read it. Decide whether an unattended cutoff should hold notes back.
 - The bench can read its side's raw thread through the API. This is carried over from the full test pass.
 
+### Postgres — the switch from SQL Server *(2026-09-29)*
+
+The database is PostgreSQL 17 (`assetlen_dev` locally). The rules are in CLAUDE.md §5.1.1. No data was
+carried over: the demo seed rebuilds the demo. The SQL Server database was left as it was, for the user to retire.
+
+**What moved.**
+- **`assetlen.Postgres/`** holds the migrations, with **one baseline** (`Pg_Baseline`) generated from the final
+  model. The SQL Server history was not ported. Npgsql EF Core 10.0.0. Postgres is the only provider (see
+  *Proven, and SQL Server removed* below).
+- **Hangfire** moved 1.7.33 → 1.8.25 for **Hangfire.PostgreSql 1.20.13** (the 1.20 line needs Core 1.8). Its
+  tables are in a `hangfire` schema, created by `EnsureHangfireSchema` after EF migrates. The `pull-changes`
+  recurring job used to register before the schema existed, which on a fresh database spun on a missing
+  `hangfire.lock` for about 17 s. It now registers after the schema, with the other recurring jobs.
+- **Raw SQL removed.** The dev seed backdates with `ExecuteUpdateAsync`, `LogsDAL.SearchLogs` is LINQ, the
+  `SERVERPROPERTY` full-text probe is gone, and `PushDAL`'s `DateDiffMillisecond` is computed in memory.
+  `NEWID()` → `gen_random_uuid()::text`, and the `[ClientCaptureId]` index filter is written in Postgres quoting.
+- **`ConfigDAL` backup / restore / schema script answer 501.** They are SQL Server's
+  (`BACKUP DATABASE`, `SINGLE_USER`, T-SQL scripts). They belong to the legacy desktop mode, and `pg_dump` from
+  inside the API process would need the client binaries on the server's path. **Back up with `pg_dump` outside
+  the app.** A scheduled `pg_dump` is still to do for any real deployment.
+- **Dates.** All columns are `timestamptz`. A model-wide converter labels values UTC on write without shifting
+  them and returns them unlabelled, so the API's JSON is unchanged. The PowerShell `[datetime]` checks in the
+  suites would have moved by three hours on a `Z` suffix. Wall-clock values (message sent time, shot time,
+  report as-at, the brief's day) are carried unshifted. One column type keeps SQL comparisons independent of
+  the session TimeZone. The one persisted `DateTime.Now` instant was `tbl_WorksReport.DeliveredAt`, now `UtcNow`.
+  The deliberate wall-clock `DateTime.Now` uses (the brief's day, the cutoff, the report's as-at) are unchanged.
+- **Case.** Everything is folded with `ToLower()` on both sides: login by email or username, register and
+  username checks, invites by email, inbound-mail sender, the admin and user keyword filters, and the thread's
+  `Search`. There is no citext and no nondeterministic collation, because the latter breaks `LIKE` before PG 18.
+- **Search** runs `ILIKE`, then a `'simple'` `tsvector @@ tsquery` prefix match, then `pg_trgm`
+  `word_similarity ≥ 0.6` for terms of six or more letters. Five trigram GIN indexes back it: message body,
+  OCR text, commitment title and body, diary entry. `SearchTerms` scores with the same fuzzy rule. The server
+  reports `backend: "full-text"`. `e2e-p6-search.sh` gained the assertion **ZENTAHA finds the ZENTARA receipt**.
+- **Anonymised seed.** The demo project is now *Riverstone Residence*, *Riverstone Heights*, replacing the real
+  town and district. `e2e-ux-personas.sh` follows it.
+
+**The chain on Postgres, from an empty database: 906 passed, 0 failed, 0 skipped** (the 905 held on SQL
+Server, plus the ZENTAHA assertion). The first run was 877/0 across
+eleven suites. `e2e-p5-money-and-staging.sh` stopped with FATAL because it assumed an earlier run had seeded
+the demo. It now calls the idempotent `Dev/SeedDemo` itself, like the P4 and P8 suites.
+
+**Proven, and SQL Server removed** *(same day, second pass)*.
+- **A clean machine works.** `assetlen_dev` was dropped and recreated empty, owned by the app login, with no
+  superuser step. On boot the API applied `Pg_Baseline`, created `pg_trgm` itself (a trusted extension),
+  built the `hangfire` schema, and the suites seeded the rest. The chain: **906 passed, 0 failed, 0 skipped**.
+  No suite skipped anything, so no skip was introduced that SQL Server did not have.
+- **Browser walk** (playwright-core, headless Chromium). Peter, Dinah, Nalan and Musa at 360 / 768 / 1280, light
+  and dark, on 14 pages: home, overview, brief, register, money, search, history, the live report, an issued
+  report, markup on a client file and on a crew file, the Site Diary, capture and drawings. That is 336 page
+  loads. There were **no console errors**, no horizontal overflow and no error alerts, and every stylesheet
+  (`app.css`, `assetlen.Client.styles.css`, the scoped bundle) came back 200. Each persona's tabs match the SQL
+  Server walk exactly; only the renamed project title changed.
+- **The actions, done through the pages.** Musa captured a frame from the capture page (`Progress/Capture` 200).
+  Peter issued a report from the live report. The live and issued reports printed to PDF with no navigation
+  showing and a white page in both colour schemes. Peter circled the vendor on a receipt and saved a layer
+  (`Annotations/Save` 200), and Nalan saw it attributed to Peter. **Searching "zentaha" found the ZENTARA
+  receipt** for the demo Peter, on a photo he forwarded into the demo project, and for the P6 suite's buyer,
+  at 360 and 1280 in both colour schemes.
+- **Removed:** the `assetlen.SqlServer` project and folder, and the empty `assetlen.Sqlite` folder (bin/obj only).
+  Also gone: `Microsoft.EntityFrameworkCore.SqlServer` and `.Sqlite` from Service and API,
+  `Hangfire.SqlServer`, and `System.Data.SqlClient` from Shared. `EntityFramework.DynamicFilters` went too: an
+  EF6 package nothing used, which pulled in EF6 and `System.Data.SqlClient` 4.7.0, a version with a
+  high-severity advisory. On the code side, the provider switch and the SQL Server branches are gone from
+  `Program.cs`, the model's `IsSqlServer` / `IsSqlite` branches from `AssetlenDbContext`, the T-SQL backup /
+  restore and `ExecuteSqlRaw` script path from `ConfigDAL` (it now answers 501 outright), and a stray
+  `using Azure.Core` that had only compiled through the SQL client. `dotnet ef migrations
+  has-pending-model-changes` reports no change, so the baseline still describes the model exactly.
+- **Clean rebuild** of the whole solution with `--no-incremental`, after wiping bin/obj: API, client, and the
+  MAUI Android (APK) and Windows heads. **0 errors.** The API output no longer carries any SQL Server or SQLite
+  assembly. The chain was then **re-run from an empty database: 906 passed, 0 failed, 0 skipped**. A browser
+  check as Peter and Musa afterwards was also clean.
+- **Startup log** no longer prints the database password. The connection string is logged with
+  `Password` stripped. The gitignored `appsettings.json` keeps only `ConnectionStrings:Postgres`.
+- **Left as found:** on an empty database EF logs one `ERR Failed executing DbCommand` while it looks for
+  `__EFMigrationsHistory` before creating it. It is harmless and happens once.
+
+**Adversarial review of the move** *(same day, third pass)*. The whole diff was read against the running API,
+and every GET in the Swagger document (98) was called as Peter and as the tenant admin. Three defects that only
+Postgres has, and one older one beside them, all confirmed live before they were fixed:
+- **User search 500'd.** `SearchUsersForComboBoxes` and `SearchForEmployees` filtered on
+  `FirstName.ToString() == keywords`. SQL Server translated that; Npgsql cannot, so both lists threw. They now
+  fold first names like every other field. The same pass found `SearchUserByKeywords` testing
+  `IsNullOrEmpty` the wrong way round — a search for anyone returned everyone — and fixed it.
+- **A capitalised inbound address bounced.** `in+<key>@…` resolved only in the exact case it was issued in;
+  the old CI collation had hidden that. The key is lower-cased on the way in.
+- **One NUL character failed a whole save.** Postgres `text` cannot hold U+0000 (SQL Server could), and it comes
+  in with pasted PDF text, OCR output and forwarded mail. `SaveChanges` now strips it from every string.
+- **Hangfire's jobs** were checked in `hangfire.job` rather than assumed: the cutoff, milestone, OCR and poster
+  jobs all succeed on Postgres. The job logs carry no session-TimeZone-dependent SQL (`now()`, `date_trunc`,
+  `::timestamp`) anywhere in a full chain.
+- **`tools/e2e-postgres.sh`** (13 assertions, last in `e2e-all.sh`) pins each of these, plus mixed-case sign-in,
+  the thread filter's case, a row written now reading back as now, and the cutoff and milestone runs called
+  exactly as their jobs call them.
+- **Correction to the second pass:** the `SyncDisabledException` failures are not `pull-changes` (it succeeds).
+  They are `SyncDAL.ProcessSyncJobAsync`, which the legacy sync middleware enqueues for **every write request** —
+  about 380 per chain — and whose stored arguments carry the request's headers (bearer tokens) and body (a
+  registration's password included). It behaved the same on SQL Server. Not fixed here: turning the middleware
+  off changes the desktop sync mode; it is flagged for a decision, and the backup excludes the `hangfire` schema.
+- **`remote-db-setup.md` rewritten for Postgres:** a `postgres:17` container on `assetlen-net` only, admin port
+  `127.0.0.1:5433` (clear of every FRELODY port, loopback-bound because Docker bypasses `ufw`), an init script
+  that makes the app login the database owner (so it can create `pg_trgm` itself), one connection string,
+  `TZ` on the API container, a nightly `pg_dump -Fc` plus an artifact mirror with 14-day retention, a restore
+  procedure, and a restore drill in the verification steps.
+- Still open: the in-app backup endpoints answer 501 by design; a real deployment's off-box backup target is the
+  user's choice.
+
+**The chain after the review, from an empty database: 919 passed, 0 failed, 0 skipped** (906 + the 13 new).
+
 ---
 
 ## Explicitly not building
@@ -1294,7 +1403,7 @@ Development.
 | Holding or moving money / escrow | §8 — funds route through three agents, two banks and a third party's account |
 | **Any in-app informal channel** | §8 — cut harder under D3. WhatsApp keeps the conversation; we ingest it |
 | **Voice notes as a launch item** | §8 — parity aimed at a contractor who may never log in. Tier 3 |
-| Gantt charts and critical path (**retire `TimelineChart`**) | §8 — *"Peter thinks in stages, not networks"* |
+| Project-wide Gantt canvas, dependency networks, computed critical path (**retire `TimelineChart`**) | §8 — *"Peter thinks in stages, not networks"*. **Narrowed 2026-09-29:** holds are in — see below |
 | Bills of quantities | §8 — his own BoQ was cut down twice for being too heavy |
 | Accounting integrations | §8 — not the bottleneck |
 | Roles beyond developer / representative / mediator / delivery | §8 — permissions complexity, no user value |
@@ -1306,6 +1415,12 @@ Development.
 | Previously cut | Now | Why |
 |---|---|---|
 | Multi-project portfolio dashboard | **Peter's home screen (P7)** | He pays, and he runs four workstreams. One project must work first; it must not be the only thing that ever works. |
+
+### Narrowed on 2026-09-29
+
+| Previously cut | Now | Why |
+|---|---|---|
+| Gantt charts and critical path | **Holds** ([works-report.md](works-report.md) §4.4): a wait placed in front of the activities a person chose, pushing only those, drawn as wait/work lanes grouped by stage, with a P50/P80 projection. Still cut: a project-wide network, inferred dependencies, a computed critical path. | The contractor reports the site's real rhythm as *wait for weeks, then finish in a day or two*. A pace forecast cannot represent it, and 30 Sep was missed in exactly that way. Peter's question — *"do you need more time and how long?"* — needs the waits made visible. |
 
 ---
 

@@ -11,14 +11,6 @@ using System.Globalization;
 
 namespace assetlen.Service.DataAccess;
 
-public static class Converters
-{
-    public static readonly ValueConverter<decimal, string> DecimalToStringConverter =
-        new ValueConverter<decimal, string>(
-            v => v.ToString(CultureInfo.InvariantCulture),
-            v => decimal.Parse(v, CultureInfo.InvariantCulture));
-}
-
 public partial class AssetlenDbContext : IdentityDbContext<AppUser>
 {
     private readonly ITenantProvider _tenantProvider;
@@ -593,7 +585,8 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         {
             // The offline queue retries until it hears back; the second arrival is the first one.
             entity.HasIndex(e => new { e.ProjectId, e.ClientCaptureId }).IsUnique()
-                .HasFilter("[ClientCaptureId] IS NOT NULL").HasDatabaseName("UX_ProgressUpdate_Project_ClientCapture");
+                .HasFilter("\"ClientCaptureId\" IS NOT NULL")
+                .HasDatabaseName("UX_ProgressUpdate_Project_ClientCapture");
             entity.HasIndex(e => e.DeliverableId).HasDatabaseName("IX_ProgressUpdate_DeliverableId");
             entity.HasOne(e => e.Deliverable).WithMany().HasForeignKey(e => e.DeliverableId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.VoiceArtifact).WithMany().HasForeignKey(e => e.VoiceArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
@@ -648,10 +641,7 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         modelBuilder.Entity<tbl_Tenant>(entity =>
         {
             entity.Property(e => e.TenantId).HasMaxLength(36).IsRequired();
-            if (Database.IsSqlServer())
-            {
-                entity.Property(e => e.TenantId).HasDefaultValueSql("NEWID()");
-            }
+            entity.Property(e => e.TenantId).HasDefaultValueSql("gen_random_uuid()::text");
         });
 
         modelBuilder.Entity<tbl_RefreshToken>()
@@ -722,39 +712,50 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             }
         }
 
-        if (Database.IsSqlServer())
-        {
-            modelBuilder.UseCollation("SQL_Latin1_General_CP1_CI_AS");
-        }
+        ConfigurePostgres(modelBuilder);
 
         modelBuilder.Entity<IdentityUserLogin<string>>().HasKey(x => new { x.LoginProvider, x.ProviderKey });
         modelBuilder.Entity<IdentityUserRole<string>>().HasKey(x => new { x.UserId, x.RoleId });
         modelBuilder.Entity<IdentityUserToken<string>>().HasKey(x => new { x.UserId, x.LoginProvider, x.Name });
 
-        // SQLite-specific configurations
-        if (Database.IsSqlite())
-        {
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-            {
-                foreach (var property in entityType.GetProperties())
-                {
-                    if (property.ClrType == typeof(decimal) || property.ClrType == typeof(decimal?))
-                    {
-                        property.SetColumnType("TEXT");
-                        property.SetValueConverter(Converters.DecimalToStringConverter);
-                    }
-                    else if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
-                    {
-                        property.SetColumnType("TEXT");
-                    }
-                }
-            }
-        }
-
         OnModelCreatingPartial(modelBuilder);
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+
+    /// <summary>
+    /// Every DateTime is <c>timestamptz</c> and reaches Postgres labelled UTC with
+    /// its numbers untouched; it comes back unlabelled, as it did from datetime2.
+    /// Instants are written as UtcNow; the project's wall-clock values (a message's
+    /// sent time, a photo's shot time, a report's as-at day) are carried unshifted.
+    /// One column type means no comparison in SQL ever depends on the session
+    /// TimeZone (CLAUDE.md §5.1.1).
+    /// </summary>
+    private static readonly ValueConverter<DateTime, DateTime> PostgresDateTime = new(
+        v => DateTime.SpecifyKind(v, DateTimeKind.Utc),
+        v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified));
+
+    private static void ConfigurePostgres(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            foreach (var property in entityType.GetProperties())
+                if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                    property.SetValueConverter(PostgresDateTime);
+
+        // Search (SearchDAL) asks ILIKE and word_similarity of these columns; a
+        // trigram GIN index serves both, so an OCR misread still finds its receipt.
+        modelBuilder.HasPostgresExtension("pg_trgm");
+        modelBuilder.Entity<tbl_IngestedMessage>().HasIndex(e => e.Body)
+            .HasMethod("gin").HasOperators("gin_trgm_ops").HasDatabaseName("IX_IngestedMessage_Body_trgm");
+        modelBuilder.Entity<tbl_ArtifactText>().HasIndex(e => e.Text)
+            .HasMethod("gin").HasOperators("gin_trgm_ops").HasDatabaseName("IX_ArtifactText_Text_trgm");
+        modelBuilder.Entity<tbl_Commitment>().HasIndex(e => e.Title)
+            .HasMethod("gin").HasOperators("gin_trgm_ops").HasDatabaseName("IX_Commitment_Title_trgm");
+        modelBuilder.Entity<tbl_Commitment>().HasIndex(e => e.Body)
+            .HasMethod("gin").HasOperators("gin_trgm_ops").HasDatabaseName("IX_Commitment_Body_trgm");
+        modelBuilder.Entity<tbl_ProgressUpdate>().HasIndex(e => e.Description)
+            .HasMethod("gin").HasOperators("gin_trgm_ops").HasDatabaseName("IX_ProgressUpdate_Description_trgm");
+    }
 
     public override int SaveChanges()
     {
@@ -767,11 +768,25 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         UpdateTimestamps();
         return await base.SaveChangesAsync(cancellationToken);
     }
+    /// <summary>
+    /// PostgreSQL <c>text</c> cannot hold U+0000, and it arrives in pasted PDF text,
+    /// OCR output and forwarded mail; one would fail the whole save (CLAUDE.md §5.1.1).
+    /// </summary>
+    private static void StripNulCharacters(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        if (entry.State is not (EntityState.Added or EntityState.Modified)) return;
+        foreach (var p in entry.Properties)
+            if (p.Metadata.ClrType == typeof(string) && p.CurrentValue is string s && s.Contains('\0'))
+                p.CurrentValue = s.Replace("\0", "");
+    }
+
     private void UpdateTimestamps()
     {
         var entries = ChangeTracker.Entries();
         foreach (var entity in entries)
         {
+            StripNulCharacters(entity);
+
             if (entity.State == EntityState.Added)
             {
                 // Set DateTimeCreated if exists

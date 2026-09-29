@@ -19,7 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Newtonsoft.Json;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
@@ -67,8 +67,7 @@ builder.Services.AddControllers()
 //builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(setup =>
 {
-    // Include 'SecurityScheme' to use JWT Authentication
-    var jwtSecurityScheme = new OpenApiSecurityScheme
+    setup.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
     {
         Scheme = "bearer",
         BearerFormat = "JWT",
@@ -76,37 +75,11 @@ builder.Services.AddSwaggerGen(setup =>
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
         Description = "Put **_ONLY_** your JWT Bearer token on the textbox below!",
+    });
 
-        Reference = new OpenApiReference
-        {
-            Id = JwtBearerDefaults.AuthenticationScheme,
-            Type = ReferenceType.SecurityScheme
-        }
-    };
-
-    setup.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
-
-    //// Add TenantId as a SecurityScheme
-    //var tenantIdSecurityScheme = new OpenApiSecurityScheme
-    //{
-    //    Name = "TenantId",
-    //    In = ParameterLocation.Header,
-    //    Type = SecuritySchemeType.ApiKey,
-    //    Description = "Tenant identifier required for each request",
-    //    Reference = new OpenApiReference
-    //    {
-    //        Id = "TenantId",
-    //        Type = ReferenceType.SecurityScheme
-    //    }
-    //};
-
-    //setup.AddSecurityDefinition(tenantIdSecurityScheme.Reference.Id, tenantIdSecurityScheme);
-
-    // Apply JWT and TenantId globally
-    setup.AddSecurityRequirement(new OpenApiSecurityRequirement
+    setup.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
-        { jwtSecurityScheme, Array.Empty<string>() },
-        //{ tenantIdSecurityScheme, Array.Empty<string>() }
+        [new OpenApiSecuritySchemeReference(JwtBearerDefaults.AuthenticationScheme, document)] = []
     });
 });
 

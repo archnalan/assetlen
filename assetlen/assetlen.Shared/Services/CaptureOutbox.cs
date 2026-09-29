@@ -1,5 +1,6 @@
 using assetlen.Shared.Apicalls;
 using assetlen.Shared.Models.Models.RemoteSite;
+using assetlen.Shared.statics;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Refit;

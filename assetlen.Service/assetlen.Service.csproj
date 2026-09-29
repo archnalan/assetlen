@@ -30,6 +30,8 @@
     </PackageReference>
     <PackageReference Include="Npoi.Mapper" Version="6.2.2" />
     <PackageReference Include="Refit" Version="16.3.0" />
+    <!-- Refit 16 moved the reflection request builder into its own package; the Api interfaces still use it. -->
+    <PackageReference Include="Refit.Reflection" Version="16.3.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.4" />
   </ItemGroup>

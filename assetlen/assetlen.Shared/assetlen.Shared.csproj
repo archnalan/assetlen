@@ -23,6 +23,8 @@
          auth flows still parse error payloads with it, so it is now explicit. -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Refit" Version="16.3.0" />
+    <!-- Refit 16 moved the reflection request builder into its own package; the Api interfaces still use it. -->
+    <PackageReference Include="Refit.Reflection" Version="16.3.0" />
     <PackageReference Include="Refit.HttpClientFactory" Version="16.3.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
   </ItemGroup>

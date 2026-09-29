@@ -160,6 +160,14 @@ Write one **only** when it connects the code to the product truth in [assetlen.m
 
 Keep it to **one or two sentences**. A `<summary>` on a public service member is fine and should say what the caller gets, not how. If a comment is needed to explain *what* the code does, rename things instead.
 
+### 4.2.2 Dependencies (upgraded 2026-09-29 — `dotnet list package --vulnerable --include-transitive` is clean)
+
+- **SixLabors.ImageSharp stays on 3.1.x** (3.1.12). 4.x validates a paid license at build and **fails every Release build** (Debug only warns — which is why Debug and the e2e chain stay green while the APK and VS Release break). Do not bump to 4.x without a license file.
+- **Refit 16** needs **`Refit.Reflection`** alongside it (Shared and Service) — the Api interfaces use the reflection request builder, and without it the WASM app dies at boot and server-side SMS fails at first send. `IApiResponse.Error` is now `ApiExceptionBase`; `statics/RefitErrorContent.cs` restores `.Content`.
+- **Swashbuckle 10 / OpenAPI.NET 2:** types are in `Microsoft.OpenApi` (no `.Models`); a security requirement is `document => new OpenApiSecurityRequirement { [new OpenApiSecuritySchemeReference(id, document)] = [] }`.
+- No ASP.NET Core 2.x packages. A server class library takes `<FrameworkReference Include="Microsoft.AspNetCore.App" />`; the Blazor libraries take nothing. `NuGet.CommandLine` is pinned in the API only to override BeaconLib's vulnerable transitive copy.
+- **After any package upgrade, delete `assetlen.Client/obj`.** The WebAssembly (webcil) step skips re-converting a DLL whose output is newer than the package's file date, so the browser keeps loading the old assembly and fails with "Method not found".
+
 ### 4.3 Folder structure — module-based vertical slices
 
 ```

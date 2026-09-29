@@ -196,10 +196,17 @@ public sealed class PushDispatcher : BackgroundService
             _logger.LogWarning(ex, "Could not reload pending pushes");
         }
 
-        await foreach (var id in _queue.ReadAllAsync(stoppingToken))
+        try
         {
-            try { await SendAsync(id, stoppingToken); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Push {DeliveryId} failed", id); }
+            await foreach (var id in _queue.ReadAllAsync(stoppingToken))
+            {
+                try { await SendAsync(id, stoppingToken); }
+                catch (Exception ex) when (!stoppingToken.IsCancellationRequested) { _logger.LogWarning(ex, "Push {DeliveryId} failed", id); }
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Host is stopping; undelivered pushes stay Pending in the table and are reloaded on the next start.
         }
     }
 

@@ -1,0 +1,109 @@
+@*
+    One activity across the plan's calendar (works-report.md §4.4, §4.6): the wait
+    hatched, the making pale, the site work solid in its area's accent, what sets
+    the date outlined, the reserve a band before the handover line. The eye should
+    read at once that a few days of work are being pushed by weeks of waiting.
+*@
+
+<svg class="lanebar @(Activity.Critical ? "lanebar--critical" : "") @(Activity.Done ? "lanebar--done" : "")"
+     viewBox="0 0 @W @H" preserveAspectRatio="none" role="img" aria-label="@Label"
+     style="--lane: @ScheduleText.AreaAccent(Activity.Area)">
+    @if (Span <= 140)
+    {
+        @for (var d = D0; d <= D1; d = d.AddDays(1))
+        {
+            if (d.DayOfWeek == RestDay)
+            {
+                <rect class="lanebar__rest" x="@X(d)" y="0" width="@Unit" height="@H" />
+            }
+        }
+    }
+
+    @if (WorksComplete is { } wc && Handover is { } ho && ho > wc)
+    {
+        <rect class="lanebar__reserve" x="@X(wc.AddDays(1))" y="0" width="@Width(wc.AddDays(1), ho)" height="@H" />
+    }
+
+    @if (Ghost is { } g)
+    {
+        <rect class="lanebar__ghost" x="@X(g.StartBefore)" y="3" width="@Width(g.StartBefore, g.FinishBefore.AddDays(1))" height="14" rx="2"
+              vector-effect="non-scaling-stroke" />
+    }
+
+    @foreach (var w in Activity.Waits.Where(w => w.Start is not null && w.End is not null && w.End >= w.Start))
+    {
+        <rect class="lanebar__hold @(w.Overdue ? "is-overdue" : "") @(w.Cleared ? "is-cleared" : "")"
+              x="@X(w.Start!.Value)" y="4" width="@Width(w.Start!.Value, w.End!.Value.AddDays(1))" height="12" rx="2"
+              style="@Geo(w.Start!.Value, w.End!.Value.AddDays(1))" vector-effect="non-scaling-stroke" />
+    }
+
+    @if (Activity.MakeStart is { } ms && Activity.MakeEnd is { } me)
+    {
+        <rect class="lanebar__make @(Activity.WorkDays == 0 ? "lanebar__make--only" : "")" vector-effect="non-scaling-stroke" x="@X(ms)" y="4" width="@Width(ms, me.AddDays(1))" height="12" rx="2" style="@Geo(ms, me.AddDays(1))" />
+    }
+
+    @if (Activity.WorkDays > 0 || Activity.MakeStart is null)
+    {
+        <rect class="lanebar__work" x="@X(Activity.Start)" y="4" width="@Width(Activity.Start, Activity.Finish.AddDays(1))" height="12" rx="2"
+              style="@Geo(Activity.Start, Activity.Finish.AddDays(1))" vector-effect="non-scaling-stroke" />
+    }
+
+    @if (Activity.Late && Activity.LateSince is { } late)
+    {
+        <rect class="lanebar__late" x="@X(late.AddDays(1))" y="4" width="@Width(late.AddDays(1), Activity.Finish.AddDays(1))" height="12" rx="2" />
+    }
+
+    @if (Activity.CureEnd is { } cure)
+    {
+        <rect class="lanebar__hold lanebar__cure" x="@X(Activity.Finish.AddDays(1))" y="4" width="@Width(Activity.Finish.AddDays(1), cure.AddDays(1))" height="12" rx="2"
+              vector-effect="non-scaling-stroke" />
+    }
+
+    @if (Today >= D0 && Today <= D1)
+    {
+        <line class="lanebar__today" x1="@X(Today)" y1="0" x2="@X(Today)" y2="@H" vector-effect="non-scaling-stroke" />
+    }
+    @if (Handover is { } h && h >= D0 && h <= D1)
+    {
+        <line class="lanebar__handover" x1="@X(h)" y1="0" x2="@X(h)" y2="@H" vector-effect="non-scaling-stroke" />
+    }
+</svg>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleActivityDto Activity { get; set; } = default!;
+    [Parameter, EditorRequired] public DateOnly D0 { get; set; }
+    [Parameter, EditorRequired] public DateOnly D1 { get; set; }
+    [Parameter] public DateOnly Today { get; set; }
+    [Parameter] public DateOnly? Handover { get; set; }
+    [Parameter] public DateOnly? WorksComplete { get; set; }
+    [Parameter] public DayOfWeek RestDay { get; set; } = DayOfWeek.Saturday;
+
+    /// <summary>Where the activity sat before a proposed change — drawn as an outline behind it.</summary>
+    [Parameter] public ActivityMoveDto? Ghost { get; set; }
+
+    private const int Unit = 10;
+    private const int H = 20;
+
+    private int Span => D1.DayNumber - D0.DayNumber + 1;
+    private int W => Span * Unit;
+
+    private int X(DateOnly d) => Math.Clamp(d.DayNumber - D0.DayNumber, 0, Span) * Unit;
+    private int Width(DateOnly from, DateOnly toExclusive) => Math.Max(0, X(toExclusive) - X(from));
+
+    // Geometry as CSS too, so a pushed segment slides rather than jumps (§4.4).
+    private string Geo(DateOnly from, DateOnly toExclusive) => $"x:{X(from)}px;width:{Width(from, toExclusive)}px";
+
+    private string Label
+    {
+        get
+        {
+            var parts = new List<string>();
+            var hold = Activity.Waits.Where(w => w.End is not null).OrderByDescending(w => w.End).FirstOrDefault();
+            if (hold is not null) parts.Add($"waiting until {ScheduleText.Day(hold.End)}");
+            if (Activity.MakeStart is { } ms) parts.Add($"made {ScheduleText.Day(ms)} to {ScheduleText.Day(Activity.MakeEnd)}");
+            parts.Add($"{(Activity.WorkDays > 0 ? "on site" : "done")} {ScheduleText.Day(Activity.Start)} to {ScheduleText.Day(Activity.Finish)}");
+            if (Activity.CureEnd is { } c) parts.Add($"cured {ScheduleText.Day(c)}");
+            return $"{Activity.Title}: {string.Join(", ", parts)}";
+        }
+    }
+}

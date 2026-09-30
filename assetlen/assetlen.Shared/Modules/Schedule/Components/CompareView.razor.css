@@ -1,0 +1,70 @@
+.compare { display: flex; flex-direction: column; gap: var(--al-space-5); }
+
+.compare__table {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--al-border-strong);
+}
+
+.compare__row {
+    display: grid;
+    grid-template-columns: minmax(6rem, 0.8fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--al-space-3);
+    align-items: baseline;
+    padding: var(--al-space-3) 0;
+    border-bottom: 1px solid var(--al-border);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.compare__row--head {
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text-subtle);
+}
+
+.compare__col--b { color: var(--al-accent); }
+
+.compare__b.is-diff { color: var(--al-accent); font-weight: var(--al-weight-semibold); }
+
+.compare__path { font-size: var(--al-font-size-xs); color: var(--al-text-muted); overflow-wrap: anywhere; }
+
+.compare__hint { margin: 0; font-size: var(--al-font-size-sm); color: var(--al-text-muted); }
+
+.compare__moved summary {
+    cursor: pointer;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+}
+
+.compare__moved ul { list-style: none; margin: var(--al-space-2) 0 0; padding: 0; }
+
+.compare__moved li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+    padding: var(--al-space-1) 0;
+    border-bottom: 1px solid var(--al-border);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.compare__team { display: flex; flex-direction: column; gap: var(--al-space-2); }
+
+.compare__teamtitle {
+    margin: 0;
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: var(--al-tracking-wider);
+    text-transform: uppercase;
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text-subtle);
+}
+
+@media (max-width: 480px) {
+    .compare__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .compare__row > :first-child { grid-column: 1 / -1; }
+    .compare__row--head > :first-child { display: none; }
+}

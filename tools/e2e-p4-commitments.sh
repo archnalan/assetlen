@@ -211,7 +211,12 @@ D1ID=$(f "$D1" id); D2ID=$(f "$D2" id)
 eq "the developer adds a line"                        "$(f "$D1" displayOrder)"                       "1"
 eq "the representative adds the next"                 "$(f "$D2" displayOrder)"                       "2"
 eq "the foreman cannot write the checklist"           "$(code POST /Commitments/AddDeliverable "$MUSA" "{\"ProjectId\":\"$PID\",\"StageId\":\"$S1\",\"Title\":\"x\"}")" "404"
-DONE=$(req PUT /Commitments/UpdateDeliverable "$NALAN" "{\"Id\":\"$D2ID\",\"Status\":\"Done\"}")
+eq "…not by setting it Done by hand"                 "$(code PUT /Commitments/UpdateDeliverable "$NALAN" "{\"Id\":\"$D2ID\",\"Status\":\"Done\"}")" "400"
+# No photo, no tick (works-report.md §4.5): the line is knocked off on one photo.
+mkdir -p tools/fixtures/p4
+DONE_JPG_W=$(cygpath -w "$(pwd)/tools/fixtures/p4/done.jpg" 2>/dev/null || echo "tools/fixtures/p4/done.jpg")
+pwsh -NoProfile -Command "Add-Type -AssemblyName System.Drawing; \$b = New-Object System.Drawing.Bitmap 320,200; \$g = [System.Drawing.Graphics]::FromImage(\$b); \$g.Clear([System.Drawing.Color]::FromArgb(190,180,150)); \$b.Save('$DONE_JPG_W', [System.Drawing.Imaging.ImageFormat]::Jpeg); \$g.Dispose(); \$b.Dispose()" >/dev/null
+DONE=$("${CURL[@]}" -X POST "$API/WorkPlan/Tick" -H "Authorization: Bearer $NALAN" -F "deliverableId=$D2ID" -F "photo=@tools/fixtures/p4/done.jpg;type=image/jpeg")
 eq "a line is ticked off"                             "$(f "$DONE" status)"                           "Done"
 ne "…and says when"                                 "$(f "$DONE" completedAt)"                      "null"
 

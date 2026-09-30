@@ -1,0 +1,79 @@
+.lanes { display: flex; flex-direction: column; gap: var(--al-space-5); }
+
+.lanes__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--al-space-2) var(--al-space-4);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.lanes__legend span { display: inline-flex; align-items: center; gap: var(--al-space-2); }
+
+.lanes__sw {
+    display: inline-block;
+    width: 18px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.lanes__sw--hold {
+    background: repeating-linear-gradient(135deg, var(--al-warning) 0 2px, transparent 2px 5px);
+    border: 1px solid var(--al-warning);
+}
+.lanes__sw--make { background: var(--al-stage-7); opacity: 0.32; }
+.lanes__sw--work { background: var(--al-stage-7); }
+.lanes__sw--crit { background: var(--al-stage-7); outline: 2px solid var(--al-accent); outline-offset: 1px; }
+.lanes__sw--res { background: var(--al-blueprint); opacity: 0.2; }
+.lanes__sw--ho { width: 2px; height: 14px; background: var(--al-accent); }
+
+.lanes__group { display: flex; flex-direction: column; gap: var(--al-space-2); }
+
+.lanes__grouphead { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; }
+
+.lanes__count {
+    order: 2;
+    margin-left: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+}
+
+.lanes__axis { display: none; }
+
+.lanes__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    background: var(--al-bg-elevated);
+}
+
+@media (min-width: 1024px) {
+    .lanes__grouphead {
+        grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+        gap: var(--al-space-4);
+        padding: 0 var(--al-space-4);
+    }
+
+    .lanes__rule { margin-left: calc(-1 * var(--al-space-4)); }
+
+    .lanes__axis {
+        display: block;
+        position: relative;
+        height: 1.25rem;
+        overflow: hidden;
+        border-bottom: 1px solid var(--al-border);
+    }
+
+    .lanes__tick {
+        position: absolute;
+        bottom: 2px;
+        font-size: var(--al-font-size-2xs);
+        color: var(--al-text-subtle);
+        white-space: nowrap;
+        padding-left: 3px;
+        border-left: 1px solid var(--al-border-strong);
+        font-variant-numeric: tabular-nums;
+    }
+}

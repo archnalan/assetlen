@@ -1,0 +1,83 @@
+.week { display: flex; flex-direction: column; gap: var(--al-space-5); }
+
+.week__range {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.week__block { display: flex; flex-direction: column; gap: var(--al-space-2); }
+
+.week__title {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    margin: 0;
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: var(--al-tracking-wider);
+    text-transform: uppercase;
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text-subtle);
+}
+
+.week__block--late .week__title { color: var(--al-danger); }
+
+.week__none { margin: 0; font-size: var(--al-font-size-sm); color: var(--al-text-muted); }
+
+.week__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+    background: var(--al-bg-elevated);
+}
+
+.week__more {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: 0 var(--al-space-4) var(--al-space-3) calc(36px + var(--al-space-3) + var(--al-space-4));
+    border-bottom: 1px solid var(--al-border);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-muted);
+}
+
+.week__more:last-child { border-bottom: 0; }
+
+.week__starts { list-style: none; margin: 0; padding: 0; }
+
+.week__start {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--al-space-1) var(--al-space-2);
+    padding: var(--al-space-2) 0;
+    border-top: 1px solid var(--al-border);
+    font-size: var(--al-font-size-sm);
+}
+
+.week__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--al-radius-pill);
+    background: var(--lane);
+}
+
+.week__name { color: var(--al-text); overflow-wrap: anywhere; }
+.week__when { font-size: var(--al-font-size-xs); color: var(--al-text-muted); white-space: nowrap; }
+
+.week__crit {
+    grid-column: 2 / -1;
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-accent);
+}
+
+@media (max-width: 480px) {
+    .week__more { padding-left: var(--al-space-3); }
+}

@@ -1,7 +1,28 @@
 .checklist {
     display: flex;
     flex-direction: column;
-    gap: var(--al-space-3);
+    gap: var(--al-space-4);
+}
+
+.checklist__summary {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+}
+
+.checklist__sep { margin: 0 var(--al-space-2); color: var(--al-text-subtle); }
+
+.checklist__area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-2);
+}
+
+.checklist__count {
+    order: 2;
+    margin-left: var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
 }
 
 .checklist__list {
@@ -11,60 +32,6 @@
     border: 1px solid var(--al-border);
     border-radius: var(--al-radius);
     background: var(--al-bg-elevated);
-}
-
-.checklist__item {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--al-space-3);
-    padding: var(--al-space-3) var(--al-space-4);
-    border-bottom: 1px solid var(--al-border);
-}
-
-.checklist__item:last-child { border-bottom: 0; }
-
-.checklist__tick {
-    display: inline-grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border: 1px solid var(--al-border);
-    border-radius: var(--al-radius-pill);
-    background: var(--al-surface);
-    color: var(--al-text-subtle);
-    cursor: pointer;
-    transition: border-color var(--al-transition-fast) var(--al-ease), color var(--al-transition-fast) var(--al-ease);
-}
-
-button.checklist__tick:hover { border-color: var(--al-border-strong); color: var(--al-text); }
-
-.checklist__item--inprogress .checklist__tick { color: var(--al-warning); }
-.checklist__item--done .checklist__tick { color: var(--al-success); border-color: var(--al-success); }
-
-.checklist__main {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    padding-top: 5px;
-}
-
-.checklist__title {
-    font-size: var(--al-font-size-sm);
-    color: var(--al-text);
-    overflow-wrap: anywhere;
-}
-
-.checklist__item--done .checklist__title { color: var(--al-text-muted); }
-
-.checklist__sub {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--al-space-2);
-    font-size: var(--al-font-size-xs);
-    color: var(--al-text-subtle);
 }
 
 .checklist__add {

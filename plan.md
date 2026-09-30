@@ -122,6 +122,8 @@ must work with the contractor silent.
 | R | **Works Report** — track across P3–P7, slices R0–R5 ([works-report.md](works-report.md)) | 1 | **R1–R5 built** — 117/117; R0 (Peter reads it) and live drafting await a human and a key; see *Works Report* below |
 | — | **Full test pass** after P4–P9 and the report (2026-09-29) | — | **Done** — chain green at 900/900 with a new Law 0 suite; six UI/seat faults found in the browser and fixed; see *Full test pass* below |
 | — | **PostgreSQL** — the switch from SQL Server (2026-09-29) | — | **Done** — one baseline migration, Hangfire on Postgres, full-text + pg_trgm search; chain green at 906/906 from an empty database, twice, the second time with the SQL Server code removed; browser walk clean; an adversarial review fixed three Postgres-only defects (user search, inbound-address case, NUL characters) and an older inverted keyword filter, added `e2e-postgres.sh` and rewrote `remote-db-setup.md` for Postgres — **919/919** from an empty database; see *Postgres* below |
+| — | **Knock-off** — the work plan made real (2026-09-30, works-report.md §4.5) | 1 · 3 | **Built** — tick on one photo, reopen keeps the record, Plan tab, demo plan seeded; chain green at **1003/1003** (84 new: 72, then 12 from its adversarial review), browser walk clean; see *Knock-off* below |
+| — | **Scheduler** — the plan computed, previewed and driven (2026-09-30, works-report.md §4.6) | 1 · 3 | **Built** — engine reproduces the issued 30 Sep plan (22/22 unit tests), preview/save/compare API, Plan tab edit mode with chips, consequence banner, This week, Compare and lanes; the Budget leak closed; chain green at **1093/1093** (90 new), browser walk clean; an adversarial review fixed five faults (unit tests 30/30, chain **1100/1100**); see *Scheduler* below |
 
 > **Added 2026-09-28.** Peter asked for *"a full works report … do you need more time and
 > how long?"* two days before his 30 Sep completion date. The report is the §8 ship test in
@@ -1394,6 +1396,265 @@ Postgres has, and one older one beside them, all confirmed live before they were
 
 **The chain after the review, from an empty database: 919 passed, 0 failed, 0 skipped** (906 + the 13 new).
 
+### Knock-off — the work plan made real *(2026-09-30; works-report.md §4.5)*
+
+The owner, on the 29 Sep plan: *"Assetlen should allow for the knockoff of these items"* — and the issued
+plan's rule is **no photo, no tick**. This is the minimum that makes that plan live in the app. Same day's site
+update folded into the demo: wardrobes are on the plan (Joinery, after the epoxy floor), the terrazzo floors are
+in their final stages (In progress), door opening adjustments take the rest of this week (Tue 29 Sep – Fri 2 Oct).
+
+**Data** (one additive migration, `Knockoff_WorkPlan`). `tbl_Deliverable` gains `PlannedStart`, `PlannedEnd`
+(`timestamptz`, carried as the project's calendar day, never shifted), `WorkDays`, `Trade` (a role — *Masons*,
+*Aluminium team* — never a person), `Area` (*Main house*, *Guest wing*, *External works*, *Handover*) and
+`CompletionArtifactId`; `CompletedAt` / `CompletedById` already existed and `Status {NotStarted, InProgress,
+Done}` stays the state. A new **`tbl_DeliverableEvent`** (Ticked / Reopened, when, by whom, the artifact and the
+Diary entry) is the history. *Why a row and not two columns:* a line can be ticked, reopened and ticked again,
+and two `Reopened*` columns would keep only the last cycle — the history is the record of what was called done
+and then undone, and nothing is ever deleted from it (the same principle as cleared holds, §4.5).
+
+**API** — `WorkPlanController` + `WorkPlanDAL`, Refit `IWorkPlanApi`.
+- `GET WorkPlan/GetPlan?projectId[&stageId]` — the whole plan (the house **and its sub-projects**, each read with
+  its own standing) or one stage's checklist, ordered by planned start; each line stamped with `CanTick` for this
+  reader and its full history. The project-wide plan needs `CanSeePlan`; a stage's checklist stays readable by
+  every reader, as before.
+- `POST WorkPlan/Tick` (multipart: `deliverableId`, exactly one image in `photo`). No photo → **400** *"No photo,
+  no tick"*; a non-image or a second file → 400. A done line re-ticked → 200 with the line as it stands.
+- `PUT WorkPlan/Reopen?deliverableId` → In progress; the Ticked event, its photo, the photo's refs and its Diary
+  entry all stay, and the reopening is dated and attributed. Re-ticking starts a new cycle on a new photo.
+- Planned dates, trade and area ride on `AddDeliverable` / `UpdateDeliverable` — whoever could edit lines before
+  (principals with Write) edits them now; finish-before-start → 400.
+
+**Law 0.** The plan reads with the contractor silent — it is seeded or typed by the principals and the client side reads it whole. Ticking is the delivery side's act, so the tick itself is tier 3; where the mediator sits on the client side, he ticks and the plan still moves.
+
+**Who ticks.** `ProjectAccess.CanTick => CanCapture` — the delivery side: the contractor-side principal, a
+mediator on either side, and bench seats that capture (the foreman, the photographer). The client side reads the
+plan and gets **403** on a tick; a read-only bench seat (Observer) gets 403 and has no Plan tab
+(`CanSeePlan => CanRead && (Principal || mediator || CanTick)`); a stranger gets **404**. Both are mirrored on
+`ProjectAccessDto`; the Plan tab and each line's tick box read them, nothing re-derives them.
+
+**How the photo crosses.** A tick *is* a capture: `WorkPlanDAL` posts the one photo through
+`ProgressDAL.Capture` against the line (artifact store, hash-dedupe, thumbnail, OCR, the mediator's push),
+with a `ClientCaptureId` of `tick:{line}:{cycle}` so a double-tap lands on one entry, and a description that is
+only `Done: {title}` — **nothing the ticker typed exists to travel**. The frame then crosses through
+`IFrameExposure.ExposeAsync` **in the mediator's name** (`AccountableFaceAsync`), exactly as the cutoff crosses
+three frames per piece of work: the Done state is already on the client's plan, and its proof travels with it.
+With no mediator on the project it crosses only if the ticker may expose; otherwise it waits in the Site Diary
+for the cutoff. Client-side readers see `CompletedByName` and each event's name as the accountable face (the old
+`Commitments/GetDeliverables` read now does the same), and a photo only once a Client-channel ref exists.
+- **Decision for the owner:** a remark made *on the tick's entry after it has crossed* is said on the client side,
+  under the mediator's name — the existing rule for any crossed entry (`ProgressDAL.AddComment` files a comment on
+  the channel its entry already stands on). A bench member's own words elsewhere in the Diary never cross, and the
+  suite pins that. If the site should be able to remark privately on a ticked line, the tick's frame would have to
+  cross without its entry — a change to `IFrameExposure`, not made here.
+- **One road to Done** *(closed by the adversarial review below)*: `UpdateDeliverable` refuses `Status: Done`
+  (400, *"No photo, no tick"*) for everyone, and any other status change needs `CanTick` (403 for the client
+  side). Leaving Done by that edit is a reopening and is recorded as one. Lines seeded Done before the plan existed
+  (the retaining wall's) still read *"No photo on record"* (works-report.md §2 rule 3).
+
+**UI.** `/project/{id}/plan`, tab **Plan** (after Overview, absent without `CanSeePlan`). One component,
+`DeliverableChecklist`, renders both the project-wide plan (grouped by area in the order the work reaches it,
+handover last, *"n of m done · works planned to finish …"*) and a stage's checklist on the stage page; every row is
+`PlanLine`, the only place a line is ticked: the tick circle is the camera/file picker (one image, resized to
+2400 px on the phone), a spinner while it uploads, then the thumbnail and the date; *Reopen* asks once. Rows carry
+trade, planned start–finish in tabular numerals (calendar days, not zone-shifted), stage and a status chip
+(*Past finish* when the planned end has gone by). **No personal names anywhere on the plan** — roles only.
+Loading, empty and error states through `StateBlock`; 360/768/1280, light and dark.
+
+**Seed.** Riverstone Residence carries the thirty activities of `plan.mjs` with the dates it computed (six-day week,
+9 Oct off, handover Fri 27 Nov): main-house lines on Doors & windows / Finishes / External works, the nine guest-wing
+lines on the wing's stages (so the project-wide plan proves sub-project inclusion), external works on External
+works, touch-up and snagging under *Handover*. Idempotent on fixed ids (`…13nn`); the retaining wall's older
+checklist is filed under *External works*.
+
+**Tests.** `tools/e2e-knockoff.sh` (in `e2e-all.sh`), 83 assertions (72, then 11 from the review): no photo / not an image / two files refused;
+tick → Done + artifact + thumbnail + date + one Ticked event + one Diary entry; re-tick idempotent (no second
+entry); reopen keeps both events, the photo, its thumbnail for the client, and the entry; re-tick after reopen is a
+new artifact and entry; the developer and the representative read and get 403; the foreman ticks; an Observer seat
+has no plan and gets 403; a stranger 404 on read, tick and reopen; the client side sees the photo under the
+mediator's name with no crew entry and no foreman's name anywhere; planned dates read back as the same calendar
+day at `T00:00:00`; no road to Done but the tick (see the review below); the demo house's plan (30 lines, 9 in the wing,
+wardrobes by the joinery, doors 29 Sep–2 Oct, floors in progress, snagging last, no person named, the foreman
+ticks, the developer does not).
+
+**Chain: 1003 passed, 0 failed, 0 skipped** (919 + 72 at build + 12 from the review: 11 in the knock-off suite, 1 in P4, where one assertion also moved to the tick — see below). **Browser:** headless (playwright-core): the site foreman, at 360 px, ticks *Door opening adjustments* on the demo house with the real 29 Sep door photo from the camera picker — In progress → Done, thumbnail and date; the developer then reads it Done with the thumbnail at 1280, 768 and 360, light and dark, no tick circle, four areas, no personal name on the page, no horizontal scroll; the stage page renders the same rows; no console errors; `app.css`, `assetlen.Client.styles.css` and the scoped bundle all 200. The line was then reopened so the demo matches the site (the door work runs to Fri 2 Oct); its history keeps the tick and the photo.
+
+**Adversarial review (2026-09-30).** Each finding was reproduced against the running API before it was fixed, and each fix has its own assertion:
+- **Ticks with no photo, and ticks from the client side, through the old checklist edit.** `PUT Commitments/UpdateDeliverable {"Status":"Done"}` returned 200 for the developer, the representative and the mediator, with no photo. The developer could also reopen a photo-ticked line by setting it back to Not started. The line's history then showed his act under the **mediator's** name to Dinah, because the client side reads every name as the accountable face. **Fixed:** Done by that route → 400 for everyone; any status change needs `CanTick` → 403 for the client side; leaving Done is recorded as a Reopened event. The P4 assertion *"a line is ticked off"* now ticks through `WorkPlan/Tick` on a photo, and a new P4 assertion pins the 400. This is the one existing assertion that changed, because the rule it encoded was the gap.
+- **A note renamed `.jpg` and sent as `image/jpeg` ticked a line.** The tick trusted the Content-Type header. **Fixed:** `WorkPlanDAL` now reads the file's first bytes and accepts only JPEG, PNG, GIF, WebP, HEIC/HEIF/AVIF (by `ftyp` brand, so an MP4 does not pass) or TIFF.
+- **Two taps at once recorded two ticks.** Parallel ticks each reloaded the line as open and each wrote a Ticked event (one run in three). **Fixed:** Done is now one conditional `ExecuteUpdate` (`WHERE Status <> Done`), and only the write that moves the line records the event. Reopen works the same way.
+- **Checked and held:** other-tenant tokens get 404 on the plan, the stage checklist, a tick, a reopen and the old edit. A JSON body to Tick → 415, and a photo under another field name → 400. The client side cannot fetch a photo that has not crossed (the artifact endpoint's own rule). Event and completion instants are `DateTime.UtcNow`, and seeded planned days are UTC midnight, read back unshifted. The WASM client boots with no console errors, and all three stylesheets return 200. At 360 px, for the foreman, the developer (light) and the representative (dark), there is no horizontal scroll, no personal name, and no camera or Reopen control on the client side.
+- **Seen, not fixed (outside this change):** the project header shows **Budget** to every seat, the foreman included (seen on the Plan tab at 360 px), although a support seat has no `CanSeeMoney`.
+
+**Not built (still §4.5):** dates are typed or seeded, not computed — `MakeDays`, predecessors and holds pushing
+the plan, the marked critical path, the Friday re-issue that re-dates from what was ticked, and the reserve. The
+works report does not yet read ticks; the offline outbox does not queue a tick (a tick needs signal).
+*(The scheduler below builds all of these except the report reading ticks and the offline tick.)*
+
+---
+
+### Scheduler — the plan computed, and how the contractor drives it *(2026-09-30; works-report.md §4.6)*
+
+Tick-off gave each line typed dates. The scheduler makes them **computed** the way the 29–30 Sep plan was built by
+hand: every date follows from days, waits and order on the site calendar, and every change shows its effect on the
+handover before it is saved.
+
+**First, a leak closed.** The project header showed **Budget** to every seat, the foreman included (found by the
+tick-off review). It is now absent — not masked — for a reader without `CanSeeMoney`, and `ProjectsRS/GetProjectById`
+no longer sends it: `TotalBudget` null, released and remaining zero, each stage's budget null. Dashboard and search
+cards carry no budget or release figure for a seat without money. The overview's money gates read the seat on this
+project (`ctx.CanSeeMoney`) rather than the tenant-level `CanSeeFinancials`, and the dashboard's card money reads each
+card's own standing.
+
+**The engine** — `PlanEngine` in `assetlen.Shared.Models/Scheduling/`: pure, deterministic, no EF. A faithful port of
+`plan3.mjs` (activity waits → holds before making → making → waits on the site work only → working days → curing;
+critical path by walking back through the latest-finishing predecessor), plus: **team queues** (lines sharing a
+`TeamKey` run in the contractor's `QueueOrder`), **start-to-start** links ("railing *with* the guest-wing doors" —
+the S1 case `plan3.mjs` crashed on), **pins** (a known finish; an actual start; a tick's day re-dates everything
+downstream), **late items** (not ticked and past their finish: flagged, held at today, successors move — never quietly
+on time), **late waits** extended by the §4.4 calibration per cause (configurable; off in the unit tests, on in the
+app), **reserve** (working days strictly between works complete and the committed handover) and **days over**, and for
+every line how far it can slip before works complete moves (float) and before the handover moves (slip), found by
+re-running the plan — so the figure always agrees with the engine. `PlanComparison` writes the banner's sentences.
+
+**Unit tests first** — `assetlen.Tests` (xUnit, in the solution), **22/22**: fed the 30 Sep inputs, every activity's
+dates match `plan3.mjs` exactly — as explicit predecessors, as a team queue, and with the guest-wing set as made-only —
+works complete **Wed 2 Dec**, **one** reserve day to **Fri 4 Dec**, critical path **mh-dw → mh-louv → alu-make → gw-dw
+→ gw-louv → ho-snag**; S1 (railing and panel with the guest-wing doors, main-house louvres last) → **Sun 6 Dec**, two
+days over; touch-up float 5 / slip 6 (the deck's "absorb"); a known finish, a tick, a late item, a late wait with the
+calibration off and on, a cleared wait, "what must happen by when", determinism, a loop and an unknown wait refused.
+
+**Data** — one additive migration, `Scheduler_Plan`. `tbl_Deliverable` gains `MakeDays`, `CureDays`, `EarliestStart`,
+`TeamKey`, `QueueOrder`, `ActualStart`, `PinnedFinish` and the computed `PlannedMakeStart/End`. **`tbl_PlanWait`** —
+one row per thing a line waits on: kind *activity* (predecessor, finish→start or alongside, optionally the site work
+only), *arrival* (order / delivery / sign-off / purchase / booking / funding; N working days from a day, or by a fixed
+day), or *drying* (N calendar days from a day); cleared and removed waits keep their rows. **`tbl_WorkSchedule`** —
+one per house: rest day, holidays, the late-wait switch, and the last result (works complete, the previous one and when
+it moved, reserve, critical path). The **committed handover is a `Date` commitment** (P4): the head of the chain the
+works report already calls the completion date; a new handover **restates** it, so every statement is kept. Planned
+dates are the last computed result; on a scheduled house `UpdateDeliverable` refuses typed dates and days (400).
+Moving a line to In progress stamps its `ActualStart`.
+
+**API** — on `WorkPlanController`: `GET GetSchedule?projectId[&asAt]` (live, for this reader; `asAt` reads the plan as
+at a day and saves nothing); `POST PreviewSchedule` (a proposed change and optionally a second one → both summaries,
+*"Moves works complete from Wed 2 Dec to Fri 4 Dec. Reserve 1 → 0 days."*, what moves, and the proposed plan in full —
+nothing saved: three untracked copies); `POST SaveSchedule` (applies, refuses a loop whole, re-dates, stores, restates
+the handover); `POST Recompute`. **Law 0:** a tick or a reopening re-dates the stored plan by itself, and a daily
+Hangfire job (`work-plan-redate`, 04:00) re-dates every scheduled house from elapsed time. Access: `CanEditPlan =>
+CanWrite && CanSeePlan && (mediator || delivery-side principal)`, mirrored on `ProjectAccessDto`; the client side reads
+(403 on preview and save), the bench reads by seat (the foreman reads and ticks; a read-only seat 404), a stranger 404.
+
+**UI** — the Plan tab is `SchedulePanel` (`Modules/Schedule/`): the **handover strip first** for every reader (any
+movement of works complete, a handover that no longer holds, then handover · works complete · reserve), then *What
+sets the date* and *What must happen, and by when*, then every activity by area as **one sentence** — *Gypsum ceiling ·
+Ceiling crew · 14 days · gypsum boards and frames on site 7 Oct* — tagged *sets the date* or *can slip N days*, with its
+**lane** (inline SVG, tokens only: the wait hatched, making pale, on site solid in the area's accent, critical outlined,
+cure hatched, reserve band, today and handover lines) — a card strip on a phone, beside the sentence with a calendar
+axis on a desk. **Edit plan** (delivery side only) turns each part into a chip; a chip opens `ChipEditor` — a bottom
+sheet on a phone, a popover on a desk — with *waits on* as three plain choices (another activity · something arriving by
+a date · drying / curing), days as steppers, a known finish or *needs N more days*, and a team with its queue
+(`TeamQueue`: drag on a desk, arrows on a phone). Every edit joins a draft and the **consequence banner** says what it
+does, with the ghost of where each moved bar was and a `+n d` chip, before **Save / Discard**. **This week** lists
+what starts, what finishes and what is past its finish, each finish with the tick (the tick-off `PlanLine`) and, for the
+planner, *needs N more days*. **Compare** sets the plan as it stands beside the draft (works complete, reserve, whether
+the handover holds, what sets the date, what moves) with the teams' queues reorderable. **Checklist** is the tick-off
+list as before.
+
+**Seed** — the demo house carries the 30 Sep **inputs**, not dates: 31 activities (the main-house doors added — the
+plan's own sixteenth main-house line), trades, days, making, curing, the aluminium team as one queue of five, 24
+predecessors, 7 arrivals with their kinds, the screed's 20 days of drying, the site calendar (Saturday rest, 9 Oct), and
+**Handover Fri 4 Dec** restating *"Main house complete by 30 Sep — on track"*. The seed then re-dates it, so the demo
+computes the issued plan. Every seed resets the demo plan exactly — including the test tick and reopening that the
+tick-off browser check left on *Door opening adjustments* (its events, its tick entries and their client refs go).
+
+**Tests** — `tools/e2e-scheduler.sh` (in `e2e-all.sh`), **90 assertions**: the budget absent for the foreman in the
+API (project, stages, released, dashboard card) and present for both principals; a plan computed before it is saved;
+who edits (mediator), reads (developer, representative, foreman) and is told nothing (read-only seat, stranger), with
+every refused save or preview changing nothing; waits on another line and drying saved, works complete = the last
+finish, snagging sets the date, stored dates = computed dates, typed dates refused; a preview that moves works complete
+and names what moves, an alternative beside it, and **nothing persisted**; a save that pins and re-dates what follows,
+movement on record, a loop refused whole, a holiday moving a start; **a tick pinning the actual finish and moving the
+successor with nobody editing**, stored by itself; *needs 2 more days*; the handover restated with both statements kept
+in the plan and the register; and the demo as at 30 Sep: Wed 2 Dec / Fri 4 Dec / reserve 1, the aluminium chain, 31
+activities without the wall's old checklist, the doors, the epoxy's drying and cure, the kitchen, the workshop-made
+guest-wing set, the tank stands, snagging, slip figures, seven actions, three handover statements, one queue of five,
+the client read-only with no names, the foreman's header without a budget, *doors to 23 Oct* → *Moves works complete
+from Wed 2 Dec to Fri 4 Dec. Reserve 1 → 0 days.* with S1 → Sun 6 Dec beside it, and the demo untouched by the preview.
+
+**One existing assertion changed, and why.** `e2e-knockoff.sh` asserted *"thirty planned lines"* on the demo — the 29
+Sep plan's count. The 30 Sep plan the demo must now compute has thirty-one (its main-house *Doors & windows
+installation*, the head of the critical path, was not a line before). The assertion now reads *thirty-one*; nothing else
+in it moved. **For the owner to confirm.**
+
+**Chain: 1093 passed, 0 failed, 0 skipped** (1003 + the 90 above), with the API rebuilt on the new migration.
+**Browser** (headless playwright-core, screenshots outside the repo): the mediator at 1280 opens *Edit plan*, taps the
+main-house doors' finish chip, sets **23 Oct** in the popover and gets *"Moves works complete from Wed 2 Dec to Fri 4 Dec.
+Reserve 1 → 0 days. Handover Fri 4 Dec no longer holds… 8 activities move."* with eight ghosts and `+n d` chips; Compare
+sets A (Wed 2 Dec, 1 day, holds) beside B (Fri 4 Dec, 1 day over, moves); Save persists — the strip then leads with
+*"Works complete moved from Wed 2 Dec to Fri 4 Dec on 30 Sep"* and the doors read *Tue 29 Sep – Fri 23 Oct*. At 360 the
+same chips open a bottom sheet with the three plain choices, Preview on screen and tappable. The developer, at 1280 /
+768 / 360, light and dark, reads it with the handover strip first, no Edit, no Compare, no chips, no personal name; the
+foreman at 360 has no Budget in the header and ticks from *This week*. No console errors; `app.css`, the client styles
+and the scoped bundle all 200; no horizontal scroll. The walk left the demo moved, so it was reseeded after.
+**Found in the browser and fixed:** a string parameter passed as a literal (the banner read *previewError*); the open
+row's `z-index` trapping the phone sheet under the bottom bar; and a pre-existing header fault — the title block's meta
+column took its max-content width, so *"Delivery · mediator"* widened every project page to 387 px at 360 and ran every
+fixed sheet off the right edge (`TitleBlock` aside now capped at 100%). The old walks measured scroll against that
+widened viewport and missed it.
+
+**Not built:** P50/P80 bands and the rainy-month factor (§4.4) — the calibration extends a late wait by its cause's
+default; the project's own measured lag does not replace it yet. Holds proposed from the thread by extraction (§4.6 Law
+0) — waits are entered by the delivery side. The works report does not yet draw the lanes or read the reserve; the
+Friday re-issue re-dates through the daily job, not through the report. Calendar editing has an API (`RestDay`,
+`Holidays`) but no screen. The offline outbox does not queue a plan edit (an edit needs a preview, and a preview needs
+signal).
+
+#### Adversarial review of the scheduler *(2026-09-30)*
+
+**Held up.** Fed through the database (seed → DAL → engine), the demo as at 30 Sep matches `plan3.mjs` on **every
+date of all 31 activities** — site start and finish, hold, making, cure, critical flag — diffed field by field, not
+sampled. A three-line loop, a team queue ordered against a predecessor, and two lines "alongside" each other are each
+refused by name (400, never a hang); days are bounded (0–400) before the engine sees them. A preview carrying every
+kind of change at once — a new wait, a cleared wait, days, a team, a queue, a handover, a rest day and a holiday — left
+every stored input as it was. The client side, the photographer and the foreman get 403 on preview, save and
+recompute; another tenant gets 404 on every scheduler endpoint and on both houses. Days are stored as UTC midnight of
+the day they name, instants as `UtcNow`.
+
+**Found and fixed, each with a test:**
+- **"Sets the date" was said of lines that could slip.** The walk back from the last activity followed the
+  latest-finishing predecessor whether or not it held anything: with snagging waiting on a cleaning crew booked for 1
+  Dec, all five aluminium lines still read *sets the date* while each had three days in hand. The walk now stops where
+  something else set the date — a wait, a known finish, work already under way, an item held at today, or a gap between
+  a predecessor's finish and the start it allowed — so no line both sets the date and can slip. The issued plan and S1
+  are unchanged. (Unit: a booking holding snagging; a known finish on the main-house louvres. e2e: the booking preview.)
+- **A late line was held on the rest day.** Not ticked and past its finish, a line was held at *today* — on a Saturday
+  or on 9 Oct, a day nobody works — and its successors started the next day. It is now held at the next working day.
+  (Unit: as at Sat 3 Oct and at the 9 Oct holiday. e2e: the demo as at 3 Oct.)
+- **Out-of-range values were saved.** A rest day of 9 (no rest day at all) and a wait of kind 7 were accepted and
+  stored. Refused with 400. (e2e, with nothing kept.)
+- **A refusal reached the contractor as "Error! Operation not completed".** Every controller answers a refusal in
+  plain text, and the client's `ApiResponseHandler` only read a JSON `message`, so the loop refusal — the one message
+  the edit mode depends on — never reached the banner. It now shows a 4xx refusal in the server's words and a
+  validation refusal's first reason, and keeps the generic line for a 5xx so no exception text reaches a page. This
+  applies to every surface. (Unit: `ApiResponseHandlerTests`, four cases; browser: the banner reads *"The order loops
+  back on itself at Gypsum ceiling."* with Save disabled.)
+- **Two sets of doors could not be told apart** in what the plan says: *"What sets the date changes: Doors & windows
+  installation → … → Doors & windows installation"*. A line whose title another line shares is now named with its area
+  in the banner, the loop refusal, *what moves* and *what must happen by when*. (e2e: S1's chain names both.)
+
+**Counts:** unit tests **30/30** (eight new: four engine, four handler — `assetlen.Tests` now references
+`assetlen.Shared` for the handler); `e2e-scheduler.sh` **97** (seven new); **chain 1100 passed, 0 failed, 0 skipped**.
+
+**Browser (360, the mediator):** the loop picked from *Waits on → Another activity*, a days stepper, a team queue
+reordered with the arrows, and *needs 1 day more* from *This week* each produced the right banner; the sheet's last
+stepper and Preview are on screen and tappable at 360×640 once it has slid in; no horizontal scroll; all three CSS
+files 200; the only console lines were the handler logging the refusal it now shows. The developer (dark) and the
+foreman read at 360 with no Edit.
+
+**Left as found:** `LateWaitRule.DryingLag` is not used — drying that has run its days is taken as dry; the re-date job
+has no anonymous trigger, so Law 0's elapsed-time path is proven through `GetSchedule?asAt` and the tick, not by
+running the job; every DAL, the scheduler included, loads a project through the tenant filter, so a contractor from
+another tenant would not reach it (the app's standing rule, not the scheduler's).
+
 ---
 
 ## Explicitly not building
@@ -1421,6 +1682,7 @@ Postgres has, and one older one beside them, all confirmed live before they were
 | Previously cut | Now | Why |
 |---|---|---|
 | Gantt charts and critical path | **Holds** ([works-report.md](works-report.md) §4.4): a wait placed in front of the activities a person chose, pushing only those, drawn as wait/work lanes grouped by stage, with a P50/P80 projection. Still cut: a project-wide network, inferred dependencies, a computed critical path. | The contractor reports the site's real rhythm as *wait for weeks, then finish in a day or two*. A pace forecast cannot represent it, and 30 Sep was missed in exactly that way. Peter's question — *"do you need more time and how long?"* — needs the waits made visible. |
+| A computed critical path | **Narrowed again 2026-09-30** (owner request, works-report.md §4.5–4.6): the plan's dates are computed from days, waits and order and the chain that sets the date is marked, not asserted. Still cut: a Gantt canvas to drag, inferred dependencies — every wait is chosen by a person. | The 29–30 Sep plan was built by hand this way, and the owner asked for it in the app. |
 
 ---
 

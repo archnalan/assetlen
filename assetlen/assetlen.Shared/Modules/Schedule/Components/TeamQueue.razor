@@ -1,0 +1,86 @@
+@*
+    A team is a queue (works-report.md §4.4): its jobs run one after another in
+    the order the contractor sets. Drag to reorder on a desk; the arrows do the
+    same on a phone, where dragging does not reach.
+*@
+
+<ol class="teamqueue" aria-label="@($"{Team} — the order its jobs run in")">
+    @for (var i = 0; i < order.Count; i++)
+    {
+        var index = i;
+        var id = order[i];
+        <li class="teamqueue__item @(dragging == id ? "is-dragging" : "") @(Highlight == id ? "is-current" : "")"
+            draggable="@(ReadOnly ? "false" : "true")"
+            @ondragstart="() => dragging = id"
+            @ondragend="() => dragging = null"
+            @ondragover:preventDefault="true"
+            @ondrop="() => DropOn(index)">
+            <span class="teamqueue__n al-num">@(index + 1)</span>
+            @if (!ReadOnly)
+            {
+                <Icon Name="grip" Size="14" Class="teamqueue__grip" />
+            }
+            <span class="teamqueue__title">@TitleOf(id)</span>
+            @if (!ReadOnly)
+            {
+                <span class="teamqueue__moves">
+                    <button type="button" class="al-iconbtn" disabled="@(index == 0)" @onclick="() => Move(index, -1)"
+                            aria-label="@($"Move {TitleOf(id)} earlier")">
+                        <Icon Name="chevron-up" Size="16" />
+                    </button>
+                    <button type="button" class="al-iconbtn" disabled="@(index == order.Count - 1)" @onclick="() => Move(index, 1)"
+                            aria-label="@($"Move {TitleOf(id)} later")">
+                        <Icon Name="chevron-down" Size="16" />
+                    </button>
+                </span>
+            }
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired] public string Team { get; set; } = "";
+    [Parameter, EditorRequired] public List<string> Ids { get; set; } = new();
+    [Parameter, EditorRequired] public Func<string, string> TitleOf { get; set; } = id => id;
+    [Parameter] public string? Highlight { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public EventCallback<List<string>> OnReorder { get; set; }
+
+    private List<string> order = new();
+    private string? dragging;
+    private string? seen;
+
+    protected override void OnParametersSet()
+    {
+        var key = string.Join(',', Ids);
+        if (key == seen) return;
+        seen = key;
+        order = Ids.ToList();
+    }
+
+    private Task Move(int index, int by)
+    {
+        var to = index + by;
+        if (to < 0 || to >= order.Count) return Task.CompletedTask;
+        (order[index], order[to]) = (order[to], order[index]);
+        return Changed();
+    }
+
+    private Task DropOn(int index)
+    {
+        if (dragging is null || ReadOnly) return Task.CompletedTask;
+        var from = order.IndexOf(dragging);
+        dragging = null;
+        if (from < 0 || from == index) return Task.CompletedTask;
+        var id = order[from];
+        order.RemoveAt(from);
+        order.Insert(index, id);
+        return Changed();
+    }
+
+    private Task Changed()
+    {
+        seen = string.Join(',', order);
+        return OnReorder.InvokeAsync(order.ToList());
+    }
+}

@@ -1,0 +1,151 @@
+.srow {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--al-space-2);
+    padding: var(--al-space-3) var(--al-space-4);
+    border-bottom: 1px solid var(--al-border);
+    transition: background-color var(--al-transition);
+}
+
+.srow:last-child { border-bottom: 0; }
+.srow--moved { background: color-mix(in srgb, var(--al-warning) 6%, transparent); }
+
+.srow__text { display: flex; flex-direction: column; gap: var(--al-space-1); min-width: 0; }
+
+.srow__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--al-space-1) var(--al-space-2);
+}
+
+.srow__dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--al-radius-pill);
+    background: var(--lane);
+    transform: translateY(-1px);
+}
+
+.srow__title {
+    font-size: var(--al-font-size-md);
+    font-weight: var(--al-weight-medium);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+.srow--done .srow__title { color: var(--al-text-muted); }
+
+.srow__tag {
+    font-size: var(--al-font-size-2xs);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text-subtle);
+    white-space: nowrap;
+}
+
+.srow__tag--critical { color: var(--al-accent); }
+.srow__tag--late { color: var(--al-danger); }
+.srow__tag--done { color: var(--al-success); }
+
+.srow__push {
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-warning);
+    border: 1px solid var(--al-warning);
+    border-radius: var(--al-radius-pill);
+    padding: 0 var(--al-space-2);
+}
+
+.srow__sentence {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--al-space-1);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+}
+
+.srow__chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    color: var(--al-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.srow__chip:not(:last-child)::after {
+    content: "·";
+    margin-left: var(--al-space-1);
+    color: var(--al-text-subtle);
+}
+
+.srow__chip.is-binding { color: var(--al-text); }
+.srow__chip.is-overdue { color: var(--al-danger); }
+
+.srow__chip--edit {
+    padding: 2px var(--al-space-2);
+    border: 1px dashed var(--al-border-heavy);
+    border-radius: var(--al-radius-pill);
+    background: var(--al-surface);
+    font: inherit;
+    font-size: var(--al-font-size-sm);
+    cursor: pointer;
+    min-height: 28px;
+    transition: border-color var(--al-transition-fast), background-color var(--al-transition-fast), color var(--al-transition-fast);
+}
+
+.srow__chip--edit::after { display: none; }
+
+.srow__chip--edit:hover,
+.srow__chip--edit:focus-visible,
+.srow__chip--edit.is-open {
+    border-style: solid;
+    border-color: var(--al-accent);
+    background: var(--al-accent-soft);
+    color: var(--al-accent);
+}
+
+.srow__dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--al-space-2);
+    font-size: var(--al-font-size-xs);
+    color: var(--al-text-subtle);
+    font-variant-numeric: tabular-nums;
+}
+
+.srow__span { color: var(--al-text-muted); }
+.srow__sep { color: var(--al-text-subtle); }
+.srow__lateword { color: var(--al-danger); }
+
+.srow__lane { min-width: 0; align-self: center; }
+
+.srow--critical .srow__title::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 0.9em;
+    margin-right: var(--al-space-2);
+    background: var(--al-accent);
+    border-radius: 1px;
+    vertical-align: -1px;
+}
+
+/* Only the desk popover needs the open line above its neighbours; on a phone the
+   sheet must stay in the page's own stacking order, above the bottom bar. */
+@media (min-width: 768px) {
+    .srow.is-open { z-index: 2; }
+}
+
+/* On a desk the lane sits beside its sentence, the slide-5 view, live. */
+@media (min-width: 1024px) {
+    .srow {
+        grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+        gap: var(--al-space-4);
+        padding: var(--al-space-2) var(--al-space-4);
+    }
+}

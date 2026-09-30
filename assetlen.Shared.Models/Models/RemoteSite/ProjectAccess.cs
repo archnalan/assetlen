@@ -104,6 +104,28 @@ public readonly record struct ProjectAccess(
     public bool CanCapture => CanWrite && CanSeeSiteLog;
 
     /// <summary>
+    /// Whether this seat knocks work-plan lines off. The tick is a capture — one
+    /// photo into the Site Diary — so it belongs to whoever posts there; the client
+    /// side reads the plan and does not tick it (works-report.md §4.5).
+    /// </summary>
+    public bool CanTick => CanCapture;
+
+    /// <summary>
+    /// Whether the project-wide work plan is part of this seat: both principals,
+    /// the mediator, and the bench that ticks it. A read-only support seat was
+    /// brought on for something else.
+    /// </summary>
+    public bool CanSeePlan => CanRead && (Seat == ProjectSeat.Principal || IsMediator || CanTick);
+
+    /// <summary>
+    /// Whether this seat drives the scheduler — durations, waits, order, pins
+    /// (works-report.md §4.6). The delivery side's decision-maker and the mediator
+    /// plan the work; the client side reads the plan and the bench works to it.
+    /// </summary>
+    public bool CanEditPlan => CanWrite && CanSeePlan
+                               && (IsMediator || (Side == ProjectSide.Contractor && Seat == ProjectSeat.Principal));
+
+    /// <summary>
     /// Whether the register of commitments is part of this seat. A commitment is
     /// addressed to a decision-maker; a support seat has nothing to answer there.
     /// </summary>

@@ -1,0 +1,23 @@
+@page "/project/{ProjectId}/plan"
+@attribute [Authorize]
+
+@*
+    The work plan, project-wide (works-report.md §4.5, §4.6): every line of the
+    house and its guest wing, dated by the scheduler from days, waits and order.
+    Everyone reads the handover first; the delivery side drives the plan, the
+    site knocks lines off on a photo, and the client reads the same plan whole.
+    It names trades, never people.
+*@
+
+<PageTitle>Plan — ASSETLEN</PageTitle>
+
+<ProjectPage ProjectId="@ProjectId" Section="plan" Eyebrow="Work plan"
+             Subtitle="What is left to do, what sets the handover, and what must happen by when." Context="ctx">
+    <div class="plan">
+        <SchedulePanel ProjectId="@ctx.ProjectId" Ctx="ctx" />
+    </div>
+</ProjectPage>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = "";
+}

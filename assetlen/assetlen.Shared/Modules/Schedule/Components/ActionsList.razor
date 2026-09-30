@@ -1,0 +1,38 @@
+@*
+    What must happen, and by when, for the dates to hold (works-report.md §4.5):
+    each wait's clear-by day, labelled by kind — sign-off, order, booking,
+    delivery, funding — never by party. Those feeding the date that sets
+    handover are marked.
+*@
+
+<section class="acts" aria-labelledby="acts-title">
+    <h3 class="acts__title" id="acts-title"><Icon Name="commitment" Size="16" /> What must happen, and by when</h3>
+    @if (Plan.Actions.Count == 0)
+    {
+        <p class="acts__empty">Nothing is waiting to arrive. Every wait on the plan is another activity or drying time.</p>
+    }
+    else
+    {
+        <ul class="acts__list">
+            @foreach (var x in Plan.Actions)
+            {
+                <li class="acts__row @(x.SetsTheDate ? "is-hot" : "") @(x.Overdue ? "is-overdue" : "")">
+                    <span class="acts__by al-num">@ScheduleText.Day(x.By)</span>
+                    <strong class="acts__what">@x.What</strong>
+                    <span class="acts__kind">@ScheduleText.Kind(x.Kind)</span>
+                    <span class="acts__for">
+                        @if (x.Overdue)
+                        {
+                            <span class="acts__late">Overdue · </span>
+                        }
+                        for @x.ActivityTitle
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleDto Plan { get; set; } = default!;
+}

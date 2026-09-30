@@ -20,10 +20,12 @@ public class CommitmentDAL : ICommitmentDAL
     private readonly ILogger<CommitmentDAL> _logger;
     private readonly IProjectAccessService _access;
     private readonly IActiveStageService _activeStage;
+    private readonly IFrameExposure _exposure;
 
     public CommitmentDAL(AssetlenDbContext context, ILogger<CommitmentDAL> logger,
-        IProjectAccessService access, IActiveStageService activeStage)
+        IProjectAccessService access, IActiveStageService activeStage, IFrameExposure exposure)
     {
+        _exposure = exposure;
         _context = context;
         _logger = logger;
         _access = access;
@@ -66,6 +68,14 @@ public class CommitmentDAL : ICommitmentDAL
                 .Select(d => ToDto(d, counts.GetValueOrDefault(d.Id)))
                 .ToList();
 
+            // Whoever ticked, the client side reads the accountable face (§10.1).
+            var face = access.CanSeeSiteLog ? null : (await _exposure.AccountableFaceAsync(project.Id)).Name;
+            foreach (var dto in dtos)
+            {
+                dto.CanTick = access.CanTick;
+                if (!access.CanSeeSiteLog && dto.CompletedByName is not null) dto.CompletedByName = face;
+            }
+
             return ServiceResult<List<DeliverableDto>>.Success(dtos);
         }
         catch (Exception ex)
@@ -104,7 +114,12 @@ public class CommitmentDAL : ICommitmentDAL
                 Description = dto.Description,
                 DueDate = dto.DueDate,
                 DisplayOrder = dto.DisplayOrder > 0 ? dto.DisplayOrder : maxOrder + 1,
-                Status = DeliverableStatus.NotStarted
+                Status = DeliverableStatus.NotStarted,
+                PlannedStart = dto.PlannedStart,
+                PlannedEnd = dto.PlannedEnd,
+                WorkDays = dto.WorkDays,
+                Trade = Clean(dto.Trade),
+                Area = Clean(dto.Area)
             };
             _context.tbl_Deliverables.Add(row);
             await _context.SaveChangesAsync();
@@ -133,15 +148,54 @@ public class CommitmentDAL : ICommitmentDAL
             if (!access.CanSeeRegister) return Fail<DeliverableDto>(new NotFoundException("Deliverable not found."));
             if (!access.CanWrite) return Fail<DeliverableDto>(new ForbiddenException("You can read this checklist but not change it."));
 
+            // On a scheduled house the dates follow from days, waits and order (works-report.md §4.6);
+            // typing one would be overwritten by the next re-dating, so it is refused rather than lost.
+            if (dto.PlannedStart.HasValue || dto.PlannedEnd.HasValue || dto.WorkDays.HasValue)
+            {
+                var house = row.Project!.ParentProjectId ?? row.ProjectId;
+                if (await _context.tbl_WorkSchedules.AnyAsync(w => w.ProjectId == house))
+                    return Fail<DeliverableDto>(new BadRequestException("This plan is scheduled: its dates follow from days, waits and order. Change them on the Plan tab."));
+            }
+
             if (!string.IsNullOrWhiteSpace(dto.Title)) row.Title = dto.Title.Trim();
             if (dto.Description is not null) row.Description = dto.Description;
             if (dto.DueDate.HasValue) row.DueDate = dto.DueDate;
             if (dto.DisplayOrder.HasValue) row.DisplayOrder = dto.DisplayOrder.Value;
+            if (dto.PlannedStart.HasValue) row.PlannedStart = dto.PlannedStart;
+            if (dto.PlannedEnd.HasValue) row.PlannedEnd = dto.PlannedEnd;
+            if (dto.WorkDays.HasValue) row.WorkDays = dto.WorkDays;
+            if (dto.Trade is not null) row.Trade = Clean(dto.Trade);
+            if (dto.Area is not null) row.Area = Clean(dto.Area);
+            if (row.PlannedStart is { } ps && row.PlannedEnd is { } pe && pe < ps)
+                return Fail<DeliverableDto>(new BadRequestException("A line cannot finish before it starts."));
             if (dto.Status.HasValue && dto.Status.Value != row.Status)
             {
+                // No photo, no tick (works-report.md §4.5): Done is reached only through
+                // WorkPlan/Tick, and how far the work has got is the delivery side's to say.
+                if (dto.Status.Value == DeliverableStatus.Done)
+                    return Fail<DeliverableDto>(new BadRequestException("No photo, no tick — a line is knocked off on the plan, on one photo of the finished work."));
+                if (!access.CanTick)
+                    return Fail<DeliverableDto>(new ForbiddenException("The delivery side reports how far a line has got; you can read it."));
+
+                // Leaving Done takes the tick back and keeps its photo in the history.
+                var wasDone = row.Status == DeliverableStatus.Done;
                 row.Status = dto.Status.Value;
-                row.CompletedAt = row.Status == DeliverableStatus.Done ? DateTime.UtcNow : null;
-                row.CompletedById = row.Status == DeliverableStatus.Done ? userId : null;
+                // The day work began is what the scheduler starts it from; the waits no longer hold it.
+                if (row.Status == DeliverableStatus.InProgress && row.ActualStart is null)
+                    row.ActualStart = DateTime.SpecifyKind(DateTime.Now.Date, DateTimeKind.Utc);
+                row.CompletedAt = null;
+                row.CompletedById = null;
+                row.CompletionArtifactId = null;
+                if (wasDone)
+                    _context.tbl_DeliverableEvents.Add(new tbl_DeliverableEvent
+                    {
+                        ProjectId = row.ProjectId,
+                        TenantId = row.TenantId,
+                        DeliverableId = row.Id,
+                        Kind = DeliverableEventKind.Reopened,
+                        OccurredAt = DateTime.UtcNow,
+                        ById = userId
+                    });
             }
 
             await _context.SaveChangesAsync();
@@ -1153,7 +1207,7 @@ public class CommitmentDAL : ICommitmentDAL
         });
     }
 
-    private static tbl_Commitment Successor(tbl_Commitment c, string userId, ProjectAccess access, CommitmentRestateDto dto)
+    internal static tbl_Commitment Successor(tbl_Commitment c, string userId, ProjectAccess access, CommitmentRestateDto dto)
     {
         var now = DateTime.UtcNow;
         var nextId = Guid.NewGuid().ToString();
@@ -1194,7 +1248,9 @@ public class CommitmentDAL : ICommitmentDAL
     private static string MemberName(tbl_ProjectMember m) =>
         FullName(m.User) ?? m.PartyName ?? m.Title ?? "Unnamed";
 
-    private static DeliverableDto ToDto(tbl_Deliverable d, int commitments) => new()
+    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    internal static DeliverableDto ToDto(tbl_Deliverable d, int commitments) => new()
     {
         Id = d.Id,
         ProjectId = d.ProjectId,
@@ -1208,7 +1264,16 @@ public class CommitmentDAL : ICommitmentDAL
         CompletedAt = d.CompletedAt,
         CompletedByName = FullName(d.CompletedBy),
         CommitmentCount = commitments,
-        DateTimeCreated = d.DateTimeCreated
+        DateTimeCreated = d.DateTimeCreated,
+        StagePhase = d.Stage?.Phase,
+        PlannedStart = d.PlannedStart,
+        PlannedEnd = d.PlannedEnd,
+        WorkDays = d.WorkDays,
+        Trade = d.Trade,
+        Area = d.Area,
+        CompletionArtifactId = d.CompletionArtifactId,
+        CompletionThumbnailUrl = d.CompletionArtifactId is null ? null : $"/api/Artifacts/{d.CompletionArtifactId}/thumbnail",
+        CompletionImageUrl = d.CompletionArtifactId is null ? null : $"/api/Artifacts/{d.CompletionArtifactId}/content"
     };
 
     private async Task<CommitmentDto> OneDtoAsync(tbl_Commitment c, tbl_Project project, ProjectAccess access, string userId)

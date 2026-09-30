@@ -1,0 +1,145 @@
+@*
+    One activity, one sentence (works-report.md §4.6): "Gypsum ceiling · Ceiling
+    crew · 14 days · after boards on site 7 Oct". In edit mode each part is a chip
+    the contractor taps to change. What sets the date says so; everything else
+    says what it can absorb. Beside it on a desk, its lane on the calendar.
+*@
+
+<li class="srow @(A.Critical ? "srow--critical" : "") @(A.Done ? "srow--done" : "") @(A.Late ? "srow--late" : "") @(Move is not null ? "srow--moved" : "") @(Open is not null ? "is-open" : "")"
+    style="--lane: @ScheduleText.AreaAccent(A.Area)">
+    <div class="srow__text">
+        <div class="srow__head">
+            <span class="srow__dot" aria-hidden="true"></span>
+            <span class="srow__title">@A.Title</span>
+            <span class="srow__tag @TagClass">@Tag</span>
+            @if (Move is { } m && m.FinishAfter != m.FinishBefore)
+            {
+                var diff = m.FinishAfter.DayNumber - m.FinishBefore.DayNumber;
+                <span class="srow__push al-num" title="@($"Was {ScheduleText.Day(m.FinishBefore)}")">@(diff > 0 ? "+" : "−")@Math.Abs(diff) d</span>
+            }
+        </div>
+
+        <div class="srow__sentence">
+            @if (Editing || !string.Equals(A.Trade, A.TeamKey, StringComparison.OrdinalIgnoreCase))
+            {
+                @Chip(ScheduleChip.Trade, string.IsNullOrWhiteSpace(A.Trade) ? "no trade" : A.Trade!)
+            }
+            @Chip(ScheduleChip.Days, ScheduleText.Duration(A))
+            @if (A.Waits.Count == 0)
+            {
+                @if (Editing)
+                {
+                    @Chip(ScheduleChip.Waits, "waits on nothing")
+                }
+            }
+            else
+            {
+                @* Snagging waits on thirteen lines; reading, the one that holds it is enough. *@
+                var ordered = A.Waits.OrderByDescending(w => w.Binding).ToList();
+                var shown = Editing || ordered.Count <= 3 ? ordered : ordered.Take(2).ToList();
+                @foreach (var w in shown)
+                {
+                    @Chip(ScheduleChip.Waits, ScheduleText.Wait(w), w.Binding, w.Overdue)
+                }
+                @if (shown.Count < ordered.Count)
+                {
+                    @Chip(ScheduleChip.Waits, $"and {ordered.Count - shown.Count} more")
+                }
+            }
+            @if (!string.IsNullOrWhiteSpace(A.TeamKey))
+            {
+                @Chip(ScheduleChip.Team, TeamLabel)
+            }
+            else if (Editing)
+            {
+                @Chip(ScheduleChip.Team, "no team queue")
+            }
+            @if (A.PinnedFinish is { } pin)
+            {
+                @Chip(ScheduleChip.Finish, $"runs to {ScheduleText.DayShort(pin)}")
+            }
+            else if (Editing && !A.Done)
+            {
+                @Chip(ScheduleChip.Finish, A.Started ? $"started {ScheduleText.DayShort(A.ActualStart ?? A.Start)}" : "set a finish")
+            }
+        </div>
+
+        <div class="srow__dates al-num">
+            @if (A.MakeStart is { } ms && A.WorkDays > 0)
+            {
+                <span>made @ScheduleText.DayShort(ms) – @ScheduleText.DayShort(A.MakeEnd!.Value)</span>
+                <span class="srow__sep" aria-hidden="true">·</span>
+            }
+            <span class="srow__span">@ScheduleText.Day(A.Start) – @ScheduleText.Day(A.Finish)</span>
+            @if (A.CureEnd is { } c)
+            {
+                <span class="srow__sep" aria-hidden="true">·</span>
+                <span>cured @ScheduleText.DayShort(c)</span>
+            }
+            @if (A.Late && A.LateSince is { } since)
+            {
+                <span class="srow__sep" aria-hidden="true">·</span>
+                <span class="srow__lateword">planned to finish @ScheduleText.DayShort(since)</span>
+            }
+        </div>
+    </div>
+
+    <div class="srow__lane">
+        <LaneBar Activity="A" D0="D0" D1="D1" Today="Plan.Today" Handover="Plan.Handover" WorksComplete="Plan.WorksComplete"
+                 RestDay="Plan.RestDay" Ghost="Move" />
+    </div>
+
+    @if (Open is { } chip)
+    {
+        <ChipEditor Activity="A" Chip="chip" Plan="Plan" Draft="Draft" OnApplied="OnApplied" OnClose="OnClose" />
+    }
+</li>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleActivityDto A { get; set; } = default!;
+    [Parameter, EditorRequired] public ScheduleDto Plan { get; set; } = default!;
+    [Parameter, EditorRequired] public DateOnly D0 { get; set; }
+    [Parameter, EditorRequired] public DateOnly D1 { get; set; }
+    [Parameter] public bool Editing { get; set; }
+    [Parameter] public ActivityMoveDto? Move { get; set; }
+    [Parameter] public ScheduleChip? Open { get; set; }
+    [Parameter] public ScheduleDraft Draft { get; set; } = default!;
+    [Parameter] public EventCallback<ScheduleChip> OnChip { get; set; }
+    [Parameter] public EventCallback OnApplied { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string Tag => A.Late && !A.Done ? "past its finish" : ScheduleText.Slack(A, Plan.Handover is not null);
+
+    private string TagClass => A switch
+    {
+        { Done: true } => "srow__tag--done",
+        { Late: true } => "srow__tag--late",
+        { Critical: true } => "srow__tag--critical",
+        _ => ""
+    };
+
+    private string TeamLabel
+    {
+        get
+        {
+            var q = Plan.Teams.FirstOrDefault(t => string.Equals(t.TeamKey, A.TeamKey, StringComparison.OrdinalIgnoreCase));
+            var i = q?.OrderedIds.IndexOf(A.Id!) ?? -1;
+            return q is null || i < 0 ? A.TeamKey! : $"{A.TeamKey} · {i + 1} of {q.OrderedIds.Count}";
+        }
+    }
+
+    private RenderFragment Chip(ScheduleChip chip, string text, bool binding = false, bool overdue = false) => __builder =>
+    {
+        if (Editing && !A.Done)
+        {
+            <button type="button" class="srow__chip srow__chip--edit @(binding ? "is-binding" : "") @(overdue ? "is-overdue" : "") @(Open == chip ? "is-open" : "")"
+                    @onclick="() => OnChip.InvokeAsync(chip)" aria-haspopup="dialog">
+                @text
+            </button>
+        }
+        else
+        {
+            <span class="srow__chip @(binding ? "is-binding" : "") @(overdue ? "is-overdue" : "")">@text</span>
+        }
+    };
+}

@@ -17,7 +17,7 @@ namespace assetlen.Postgres.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
@@ -1276,12 +1276,26 @@ namespace assetlen.Postgres.Migrations
                     b.Property<int?>("Access")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("ActualStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Area")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CompletedById")
                         .HasMaxLength(450)
                         .HasColumnType("character varying(450)");
+
+                    b.Property<string>("CompletionArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("CureDays")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("DateTimeCreated")
                         .HasColumnType("timestamp with time zone");
@@ -1299,15 +1313,39 @@ namespace assetlen.Postgres.Migrations
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("EarliestStart")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool?>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<string>("LastModifiedBy")
                         .HasColumnType("text");
 
+                    b.Property<int?>("MakeDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("PinnedFinish")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PlannedEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PlannedMakeEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PlannedMakeStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PlannedStart")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ProjectId")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("QueueOrder")
+                        .HasColumnType("integer");
 
                     b.Property<string>("StageId")
                         .HasMaxLength(40)
@@ -1316,6 +1354,10 @@ namespace assetlen.Postgres.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<string>("TeamKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<string>("TenantId")
                         .HasColumnType("text");
 
@@ -1323,9 +1365,18 @@ namespace assetlen.Postgres.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Trade")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int?>("WorkDays")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompletedById");
+
+                    b.HasIndex("CompletionArtifactId");
 
                     b.HasIndex("DateTimeCreated");
 
@@ -1338,10 +1389,82 @@ namespace assetlen.Postgres.Migrations
                     b.HasIndex("ProjectId")
                         .HasDatabaseName("IX_Deliverable_ProjectId");
 
+                    b.HasIndex("ProjectId", "PlannedStart")
+                        .HasDatabaseName("IX_Deliverable_Project_PlannedStart");
+
                     b.HasIndex("StageId", "DisplayOrder")
                         .HasDatabaseName("IX_Deliverable_Stage_Order");
 
                     b.ToTable("tbl_Deliverables");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_DeliverableEvent", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ArtifactId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ById")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeliverableId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProgressUpdateId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ById");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("DeliverableId")
+                        .HasDatabaseName("IX_DeliverableEvent_DeliverableId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.ToTable("tbl_DeliverableEvents");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Document", b =>
@@ -2321,6 +2444,113 @@ namespace assetlen.Postgres.Migrations
                         .HasDatabaseName("IX_MediaBinding_Project_Artifact");
 
                     b.ToTable("tbl_MediaBindings");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_PlanWait", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("AfterMaking")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("Arrival")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("CalendarDays")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ClearedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClearedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("CreatedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DeliverableId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("FromDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Link")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PredecessorId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RemovedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UntilDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("DeliverableId")
+                        .HasDatabaseName("IX_PlanWait_DeliverableId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("PredecessorId");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("IX_PlanWait_ProjectId");
+
+                    b.ToTable("tbl_PlanWaits");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ProgressComment", b =>
@@ -4034,6 +4264,88 @@ namespace assetlen.Postgres.Migrations
                     b.ToTable("tbl_Variations");
                 });
 
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_WorkSchedule", b =>
+                {
+                    b.Property<string>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("Access")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CriticalPath")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime?>("DateTimeCreated")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateTimeModified")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("ExtendLateWaits")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Holidays")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool?>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastComputedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastSavedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastSavedById")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("PreviousWorksComplete")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProjectId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("ReserveDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RestDay")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("WorksComplete")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("WorksCompleteMovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateTimeCreated");
+
+                    b.HasIndex("DateTimeModified");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("LastModifiedBy");
+
+                    b.HasIndex("ProjectId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_WorkSchedule_ProjectId");
+
+                    b.ToTable("tbl_WorkSchedules");
+                });
+
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_WorksReport", b =>
                 {
                     b.Property<string>("Id")
@@ -4742,6 +5054,11 @@ namespace assetlen.Postgres.Migrations
                         .HasForeignKey("CompletedById")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Artifact", "CompletionArtifact")
+                        .WithMany()
+                        .HasForeignKey("CompletionArtifactId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId")
@@ -4754,9 +5071,28 @@ namespace assetlen.Postgres.Migrations
 
                     b.Navigation("CompletedBy");
 
+                    b.Navigation("CompletionArtifact");
+
                     b.Navigation("Project");
 
                     b.Navigation("Stage");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_DeliverableEvent", b =>
+                {
+                    b.HasOne("assetlen.Shared.Models.Models.AppUser", "By")
+                        .WithMany()
+                        .HasForeignKey("ById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Deliverable", "Deliverable")
+                        .WithMany()
+                        .HasForeignKey("DeliverableId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("By");
+
+                    b.Navigation("Deliverable");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_Document", b =>
@@ -4971,6 +5307,23 @@ namespace assetlen.Postgres.Migrations
                     b.Navigation("Artifact");
 
                     b.Navigation("IngestedMessage");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_PlanWait", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Deliverable", "Deliverable")
+                        .WithMany()
+                        .HasForeignKey("DeliverableId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Deliverable", "Predecessor")
+                        .WithMany()
+                        .HasForeignKey("PredecessorId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Deliverable");
+
+                    b.Navigation("Predecessor");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_ProgressComment", b =>
@@ -5297,6 +5650,16 @@ namespace assetlen.Postgres.Migrations
                     b.Navigation("RaisedBy");
 
                     b.Navigation("Stage");
+                });
+
+            modelBuilder.Entity("assetlen.Service.DataAccess.tbl_WorkSchedule", b =>
+                {
+                    b.HasOne("assetlen.Service.DataAccess.tbl_Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("assetlen.Service.DataAccess.tbl_WorksReport", b =>

@@ -1,0 +1,286 @@
+@*
+    The Plan tab (works-report.md §4.5, §4.6). Everyone reads the same plan: the
+    handover and any movement of it first, what sets the date, what must happen
+    by when, and every activity on its lane. The delivery side's decision-maker
+    and the mediator drive it — each edit joins a draft and the plan shows what
+    it does before anyone saves. The client side reads it; the site ticks it.
+*@
+
+@inject ILogger<SchedulePanel> Logger
+
+<div class="sched">
+    <svg class="sched__defs" width="0" height="0" aria-hidden="true" focusable="false">
+        <defs>
+            <pattern id="sched-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line class="sched__hatch" x1="0" y1="0" x2="0" y2="6" />
+            </pattern>
+        </defs>
+    </svg>
+
+    <StateBlock Phase="phase" OnRetry="LoadAsync"
+                ErrorTitle="The plan didn't load"
+                ErrorMessage="@errorMessage">
+        <Loading>
+            <div class="al-shimmer al-ghost-line al-ghost-line--title"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+            <div class="al-shimmer al-ghost-row"></div>
+        </Loading>
+        <ChildContent>
+            @if (schedule is not null)
+            {
+                <HandoverStrip Shown="Shown" Saved="schedule" Proposed="Previewing" />
+
+                <div class="sched__bar">
+                    <div class="al-segmented sched__views" role="tablist" aria-label="Plan views">
+                        @foreach (var (key, label) in Views)
+                        {
+                            <button type="button" role="tab" class="al-segmented__item" aria-selected="@(view == key)" @onclick="() => view = key">@label</button>
+                        }
+                    </div>
+                    @if (schedule.CanEdit && view == "plan" && Shown.Activities.Count > 0)
+                    {
+                        <button type="button" class="al-btn @(editing ? "al-btn--primary" : "al-btn--default") sched__edit" aria-pressed="@editing"
+                                @onclick="ToggleEdit">
+                            <Icon Name="@(editing ? "check" : "edit")" Size="16" /> @(editing ? "Done editing" : "Edit plan")
+                        </button>
+                    }
+                </div>
+
+                @if (!schedule.IsScheduled && schedule.CanEdit && Shown.Activities.Count > 0)
+                {
+                    <p class="sched__note"><Icon Name="info" Size="16" /> These lines still carry typed dates. Save any change and the scheduler dates the whole plan from days, waits and order.</p>
+                }
+
+                @switch (view)
+                {
+                    case "plan":
+                        @if (Shown.Activities.Count == 0)
+                        {
+                            <div class="al-empty">
+                                <Icon Name="calendar" Size="40" Class="al-empty__icon" Weight="1.25" />
+                                <h3 class="al-empty__title">No work planned yet</h3>
+                                <p class="al-empty__body">Lines appear here once they have days to them. The checklist holds every line as it stands.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="sched__top">
+                                <CriticalChain Plan="Shown" />
+                                <ActionsList Plan="Shown" />
+                            </div>
+                            @if (editing)
+                            {
+                                <p class="sched__edithint"><Icon Name="edit" Size="14" /> Tap any part of a line to change it. Nothing is saved until you have seen what it does.</p>
+                            }
+                            <ScheduleLanes Plan="Shown" Editing="editing" Draft="draft" Moved="preview?.Moved"
+                                           OpenId="@openId" OpenChip="openChip"
+                                           OnChip="OpenChipAsync" OnApplied="AppliedAsync" OnClose="CloseChip" />
+                        }
+                        break;
+
+                    case "week":
+                        <ThisWeek Plan="Shown" CanEdit="schedule.CanEdit" OnNeedsMore="NeedsMoreAsync" OnTicked="LoadAsync" />
+                        break;
+
+                    case "checklist":
+                        @if (Ctx.CanTick)
+                        {
+                            <p class="sched__note"><Icon Name="camera" Size="14" /> No photo, no tick. Tap a line's circle to take or choose one.</p>
+                        }
+                        <DeliverableChecklist ProjectId="@ProjectId" StageId="@null" CanWrite="false" />
+                        break;
+
+                    case "compare":
+                        <CompareView Saved="schedule" Shown="Shown" Preview="preview" CanEdit="schedule.CanEdit" OnQueue="QueueAsync" />
+                        break;
+                }
+
+                @if (!draft.IsEmpty)
+                {
+                    <ConsequenceBanner Preview="preview" Count="draft.Count" Busy="previewing" Saving="saving" Error="@previewError"
+                                       OnSave="SaveAsync" OnDiscard="Discard" />
+                }
+            }
+        </ChildContent>
+    </StateBlock>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
+    [Parameter, EditorRequired] public ProjectPageContext Ctx { get; set; } = default!;
+
+    private ScheduleDto? schedule;
+    private SchedulePreviewDto? preview;
+    private readonly ScheduleDraft draft = new();
+    private LoadPhase phase = LoadPhase.Loading;
+    private string? errorMessage;
+    private string view = "plan";
+    private bool editing;
+    private bool previewing;
+    private bool saving;
+    private string? previewError;
+    private string? openId;
+    private ScheduleChip? openChip;
+    private int previewVersion;
+    private string? loadedFor;
+
+    private ScheduleDto Shown => preview?.Plan ?? schedule!;
+    private bool Previewing => preview?.Plan is not null && !draft.IsEmpty;
+
+    private IEnumerable<(string, string)> Views
+    {
+        get
+        {
+            yield return ("plan", "Plan");
+            yield return ("week", "This week");
+            yield return ("checklist", "Checklist");
+            if (schedule?.CanEdit == true) yield return ("compare", "Compare");
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedFor == ProjectId) return;
+        loadedFor = ProjectId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (schedule is null) phase = LoadPhase.Loading;
+        errorMessage = null;
+        StateHasChanged();
+        try
+        {
+            var response = await _workPlanApi.GetSchedule(ProjectId);
+            if (!response.IsSuccessStatusCode || response.Content is null)
+            {
+                phase = LoadPhase.Error;
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
+                return;
+            }
+            schedule = response.Content;
+            phase = LoadPhase.Ready;
+            if (!draft.IsEmpty) await PreviewAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "The plan failed to load for {ProjectId}", ProjectId);
+            phase = LoadPhase.Error;
+            errorMessage = ex.Message;
+        }
+        finally { StateHasChanged(); }
+    }
+
+    private void ToggleEdit()
+    {
+        editing = !editing;
+        CloseChip();
+    }
+
+    private Task OpenChipAsync((ScheduleActivityDto Activity, ScheduleChip Chip) target)
+    {
+        openId = target.Activity.Id;
+        openChip = target.Chip;
+        return Task.CompletedTask;
+    }
+
+    private void CloseChip()
+    {
+        openId = null;
+        openChip = null;
+    }
+
+    private async Task AppliedAsync()
+    {
+        CloseChip();
+        await PreviewAsync();
+    }
+
+    private async Task NeedsMoreAsync((string Id, int Days) answer)
+    {
+        draft.NeedsMore(answer.Id, answer.Days);
+        await PreviewAsync();
+    }
+
+    private async Task QueueAsync((string Team, List<string> Ids) q)
+    {
+        draft.SetQueue(q.Team, q.Ids);
+        await PreviewAsync();
+    }
+
+    /// <summary>Ask the server what the draft does. The last answer wins; a slower earlier one is dropped.</summary>
+    private async Task PreviewAsync()
+    {
+        if (draft.IsEmpty) { preview = null; return; }
+        var version = ++previewVersion;
+        previewing = true;
+        previewError = null;
+        StateHasChanged();
+        try
+        {
+            var response = await _workPlanApi.PreviewSchedule(new SchedulePreviewRequestDto
+            {
+                ProjectId = ProjectId,
+                Proposed = draft.ToDto(ProjectId)
+            });
+            if (version != previewVersion) return;
+            if (response.IsSuccessStatusCode && response.Content is not null)
+                preview = response.Content;
+            else
+                previewError = _apiResponseHandler.GetApiErrorMessage(response) ?? "That change could not be worked out.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Preview failed for {ProjectId}", ProjectId);
+            if (version == previewVersion) previewError = "No signal — the change is kept here; try again.";
+        }
+        finally
+        {
+            if (version == previewVersion) previewing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        StateHasChanged();
+        try
+        {
+            var response = await _workPlanApi.SaveSchedule(draft.ToDto(ProjectId));
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                schedule = response.Content;
+                draft.Clear();
+                preview = null;
+                previewError = null;
+                ToastService.ShowSuccess($"Plan saved — works complete {ScheduleText.Day(schedule.WorksComplete)}.");
+            }
+            else
+            {
+                previewError = _apiResponseHandler.GetApiErrorMessage(response) ?? "The plan was not saved.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Save failed for {ProjectId}", ProjectId);
+            previewError = "The plan was not saved. Try again when there is signal.";
+        }
+        finally
+        {
+            saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Discard()
+    {
+        draft.Clear();
+        preview = null;
+        previewError = null;
+        previewVersion++;
+        CloseChip();
+    }
+}

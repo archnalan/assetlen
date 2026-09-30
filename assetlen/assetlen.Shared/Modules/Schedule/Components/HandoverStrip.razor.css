@@ -1,0 +1,64 @@
+.handover { display: flex; flex-direction: column; gap: var(--al-space-3); }
+
+.handover__moved {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-2);
+    margin: 0;
+    padding: var(--al-space-2) var(--al-space-3);
+    border-left: 3px solid var(--al-success);
+    background: var(--al-success-soft);
+    border-radius: 0 var(--al-radius-sm) var(--al-radius-sm) 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text);
+}
+
+.handover__moved.is-later {
+    border-left-color: var(--al-danger);
+    background: var(--al-danger-soft);
+}
+
+.handover__figs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-top: 1px solid var(--al-border-strong);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.handover__fig {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--al-space-3) var(--al-space-3) var(--al-space-3) 0;
+    min-width: 0;
+}
+
+.handover__fig + .handover__fig {
+    padding-left: var(--al-space-3);
+    border-left: 1px solid var(--al-border);
+}
+
+.handover__value {
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-xl);
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--al-leading-tight);
+}
+
+.handover__fig--ho .handover__value { color: var(--al-accent); }
+.handover__fig--res.is-empty .handover__value { color: var(--al-danger); }
+
+.handover__note { font-size: var(--al-font-size-xs); color: var(--al-text-subtle); }
+
+.handover__figs.is-proposed .handover__value { text-decoration: underline dotted var(--al-warning); text-underline-offset: 4px; }
+
+.handover__proposed { margin: 0; font-size: var(--al-font-size-xs); color: var(--al-warning); }
+
+@media (max-width: 480px) {
+    .handover__figs { grid-template-columns: 1fr 1fr; }
+    .handover__fig--ho { grid-column: 1 / -1; border-bottom: 1px solid var(--al-border); }
+    .handover__fig:nth-child(2) { padding-left: 0; border-left: 0; }
+    .handover__value { font-size: var(--al-font-size-lg); }
+}

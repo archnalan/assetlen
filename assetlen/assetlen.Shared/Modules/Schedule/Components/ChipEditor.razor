@@ -1,0 +1,402 @@
+@*
+    Tap a chip, change it (works-report.md §4.6): no forms, no Gantt dragging.
+    A bottom sheet on a phone, a popover under the line on a desk. Nothing is
+    saved here — the change joins the draft and the plan previews what it does.
+*@
+
+<div class="chipsheet" role="dialog" aria-modal="true" aria-labelledby="@TitleId">
+    <div class="al-scrim chipsheet__scrim" @onclick="CloseAsync"></div>
+
+    <div class="chipsheet__panel">
+        <div class="al-dialog__grip chipsheet__grip" aria-hidden="true"></div>
+        <header class="chipsheet__head">
+            <div class="chipsheet__heading">
+                <span class="al-label">@Heading</span>
+                <h3 class="chipsheet__title" id="@TitleId">@Activity.Title</h3>
+            </div>
+            <button type="button" class="al-iconbtn" @onclick="CloseAsync" aria-label="Close">
+                <Icon Name="close" Size="18" />
+            </button>
+        </header>
+
+        <div class="chipsheet__body">
+            @switch (Chip)
+            {
+                case ScheduleChip.Trade:
+                    <label class="al-field">
+                        <span class="al-label">Trade — a role, never a person</span>
+                        <input class="al-input" maxlength="80" @bind="trade" @bind:event="oninput" placeholder="Masons, Aluminium team…" />
+                    </label>
+                    break;
+
+                case ScheduleChip.Days:
+                    <div class="chipsheet__steppers">
+                        <Stepper Label="On site" Hint="working days" Value="work" ValueChanged="v => work = v" Min="0" />
+                        <Stepper Label="Made off site first" Hint="working days" Value="make" ValueChanged="v => make = v" Min="0" />
+                        <Stepper Label="Cures after" Hint="calendar days" Value="cure" ValueChanged="v => cure = v" Min="0" />
+                    </div>
+                    @if (work == 0 && make == 0)
+                    {
+                        <p class="al-field__hint chipsheet__warn">It needs at least one day, on site or off.</p>
+                    }
+                    break;
+
+                case ScheduleChip.Finish:
+                    <label class="al-field">
+                        <span class="al-label">Known finish</span>
+                        <input class="al-input" type="date" @bind="pinned" />
+                        <span class="al-field__hint">"The doors run to 21 Oct." Everything after it re-dates from this day.</span>
+                    </label>
+                    @if (Activity.Late || Activity.Started)
+                    {
+                        <div class="al-field">
+                            <span class="al-label">Or: it needs more days</span>
+                            <div class="chipsheet__quick">
+                                @foreach (var n in new[] { 1, 2, 3, 5, 10 })
+                                {
+                                    var days = n;
+                                    <button type="button" class="al-chip @(more == days ? "is-active" : "")" @onclick="() => { more = days; pinned = null; }">
+                                        +@ScheduleText.Days(days)
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                    @if (!Activity.Started)
+                    {
+                        <label class="al-field">
+                            <span class="al-label">Not before</span>
+                            <input class="al-input" type="date" @bind="earliest" />
+                        </label>
+                    }
+                    break;
+
+                case ScheduleChip.Team:
+                    <label class="al-field">
+                        <span class="al-label">Runs in the queue of</span>
+                        <select class="al-select" @bind="team">
+                            <option value="">No team queue</option>
+                            @foreach (var t in Teams)
+                            {
+                                <option value="@t">@t</option>
+                            }
+                            <option value="@NewTeam">A new team…</option>
+                        </select>
+                    </label>
+                    @if (team == NewTeam)
+                    {
+                        <label class="al-field">
+                            <span class="al-label">Team</span>
+                            <input class="al-input" maxlength="80" @bind="newTeamName" @bind:event="oninput" placeholder="@(Activity.Trade ?? "Aluminium team")" />
+                        </label>
+                    }
+                    else if (!string.IsNullOrEmpty(team))
+                    {
+                        <div class="al-field">
+                            <span class="al-label">The order its jobs run in</span>
+                            <TeamQueue Team="@team" Ids="@QueueFor(team)" TitleOf="TitleOf" Highlight="@Activity.Id" OnReorder="ids => queue = ids" />
+                        </div>
+                    }
+                    break;
+
+                case ScheduleChip.Waits:
+                    @if (waits.Count == 0 && adding is null)
+                    {
+                        <p class="chipsheet__none">It waits on nothing: it starts as soon as it may.</p>
+                    }
+                    <ul class="chipsheet__waits">
+                        @for (var i = 0; i < waits.Count; i++)
+                        {
+                            var index = i;
+                            var w = waits[i];
+                            var cleared = w.Id is not null && clearIds.Contains(w.Id);
+                            <li class="chipsheet__wait @(cleared ? "is-cleared" : "")">
+                                <span class="chipsheet__waitkind">@KindLabel(w)</span>
+                                <span class="chipsheet__waittext">@Describe(w)</span>
+                                <span class="chipsheet__waitacts">
+                                    @if (w.Kind == WaitKind.Arrival && w.Id is not null && !cleared)
+                                    {
+                                        <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => clearIds.Add(w.Id!)">It came</button>
+                                    }
+                                    <button type="button" class="al-iconbtn" @onclick="() => waits.RemoveAt(index)" aria-label="Take this wait off">
+                                        <Icon Name="close" Size="16" />
+                                    </button>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+
+                    @if (adding is null)
+                    {
+                        <div class="al-field">
+                            <span class="al-label">Add what it waits on</span>
+                            <div class="chipsheet__choices">
+                                <button type="button" class="chipsheet__choice" @onclick="() => Start(WaitKind.Activity)">
+                                    <Icon Name="arrow-right" Size="18" /><span>Another activity</span>
+                                </button>
+                                <button type="button" class="chipsheet__choice" @onclick="() => Start(WaitKind.Arrival)">
+                                    <Icon Name="calendar" Size="18" /><span>Something arriving by a date</span>
+                                </button>
+                                <button type="button" class="chipsheet__choice" @onclick="() => Start(WaitKind.Drying)">
+                                    <Icon Name="clock" Size="18" /><span>Drying / curing</span>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="chipsheet__add">
+                            @switch (adding.Kind)
+                            {
+                                case WaitKind.Activity:
+                                    <label class="al-field">
+                                        <span class="al-label">Which activity</span>
+                                        <select class="al-select" @bind="adding.PredecessorId">
+                                            <option value="">Choose…</option>
+                                            @foreach (var g in Plan.Activities.Where(a => a.Id != Activity.Id).GroupBy(a => ScheduleText.AreaName(a.Area)).OrderBy(g => ScheduleText.AreaRank(g.Key)))
+                                            {
+                                                <optgroup label="@g.Key">
+                                                    @foreach (var a in g)
+                                                    {
+                                                        <option value="@a.Id">@a.Title</option>
+                                                    }
+                                                </optgroup>
+                                            }
+                                        </select>
+                                    </label>
+                                    <div class="al-segmented" role="tablist" aria-label="How it follows">
+                                        <button type="button" role="tab" class="al-segmented__item" aria-selected="@(adding.Link == WaitLink.FinishToStart)" @onclick="() => adding.Link = WaitLink.FinishToStart">After it finishes</button>
+                                        <button type="button" role="tab" class="al-segmented__item" aria-selected="@(adding.Link == WaitLink.StartToStart)" @onclick="() => adding.Link = WaitLink.StartToStart">Alongside it</button>
+                                    </div>
+                                    @if (Activity.MakeDays > 0)
+                                    {
+                                        <label class="al-check chipsheet__check">
+                                            <input type="checkbox" @bind="adding.AfterMaking" />
+                                            <span>Only the site work waits — making goes ahead</span>
+                                        </label>
+                                    }
+                                    break;
+
+                                case WaitKind.Arrival:
+                                    <label class="al-field">
+                                        <span class="al-label">What kind</span>
+                                        <select class="al-select" @bind="arrivalKind">
+                                            @foreach (var k in Enum.GetValues<ArrivalKind>())
+                                            {
+                                                <option value="@k">@ScheduleText.Kind(k)</option>
+                                            }
+                                        </select>
+                                    </label>
+                                    <label class="al-field">
+                                        <span class="al-label">What arrives</span>
+                                        <input class="al-input" maxlength="200" @bind="adding.Title" @bind:event="oninput" placeholder="Boards and frames on site" />
+                                    </label>
+                                    <div class="al-segmented" role="tablist" aria-label="When">
+                                        <button type="button" role="tab" class="al-segmented__item" aria-selected="@byDate" @onclick="() => byDate = true">By a date</button>
+                                        <button type="button" role="tab" class="al-segmented__item" aria-selected="@(!byDate)" @onclick="() => byDate = false">In working days</button>
+                                    </div>
+                                    @if (byDate)
+                                    {
+                                        <label class="al-field">
+                                            <span class="al-label">Arrives by</span>
+                                            <input class="al-input" type="date" @bind="adding.Until" />
+                                        </label>
+                                    }
+                                    else
+                                    {
+                                        <Stepper Label="Arrives in" Hint="working days from today" Value="adding.Days" ValueChanged="v => adding.Days = v" Min="1" />
+                                    }
+                                    @if (Activity.MakeDays > 0)
+                                    {
+                                        <label class="al-check chipsheet__check">
+                                            <input type="checkbox" @bind="adding.AfterMaking" />
+                                            <span>Needed only for the site work, after making</span>
+                                        </label>
+                                    }
+                                    break;
+
+                                case WaitKind.Drying:
+                                    <label class="al-field">
+                                        <span class="al-label">What dries</span>
+                                        <input class="al-input" maxlength="200" @bind="adding.Title" @bind:event="oninput" placeholder="Screed drying" />
+                                    </label>
+                                    <Stepper Label="For" Hint="calendar days — every day counts" Value="adding.Days" ValueChanged="v => adding.Days = v" Min="1" />
+                                    <label class="al-field">
+                                        <span class="al-label">From</span>
+                                        <input class="al-input" type="date" @bind="adding.From" />
+                                    </label>
+                                    break;
+                            }
+                            <div class="chipsheet__addfoot">
+                                <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => adding = null">Cancel</button>
+                                <button type="button" class="al-btn al-btn--default al-btn--sm" disabled="@(!CanAdd)" @onclick="Add">
+                                    <Icon Name="plus" Size="14" /> Add
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    break;
+            }
+        </div>
+
+        <footer class="chipsheet__foot">
+            <span class="al-field__hint">Nothing is saved until you see what it does.</span>
+            <button type="button" class="al-btn al-btn--quiet" @onclick="CloseAsync">Cancel</button>
+            <button type="button" class="al-btn al-btn--primary" disabled="@(!CanApply)" @onclick="ApplyAsync">Preview</button>
+        </footer>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleActivityDto Activity { get; set; } = default!;
+    [Parameter, EditorRequired] public ScheduleChip Chip { get; set; }
+    [Parameter, EditorRequired] public ScheduleDto Plan { get; set; } = default!;
+    [Parameter, EditorRequired] public ScheduleDraft Draft { get; set; } = default!;
+    [Parameter] public EventCallback OnApplied { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private const string NewTeam = "\u0001new";
+
+    private string TitleId => $"chip-{Activity.Id}";
+
+    private string Heading => Chip switch
+    {
+        ScheduleChip.Trade => "Trade",
+        ScheduleChip.Days => "How long",
+        ScheduleChip.Finish => "When it finishes",
+        ScheduleChip.Team => "Team queue",
+        _ => "Waits on"
+    };
+
+    private string trade = "";
+    private int work, make, cure;
+    private DateOnly? pinned, earliest;
+    private int? more;
+    private string team = "", newTeamName = "";
+    private List<string>? queue;
+    private List<WaitInputDto> waits = new();
+    private HashSet<string> clearIds = new();
+    private WaitInputDto? adding;
+    private ArrivalKind arrivalKind = ArrivalKind.Delivery;
+    private bool byDate = true;
+    private string? seenFor;
+
+    protected override void OnParametersSet()
+    {
+        var key = $"{Activity.Id}/{Chip}";
+        if (key == seenFor) return;
+        seenFor = key;
+        trade = Activity.Trade ?? "";
+        work = Activity.WorkDays;
+        make = Activity.MakeDays;
+        cure = Activity.CureDays;
+        pinned = Activity.PinnedFinish;
+        earliest = Activity.EarliestStart;
+        more = null;
+        team = Activity.TeamKey ?? "";
+        queue = null;
+        waits = ScheduleDraft.Inputs(Activity);
+        clearIds = new();
+        adding = null;
+    }
+
+    private IEnumerable<string> Teams => Plan.Teams.Select(t => t.TeamKey!).Where(t => !string.IsNullOrWhiteSpace(t));
+
+    private string TitleOf(string id) => ScheduleText.TitleIn(Plan, id);
+
+    private List<string> QueueFor(string key)
+    {
+        var ids = Plan.Teams.FirstOrDefault(t => string.Equals(t.TeamKey, key, StringComparison.OrdinalIgnoreCase))?.OrderedIds.ToList() ?? new();
+        if (!ids.Contains(Activity.Id!)) ids.Add(Activity.Id!);
+        return ids;
+    }
+
+    private void Start(WaitKind kind)
+    {
+        adding = new WaitInputDto
+        {
+            Kind = kind,
+            Days = kind == WaitKind.Drying ? 7 : 5,
+            From = kind == WaitKind.Drying ? Plan.Today : null,
+            Title = kind == WaitKind.Drying ? "Drying" : null,
+            CalendarDays = kind == WaitKind.Drying
+        };
+        byDate = true;
+        arrivalKind = ArrivalKind.Delivery;
+    }
+
+    private bool CanAdd => adding switch
+    {
+        null => false,
+        { Kind: WaitKind.Activity } a => !string.IsNullOrEmpty(a.PredecessorId),
+        { Kind: WaitKind.Arrival } a => byDate ? a.Until is not null : a.Days > 0,
+        { Kind: WaitKind.Drying } a => a.Days > 0,
+        _ => false
+    };
+
+    private void Add()
+    {
+        if (adding is null || !CanAdd) return;
+        if (adding.Kind == WaitKind.Arrival)
+        {
+            adding.Arrival = arrivalKind;
+            if (byDate) adding.Days = 0; else adding.Until = null;
+            if (string.IsNullOrWhiteSpace(adding.Title)) adding.Title = ScheduleText.Kind(arrivalKind);
+        }
+        waits.Add(adding);
+        adding = null;
+    }
+
+    private string KindLabel(WaitInputDto w) => w.Kind switch
+    {
+        WaitKind.Activity => w.Link == WaitLink.StartToStart ? "Alongside" : "After",
+        WaitKind.Drying => "Drying",
+        _ => ScheduleText.Kind(w.Arrival ?? ArrivalKind.Delivery)
+    };
+
+    private string Describe(WaitInputDto w) => w.Kind switch
+    {
+        WaitKind.Activity => TitleOf(w.PredecessorId ?? "") + (w.AfterMaking ? " — site work only" : ""),
+        WaitKind.Drying => $"{w.Title ?? "Drying"}, {ScheduleText.Days(w.Days)}{(w.From is { } f ? $" from {ScheduleText.DayShort(f)}" : "")}",
+        _ => $"{w.Title}{(w.Until is { } u ? $" by {ScheduleText.DayShort(u)}" : w.Days > 0 ? $" in {ScheduleText.WorkingDays(w.Days)}" : "")}"
+    };
+
+    private bool CanApply => Chip switch
+    {
+        ScheduleChip.Days => work > 0 || make > 0,
+        ScheduleChip.Team => team != NewTeam || !string.IsNullOrWhiteSpace(newTeamName),
+        _ => true
+    };
+
+    private async Task ApplyAsync()
+    {
+        var id = Activity.Id!;
+        switch (Chip)
+        {
+            case ScheduleChip.Trade:
+                Draft.SetTrade(id, trade.Trim());
+                break;
+            case ScheduleChip.Days:
+                Draft.SetDays(id, work, make, cure);
+                break;
+            case ScheduleChip.Finish:
+                if (more is { } n) Draft.NeedsMore(id, n);
+                else if (pinned != Activity.PinnedFinish) Draft.SetFinish(id, pinned);
+                if (!Activity.Started && earliest != Activity.EarliestStart) Draft.SetEarliest(id, earliest);
+                break;
+            case ScheduleChip.Team:
+                var chosen = team == NewTeam ? newTeamName.Trim() : team;
+                if (!string.Equals(chosen, Activity.TeamKey ?? "", StringComparison.OrdinalIgnoreCase))
+                    Draft.SetTeam(id, string.IsNullOrWhiteSpace(chosen) ? null : chosen);
+                if (queue is not null && !string.IsNullOrEmpty(chosen) && team != NewTeam) Draft.SetQueue(chosen, queue);
+                break;
+            case ScheduleChip.Waits:
+                Draft.SetWaits(id, waits);
+                foreach (var w in clearIds) Draft.ClearWait(id, w);
+                break;
+        }
+        await OnApplied.InvokeAsync();
+    }
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+}

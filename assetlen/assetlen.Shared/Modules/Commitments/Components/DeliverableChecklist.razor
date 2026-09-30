@@ -1,59 +1,71 @@
 @*
-    A funded stage's five to eight deliverables (assetlen.md §3). This is the
-    checklist capture and commitments are aimed at, so nothing on the project
-    floats. The bench reads it; the principals write it.
+    The checklist capture and commitments are aimed at (assetlen.md §3) — one
+    stage's lines on the stage page, or with no stage the project-wide work plan
+    grouped by area (works-report.md §4.5). Either way a line is knocked off the
+    same way, on one photo, through PlanLine. The principals write the lines; the
+    delivery side ticks them; the client side reads them.
 *@
 
 @inject ILogger<DeliverableChecklist> Logger
 
 <div class="checklist">
+    @if (StageId is null && phase == LoadPhase.Ready)
+    {
+        <p class="checklist__summary">
+            <span class="al-num">@items.Count(i => i.Status == DeliverableStatus.Done) of @items.Count</span> done
+            @if (items.Where(i => i.PlannedEnd is not null).Select(i => i.PlannedEnd).Max() is { } last)
+            {
+                <span class="checklist__sep" aria-hidden="true">·</span>
+                <span>works planned to finish <span class="al-num">@last.ToString("ddd d MMM", CultureInfo.InvariantCulture)</span></span>
+            }
+        </p>
+    }
+
     <StateBlock Phase="phase" OnRetry="LoadAsync"
-                ErrorTitle="The checklist didn't load"
+                ErrorTitle="@(StageId is null ? "The work plan didn't load" : "The checklist didn't load")"
                 ErrorMessage="@errorMessage"
                 EmptyIcon="check-circle"
-                EmptyTitle="No deliverables yet"
-                EmptyBody="Five to eight lines per stage is the right grain — each one a thing that can be seen done.">
+                EmptyTitle="@(StageId is null ? "No work planned yet" : "No deliverables yet")"
+                EmptyBody="@(StageId is null
+                    ? "Lines are added on each stage's page. Once they carry a trade and planned dates, the plan reads here by area."
+                    : "Five to eight lines per stage is the right grain — each one a thing that can be seen done.")">
         <Loading>
+            <div class="al-shimmer al-ghost-row"></div>
             <div class="al-shimmer al-ghost-row"></div>
             <div class="al-shimmer al-ghost-row"></div>
         </Loading>
         <ChildContent>
-            <ol class="checklist__list">
-                @foreach (var d in items)
+            @if (StageId is null)
+            {
+                @foreach (var group in Groups)
                 {
-                    <li class="checklist__item checklist__item--@d.Status.ToString().ToLowerInvariant()">
-                        @if (CanWrite)
-                        {
-                            <button type="button" class="checklist__tick" aria-label="@($"{d.Title}: {Label(d.Status)} — change")"
-                                    disabled="@(busy == d.Id)" @onclick="() => CycleAsync(d)">
-                                <Icon Name="@TickIcon(d.Status)" Size="16" />
-                            </button>
-                        }
-                        else
-                        {
-                            <span class="checklist__tick" aria-hidden="true"><Icon Name="@TickIcon(d.Status)" Size="16" /></span>
-                        }
-                        <span class="checklist__main">
-                            <span class="checklist__title">@d.Title</span>
-                            <span class="checklist__sub">
-                                <span>@Label(d.Status)@if (d.CompletedAt is not null) {<text> · @Fmt.DateShort(d.CompletedAt)</text>}</span>
-                                @if (d.DueDate is not null && d.Status != DeliverableStatus.Done)
-                                {
-                                    <span class="al-num">by @Fmt.DateShort(d.DueDate)</span>
-                                }
-                                @if (d.CommitmentCount > 0)
-                                {
-                                    <span>@d.CommitmentCount agreed</span>
-                                }
-                            </span>
-                        </span>
-                    </li>
+                    <section class="checklist__area" aria-label="@group.Key">
+                        <div class="al-rule">
+                            <span class="al-label">@group.Key</span>
+                            <span class="checklist__count al-num">@group.Count(i => i.Status == DeliverableStatus.Done)/@group.Count()</span>
+                        </div>
+                        <ol class="checklist__list">
+                            @foreach (var d in group)
+                            {
+                                <PlanLine @key="d.Id" Item="d" Detailed="true" ShowStage="true" OnChanged="Replace" />
+                            }
+                        </ol>
+                    </section>
                 }
-            </ol>
+            }
+            else
+            {
+                <ol class="checklist__list">
+                    @foreach (var d in items)
+                    {
+                        <PlanLine @key="d.Id" Item="d" Detailed="true" ShowStage="false" OnChanged="Replace" />
+                    }
+                </ol>
+            }
         </ChildContent>
     </StateBlock>
 
-    @if (CanWrite && phase is LoadPhase.Ready or LoadPhase.Empty)
+    @if (StageId is not null && CanWrite && phase is LoadPhase.Ready or LoadPhase.Empty)
     {
         <form class="checklist__add" @onsubmit="AddAsync" @onsubmit:preventDefault>
             <label class="al-sr-only" for="dl-@StageId">New deliverable</label>
@@ -72,7 +84,11 @@
 
 @code {
     [Parameter, EditorRequired] public string ProjectId { get; set; } = "";
-    [Parameter, EditorRequired] public string StageId { get; set; } = "";
+
+    /// <summary>One stage's checklist; null for the project-wide plan.</summary>
+    [Parameter] public string? StageId { get; set; }
+
+    /// <summary>Whether this reader writes the lines (not whether they tick them — the server stamps that per line).</summary>
     [Parameter] public bool CanWrite { get; set; }
 
     private List<DeliverableDto> items = new();
@@ -80,8 +96,14 @@
     private string? errorMessage;
     private string newTitle = "";
     private bool adding;
-    private string? busy;
     private string? loadedKey;
+
+    // Areas read in the order the work reaches them; handover, and anything
+    // nobody has placed, come last.
+    private IEnumerable<IGrouping<string, DeliverableDto>> Groups => items
+        .GroupBy(i => string.IsNullOrWhiteSpace(i.Area) ? "Other lines" : i.Area!)
+        .OrderBy(g => g.Key == "Other lines" ? 2 : g.Key == "Handover" ? 1 : 0)
+        .ThenBy(g => g.Min(i => i.PlannedStart ?? DateTime.MaxValue));
 
     protected override async Task OnParametersSetAsync()
     {
@@ -98,28 +120,36 @@
         StateHasChanged();
         try
         {
-            var response = await _commitmentsApi.GetDeliverables(ProjectId, StageId);
+            var response = await _workPlanApi.GetPlan(ProjectId, StageId);
             if (!response.IsSuccessStatusCode || response.Content is null)
             {
                 phase = LoadPhase.Error;
                 errorMessage = _apiResponseHandler.GetApiErrorMessage(response);
                 return;
             }
-            items = response.Content;
+            items = response.Content.Items;
             phase = items.Count == 0 ? LoadPhase.Empty : LoadPhase.Ready;
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Checklist failed for {StageId}", StageId);
+            Logger.LogError(ex, "Work plan failed for {ProjectId}/{StageId}", ProjectId, StageId);
             phase = LoadPhase.Error;
             errorMessage = ex.Message;
         }
         finally { StateHasChanged(); }
     }
 
+    private void Replace(DeliverableDto updated)
+    {
+        var i = items.FindIndex(x => x.Id == updated.Id);
+        if (i >= 0) items[i] = updated;
+        if (updated.Status == DeliverableStatus.Done) ToastService.ShowSuccess($"{updated.Title} — done, photo on record.");
+        StateHasChanged();
+    }
+
     private async Task AddAsync()
     {
-        if (string.IsNullOrWhiteSpace(newTitle)) return;
+        if (string.IsNullOrWhiteSpace(newTitle) || StageId is null) return;
         adding = true;
         try
         {
@@ -131,9 +161,8 @@
             });
             if (response.IsSuccessStatusCode && response.Content is not null)
             {
-                items.Add(response.Content);
                 newTitle = "";
-                phase = LoadPhase.Ready;
+                await LoadAsync();
             }
             else
             {
@@ -151,53 +180,4 @@
             StateHasChanged();
         }
     }
-
-    private async Task CycleAsync(DeliverableDto d)
-    {
-        var next = d.Status switch
-        {
-            DeliverableStatus.NotStarted => DeliverableStatus.InProgress,
-            DeliverableStatus.InProgress => DeliverableStatus.Done,
-            _ => DeliverableStatus.NotStarted
-        };
-
-        busy = d.Id;
-        try
-        {
-            var response = await _commitmentsApi.UpdateDeliverable(new DeliverableUpdateDto { Id = d.Id, Status = next });
-            if (response.IsSuccessStatusCode && response.Content is not null)
-            {
-                var i = items.FindIndex(x => x.Id == d.Id);
-                if (i >= 0) items[i] = response.Content;
-            }
-            else
-            {
-                ToastService.ShowError(_apiResponseHandler.GetApiErrorMessage(response) ?? "Could not update that line.");
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Could not update deliverable {Id}", d.Id);
-            ToastService.ShowError("Could not update that line.");
-        }
-        finally
-        {
-            busy = null;
-            StateHasChanged();
-        }
-    }
-
-    private static string Label(DeliverableStatus s) => s switch
-    {
-        DeliverableStatus.Done => "Done",
-        DeliverableStatus.InProgress => "In progress",
-        _ => "Not started"
-    };
-
-    private static string TickIcon(DeliverableStatus s) => s switch
-    {
-        DeliverableStatus.Done => "check-circle",
-        DeliverableStatus.InProgress => "clock",
-        _ => "dot"
-    };
 }

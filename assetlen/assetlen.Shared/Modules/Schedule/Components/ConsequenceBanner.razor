@@ -1,0 +1,50 @@
+@*
+    Every edit shows its consequence before it is saved (works-report.md §4.6):
+    "Moves works complete from Wed 2 Dec to Fri 4 Dec. Reserve 1 → 0 days."
+    Save or discard; nothing reaches the plan in between.
+*@
+
+<aside class="consequence @(Later ? "is-later" : "") @(Busy ? "is-busy" : "")" role="status" aria-live="polite">
+    <div class="consequence__text">
+        <span class="al-label">
+            @(Count == 1 ? "1 change, not saved" : $"{Count} changes, not saved")
+        </span>
+        @if (Error is not null)
+        {
+            <p class="consequence__error"><Icon Name="error" Size="16" /> @Error</p>
+        }
+        else if (Preview is null || Busy)
+        {
+            <p class="consequence__line"><span class="al-spinner" aria-hidden="true"></span> Working out what it does…</p>
+        }
+        else
+        {
+            @foreach (var s in Preview.Sentences)
+            {
+                <p class="consequence__line">@s</p>
+            }
+        }
+    </div>
+    <div class="consequence__acts">
+        <button type="button" class="al-btn al-btn--quiet" disabled="@Saving" @onclick="OnDiscard">Discard</button>
+        <button type="button" class="al-btn al-btn--primary" disabled="@(Saving || Busy || Preview is null || Error is not null)" @onclick="OnSave">
+            @if (Saving)
+            {
+                <span class="al-spinner" aria-hidden="true"></span>
+            }
+            Save
+        </button>
+    </div>
+</aside>
+
+@code {
+    [Parameter] public SchedulePreviewDto? Preview { get; set; }
+    [Parameter] public int Count { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Saving { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnDiscard { get; set; }
+
+    private bool Later => Preview is { } p && p.Proposed.WorksComplete > p.Current.WorksComplete;
+}

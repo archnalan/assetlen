@@ -1,0 +1,100 @@
+@*
+    This week (works-report.md §4.6): what starts, what finishes, and anything
+    past its planned finish. A finish is answered with a tick on one photo, or
+    with "needs N more days" — either re-dates the plan. Ignored, it stays
+    flagged late; it is never quietly on time.
+*@
+
+<div class="week">
+    <p class="week__range al-num">@ScheduleText.Day(Plan.Today) – @ScheduleText.Day(Plan.Today.AddDays(6))</p>
+
+    @if (Late.Count > 0)
+    {
+        <section class="week__block week__block--late" aria-labelledby="week-late">
+            <h3 class="week__title" id="week-late"><Icon Name="alert" Size="16" /> Past its planned finish</h3>
+            @Lines(Late, answer: true)
+        </section>
+    }
+
+    <section class="week__block" aria-labelledby="week-finish">
+        <h3 class="week__title" id="week-finish"><Icon Name="check" Size="16" /> Finishes this week</h3>
+        @if (Finishes.Count == 0)
+        {
+            <p class="week__none">Nothing is due to finish; work continues.</p>
+        }
+        else
+        {
+            @Lines(Finishes, answer: true)
+        }
+    </section>
+
+    <section class="week__block" aria-labelledby="week-start">
+        <h3 class="week__title" id="week-start"><Icon Name="arrow-right" Size="16" /> Starts this week</h3>
+        @if (Starts.Count == 0)
+        {
+            <p class="week__none">Nothing new starts.</p>
+        }
+        else
+        {
+            <ul class="week__starts">
+                @foreach (var a in Starts)
+                {
+                    <li class="week__start" style="--lane: @ScheduleText.AreaAccent(a.Area)">
+                        <span class="week__dot" aria-hidden="true"></span>
+                        <span class="week__name">@(a.MakeStart is { } ms && ms >= Plan.Today && ms <= WeekEnd ? $"Making: {a.Title}" : a.Title)</span>
+                        <span class="week__when al-num">@ScheduleText.Day(a.MakeStart is { } m && m >= Plan.Today ? m : a.Start)</span>
+                        @if (a.Critical)
+                        {
+                            <span class="week__crit">sets the date</span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleDto Plan { get; set; } = default!;
+    [Parameter] public bool CanEdit { get; set; }
+    [Parameter] public EventCallback<(string Id, int Days)> OnNeedsMore { get; set; }
+    [Parameter] public EventCallback OnTicked { get; set; }
+
+    private DateOnly WeekEnd => Plan.Today.AddDays(6);
+
+    private List<ScheduleActivityDto> Late => Plan.Activities.Where(a => a.Late && !a.Done).OrderBy(a => a.LateSince).ToList();
+
+    private List<ScheduleActivityDto> Finishes => Plan.Activities
+        .Where(a => !a.Done && !a.Late && a.Finish >= Plan.Today && a.Finish <= WeekEnd)
+        .OrderBy(a => a.Finish).ToList();
+
+    private List<ScheduleActivityDto> Starts => Plan.Activities
+        .Where(a => !a.Done && ((a.Start >= Plan.Today && a.Start <= WeekEnd) || (a.MakeStart is { } m && m >= Plan.Today && m <= WeekEnd)))
+        .OrderBy(a => a.MakeStart is { } m && m >= Plan.Today ? m : a.Start).ToList();
+
+    private RenderFragment Lines(List<ScheduleActivityDto> items, bool answer) => __builder =>
+    {
+        <ol class="week__list">
+            @foreach (var a in items)
+            {
+                @if (a.Line is { } line)
+                {
+                    <PlanLine @key="a.Id" Item="line" Detailed="true" ShowStage="false" OnChanged="_ => OnTicked.InvokeAsync()" />
+                }
+                @if (answer && CanEdit)
+                {
+                    <li class="week__more">
+                        <span class="week__moreq">@(a.Late ? "Not done yet?" : "Running over?") Needs</span>
+                        @foreach (var n in new[] { 1, 2, 3, 5 })
+                        {
+                            var days = n;
+                            <button type="button" class="al-chip" @onclick="() => OnNeedsMore.InvokeAsync((a.Id!, days))">
+                                @ScheduleText.Days(days) more
+                            </button>
+                        }
+                    </li>
+                }
+            }
+        </ol>
+    };
+}

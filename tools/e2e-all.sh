@@ -5,7 +5,7 @@
 # extraction — the forwarded pile read into a register — P6 retrieval, and P7
 # Peter's surfaces, the home and the daily brief, and the works report.
 #
-# Thirteen suites, run in order, one exit code. They are kept separate because they
+# Fifteen suites, run in order, one exit code. They are kept separate because they
 # answer different questions — e2e-p2-peter.sh asks whether the project belongs
 # to the person who funds it, e2e-p3-ingest.sh asks whether he can get his year
 # of history into it, e2e-p4-arrange.sh asks whether his screen is his own and
@@ -24,7 +24,11 @@
 # by exception and is paid on the evidence — and re-runs the brief and report
 # suites with him never signing in — e2e-law0.sh asks, in one sitting, whether
 # Peter alone gets a register, a brief and an issued report out of his thread,
-# and pins the seat rules his front door depends on — e2e-postgres.sh asks
+# and pins the seat rules his front door depends on — e2e-knockoff.sh asks
+# whether a line of the work plan is knocked off only on a photo, which crosses to
+# the client side in the mediator's name — e2e-scheduler.sh asks whether the plan's
+# dates follow from days, waits and order, every change shows its effect on the
+# handover before it is saved, and the demo computes the issued 30 Sep plan — e2e-postgres.sh asks
 # whether anything the database move could quietly break still holds — but a phase is only
 # done when all of them are green together.
 #
@@ -75,6 +79,8 @@ run "Works report — R1 to R5"                           tools/e2e-report.sh
 run "P8 — markup, query state, parked ideas"           tools/e2e-p8-markup.sh
 run "P9 — the contractor tier, and Law 0 re-proven"   tools/e2e-p9-contractor.sh
 run "Law 0 — the contractor silent, end to end"       tools/e2e-law0.sh
+run "Knock-off — the work plan, one photo per tick"  tools/e2e-knockoff.sh
+run "Scheduler — the plan computed, previewed, driven" tools/e2e-scheduler.sh
 run "PostgreSQL — case, NUL, the clock, the jobs"    tools/e2e-postgres.sh
 
 printf "\n%s══ Whole chain %s\n" "$c_head" "$c_off"

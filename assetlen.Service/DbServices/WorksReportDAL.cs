@@ -1512,14 +1512,14 @@ public class WorksReportDAL : IWorksReportDAL
         d.Status == DeliverableStatus.Done && (d.CompletedAt is not { } c ? live : Local(c) <= at);
 
     /// <summary>When it was said: the agreed moment as recorded, else when it was written down.</summary>
-    private static DateTime AgreedOf(tbl_Commitment c) => c.AgreedAt ?? Local(c.DateTimeCreated);
+    internal static DateTime AgreedOf(tbl_Commitment c) => c.AgreedAt ?? Local(c.DateTimeCreated);
 
     /// <summary>
     /// The project's completion date, as opposed to a short promise about one
     /// piece of work: worded as completion, and naming no stage or deliverable.
     /// "Guest wing plaster complete this week" is a stage's promise, not the deadline.
     /// </summary>
-    private static bool IsProjectDeadline(tbl_Commitment c, List<StageRef> refs) =>
+    internal static bool IsProjectDeadline(tbl_Commitment c, List<StageRef> refs) =>
         c.Kind == CommitmentKind.Date && c.DeliverableId == null && c.DueDate != null
         && CompletionTitle.IsMatch(c.Title ?? "") && StageMatcher.Match(c.Title, refs) is null;
 

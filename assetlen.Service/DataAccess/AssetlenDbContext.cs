@@ -74,6 +74,9 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
 
     // ─── The commitment model + money ledger (P4 — assetlen.md §3, §6) ───
     public virtual DbSet<tbl_Deliverable> tbl_Deliverables { get; set; }
+    public virtual DbSet<tbl_DeliverableEvent> tbl_DeliverableEvents { get; set; }
+    public virtual DbSet<tbl_PlanWait> tbl_PlanWaits { get; set; }
+    public virtual DbSet<tbl_WorkSchedule> tbl_WorkSchedules { get; set; }
     public virtual DbSet<tbl_Commitment> tbl_Commitments { get; set; }
     public virtual DbSet<tbl_CommitmentLink> tbl_CommitmentLinks { get; set; }
     public virtual DbSet<tbl_Variation> tbl_Variations { get; set; }
@@ -151,6 +154,9 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
         TenantScoped<tbl_IngestBatch>(modelBuilder);
         TenantScoped<tbl_IngestedMessage>(modelBuilder);
         TenantScoped<tbl_Deliverable>(modelBuilder);
+        TenantScoped<tbl_DeliverableEvent>(modelBuilder);
+        TenantScoped<tbl_PlanWait>(modelBuilder);
+        TenantScoped<tbl_WorkSchedule>(modelBuilder);
         TenantScoped<tbl_Commitment>(modelBuilder);
         TenantScoped<tbl_CommitmentLink>(modelBuilder);
         TenantScoped<tbl_Variation>(modelBuilder);
@@ -443,6 +449,29 @@ public partial class AssetlenDbContext : IdentityDbContext<AppUser>
             entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Stage).WithMany().HasForeignKey(e => e.StageId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(e => e.CompletedBy).WithMany().HasForeignKey(e => e.CompletedById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(e => e.CompletionArtifact).WithMany().HasForeignKey(e => e.CompletionArtifactId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(e => new { e.ProjectId, e.PlannedStart }).HasDatabaseName("IX_Deliverable_Project_PlannedStart");
+        });
+
+        modelBuilder.Entity<tbl_DeliverableEvent>(entity =>
+        {
+            entity.HasIndex(e => e.DeliverableId).HasDatabaseName("IX_DeliverableEvent_DeliverableId");
+            entity.HasOne(e => e.Deliverable).WithMany().HasForeignKey(e => e.DeliverableId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.By).WithMany().HasForeignKey(e => e.ById).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_PlanWait>(entity =>
+        {
+            entity.HasIndex(e => e.DeliverableId).HasDatabaseName("IX_PlanWait_DeliverableId");
+            entity.HasIndex(e => e.ProjectId).HasDatabaseName("IX_PlanWait_ProjectId");
+            entity.HasOne(e => e.Deliverable).WithMany().HasForeignKey(e => e.DeliverableId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Predecessor).WithMany().HasForeignKey(e => e.PredecessorId).IsRequired(false).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<tbl_WorkSchedule>(entity =>
+        {
+            entity.HasIndex(e => e.ProjectId).IsUnique().HasDatabaseName("IX_WorkSchedule_ProjectId");
+            entity.HasOne(e => e.Project).WithMany().HasForeignKey(e => e.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<tbl_Commitment>(entity =>

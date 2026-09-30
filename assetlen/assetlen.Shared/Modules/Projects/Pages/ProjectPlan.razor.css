@@ -1,0 +1,6 @@
+.plan {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+    min-width: 0;
+}

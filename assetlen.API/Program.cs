@@ -141,6 +141,7 @@ builder.Services.AddScoped<IProgressDAL, ProgressDAL>();
 builder.Services.AddScoped<IPMDashboardDAL, PMDashboardDAL>();
 builder.Services.AddScoped<IFlagDAL, FlagDAL>();
 builder.Services.AddScoped<ICommitmentDAL, CommitmentDAL>();
+builder.Services.AddScoped<IWorkPlanDAL, WorkPlanDAL>();
 builder.Services.AddScoped<IAnnotationDAL, AnnotationDAL>();
 builder.Services.AddScoped<ILedgerDAL, LedgerDAL>();
 builder.Services.AddScoped<IBudgetDAL, BudgetDAL>();
@@ -210,6 +211,7 @@ builder.Services.AddSingleton<assetlen.Service.FileProcessingServices.Ocr.IAudio
 builder.Services.AddScoped<IFrameExposure, FrameExposureService>();
 builder.Services.AddScoped<ICurationDAL, CurationDAL>();
 builder.Services.AddScoped<CutoffPublishJob>();
+builder.Services.AddScoped<assetlen.Service.FileProcessingServices.WorkPlanRedateJob>();
 builder.Services.AddSingleton(sp => new assetlen.Service.FileProcessingServices.Push.VapidKeys(
     builder.Configuration,
     Path.Combine(builder.Configuration["Artifacts:StorageRoot"] ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data"),
@@ -524,6 +526,10 @@ using (var scope = app.Services.CreateScope())
         // touched them (assetlen.md §5). Every quarter hour; the cutoff hour decides.
         recurring.AddOrUpdate<CutoffPublishJob>(
             "brief-cutoff", j => j.RunAsync(), "*/15 * * * *", TimeZoneInfo.Local);
+
+        // The plan re-dates from ticks and elapsed time with nobody editing it (works-report.md §4.6).
+        recurring.AddOrUpdate<assetlen.Service.FileProcessingServices.WorkPlanRedateJob>(
+            "work-plan-redate", j => j.RunAsync(), Cron.Daily(4), TimeZoneInfo.Local);
     }
     catch (Exception ex)
     {

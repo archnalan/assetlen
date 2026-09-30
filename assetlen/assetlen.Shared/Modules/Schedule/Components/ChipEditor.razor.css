@@ -1,0 +1,196 @@
+/* A bottom sheet on a phone … */
+.chipsheet {
+    position: fixed;
+    inset: 0;
+    z-index: var(--al-z-modal);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.chipsheet__panel {
+    position: relative;
+    z-index: calc(var(--al-z-scrim) + 1);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: 86dvh;
+    background: var(--al-bg-elevated);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-lg) var(--al-radius-lg) 0 0;
+    box-shadow: var(--al-shadow-lg);
+    animation: chipsheet-up var(--al-transition-slow) both;
+    padding-bottom: var(--al-safe-b);
+}
+
+@keyframes chipsheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+/* … and a popover under the line on a desk. */
+@media (min-width: 768px) {
+    .chipsheet {
+        position: absolute;
+        inset: auto;
+        top: calc(100% - var(--al-space-2));
+        left: var(--al-space-4);
+        z-index: var(--al-z-drawer);
+        display: block;
+        width: min(28rem, calc(100% - var(--al-space-5)));
+    }
+
+    .chipsheet__scrim {
+        background: transparent;
+        backdrop-filter: none;
+        animation: none;
+    }
+
+    .chipsheet__panel {
+        max-height: 70vh;
+        border-radius: var(--al-radius-lg);
+        animation: chipsheet-in var(--al-transition) both;
+    }
+
+    .chipsheet__grip { display: none; }
+}
+
+@keyframes chipsheet-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.chipsheet__head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3) var(--al-space-4) var(--al-space-2);
+    border-bottom: 1px solid var(--al-border);
+}
+
+.chipsheet__heading { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.chipsheet__title {
+    margin: 0;
+    font-family: var(--al-font-display);
+    font-size: var(--al-font-size-lg);
+    font-weight: var(--al-weight-semibold);
+    color: var(--al-text);
+    overflow-wrap: anywhere;
+}
+
+.chipsheet__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-4);
+    padding: var(--al-space-4);
+    overflow-y: auto;
+}
+
+.chipsheet__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--al-space-2);
+    padding: var(--al-space-3) var(--al-space-4);
+    border-top: 1px solid var(--al-border);
+}
+
+.chipsheet__foot .al-field__hint { flex: 1 1 12rem; margin: 0; }
+
+.chipsheet__steppers { display: flex; flex-direction: column; gap: var(--al-space-3); }
+
+.chipsheet__warn { color: var(--al-danger); }
+
+.chipsheet__quick { display: flex; flex-wrap: wrap; gap: var(--al-space-2); }
+
+.chipsheet__none {
+    margin: 0;
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+}
+
+.chipsheet__waits {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--al-border);
+    border-radius: var(--al-radius);
+}
+
+.chipsheet__waits:empty { display: none; }
+
+.chipsheet__wait {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--al-space-2);
+    padding: var(--al-space-2) var(--al-space-3);
+    border-bottom: 1px solid var(--al-border);
+    font-size: var(--al-font-size-sm);
+}
+
+.chipsheet__wait:last-child { border-bottom: 0; }
+.chipsheet__wait.is-cleared .chipsheet__waittext { text-decoration: line-through; color: var(--al-text-subtle); }
+
+.chipsheet__waitkind {
+    font-size: var(--al-font-size-2xs);
+    font-weight: var(--al-weight-semibold);
+    letter-spacing: var(--al-tracking-wide);
+    text-transform: uppercase;
+    color: var(--al-text-subtle);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius-xs);
+    padding: 1px var(--al-space-1);
+    white-space: nowrap;
+}
+
+.chipsheet__waittext { color: var(--al-text); overflow-wrap: anywhere; }
+.chipsheet__waitacts { display: inline-flex; align-items: center; gap: var(--al-space-1); }
+
+.chipsheet__choices { display: grid; gap: var(--al-space-2); }
+
+.chipsheet__choice {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3);
+    border: 1px solid var(--al-border-strong);
+    border-radius: var(--al-radius);
+    background: var(--al-surface);
+    color: var(--al-text);
+    font: inherit;
+    font-size: var(--al-font-size-md);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--al-transition-fast), background-color var(--al-transition-fast);
+}
+
+.chipsheet__choice:hover,
+.chipsheet__choice:focus-visible { border-color: var(--al-accent); background: var(--al-accent-soft); }
+
+.chipsheet__add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--al-space-3);
+    padding: var(--al-space-3);
+    border: 1px dashed var(--al-border-strong);
+    border-radius: var(--al-radius);
+}
+
+.chipsheet__addfoot { display: flex; justify-content: flex-end; gap: var(--al-space-2); }
+
+.chipsheet__check {
+    display: flex;
+    align-items: center;
+    gap: var(--al-space-2);
+    font-size: var(--al-font-size-sm);
+    color: var(--al-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chipsheet__panel { animation: none; }
+}

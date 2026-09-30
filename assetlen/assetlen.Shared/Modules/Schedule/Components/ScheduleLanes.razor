@@ -1,0 +1,99 @@
+@*
+    The plan, by area in the order the work reaches it (works-report.md §4.6):
+    on a phone each activity is a card with its lane across the width; on a desk
+    the lanes sit beside the sentences with the calendar above them — the issued
+    plan's timeline slide, live. Rows are grouped, never wired into a network.
+*@
+
+<div class="lanes">
+    <div class="lanes__legend" aria-hidden="true">
+        <span><i class="lanes__sw lanes__sw--hold"></i>Waiting on</span>
+        <span><i class="lanes__sw lanes__sw--make"></i>Made off site</span>
+        <span><i class="lanes__sw lanes__sw--work"></i>On site</span>
+        <span><i class="lanes__sw lanes__sw--crit"></i>Sets the date</span>
+        <span><i class="lanes__sw lanes__sw--res"></i>Reserve</span>
+        <span><i class="lanes__sw lanes__sw--ho"></i>Handover</span>
+    </div>
+
+    @foreach (var group in Groups)
+    {
+        <section class="lanes__group" aria-label="@group.Key">
+            <div class="lanes__grouphead">
+                <div class="al-rule lanes__rule">
+                    <span class="al-label">@group.Key</span>
+                    <span class="lanes__count al-num">@group.Count(a => a.Done)/@group.Count()</span>
+                </div>
+                <div class="lanes__axis" aria-hidden="true">
+                    @foreach (var (day, pct) in Ticks)
+                    {
+                        <span class="lanes__tick al-num" style="left:@(pct.ToString("0.##", CultureInfo.InvariantCulture))%">@ScheduleText.DayShort(day)</span>
+                    }
+                </div>
+            </div>
+            <ol class="lanes__list">
+                @foreach (var a in group)
+                {
+                    <ScheduleRow @key="a.Id" A="a" Plan="Plan" D0="D0" D1="D1" Editing="Editing" Draft="Draft"
+                                 Move="@Moved?.FirstOrDefault(m => m.Id == a.Id)"
+                                 Open="@(OpenId == a.Id ? OpenChip : null)"
+                                 OnChip="chip => OnChip.InvokeAsync((a, chip))"
+                                 OnApplied="OnApplied" OnClose="OnClose" />
+                }
+            </ol>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleDto Plan { get; set; } = default!;
+    [Parameter] public bool Editing { get; set; }
+    [Parameter] public ScheduleDraft Draft { get; set; } = default!;
+    [Parameter] public List<ActivityMoveDto>? Moved { get; set; }
+    [Parameter] public string? OpenId { get; set; }
+    [Parameter] public ScheduleChip? OpenChip { get; set; }
+    [Parameter] public EventCallback<(ScheduleActivityDto, ScheduleChip)> OnChip { get; set; }
+    [Parameter] public EventCallback OnApplied { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private static DateOnly First(ScheduleActivityDto a) =>
+        new[] { (DateOnly?)a.Start, a.MakeStart, a.Waits.Where(w => w.Start is not null).Select(w => w.Start).Min() }
+            .Where(d => d is not null).Min()!.Value;
+
+    private IEnumerable<IGrouping<string, ScheduleActivityDto>> Groups => Plan.Activities
+        .OrderBy(a => First(a)).ThenBy(a => a.Start)
+        .GroupBy(a => ScheduleText.AreaName(a.Area))
+        .OrderBy(g => ScheduleText.AreaRank(g.Key)).ThenBy(g => g.Min(First));
+
+    // From the Monday of the earliest open work to a few days past the handover.
+    private DateOnly D0
+    {
+        get
+        {
+            var open = Plan.Activities.Where(a => !a.Done).Select(a => a.Start).DefaultIfEmpty(Plan.Today).Min();
+            var from = open < Plan.Today ? open : Plan.Today;
+            return from.AddDays(-(((int)from.DayOfWeek + 6) % 7));
+        }
+    }
+
+    private DateOnly D1
+    {
+        get
+        {
+            var last = Plan.Activities.Select(a => a.CureEnd ?? a.Finish).DefaultIfEmpty(Plan.Today).Max();
+            if (Plan.Handover is { } h && h > last) last = h;
+            if (Plan.WorksComplete is { } w && w > last) last = w;
+            return last.AddDays(3);
+        }
+    }
+
+    private IEnumerable<(DateOnly Day, double Pct)> Ticks
+    {
+        get
+        {
+            var span = D1.DayNumber - D0.DayNumber + 1;
+            var step = span > 120 ? 14 : 7;
+            for (var d = D0; d <= D1; d = d.AddDays(step))
+                yield return (d, (d.DayNumber - D0.DayNumber) * 100.0 / span);
+        }
+    }
+}

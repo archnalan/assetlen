@@ -43,10 +43,14 @@
                         <span class="al-label">Location</span>
                         <span class="al-meta__value">@(project.Location ?? "—")</span>
                     </div>
-                    <div class="al-meta">
-                        <span class="al-label">Budget</span>
-                        <span class="al-meta__value">@Fmt.MoneyShort(project.TotalBudget ?? 0, project.Currency)</span>
-                    </div>
+                    @* Money is a seat of its own (CLAUDE.md §5.5): absent for the bench, not masked. *@
+                    @if (access?.CanSeeMoney == true && project.TotalBudget is { } budget)
+                    {
+                        <div class="al-meta">
+                            <span class="al-label">Budget</span>
+                            <span class="al-meta__value">@Fmt.MoneyShort(budget, project.Currency)</span>
+                        </div>
+                    }
                     <div class="al-meta">
                         <span class="al-label">Your side</span>
                         <span class="al-meta__value">@SideLabel</span>
@@ -261,6 +265,10 @@
     private static readonly Tab[] AllTabs =
     [
         new("overview",  "Overview",   "project",    a => a?.CanRead == true),
+
+        // The work plan: the site works down it and the client reads it. A
+        // read-only support seat was brought on for something else (works-report.md §4.5).
+        new("plan",      "Plan",       "check-circle", a => a?.CanSeePlan == true),
         new("brief",     "Brief",      "brief",      a => a?.CanSeeBrief == true),
 
         // A principal document (works-report.md §2.7): the bench does not receive it.

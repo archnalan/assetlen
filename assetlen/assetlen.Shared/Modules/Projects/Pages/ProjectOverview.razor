@@ -22,7 +22,7 @@
                 <span class="al-stat__note">across @stages.Count @(stages.Count == 1 ? "stage" : "stages")</span>
             </div>
 
-            @if (ShowMoney)
+            @if (ctx.CanSeeMoney)
             {
                 <div class="al-stat">
                     <span class="al-label">Released</span>
@@ -140,7 +140,7 @@
                                     </span>
                                 </span>
                                 <span class="al-register__end">
-                                    @if (ShowMoney)
+                                    @if (ctx.CanSeeMoney)
                                     {
                                         <span class="al-register__amount">@Fmt.MoneyShort(stage.BudgetAmount ?? 0, ctx.Currency)</span>
                                     }
@@ -212,7 +212,7 @@
                 </a>
             }
 
-            @if (ShowMoney)
+            @if (ctx.CanSeeMoney)
             {
                 <a class="overview__jump" href="/project/@ProjectId/money">
                     <Icon Name="money" Size="20" />
@@ -318,8 +318,6 @@
     }
 
     private bool IsMine(FlagDto flag) => flag.AssignedToId == _sd.CurrentUser?.Id;
-
-    private bool ShowMoney => _sd.CurrentUser?.RolesDto?.CanSeeFinancials == true;
 
     private static decimal Clamp(decimal v) => Math.Clamp(v, 0m, 100m);
 

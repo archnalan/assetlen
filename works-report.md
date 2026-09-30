@@ -312,6 +312,78 @@ with its ×2 overrun drawn as a lighter extension. Sample-size caveats (few long
 seven duration overruns) are stated on the page wherever a default, not the project's own
 history, sets a date.
 
+### 4.5 The work plan and knocking items off (owner request, 2026-09-29)
+
+The 29 Sep hand-built plan (26 activities across main house, guest wing and external works,
+handover Fri 4 Dec) is the reference for what the app must produce by itself. It reads as a
+**work plan in the project's own voice** — "completion was set for 30 September", never
+"the client asked / the contractor said" — giving the client clarity and the site a list to
+work down.
+
+- **One project-wide activity list.** Each `tbl_Deliverable` gains `PlannedStart`,
+  `PlannedEnd`, `WorkDays`, `Trade` (a role, never a person), an optional off-site `MakeDays`,
+  and predecessors (one level, per §4.4). Dates are **computed**, not typed: duration + holds +
+  predecessors on the project calendar. The critical path falls out of the computation and is
+  marked, not asserted.
+- **Knock-off.** Ticking a deliverable Done takes **one photo** (an artifact ref) and stamps the
+  date; no photo, no tick. The existing `DeliverableChecklist` gains the tick-with-photo flow,
+  and a project-wide checklist view groups by area with trade, waiting-on, start, finish and
+  status.
+- **Friday re-issue.** The works report re-dates the plan from what was ticked and shows any
+  movement of the handover date first. The reserve (working days between works complete and
+  handover) is its own number, with the risks that could use it and how much each can absorb.
+- **Actions that hold the date** are the holds' clear-by dates, labelled by kind (sign-off,
+  order, booking, delivery, funding), not by party.
+
+### 4.6 The scheduler, and how the contractor drives it (built 2026-09-30 — see plan.md *Scheduler*)
+
+Tick-off (§4.5) gives each activity typed dates. The scheduler makes them **computed**, the
+way the 29–30 Sep plan was built by hand: every date follows from durations, waits and order,
+and every change shows its effect on handover before it is saved.
+
+**Inputs, per activity** — working days on site; optional off-site making days; what it
+**waits on**, one of: another activity finishing (finish → start), **something arriving by a
+date** (order, delivery, sign-off, purchase, booking, funding — these become the "what must
+happen, and by when" list), or **drying / curing for N calendar days**; an optional **team**
+(activities sharing a team run one after another, in an order the contractor sets); and an
+optional **pin** — a known finish ("doors run to 21 Oct") or an actual start/finish from a
+tick. **Per project** — the site calendar (rest day, public holidays; drying counts every
+day) and the committed handover date (a `Date` commitment, so its restatements are kept).
+
+**Outputs** — start and finish for every activity; the **critical path** ("sets the date");
+works-complete date; **reserve** in working days against the committed handover; for every
+activity **how many days it can slip** before handover moves, in plain words. A pinned date or
+a tick re-dates everything downstream; a wait that outlives its date extends by the measured lag
+for its cause (§4.4 calibration), never silently frozen.
+
+**The acceptance test** — fed the 30 Sep inputs, the engine reproduces the issued plan exactly:
+works complete Wed 2 Dec, one working day of reserve, the aluminium sequence as the critical
+path. The hand-built scheduler (`plan3.mjs`, outside the repo) is the reference implementation.
+
+**How it reads to the contractor** (mobile first; this is the Plan tab's edit mode):
+
+- **Each activity is one sentence**, edited as chips: *Gypsum ceiling · Ceiling crew · 14 days
+  · after boards on site 7 Oct*. Tap a chip to change it; no forms, no Gantt editing.
+- **"Waits on" is a picker of plain choices**: *another activity*, *something arriving by a
+  date*, *drying / curing*. A team chip queues activities automatically; drag to reorder the
+  team's queue.
+- **Every edit previews its consequence before saving**: *"Moves works complete from Wed 2 Dec
+  to Fri 4 Dec. Reserve 1 → 0 days."* Save or discard. The same preview compares two sequences
+  side by side — the S1/S2 table of 30 Sep, on screen (*"railing after the main-house doors:
+  complete 2 Dec · with the guest-wing doors: complete 6 Dec"*).
+- **"This week"** — starts, finishes and anything past its planned finish, each with *Tick
+  (photo)* or *Needs N more days*. Answering re-dates the plan; ignoring it leaves the item
+  flagged late, never quietly on time.
+- **Critical items say so** ("sets the date"), everything else says what it can absorb
+  ("can slip 6 days"). The reserve is one number at the top, next to the handover date.
+- Desktop adds the timeline lanes (hold / making / on site, critical outlined, reserve band,
+  handover line) beside the list — the slide-5 view of the issued plan, live.
+
+**The client side** sees the same plan read-only: handover, reserve, what sets the date, what
+must happen by when. Handover movement is shown first (truth floor). **Law 0**: with nobody
+editing, the plan still re-dates from ticks and elapsed time, and waits are proposed from the
+thread by extraction; the Friday Works Report issues regardless.
+
 **Law 0.** Holds and their pushes can be entered by either side and are proposed from the
 thread, so the projection still moves when the contractor is silent. Clearing a hold is
 attributable and dated, and a cleared hold is never deleted — the waits are the record of why

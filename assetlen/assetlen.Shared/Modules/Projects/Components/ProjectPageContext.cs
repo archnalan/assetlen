@@ -53,6 +53,9 @@ public sealed record ProjectPageContext(ProjectDto Project, ProjectAccessDto? Ac
     public bool CanSeeHistory => Access?.CanSeeHistory == true;
     public bool CanCapture => Access?.CanCapture == true;
     public bool CanSeeRegister => Access?.CanSeeRegister == true;
+    public bool CanSeePlan => Access?.CanSeePlan == true;
+    public bool CanTick => Access?.CanTick == true;
+    public bool CanEditPlan => Access?.CanEditPlan == true;
 
     /// <summary>Whose day starts at the camera. Changes where the project opens, not what they may do.</summary>
     public bool LandsOnCapture => Access?.LandsOnCapture == true;

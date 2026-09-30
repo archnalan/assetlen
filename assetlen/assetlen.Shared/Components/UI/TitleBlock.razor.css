@@ -12,6 +12,9 @@
     align-items: flex-start;
     gap: var(--al-space-3);
     flex: 0 0 auto;
+    /* Capped, so a long meta row wraps at 360 instead of widening the page under every fixed sheet. */
+    max-width: 100%;
+    min-width: 0;
 }
 
 @media (min-width: 800px) {

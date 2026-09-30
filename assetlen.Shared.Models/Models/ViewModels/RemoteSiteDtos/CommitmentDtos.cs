@@ -20,6 +20,48 @@ public class DeliverableDto : BaseDto
 
     /// <summary>Current commitments filed against it (restated versions count once).</summary>
     public int CommitmentCount { get; set; }
+
+    public string? ProjectName { get; set; }
+    public StageGroup? StagePhase { get; set; }
+
+    public DateTime? PlannedStart { get; set; }
+    public DateTime? PlannedEnd { get; set; }
+    public int? WorkDays { get; set; }
+
+    /// <summary>A role — "Masons", "Aluminium team" — never a person.</summary>
+    public string? Trade { get; set; }
+    public string? Area { get; set; }
+
+    /// <summary>The photo the line was ticked on; null while it is not done, or when it was set done without one.</summary>
+    public string? CompletionArtifactId { get; set; }
+    public string? CompletionThumbnailUrl { get; set; }
+    public string? CompletionImageUrl { get; set; }
+
+    /// <summary>Stamped by the server for this reader; never inferred on the client.</summary>
+    public bool CanTick { get; set; }
+
+    /// <summary>Every tick and reopening, oldest first. Nothing is removed from it.</summary>
+    public List<DeliverableEventDto> History { get; set; } = new();
+}
+
+public class DeliverableEventDto
+{
+    public DeliverableEventKind Kind { get; set; }
+    public DateTime OccurredAt { get; set; }
+
+    /// <summary>The true name on the delivery side; the accountable face on the client side.</summary>
+    public string? ByName { get; set; }
+    public string? ArtifactId { get; set; }
+    public string? ThumbnailUrl { get; set; }
+}
+
+/// <summary>The project-wide work plan: every line of the house and its sub-projects, for one reader.</summary>
+public class WorkPlanDto
+{
+    public string? ProjectId { get; set; }
+    public bool CanTick { get; set; }
+    public bool CanEdit { get; set; }
+    public List<DeliverableDto> Items { get; set; } = new();
 }
 
 public class DeliverableCreateDto
@@ -30,6 +72,11 @@ public class DeliverableCreateDto
     [MaxLength(1000)] public string? Description { get; set; }
     public DateTime? DueDate { get; set; }
     public int DisplayOrder { get; set; }
+    public DateTime? PlannedStart { get; set; }
+    public DateTime? PlannedEnd { get; set; }
+    public int? WorkDays { get; set; }
+    [MaxLength(80)] public string? Trade { get; set; }
+    [MaxLength(80)] public string? Area { get; set; }
 }
 
 public class DeliverableUpdateDto
@@ -40,6 +87,11 @@ public class DeliverableUpdateDto
     public DeliverableStatus? Status { get; set; }
     public DateTime? DueDate { get; set; }
     public int? DisplayOrder { get; set; }
+    public DateTime? PlannedStart { get; set; }
+    public DateTime? PlannedEnd { get; set; }
+    public int? WorkDays { get; set; }
+    [MaxLength(80)] public string? Trade { get; set; }
+    [MaxLength(80)] public string? Area { get; set; }
 }
 
 // ─── Commitments ─────────────────────────────────────────────

@@ -226,6 +226,9 @@ public class ProjectAccessDto
     public bool CanSeeRegister { get; set; }
     public bool CanSeeReport { get; set; }
     public bool CanIssueReport { get; set; }
+    public bool CanTick { get; set; }
+    public bool CanSeePlan { get; set; }
+    public bool CanEditPlan { get; set; }
 
     /// <summary>The photographer's day starts at the camera, not at a dashboard.</summary>
     public bool LandsOnCapture { get; set; }
@@ -256,6 +259,9 @@ public class ProjectAccessDto
         CanSeeRegister = access.CanSeeRegister,
         CanSeeReport = access.CanSeeReport,
         CanIssueReport = access.CanIssueReport,
+        CanTick = access.CanTick,
+        CanSeePlan = access.CanSeePlan,
+        CanEditPlan = access.CanEditPlan,
         LandsOnCapture = access.LandsOnCapture
     };
 }

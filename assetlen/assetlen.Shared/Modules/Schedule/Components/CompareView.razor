@@ -1,0 +1,84 @@
+@*
+    Two sequences side by side (works-report.md §4.6) — the S1/S2 table of 30 Sep,
+    on screen: the plan as it stands against the draft. Reorder a team's queue
+    here, or change lines in Edit, and the draft column answers before anything
+    is saved.
+*@
+
+<div class="compare">
+    <div class="compare__table" role="table" aria-label="The plan as it stands against the draft">
+        <div class="compare__row compare__row--head" role="row">
+            <span role="columnheader"></span>
+            <span role="columnheader" class="compare__col">A · as it stands</span>
+            <span role="columnheader" class="compare__col compare__col--b">B · the draft</span>
+        </div>
+        <div class="compare__row" role="row">
+            <span role="rowheader" class="al-label">Works complete</span>
+            <span role="cell" class="al-num">@ScheduleText.Day(Saved.WorksComplete)</span>
+            <span role="cell" class="al-num compare__b @(Differs(Saved.WorksComplete, B?.WorksComplete) ? "is-diff" : "")">@(B is null ? "—" : ScheduleText.Day(B.WorksComplete))</span>
+        </div>
+        <div class="compare__row" role="row">
+            <span role="rowheader" class="al-label">Reserve</span>
+            <span role="cell" class="al-num">@Reserve(Saved.ReserveDays, Saved.DaysOver)</span>
+            <span role="cell" class="al-num compare__b @(B is not null && B.ReserveDays != Saved.ReserveDays ? "is-diff" : "")">@(B is null ? "—" : Reserve(B.ReserveDays, B.DaysOver))</span>
+        </div>
+        <div class="compare__row" role="row">
+            <span role="rowheader" class="al-label">Handover @(Saved.Handover is { } h ? ScheduleText.DayShort(h) : "")</span>
+            <span role="cell">@(Saved.DaysOver > 0 ? "moves" : "holds")</span>
+            <span role="cell" class="compare__b @(B is not null && (B.DaysOver > 0) != (Saved.DaysOver > 0) ? "is-diff" : "")">@(B is null ? "—" : B.DaysOver > 0 ? $"moves {ScheduleText.Days(B.DaysOver)}" : "holds")</span>
+        </div>
+        <div class="compare__row" role="row">
+            <span role="rowheader" class="al-label">Sets the date</span>
+            <span role="cell" class="compare__path">@string.Join(" → ", Titles(Saved.CriticalPath, Saved))</span>
+            <span role="cell" class="compare__path compare__b @(Preview?.CriticalPathChanged == true ? "is-diff" : "")">@(B is null ? "—" : string.Join(" → ", B.CriticalTitles))</span>
+        </div>
+    </div>
+
+    @if (Preview is null)
+    {
+        <p class="compare__hint">
+            Change lines in <strong>Edit</strong>, or reorder a team below, and the draft is set beside the plan as it stands.
+        </p>
+    }
+    else if (Preview.Moved.Count > 0)
+    {
+        <details class="compare__moved">
+            <summary>@(Preview.Moved.Count == 1 ? "1 activity moves" : $"{Preview.Moved.Count} activities move")</summary>
+            <ul>
+                @foreach (var m in Preview.Moved.OrderBy(m => m.FinishAfter))
+                {
+                    <li><span>@m.Title</span> <span class="al-num">@ScheduleText.DayShort(m.FinishBefore) → @ScheduleText.DayShort(m.FinishAfter)</span></li>
+                }
+            </ul>
+        </details>
+    }
+
+    @foreach (var team in Shown.Teams)
+    {
+        <section class="compare__team" aria-label="@team.TeamKey">
+            <h3 class="compare__teamtitle">@team.TeamKey — the order its jobs run in</h3>
+            <TeamQueue Team="@(team.TeamKey ?? "")" Ids="@team.OrderedIds" TitleOf="TitleOf" ReadOnly="!CanEdit"
+                       OnReorder="ids => OnQueue.InvokeAsync((team.TeamKey!, ids))" />
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleDto Saved { get; set; } = default!;
+    [Parameter, EditorRequired] public ScheduleDto Shown { get; set; } = default!;
+    [Parameter] public SchedulePreviewDto? Preview { get; set; }
+    [Parameter] public bool CanEdit { get; set; }
+    [Parameter] public EventCallback<(string Team, List<string> Ids)> OnQueue { get; set; }
+
+    private ScheduleSummaryDto? B => Preview?.Proposed;
+
+    private string TitleOf(string id) => ScheduleText.TitleIn(Shown, id);
+
+    private static IEnumerable<string> Titles(IEnumerable<string> ids, ScheduleDto plan) =>
+        ids.Select(id => plan.Activities.FirstOrDefault(a => a.Id == id)?.Title ?? "…");
+
+    private static bool Differs(DateOnly? a, DateOnly? b) => b is not null && a != b;
+
+    private static string Reserve(int? days, int over) =>
+        over > 0 ? $"none — {ScheduleText.Days(over)} over" : days is { } d ? ScheduleText.WorkingDays(d) : "—";
+}

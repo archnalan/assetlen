@@ -1,0 +1,48 @@
+@*
+    What sets the date (works-report.md §4.6): the chain the engine found by
+    walking back from the last activity. Marked, not asserted — change an input
+    and the chain may change with it.
+*@
+
+<section class="chain" aria-labelledby="chain-title">
+    <h3 class="chain__title" id="chain-title"><Icon Name="variation" Size="16" /> What sets the date</h3>
+    @if (Links.Count == 0)
+    {
+        <p class="chain__empty">Nothing on the plan yet.</p>
+    }
+    else
+    {
+        <ol class="chain__list">
+            @for (var i = 0; i < Links.Count; i++)
+            {
+                var a = Links[i];
+                <li class="chain__link" style="--lane: @ScheduleText.AreaAccent(a.Area)">
+                    <span class="chain__n al-num">@((i + 1).ToString("00"))</span>
+                    <span class="chain__what">
+                        <strong>@a.Title</strong>
+                        <span class="chain__meta">@(a.Trade ?? ScheduleText.AreaName(a.Area)) · <span class="al-num">@ScheduleText.DayShort(a.MakeStart ?? a.Start) – @ScheduleText.DayShort(a.Finish)</span></span>
+                    </span>
+                </li>
+            }
+            @if (Plan.Handover is { } h)
+            {
+                <li class="chain__link chain__link--end">
+                    <span class="chain__n"><Icon Name="arrow-right" Size="14" /></span>
+                    <span class="chain__what">
+                        <strong>Handover @ScheduleText.Day(h)</strong>
+                        <span class="chain__meta">@(Plan.ReserveDays is > 0 and var r ? $"after {ScheduleText.WorkingDays(r)} of reserve" : Plan.DaysOver > 0 ? "no longer holds" : "with no reserve left")</span>
+                    </span>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ScheduleDto Plan { get; set; } = default!;
+
+    private List<ScheduleActivityDto> Links => Plan.CriticalPath
+        .Select(id => Plan.Activities.FirstOrDefault(a => a.Id == id))
+        .OfType<ScheduleActivityDto>()
+        .ToList();
+}

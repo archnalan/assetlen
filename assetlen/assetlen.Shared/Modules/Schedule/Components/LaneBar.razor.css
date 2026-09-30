@@ -1,0 +1,76 @@
+.lanebar {
+    display: block;
+    width: 100%;
+    height: 20px;
+    overflow: visible;
+}
+
+.lanebar__rest { fill: var(--al-surface-2); opacity: 0.7; }
+
+.lanebar__reserve { fill: var(--al-blueprint); opacity: 0.12; }
+
+.lanebar__hold {
+    fill: url(#sched-hatch);
+    stroke: var(--al-warning);
+    stroke-width: 1;
+    transition: x var(--al-transition-slow), width var(--al-transition-slow);
+}
+
+.lanebar__hold.is-overdue { stroke: var(--al-danger); }
+.lanebar__hold.is-cleared { opacity: 0.35; }
+
+.lanebar__cure { opacity: 0.8; }
+
+.lanebar__make {
+    fill: var(--lane);
+    opacity: 0.32;
+    transition: x var(--al-transition-slow), width var(--al-transition-slow);
+}
+
+.lanebar__work {
+    fill: var(--lane);
+    transition: x var(--al-transition-slow), width var(--al-transition-slow);
+}
+
+.lanebar--critical .lanebar__work {
+    stroke: var(--al-accent);
+    stroke-width: 2;
+}
+
+.lanebar--critical .lanebar__make--only {
+    stroke: var(--al-accent);
+    stroke-width: 2;
+}
+
+.lanebar--done .lanebar__work { opacity: 0.45; }
+
+.lanebar__late { fill: var(--al-danger); opacity: 0.55; }
+
+.lanebar__ghost {
+    fill: none;
+    stroke: var(--al-text-subtle);
+    stroke-width: 1;
+    stroke-dasharray: 3 2;
+    animation: lanebar-ghost var(--al-transition-slow) both;
+}
+
+@keyframes lanebar-ghost {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.lanebar__today {
+    stroke: var(--al-text-muted);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+}
+
+.lanebar__handover {
+    stroke: var(--al-accent);
+    stroke-width: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lanebar__hold, .lanebar__make, .lanebar__work { transition: none; }
+    .lanebar__ghost { animation: none; }
+}

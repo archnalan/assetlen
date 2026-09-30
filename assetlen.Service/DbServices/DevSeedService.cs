@@ -5,6 +5,8 @@ using assetlen.Shared.Models.statics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using assetlen.Service.DbServices.ServiceInterfaces;
+using assetlen.Shared.Models.Scheduling;
 
 namespace assetlen.Service.DbServices;
 
@@ -48,13 +50,16 @@ public sealed class DevSeedService : IDevSeedService
     private readonly UserManager<AppUser> _users;
     private readonly RoleManager<IdentityRole> _roles;
     private readonly ILogger<DevSeedService> _logger;
+    private readonly IWorkPlanDAL _plans;
 
     public DevSeedService(
         AssetlenDbContext context,
         UserManager<AppUser> users,
         RoleManager<IdentityRole> roles,
-        ILogger<DevSeedService> logger)
+        ILogger<DevSeedService> logger,
+        IWorkPlanDAL plans)
     {
+        _plans = plans;
         _context = context;
         _users = users;
         _roles = roles;
@@ -119,6 +124,8 @@ public sealed class DevSeedService : IDevSeedService
         await EnsureSiteLogAsync(nalan, musa, ct);
         await EnsureRegisterAsync(peter, nalan, ct);
         await EnsureLedgerAsync(peter, nalan, ct);
+        await EnsureWorkPlanAsync(nalan, ct);
+        await _plans.RedateProjectAsync(ProjectId, ct);
 
         await _context.SaveChangesAsync(ct);
 
@@ -808,6 +815,259 @@ public sealed class DevSeedService : IDevSeedService
     }
 
     private static DateTime Utc(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+    private static string PlanLineId(int n) => $"de300000-0000-4000-8000-0000000013{n:D2}";
+    private static string PlanWaitId(int n) => $"de300000-0000-4000-8000-0000000014{n:D2}";
+    private const string AluminiumTeam = "Aluminium team";
+
+    /// <summary>
+    /// The works plan of 30 Sep (works-report.md §4.5, §4.6), as its inputs rather than
+    /// its dates: thirty-one activities across the main house, the guest wing and the
+    /// external works, each with its trade, its days, what it waits on and the order it
+    /// follows. The scheduler computes the dates — works complete Wed 2 Dec, one working
+    /// day of reserve to the committed handover on Fri 4 Dec, the aluminium team's queue
+    /// setting the date. Every run resets the demo plan to exactly this, ticks included.
+    /// </summary>
+    private async Task EnsureWorkPlanAsync(AppUser nalan, CancellationToken ct)
+    {
+        const string MainHouse = "Main house", GuestWing = "Guest wing", External = "External works", Handover = "Handover";
+        string S6 = StageId(6), S8 = StageId(8), S9 = StageId(9), W2 = WingStageId(2), W3 = WingStageId(3);
+        DateTime D(int m, int d) => Utc(2026, m, d);
+
+        // In the order the plan lists them; DisplayOrder keeps that order for the engine.
+        var lines = new (int N, string Stage, string Area, string Title, string Trade, int Work, int Make, int Cure,
+                         DateTime? Earliest, DateTime? Started, int Queue, DateTime Start, DateTime End)[]
+        {
+            (1, S6, MainHouse, "Door opening adjustments", "Own crew", 4, 0, 0, null, D(9, 29), 0, D(9, 29), D(10, 2)),
+            (31, S6, MainHouse, "Doors & windows installation", AluminiumTeam, 19, 0, 0, null, D(9, 29), 1, D(9, 29), D(10, 21)),
+            (2, S8, MainHouse, "Foundation stonework finishing", "Masons", 10, 0, 0, null, D(9, 30), 0, D(9, 30), D(10, 12)),
+            (3, S8, MainHouse, "Terrazzo grinding & polishing", "Terrazzo crew", 14, 0, 0, null, D(9, 30), 0, D(9, 30), D(10, 16)),
+            (4, S8, MainHouse, "Gypsum ceiling", "Ceiling crew", 14, 0, 0, D(10, 5), null, 0, D(10, 8), D(10, 25)),
+            (5, S8, MainHouse, "Wiring", "Electrician", 3, 0, 0, null, null, 0, D(10, 26), D(10, 28)),
+            (6, S8, MainHouse, "Epoxy floor", "Epoxy team", 6, 0, 3, null, null, 0, D(10, 29), D(11, 4)),
+            (7, S8, MainHouse, "Painting: primer, then finish coats", "Painters", 24, 0, 0, D(10, 5), null, 0, D(10, 5), D(11, 2)),
+            (8, S8, MainHouse, "Railing", "Metal fabricator", 3, 10, 0, null, null, 0, D(10, 22), D(10, 25)),
+            (10, S6, MainHouse, "Perforated wall panel, rear elevation", "Metal fabricator", 4, 12, 0, null, null, 0, D(10, 22), D(10, 26)),
+            (9, S9, MainHouse, "Pergola", "Metal fabricator", 4, 10, 0, null, null, 0, D(10, 19), D(10, 22)),
+            (11, S8, MainHouse, "Kitchen installation", "Kitchen supplier", 5, 0, 0, null, null, 0, D(11, 8), D(11, 12)),
+            (12, S9, MainHouse, "Outdoor kitchen installations", "Kitchen supplier", 5, 0, 0, null, null, 0, D(10, 23), D(10, 28)),
+            (16, S6, MainHouse, "Louvre making & installation on ducts", AluminiumTeam, 3, 0, 0, null, null, 2, D(10, 22), D(10, 25)),
+            (13, W3, GuestWing, "Louvre, door & window making", AluminiumTeam, 0, 20, 0, null, null, 3, D(10, 26), D(11, 17)),
+            (14, W3, GuestWing, "Doors & windows installation", AluminiumTeam, 6, 0, 0, null, null, 4, D(11, 18), D(11, 24)),
+            (15, W3, GuestWing, "Louvre installation on ducts", AluminiumTeam, 3, 0, 0, null, null, 5, D(11, 25), D(11, 27)),
+            (17, S8, MainHouse, "Wardrobes", "Joinery", 6, 0, 0, null, null, 0, D(11, 8), D(11, 13)),
+            (18, S8, MainHouse, "Plumbing accessories installation", "Plumber", 5, 0, 0, null, null, 0, D(11, 13), D(11, 18)),
+            (19, W3, GuestWing, "Undercoat", "Painters", 8, 0, 0, D(10, 5), null, 0, D(10, 5), D(10, 14)),
+            (20, W3, GuestWing, "Foundation stonework finishing", "Masons", 12, 0, 0, null, D(9, 30), 0, D(9, 30), D(10, 14)),
+            (21, W3, GuestWing, "Tiling", "Tilers", 18, 0, 0, D(10, 5), null, 0, D(10, 5), D(10, 26)),
+            (22, W2, GuestWing, "Tank stand installation", "Metal fabricator", 3, 6, 0, null, null, 0, D(10, 25), D(10, 27)),
+            (23, W3, GuestWing, "Wiring", "Electrician", 2, 0, 0, null, null, 0, D(10, 27), D(10, 28)),
+            (24, W3, GuestWing, "Plumbing accessories installation", "Plumber", 4, 0, 0, null, null, 0, D(10, 27), D(10, 30)),
+            (25, S9, External, "Closing the septic tank", "Own crew", 6, 0, 0, null, null, 0, D(10, 4), D(10, 11)),
+            (26, S9, External, "Site levelling", "Plant hire + crew", 4, 0, 0, null, null, 0, D(10, 12), D(10, 15)),
+            (27, S9, External, "Boundary wall", "Masons", 16, 0, 0, null, null, 0, D(10, 16), D(11, 3)),
+            (28, S9, External, "Paving", "Paving crew", 14, 0, 0, null, null, 0, D(11, 4), D(11, 19)),
+            (29, S8, Handover, "Final paint touch-up", "Painters", 3, 0, 0, null, null, 0, D(11, 19), D(11, 22)),
+            (30, S8, Handover, "Snagging & cleaning", "All trades", 4, 0, 0, null, null, 0, D(11, 29), D(12, 2))
+        };
+
+        string L(int n) => PlanLineId(n);
+        var ids = lines.Select(l => L(l.N)).ToList();
+
+        // ── Clean history: the demo carries no test ticks or reopenings ─────
+        var events = await _context.tbl_DeliverableEvents.IgnoreQueryFilters()
+            .Where(e => e.DeliverableId != null && ids.Contains(e.DeliverableId)).ToListAsync(ct);
+        _context.tbl_DeliverableEvents.RemoveRange(events);
+        var tickEntries = await _context.tbl_ProgressUpdates.IgnoreQueryFilters()
+            .Where(u => u.DeliverableId != null && ids.Contains(u.DeliverableId) && u.ClientCaptureId != null && u.ClientCaptureId.StartsWith("tick:"))
+            .ToListAsync(ct);
+        var entryIds = tickEntries.Select(u => u.Id).ToList();
+        var frames = await _context.tbl_ProgressImages.IgnoreQueryFilters()
+            .Where(i => i.ProgressUpdateId != null && entryIds.Contains(i.ProgressUpdateId)).ToListAsync(ct);
+        var frameIds = frames.Select(f => f.Id).ToList();
+        var refs = await _context.tbl_ArtifactRefs.IgnoreQueryFilters()
+            .Where(r => r.TargetId != null && (entryIds.Contains(r.TargetId) || frameIds.Contains(r.TargetId))).ToListAsync(ct);
+        _context.tbl_ArtifactRefs.RemoveRange(refs);
+        foreach (var f in frames) f.IsDeleted = true;
+        foreach (var u in tickEntries) u.IsDeleted = true;
+
+        // ── The lines ───────────────────────────────────────────────────────
+        var have = await _context.tbl_Deliverables.IgnoreQueryFilters()
+            .Where(d => d.ProjectId == ProjectId || d.ProjectId == SubProjectId).ToListAsync(ct);
+        var order = 100;
+        foreach (var l in lines)
+        {
+            var row = have.FirstOrDefault(d => d.Id == L(l.N));
+            if (row is null)
+            {
+                row = new tbl_Deliverable { Id = L(l.N), TenantId = TenantId };
+                _context.tbl_Deliverables.Add(row);
+            }
+            row.ProjectId = l.Stage == W2 || l.Stage == W3 ? SubProjectId : ProjectId;
+            row.StageId = l.Stage;
+            row.Title = l.Title;
+            row.DisplayOrder = ++order;
+            row.IsDeleted = false;
+            row.Area = l.Area;
+            row.Trade = l.Trade;
+            row.WorkDays = l.Work;
+            row.MakeDays = l.Make == 0 ? null : l.Make;
+            row.CureDays = l.Cure == 0 ? null : l.Cure;
+            row.EarliestStart = l.Earliest;
+            row.ActualStart = l.Started;
+            row.PinnedFinish = null;
+            row.TeamKey = l.Queue > 0 ? AluminiumTeam : null;
+            row.QueueOrder = l.Queue > 0 ? l.Queue : null;
+            row.Status = l.Started is null ? DeliverableStatus.NotStarted : DeliverableStatus.InProgress;
+            row.CompletedAt = null;
+            row.CompletedById = null;
+            row.CompletionArtifactId = null;
+            row.PlannedStart = l.Start;
+            row.PlannedEnd = l.End;
+            row.PlannedMakeStart = null;
+            row.PlannedMakeEnd = null;
+        }
+
+        // The retaining wall's checklist predates the plan; it reads under the
+        // external works rather than in a group of its own.
+        foreach (var wall in have.Where(d => d.StageId == StageId(4) && d.Area is null))
+            wall.Area = External;
+
+        await _context.SaveChangesAsync(ct);
+
+        // ── What each line waits on ──────────────────────────────────────────
+        var waits = new List<(int N, int Line, WaitKind Kind, int? After, bool AfterMaking,
+                              ArrivalKind? Arrival, int Days, DateTime? From, DateTime? Until, string? Title)>();
+        var wn = 0;
+        void After(int line, params int[] preds) { foreach (var p in preds) waits.Add((++wn, line, WaitKind.Activity, p, false, null, 0, null, null, null)); }
+        void SiteAfter(int line, int pred) => waits.Add((++wn, line, WaitKind.Activity, pred, true, null, 0, null, null, null));
+        void Arrives(int line, ArrivalKind kind, int days, DateTime from, string title) => waits.Add((++wn, line, WaitKind.Arrival, null, false, kind, days, from, null, title));
+
+        Arrives(4, ArrivalKind.Delivery, 3, D(10, 5), "Gypsum boards and frames on site");
+        After(5, 4);
+        After(6, 5);
+        waits.Add((++wn, 6, WaitKind.Drying, null, false, null, 20, D(10, 2), null, "Screed drying"));
+        SiteAfter(8, 31);
+        SiteAfter(10, 31);
+        Arrives(9, ArrivalKind.SignOff, 5, D(9, 30), "Pergola design signed off, materials ordered");
+        Arrives(11, ArrivalKind.Delivery, 20, D(9, 30), "Kitchen delivered to site");
+        After(11, 6);
+        After(12, 9);
+        Arrives(17, ArrivalKind.Delivery, 20, D(9, 30), "Wardrobes made and delivered");
+        After(17, 6);
+        After(18, 6, 11);
+        waits.Add((++wn, 22, WaitKind.Arrival, null, true, ArrivalKind.Purchase, 0, null, D(10, 23), "Water pump and tanks acquired"));
+        After(23, 21);
+        After(24, 21);
+        After(25, 1);
+        After(26, 25);
+        Arrives(26, ArrivalKind.Booking, 2, D(9, 30), "Plant hire confirmed");
+        After(27, 26);
+        Arrives(27, ArrivalKind.Funding, 10, D(9, 30), "Boundary-wall materials funded and on site");
+        After(28, 27, 12);
+        After(29, 7, 18, 16, 8, 10, 11, 17, 31);
+        After(30, 29, 24, 23, 15, 14, 28, 22, 12, 19, 2, 20, 3, 1);
+
+        var fixedIds = waits.Select(w => PlanWaitId(w.N)).ToList();
+        var oldWaits = await _context.tbl_PlanWaits.IgnoreQueryFilters()
+            .Where(w => w.DeliverableId != null && ids.Contains(w.DeliverableId)).ToListAsync(ct);
+        _context.tbl_PlanWaits.RemoveRange(oldWaits.Where(w => !fixedIds.Contains(w.Id)));
+
+        var perLine = new Dictionary<int, int>();
+        foreach (var w in waits)
+        {
+            var row = oldWaits.FirstOrDefault(x => x.Id == PlanWaitId(w.N));
+            if (row is null)
+            {
+                row = new tbl_PlanWait { Id = PlanWaitId(w.N), TenantId = TenantId };
+                _context.tbl_PlanWaits.Add(row);
+            }
+            var line = lines.First(l => l.N == w.Line);
+            row.ProjectId = line.Stage == W2 || line.Stage == W3 ? SubProjectId : ProjectId;
+            row.DeliverableId = L(w.Line);
+            row.Kind = w.Kind;
+            row.PredecessorId = w.After is { } p ? L(p) : null;
+            row.Link = WaitLink.FinishToStart;
+            row.AfterMaking = w.AfterMaking;
+            row.Arrival = w.Arrival;
+            row.Days = w.Days;
+            row.CalendarDays = w.Kind == WaitKind.Drying;
+            row.FromDate = w.From;
+            row.UntilDate = w.Until;
+            row.Title = w.Title;
+            row.DisplayOrder = perLine[w.Line] = perLine.GetValueOrDefault(w.Line, -1) + 1;
+            row.ClearedAt = null;
+            row.ClearedById = null;
+            row.RemovedAt = null;
+            row.RemovedById = null;
+            row.IsDeleted = false;
+            row.CreatedById = nalan.Id;
+        }
+
+        // ── The site calendar ───────────────────────────────────────────────
+        var schedule = await _context.tbl_WorkSchedules.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.ProjectId == ProjectId, ct);
+        if (schedule is null)
+        {
+            schedule = new tbl_WorkSchedule { Id = "de300000-0000-4000-8000-000000001501", TenantId = TenantId, ProjectId = ProjectId };
+            _context.tbl_WorkSchedules.Add(schedule);
+        }
+        schedule.RestDay = (int)DayOfWeek.Saturday;
+        schedule.Holidays = "2026-10-09";
+        schedule.ExtendLateWaits = true;
+        schedule.IsDeleted = false;
+        schedule.WorksComplete = D(12, 2);
+        schedule.PreviousWorksComplete = null;
+        schedule.WorksCompleteMovedAt = null;
+        schedule.ReserveDays = 1;
+        schedule.LastSavedAt = null;
+        schedule.LastSavedById = null;
+
+        // ── The committed handover: the 30 Sep plan restates "complete by 30 Sep" ──
+        // Anything a test restated on top of it goes, so the chain reads as issued.
+        var later = await _context.tbl_Commitments.IgnoreQueryFilters()
+            .Where(c => c.SupersedesId == CommitmentId(21)).ToListAsync(ct);
+        while (later.Count > 0)
+        {
+            var laterIds = later.Select(c => c.Id).ToList();
+            var next = await _context.tbl_Commitments.IgnoreQueryFilters()
+                .Where(c => c.SupersedesId != null && laterIds.Contains(c.SupersedesId)).ToListAsync(ct);
+            _context.tbl_Commitments.RemoveRange(later);
+            later = next;
+        }
+
+        var handover = await _context.tbl_Commitments.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == CommitmentId(21), ct);
+        if (handover is null)
+        {
+            handover = new tbl_Commitment { Id = CommitmentId(21), TenantId = TenantId, ProjectId = ProjectId };
+            _context.tbl_Commitments.Add(handover);
+        }
+        handover.Kind = CommitmentKind.Date;
+        handover.Title = "Handover Fri 4 Dec";
+        handover.Body = "Set with the works plan of 30 September: works complete Wed 2 Dec, one working day in reserve.";
+        handover.Maturity = CommitmentMaturity.Agreed;
+        handover.QueryState = CommitmentQueryState.None;
+        handover.SourceChannel = CommitmentSource.App;
+        handover.AccountableMemberId = MemberId(3);
+        handover.AgreedById = nalan.Id;
+        handover.AgreedWithMemberId = MemberId(1);
+        handover.AgreedAt = D(9, 30);
+        handover.RecordedById = nalan.Id;
+        handover.RecordedBySide = ProjectSide.Contractor;
+        handover.DueDate = D(12, 4);
+        handover.SupersedesId = CommitmentId(20);
+        handover.SupersededAt = null;
+        handover.SupersededById = null;
+        handover.IsDeleted = false;
+
+        var restated = await _context.tbl_Commitments.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == CommitmentId(20), ct);
+        if (restated is not null)
+        {
+            restated.SupersededAt = D(9, 30);
+            restated.SupersededById = CommitmentId(21);
+        }
+
+        await _context.SaveChangesAsync(ct);
+    }
 
     /// <summary>
     /// The register for assetlen.md §11 test 1: the sixteen retaining-wall

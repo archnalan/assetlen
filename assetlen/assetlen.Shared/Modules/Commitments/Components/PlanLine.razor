@@ -1,0 +1,235 @@
+@*
+    One line of the work plan, and the one place a line is knocked off.
+    No photo, no tick (works-report.md §4.5): the tick box is the camera, and the
+    line only reads Done once the photo is stored. The plan describes the work,
+    not the people — roles, dates and the photo, never a name (§2 rule 7).
+*@
+
+@inject IArtifactImageService Images
+@inject ILogger<PlanLine> Logger
+
+<li class="planline planline--@Item.Status.ToString().ToLowerInvariant() @(busy ? "is-busy" : "")">
+    @if (Item.CanTick && Item.Status != DeliverableStatus.Done)
+    {
+        <label class="planline__tick planline__tick--open" title="Tick with a photo">
+            <InputFile accept="image/*" OnChange="OnPhotoChosen" disabled="@busy"
+                       aria-label="@($"Tick {Item.Title} done — choose one photo")" />
+            @if (busy)
+            {
+                <span class="al-spinner" aria-hidden="true"></span>
+            }
+            else
+            {
+                <Icon Name="camera" Size="16" />
+            }
+        </label>
+    }
+    else
+    {
+        <span class="planline__tick" aria-hidden="true"><Icon Name="@TickIcon" Size="16" /></span>
+    }
+
+    <div class="planline__main">
+        <span class="planline__title">@Item.Title</span>
+        <span class="planline__sub">
+            @if (Detailed && !string.IsNullOrEmpty(Item.Trade))
+            {
+                <span class="planline__trade">@Item.Trade</span>
+            }
+            @if (Item.PlannedStart is not null || Item.PlannedEnd is not null)
+            {
+                <span class="al-num planline__dates">@PlanDay(Item.PlannedStart) – @PlanDay(Item.PlannedEnd)</span>
+            }
+            else if (Item.DueDate is not null && Item.Status != DeliverableStatus.Done)
+            {
+                <span class="al-num">by @Fmt.DateShort(Item.DueDate)</span>
+            }
+            @if (Detailed && ShowStage && !string.IsNullOrEmpty(Item.StageName))
+            {
+                <span class="planline__stage">@Item.StageName</span>
+            }
+            @if (Item.CommitmentCount > 0)
+            {
+                <span>@Item.CommitmentCount agreed</span>
+            }
+        </span>
+
+        @if (Item.Status == DeliverableStatus.Done)
+        {
+            <span class="planline__done">
+                @if (Item.CompletionThumbnailUrl is not null)
+                {
+                    @if (thumb is not null)
+                    {
+                        <img class="planline__thumb" src="@thumb" alt="@($"Photo of {Item.Title}, done")" loading="lazy" />
+                    }
+                    else
+                    {
+                        <span class="planline__thumb al-shimmer" aria-hidden="true"></span>
+                    }
+                }
+                else
+                {
+                    <span class="planline__gap">No photo on record</span>
+                }
+                <span class="al-num">Done @Fmt.DateShort(Item.CompletedAt)</span>
+                @if (Item.CanTick)
+                {
+                    @if (confirmReopen)
+                    {
+                        <button type="button" class="al-btn al-btn--quiet al-btn--sm planline__reopen" disabled="@busy" @onclick="ReopenAsync">
+                            Reopen — the photo stays on record
+                        </button>
+                        <button type="button" class="al-btn al-btn--quiet al-btn--sm" @onclick="() => confirmReopen = false">Keep</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="al-btn al-btn--quiet al-btn--sm planline__reopen" @onclick="() => confirmReopen = true">Reopen</button>
+                    }
+                }
+            </span>
+        }
+        else if (Item.History.Any(h => h.Kind == DeliverableEventKind.Reopened))
+        {
+            <span class="planline__note">Reopened @Fmt.DateShort(Item.History.Last(h => h.Kind == DeliverableEventKind.Reopened).OccurredAt)</span>
+        }
+
+        @if (errorMessage is not null)
+        {
+            <span class="al-alert al-alert--error planline__error" role="alert">
+                <Icon Name="error" Size="16" /> <span>@errorMessage</span>
+            </span>
+        }
+    </div>
+
+    <span class="al-badge @ChipClass planline__chip">@ChipLabel</span>
+</li>
+
+@code {
+    [Parameter, EditorRequired] public DeliverableDto Item { get; set; } = default!;
+
+    /// <summary>The project-wide plan shows the trade and stage; a stage's own checklist does not need them.</summary>
+    [Parameter] public bool Detailed { get; set; }
+    [Parameter] public bool ShowStage { get; set; } = true;
+    [Parameter] public EventCallback<DeliverableDto> OnChanged { get; set; }
+
+    private const long MaxBytes = 25 * 1024 * 1024;
+    private const int MaxEdge = 2400;
+
+    private bool busy;
+    private bool confirmReopen;
+    private string? errorMessage;
+    private string? thumb;
+    private string? thumbFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Item.CompletionThumbnailUrl == thumbFor) return;
+        thumbFor = Item.CompletionThumbnailUrl;
+        thumb = null;
+        if (thumbFor is not null) thumb = await Images.ResolveAsync(thumbFor);
+    }
+
+    private async Task OnPhotoChosen(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null || busy) return;
+        errorMessage = null;
+        if (file.Size > MaxBytes)
+        {
+            errorMessage = "That photo is too large — anything up to 25 MB.";
+            return;
+        }
+
+        busy = true;
+        StateHasChanged();
+        try
+        {
+            // Resized on the phone: a site connection carries one 2400px frame, not 8 MB.
+            var sized = file.ContentType.StartsWith("image/") && file.ContentType != "image/gif"
+                ? await file.RequestImageFileAsync("image/jpeg", MaxEdge, MaxEdge)
+                : file;
+            await using var stream = new MemoryStream();
+            await sized.OpenReadStream(MaxBytes).CopyToAsync(stream);
+            stream.Position = 0;
+
+            var response = await _workPlanApi.Tick(Item.Id!, new Refit.StreamPart(stream, sized.Name, string.IsNullOrEmpty(sized.ContentType) ? "image/jpeg" : sized.ContentType));
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                await OnChanged.InvokeAsync(response.Content);
+            }
+            else
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "The tick didn't go through. Try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Tick failed for {Id}", Item.Id);
+            errorMessage = "The tick didn't go through. Try again when there is signal.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReopenAsync()
+    {
+        busy = true;
+        errorMessage = null;
+        try
+        {
+            var response = await _workPlanApi.Reopen(Item.Id!);
+            if (response.IsSuccessStatusCode && response.Content is not null)
+            {
+                confirmReopen = false;
+                await OnChanged.InvokeAsync(response.Content);
+            }
+            else
+            {
+                errorMessage = _apiResponseHandler.GetApiErrorMessage(response) ?? "Could not reopen that line.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reopen failed for {Id}", Item.Id);
+            errorMessage = "Could not reopen that line.";
+        }
+        finally
+        {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    // Planned dates are the project's calendar days, carried as written — never shifted by the reader's zone.
+    private static string PlanDay(DateTime? d) =>
+        d is { } v ? v.ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture) : "—";
+
+    private bool Late => Item.Status != DeliverableStatus.Done && Item.PlannedEnd is { } end && end.Date < DateTime.Today;
+
+    private string ChipLabel => Item.Status switch
+    {
+        DeliverableStatus.Done => "Done",
+        _ when Late => "Past finish",
+        DeliverableStatus.InProgress => "In progress",
+        _ => "Not started"
+    };
+
+    private string ChipClass => Item.Status switch
+    {
+        DeliverableStatus.Done => "al-badge--success",
+        _ when Late => "al-badge--danger",
+        DeliverableStatus.InProgress => "al-badge--warning",
+        _ => "al-badge--neutral"
+    };
+
+    private string TickIcon => Item.Status switch
+    {
+        DeliverableStatus.Done => "check-circle",
+        DeliverableStatus.InProgress => "clock",
+        _ => "dot"
+    };
+}

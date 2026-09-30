@@ -117,6 +117,7 @@ public static class MauiProgram
         AddApi<IProjectMembersApi>();
         AddApi<IFlagsApi>();
         AddApi<ICommitmentsApi>();
+        AddApi<IWorkPlanApi>();
         AddApi<IAnnotationsApi>();
         AddApi<ILedgerApi>();
         AddApi<IBudgetApi>();

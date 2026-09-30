@@ -163,6 +163,8 @@ public class ProjectDAL : IProjectDAL
                 });
             }
 
+            foreach (var c in cards) if (c.Standing?.CanSeeMoney != true) WithoutMoney(c);
+
             // Nest sub-projects under their parent (one level only)
             var byId = cards.ToDictionary(c => c.Id);
             var topLevel = new List<ProjectCardDto>();
@@ -597,6 +599,7 @@ public class ProjectDAL : IProjectDAL
                         project.Id)
                 };
             }).ToList();
+            foreach (var c in cards) if (c.Standing?.CanSeeMoney != true) WithoutMoney(c);
 
             // Nest, so a house and its wing are one entry in the bin.
             var byId = cards.ToDictionary(c => c.Id);
@@ -827,7 +830,8 @@ public class ProjectDAL : IProjectDAL
                 return ServiceResult<ProjectDto>.Failure(new NotFoundException("Project not found"));
 
             // Owner, manager, or an active member. Sub-projects inherit the parent's.
-            if (!await _access.CanReadAsync(project, userId))
+            var standing = await _access.ResolveAsync(project, userId);
+            if (!standing.CanRead)
                 return ServiceResult<ProjectDto>.Failure(new ForbiddenException("Access denied"));
 
             var totalFunded = project.FundingEntries
@@ -943,6 +947,9 @@ public class ProjectDAL : IProjectDAL
                 sub.Standing = ProjectAccessDto.From(
                     subStandings.TryGetValue(sub.Id, out var subStanding) ? subStanding : ProjectAccess.None,
                     sub.Id);
+            // Money is a seat of its own (CLAUDE.md §5.5). A bench reader is sent no figure at
+            // all, rather than one the page promises not to draw.
+            if (!standing.CanSeeMoney) WithoutMoney(dto);
 
             return ServiceResult<ProjectDto>.Success(dto);
         }
@@ -951,6 +958,28 @@ public class ProjectDAL : IProjectDAL
             _logger.LogError(ex, "Error getting project {ProjectId}", projectId);
             return ServiceResult<ProjectDto>.Failure(new ServerErrorException(ex.Message));
         }
+    }
+
+    private static void WithoutMoney(ProjectDto dto)
+    {
+        dto.TotalBudget = null;
+        dto.TotalFunded = 0;
+        dto.TotalRemaining = 0;
+        dto.FundedPercentage = 0;
+        foreach (var s in dto.Stages)
+        {
+            s.BudgetAmount = null;
+            s.FundedAmount = 0;
+            s.FundedPercentage = 0;
+            s.RemainingBalance = 0;
+        }
+        foreach (var sub in dto.SubProjects) WithoutMoney(sub);
+    }
+
+    private static void WithoutMoney(ProjectCardDto card)
+    {
+        card.TotalBudget = 0;
+        card.TotalFunded = 0;
     }
 
     // ─── Update Project ───────────────────────────────────────
@@ -1195,6 +1224,7 @@ public class ProjectDAL : IProjectDAL
                         project.Id)
                 };
             }).ToList();
+            foreach (var c in cards) if (c.Standing?.CanSeeMoney != true) WithoutMoney(c);
 
             return ServiceResult<PaginationDetails<ProjectCardDto>>.Success(
                 new PaginationDetails<ProjectCardDto>

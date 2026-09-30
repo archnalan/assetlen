@@ -19,6 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "assetlen", "assetlen", "{BB
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "assetlen.Postgres", "assetlen.Postgres\assetlen.Postgres.csproj", "{0C830F44-B24F-44C7-A27A-F9947744E233}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "assetlen.Tests", "assetlen.Tests\assetlen.Tests.csproj", "{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +115,18 @@ Global
 		{0C830F44-B24F-44C7-A27A-F9947744E233}.Release|x64.Build.0 = Release|Any CPU
 		{0C830F44-B24F-44C7-A27A-F9947744E233}.Release|x86.ActiveCfg = Release|Any CPU
 		{0C830F44-B24F-44C7-A27A-F9947744E233}.Release|x86.Build.0 = Release|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Debug|x64.Build.0 = Debug|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Debug|x86.Build.0 = Debug|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Release|x64.ActiveCfg = Release|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Release|x64.Build.0 = Release|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Release|x86.ActiveCfg = Release|Any CPU
+		{D6C496C9-306F-4326-9BC9-CA23C90DCEFA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

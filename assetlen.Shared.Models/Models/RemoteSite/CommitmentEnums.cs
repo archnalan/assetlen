@@ -122,3 +122,10 @@ public enum ClaimStatus
     Queried = 2,
     Withdrawn = 3
 }
+
+/// <summary>What happened to a work-plan line. Both are kept; neither is ever deleted.</summary>
+public enum DeliverableEventKind
+{
+    Ticked = 0,
+    Reopened = 1
+}

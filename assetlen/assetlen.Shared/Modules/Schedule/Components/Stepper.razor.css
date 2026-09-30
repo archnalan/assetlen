@@ -1,0 +1,22 @@
+.stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--al-space-3);
+}
+
+.stepper__label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.stepper__hint { font-size: var(--al-font-size-xs); color: var(--al-text-subtle); }
+
+.stepper__control { display: inline-flex; align-items: center; gap: var(--al-space-1); flex: 0 0 auto; }
+
+.stepper__input {
+    width: 4rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+}
+
+.stepper__input::-webkit-outer-spin-button,
+.stepper__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

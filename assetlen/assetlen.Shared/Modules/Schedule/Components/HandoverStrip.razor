@@ -1,0 +1,74 @@
+@*
+    The first thing on the plan, for every reader (works-report.md §4.5, truth
+    floor): whether the handover moved, the committed handover, works complete,
+    and the reserve between them — one number, beside the date it protects.
+*@
+
+<section class="handover" aria-label="Handover">
+    @if (Moved)
+    {
+        <p class="handover__moved @(Later ? "is-later" : "is-earlier")" role="status">
+            <Icon Name="@(Later ? "alert" : "check-circle")" Size="16" />
+            <span>
+                Works complete moved from <strong class="al-num">@ScheduleText.Day(Saved.PreviousWorksComplete)</strong>
+                to <strong class="al-num">@ScheduleText.Day(Saved.WorksComplete)</strong>@(Saved.WorksCompleteMovedAt is { } at ? $" on {at.ToLocalTime():d MMM}" : "").
+            </span>
+        </p>
+    }
+    @if (Shown.DaysOver > 0 && Shown.Handover is { } over)
+    {
+        <p class="handover__moved is-later" role="status">
+            <Icon Name="alert" Size="16" />
+            <span>Handover <strong class="al-num">@ScheduleText.Day(over)</strong> no longer holds: the works run @ScheduleText.WorkingDays(Shown.DaysOver) into it.</span>
+        </p>
+    }
+
+    <div class="handover__figs @(Proposed ? "is-proposed" : "")">
+        <div class="handover__fig handover__fig--ho">
+            <span class="al-label">Handover</span>
+            <span class="handover__value al-num">@(Shown.Handover is { } h ? ScheduleText.Day(h) : "Not committed")</span>
+            <span class="handover__note">
+                @if (Shown.HandoverHistory.Count > 1)
+                {
+                    <span>committed · restated @(Shown.HandoverHistory.Count - 1)×, first @ScheduleText.DayShort(Shown.HandoverHistory[0].Date ?? default)</span>
+                }
+                else if (Shown.Handover is not null)
+                {
+                    <span>committed</span>
+                }
+                else
+                {
+                    <span>no date on record yet</span>
+                }
+            </span>
+        </div>
+        <div class="handover__fig">
+            <span class="al-label">Works complete</span>
+            <span class="handover__value al-num">@ScheduleText.Day(Shown.WorksComplete)</span>
+            <span class="handover__note">the last trade off site</span>
+        </div>
+        <div class="handover__fig handover__fig--res @(Shown.ReserveDays == 0 ? "is-empty" : "")">
+            <span class="al-label">Reserve</span>
+            <span class="handover__value al-num">@(Shown.ReserveDays is { } r ? ScheduleText.WorkingDays(r) : "—")</span>
+            <span class="handover__note">between works complete and handover</span>
+        </div>
+    </div>
+
+    @if (Proposed)
+    {
+        <p class="handover__proposed">Shown as proposed — nothing is saved yet.</p>
+    }
+</section>
+
+@code {
+    /// <summary>The plan being shown — the proposed one while a change is previewed.</summary>
+    [Parameter, EditorRequired] public ScheduleDto Shown { get; set; } = default!;
+
+    /// <summary>The plan as saved, which carries the movement on record.</summary>
+    [Parameter, EditorRequired] public ScheduleDto Saved { get; set; } = default!;
+
+    [Parameter] public bool Proposed { get; set; }
+
+    private bool Moved => Saved.PreviousWorksComplete is { } p && Saved.WorksComplete is { } w && p != w;
+    private bool Later => Saved.PreviousWorksComplete is { } p && Saved.WorksComplete is { } w && w > p;
+}
